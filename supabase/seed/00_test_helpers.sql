@@ -1,3 +1,5 @@
+-- DEPENDS ON: supabase/security/allowlists.sql (tests.security_definer_allowlist, tests.grants_allowlist) must be
+-- loaded first — see config.toml [db.seed].sql_paths order. The `language sql` functions below are validated at CREATE.
 -- LOCAL-ONLY test helpers. Seed files run on `supabase db reset` (local) and are NEVER part of
 -- `supabase db push`, so nothing here reaches staging/production.
 -- Schema `tests` hosts the security-check functions used by supabase/tests/security/*.sql
