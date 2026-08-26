@@ -10,6 +10,7 @@
 1. **Fail closed:** `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY` em toda tabela de `public`. Sem policy = sem acesso.
 2. **Ownership direto:** toda tabela de dados de usuária possui `user_id`; policy padrão `user_id = (select auth.uid())` (subselect para performance/caching do planner).
 3. **Grants mínimos:** `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;` e depois `GRANT` explícito por tabela/verbo. Policies só operam sobre o que o grant permite.
+   **Atenção (baseline da plataforma):** o Supabase configura `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role`. Logo **toda tabela nova em `public` nasce com ALL (SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER) concedido a `anon` e `authenticated`** — mesmo sem nenhum `GRANT` explícito na migration. Toda migration que cria tabela deve, na mesma transação, executar `revoke all on public.<tabela> from anon, authenticated;` antes dos grants mínimos. O harness `tests.unapproved_grants()` detecta esses grants implícitos como não aprovados (fail closed) — comprovado pelo fixture negativo 004.
 4. **Mutação por RPC quando há regra:** transições de estado, idempotência e multi-tabela nunca via UPDATE direto do cliente.
 5. **Escrita server-only:** tabelas cujo conteúdo é derivado de engine/webhook não têm policy de INSERT/UPDATE para `authenticated`.
 6. **Admin por claim, não por linha editável.**

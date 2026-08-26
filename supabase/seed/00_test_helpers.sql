@@ -43,20 +43,41 @@ as $$
   order by 1;
 $$;
 
--- Table privileges granted to anon/authenticated in public that are not in the allowlist.
+-- Relation privileges (tables, partitioned tables, views, materialized views in public) held by
+-- anon/authenticated that are not in the allowlist.
+--
+-- Reads the ACL directly from pg_catalog via aclexplode(relacl): deterministic and independent of the
+-- role running the test (information_schema.role_table_grants only lists rows visible to the
+-- *current* role's memberships, which makes counts depend on who runs the harness).
+--
+-- NOTE — Supabase platform baseline: `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES
+-- TO anon, authenticated, service_role` means every NEW relation in public silently receives ALL
+-- privileges for anon/authenticated. Those implicit grants are reported here as unapproved (fail
+-- closed): every migration must `revoke all ... from anon, authenticated` before granting minimally.
 create or replace function tests.unapproved_grants()
-returns table(grantee text, table_name text, privilege text)
+returns table(grantee text, table_name text, privilege text, grantor text)
 language sql
 stable
 set search_path = ''
 as $$
-  select g.grantee::text, g.table_name::text, g.privilege_type::text
-  from information_schema.role_table_grants g
-  where g.table_schema = 'public'
-    and g.grantee in ('anon', 'authenticated')
+  select r.grantee_name, r.relname, r.privilege, r.grantor_name
+  from (
+    select c.relname::text as relname,
+           gr.rolname::text as grantee_name,
+           go.rolname::text as grantor_name,
+           acl.privilege_type::text as privilege
+    from pg_catalog.pg_class c
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    cross join lateral pg_catalog.aclexplode(c.relacl) acl
+    join pg_catalog.pg_roles gr on gr.oid = acl.grantee
+    join pg_catalog.pg_roles go on go.oid = acl.grantor
+    where n.nspname = 'public'
+      and c.relkind in ('r', 'p', 'v', 'm')
+  ) r
+  where r.grantee_name in ('anon', 'authenticated')
     and not exists (
       select 1 from tests.grants_allowlist a
-      where a.grantee = g.grantee and a.table_name = g.table_name and a.privilege = g.privilege_type
+      where a.grantee = r.grantee_name and a.table_name = r.relname and a.privilege = r.privilege
     )
   order by 1, 2, 3;
 $$;
