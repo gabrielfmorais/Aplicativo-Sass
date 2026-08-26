@@ -56,14 +56,14 @@ erDiagram
 ### 3.1 `profiles` — Identity & Account
 | Coluna | Tipo | Notas |
 |---|---|---|
-| user_id | uuid PK, FK auth.users | criado por trigger no signup |
+| user_id | uuid PK, FK auth.users | **entidade conceitual/futura** — criada pela SPEC-002 via comando idempotente na primeira sessão autenticada; **não** faz parte da SPEC-001 (sem trigger em `auth.users`) |
 | display_name | text null | dado pessoal (nome/apelido) — opcional |
 | timezone | text not null default 'America/Sao_Paulo' | IANA; validada |
 | locale | text not null default 'pt-BR' | |
 | onboarding_status | text CHECK (not_started/in_progress/completed) | |
 | created_at / updated_at | | |
 
-- **Ownership:** usuária. **Lifecycle:** criado no signup → ativo → (pedido de exclusão em `account_deletion_requests`, grace ex. 7 dias, cancelável) → hard delete cascade a partir de `auth.users`. *(Revisão v0.2: coluna `deleted_at` removida — fonte única de verdade é `account_deletion_requests`.)*
+- **Ownership:** usuária. **Lifecycle:** criado na SPEC-002 (primeiro acesso ao produto) → ativo → (pedido de exclusão em `account_deletion_requests`, cancelável; política de purga pendente — D-55) → hard delete cascade a partir de `auth.users`. *(Revisão v0.2: coluna `deleted_at` removida — fonte única de verdade é `account_deletion_requests`.)*
 - **PII:** display_name. Email/telefone vivem apenas em `auth.users`.
 - **Não armazenar:** gênero, data de nascimento completa (se necessário para ICP, usar faixa etária opcional em `hair_profiles.attributes`... ou não coletar — **decisão: não coletar no MVP**).
 
@@ -245,10 +245,10 @@ Ninguém faz UPDATE/DELETE (nem service role por policy de app; retenção via j
 ### 3.15 `account_deletion_requests`
 | Coluna | Tipo |
 |---|---|
-| user_id PK | |
-| requested_at | timestamptz |
-| scheduled_purge_at | timestamptz |
-| status | text CHECK (pending/cancelled/completed) |
+| user_id | uuid PK, FK auth.users on delete cascade |
+| requested_at | timestamptz not null default now() |
+
+**SPEC-001 (aprovada):** modelo mínimo — existência da linha = pedido ativo; cancelar = a usuária apaga a própria linha; sem coluna de status e sem `scheduled_purge_at` (a política de purga, imediata vs grace, é decisão humana pendente — D-55 — e lê `requested_at`). Escrita por acesso direto com grants mínimos (`SELECT/INSERT/DELETE` próprios, sem `UPDATE`) + RLS + PK; sem RPC. A exclusão efetiva de `auth.users` é privilegiada/server-owned (job/runbook futuro).
 
 ## 4. Matriz de dados pessoais (LGPD)
 
@@ -265,7 +265,7 @@ Ninguém faz UPDATE/DELETE (nem service role por policy de app; retenção via j
 | Eventos analytics | provedor externo | Comportamental pseudonimizado | Sim (com consentimento) | Política do provedor; ≤ 12 meses proposto | Não (pseudônimo) |
 | Fotos | — | **Não coletado no MVP** | — | — | — |
 
-**Exclusão:** `request_account_deletion()` (SECURITY DEFINER, justificado) → grace → job purga `auth.users` (cascade) + solicita exclusão no provedor de analytics/billing por runbook.
+**Exclusão:** pedido registrado pela usuária em `account_deletion_requests` (acesso direto, SPEC-001) → política de purga (D-55) → job privilegiado purga `auth.users` (cascade) + solicita exclusão no provedor de analytics/billing por runbook.
 **Exportação:** RPC `export_my_data()` retorna JSON das tabelas próprias (fase pós-MVP inicial; arquitetura pronta porque tudo tem `user_id`).
 
 ## 5. Invariantes que o banco protege (resumo)

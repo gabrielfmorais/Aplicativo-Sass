@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Status | v0.2 — 2026-08-26 — **arquitetura aprovada por revisão humana**; fase autorizada: SPEC-000 (Engineering Foundation) |
+| Status | v0.4 — 2026-08-26 — arquitetura aprovada; SPEC-000 implementada/merged; **SPEC-001 aprovada** (implementação não iniciada) |
 | Uso | Fonte de verdade sobre o estado de cada decisão. Nenhum item muda de status sem registro humano nesta tabela. Agentes nunca resolvem itens `HUMAN DECISION` por conta própria. |
 
 Legenda de custo de mudança tardia: **L** (horas) · **M** (dias) · **H** (semanas ou migração de dados).
@@ -62,7 +62,27 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 | D-33 | date-fns / date-fns-tz | **Não introduzidas.** `toLocalDate` implementado com `Intl.DateTimeFormat` (nativo em Node, Deno e Hermes), testado incluindo DST histórico. Uma lib de datas só entra via SPEC futura com justificativa | `packages/core/src/shared/time/local-date.ts` | **DECIDED (2026-08-26, implementação SPEC-000)** |
 | D-40 | Bundling core → Edge | **Estratégia A**: Deno consome `packages/core/src` diretamente via `supabase/functions/deno.json` (imports `.ts` no core). Sem build. Verificação residual do bundling de deploy na SPEC-004 | `docs/architecture/CORE-RUNTIME-SPIKE.md` | **DECIDED (2026-08-26)** |
 
+## B3. DECIDED — aprovação da SPEC-001 Identity & Authentication (2026-08-26)
+
+| ID | Decisão | Conteúdo decidido | Efeito | Status |
+|---|---|---|---|---|
+| D-51 | SPEC-001 | **APPROVED** (v0.3) após revisão humana de arquitetura, necessidade e segurança. Provedores: Apple + Google + Email OTP (reafirma D-21/ADR-005). Implementação **não** iniciada; escopo mínimo: Supabase Auth + persistência segura de sessão + `account_deletion_requests` + RLS/grants/constraints | SPEC-001 → Approved; índice | **DECIDED** |
+| D-52 | Perfil de aplicação | `profiles` **adiado para a SPEC-002**; a SPEC-001 **não** usa trigger de provisionamento em `auth.users` nem RPC `ensure_my_profile`; quando existir, o perfil nasce por comando idempotente na primeira sessão autenticada (Opção B) | ADR-005 A1, DATA-MODEL §3.1, DOMAIN-MAP §3.1, RLS matrix | **DECIDED** |
+| D-53 | Sessão | Armazenamento seguro do runtime obrigatório; **criptografia própria proibida** sem requisito demonstrado; storage seguro indisponível → sessão não persistente (fail-safe); expiração = configuração do Supabase | SPEC-001 §10 | **DECIDED** |
+| D-54 | Account linking | **Provider-managed verified identity linking** (Supabase Auth, mesmo email verificado) aceito; **application heuristic account merging** proibido; nenhuma inferência sobre Apple Private Relay | SPEC-001 §7/§12 | **DECIDED** |
+| D-55 | Exclusão de conta | Registro mínimo do pedido (`account_deletion_requests`: `user_id`, `requested_at`) por acesso direto com grants mínimos + RLS + PK; **sem RPC wrapper**; exclusão efetiva de `auth.users` permanece privilegiada/server-owned. **Pendente (humano):** exclusão imediata vs grace period e, com ela, o comportamento da sessão após o pedido | SPEC-001 §8/§18; DATA-MODEL §3.15 | **DECIDED (política de purga OPEN)** |
+
 ## C. DEFERRED / OPEN (não decidir agora)
+
+### C1. Decisões de implementação da SPEC-001 (não reabrem a SPEC)
+| ID | Decisão | Classe | Recomendação provisória | Quando |
+|---|---|---|---|---|
+| D-56 | Integração Apple/Google: SDK nativo vs OAuth por browser | IMPORTANT BEFORE RELEVANT IMPLEMENTATION | spike na fase de provedores; critérios: fricção, sem deep link de sessão, dev build | fase 5 da SPEC-001 |
+| D-57 | Provedor SMTP para OTP | IMPORTANT BEFORE RELEVANT IMPLEMENTATION (staging/prod) | inbox de teste local até lá | antes de OTP em staging |
+| D-58 | Credenciais Apple Developer / Google Cloud, keystores, dev builds | IMPORTANT BEFORE RELEVANT IMPLEMENTATION | — | antes dos testes reais dos provedores |
+| D-59 | Implementação concreta do storage seguro (Expo SecureStore ou equivalente; limite de tamanho) | IMPORTANT BEFORE RELEVANT IMPLEMENTATION | avaliar com evidência; sem crypto própria (D-53) | fase 3 da SPEC-001 |
+| D-60 | Política de exclusão: imediata vs grace period (+ sessão pós-pedido) | HUMAN DECISION — IMPORTANT BEFORE RELEVANT IMPLEMENTATION | não fixar; tabela registra só `requested_at` | antes do job de purga / release |
+| D-61 | Caminho externo/web para solicitar exclusão (Google Play) | RELEASE REQUIREMENT | SPEC-013 | antes do release Android |
 
 | ID | Decisão | Recomendação provisória | Quando decidir | Custo tardio | Status |
 |---|---|---|---|---|---|
@@ -84,4 +104,5 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 |---|---|
 | 2026-08-26 | v0.1 criado na Foundation Review. |
 | 2026-08-26 | v0.2: aprovação humana B1 (D-01…D-11, D-13…D-15); ADR-002 aprovada; D-21…D-28 decididas/adiadas conforme registro humano. Fase autorizada: SPEC-000. |
-| 2026-08-26 | v0.3: revisão da SPEC-000 (D-41…D-49); implementação concluída (D-33, D-40 resolvidos); close-out com CI verde; D-50 AC12 deferred. Próxima SPEC permitida: SPEC-001 (ainda **não** autorizada para redação/implementação). |
+| 2026-08-26 | v0.3: revisão da SPEC-000 (D-41…D-49); implementação concluída (D-33, D-40 resolvidos); close-out com CI verde; D-50 AC12 deferred. |
+| 2026-08-26 | v0.4: SPEC-001 aprovada (D-51…D-55); decisões de implementação rastreadas (D-56…D-61). Implementação de autenticação **não** iniciada. |
