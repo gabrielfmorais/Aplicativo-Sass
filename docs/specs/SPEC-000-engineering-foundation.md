@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-000 |
-| Status | **In Progress** (Approved for implementation em 2026-08-26 — D-41; escopo: somente Engineering Foundation) |
+| Status | **Implemented — awaiting human review** (Approved D-41; implementado na branch `foundation/spec-000`; AC5/AC7 BLOCKED por ambiente, AC12 pendente de validação humana — ver §25) |
 | Owner | Engenharia (humano: @gabrielfmorais — confirmado, D-45) |
 | Bounded Context | Nenhum (transversal: repositório, tooling, CI, governança) |
 | Related ADRs | ADR-001, ADR-002, ADR-003, ADR-004, ADR-007 (A1), ADR-008, ADR-009, ADR-010 |
@@ -193,3 +193,60 @@ Tudo é aditivo e sem estado: reverter PRs. Migration local: `supabase db reset`
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-08-26 | Draft inicial após aprovação da arquitetura | Claude (agente) |
+| 2026-08-26 | Aprovada (D-41); implementação na branch `foundation/spec-000`; evidência em §25 | Humano / Claude |
+
+## 25. Implementation evidence (2026-08-26, branch `foundation/spec-000`)
+
+Ambiente de execução: Windows 11, **Node 22.23.2** (binário do pacote npm `node@22.23.2` — o sistema tem Node 24 e nenhum version manager; ver Blockers), pnpm 10.32.1 via Corepack, Deno 2.9.5 via `npx`, **sem Docker**, sem binário `gitleaks`.
+
+| AC | Status | Evidência (comando → resultado) |
+|---|---|---|
+| AC1 | **PASS** | `rm -rf node_modules && pnpm install --frozen-lockfile` → `Done`; `pnpm check:node` → OK 22.23.2; `format:check` → clean; `lint` → 0 problems; `typecheck` → core Done, mobile Done; `dep-cruise` → 38 módulos, 0 violações; `test` → core 22/22, mobile 1/1 |
+| AC2 | **PASS** | `pnpm check:boundaries` → fixtures `core imports react/supabase/node:fs` rejeitados por `no-restricted-imports`; `depcruise` rejeita `core-no-node-builtins` |
+| AC3 | **PASS** | fixture `mobile feature imports supabase sdk` → `no-restricted-imports` |
+| AC4 | **PASS** | fixture `core reads ambient clock` → `no-restricted-syntax`; `system-clock.ts` passa no lint normal |
+| AC5 | **BLOCKED — environment dependency** | `gitleaks` não está instalado localmente e não há pacote npm oficial. Configurado em CI (`.github/workflows/ci.yml` + `.gitleaks.toml`). Varredura local por regex (JWT/`sk_live`/AKIA/PEM/ghp_/xox) sobre arquivos rastreados → 0 ocorrências. Reproduzir: `gitleaks detect --source . --config .gitleaks.toml --redact` (ou abrir a PR e observar o job `verify`). |
+| AC6 | **PASS** | `pnpm audit --audit-level=high` → 3 vulns (1 moderate, 2 high **ignoradas** com justificativa e expiry em `docs/security/AUDIT-EXCEPTIONS.md`), exit 0. Vulns high são `image-size` sem versão corrigida (transitiva do Metro, uso em build time). |
+| AC7 | **BLOCKED — environment dependency** | Docker Desktop ausente → `supabase start` impossível. Artefatos criados: `config.toml`, migration técnica, `seed/00_test_helpers.sql`, `security/allowlists.sql`, `tests/security/001–004` (004 é o fixture negativo). Workflow `supabase-test.yml` executa em CI. Reproduzir: `npx supabase start && npx supabase db reset && npx supabase test db`. SQL não foi executado em nenhum Postgres nesta máquina. |
+| AC8 | **PASS** | `deno check health/index.ts _spike/core-smoke.ts` → OK; `deno run _spike/core-smoke.ts` → `{"ok":true,"runtime":"deno","denoVersion":"2.9.5","coreVersion":"0.0.0-foundation"}`; `deno lint` → 2 files OK; `scripts/check-deno-import-map.mjs` → OK. `functions serve` local: BLOCKED (Docker). Ver `docs/architecture/CORE-RUNTIME-SPIKE.md`. |
+| AC9 | **PASS** | `pnpm --filter mobile run export:check` → `iOS Bundled (1169 modules)`, `Android Bundled (1327 modules)`, `.hbc` gerados e contendo `0.0.0-foundation`; Jest+RNTL renderiza `Foundation OK`, `today` (Intl) e um uuid v4. Execução em simulador/dispositivo: não realizada (smoke manual pendente). |
+| AC10 | **PASS** | `pnpm check:docs-links` → 28 referências de `CLAUDE.md` resolvem |
+| AC11 | **PASS** | 5 skills em `.claude/skills/*/SKILL.md`, cada uma com Purpose / When to use / Required inputs / Steps / Guardrails / Expected output / Stop conditions; todas read-only exceto `spec-create` (que só cria a SPEC e a linha do índice); nenhuma executa migration/deploy/instalação/push |
+| AC12 | **PENDING HUMAN VALIDATION** | Requer sessão nova de agente em modo read-only lendo `README.md → CLAUDE.md → docs/README.md`. Não executado nesta sessão (seria auto-avaliação). |
+| AC13 | **PASS** | `apps/mobile/src/features` contém apenas `foundation-status/` (smoke, não produto); 0 tabelas em `public` (migration cria só extensão + função); dependências instaladas listadas em §19-evidência abaixo |
+
+### §19 — dependências efetivamente instaladas (todas justificadas)
+| Pacote | Onde | Requisito | Nota de supply chain |
+|---|---|---|---|
+| `typescript ~6.0.3` | raiz, core, mobile | FR4 | versão gerenciada pelo template Expo 57 (D-44); typescript-eslint suporta `<6.1` |
+| `eslint ^10`, `@eslint/js ^10`, `typescript-eslint ^8.68` | raiz | FR5 | ESLint 9 marcado EOL pelo registry → 10 |
+| `prettier ^3` | raiz | FR7 | |
+| `dependency-cruiser ^18` | raiz | FR6 | |
+| `vitest ^4` | core | FR8 | |
+| `zod ^4.4.3` | core (**runtime**) | FR9 (schema DomainRule) | ESM puro; roda em Node/Deno/Hermes; espelhado em `deno.json` (verificado por script) |
+| `expo ~57.0.16`, `react 19.2.3`, `react-native 0.86.2`, `expo-status-bar`, `@types/react` | mobile | FR3 | do template oficial `sdk-57` |
+| `expo-router ~57.0.16`, `expo-linking`, `expo-constants`, `react-native-safe-area-context`, `react-native-screens` | mobile | FR3 | versões escolhidas por `expo install` |
+| `jest ~29.7`, `jest-expo ~57.0.4`, `@testing-library/react-native ^14`, `@types/jest` | mobile (dev) | FR8 | via `expo install --save-dev` |
+| **Não instalados** | — | — | `date-fns`/`date-fns-tz` (D-33: `Intl` bastou), `esbuild` (Estratégia B não necessária), `lefthook` (OQ2: não), `@supabase/supabase-js`, TanStack Query, Zustand, SDKs de analytics/crash |
+
+`pnpm-workspace.yaml#onlyBuiltDependencies` permanece vazio: nenhuma dependência precisou executar install scripts.
+
+### Desvios em relação ao plano
+- **D-33 resolvido:** nenhuma biblioteca de datas; `toLocalDate` usa `Intl.DateTimeFormat` (testado em Node e Deno; DST histórico de São Paulo coberto).
+- **Imports `.ts` no core** (`allowImportingTsExtensions`) — necessário para a Estratégia A do spike; não altera arquitetura.
+- **`.npmrc package-import-method=clone-or-copy`** — o crawler do Metro no Windows descarta arquivos hard-linkados pelo store do pnpm (falha reproduzida e confirmada quebrando o link manualmente).
+- **ESLint 10** em vez de 9 (EOL).
+- **TypeScript 6.0** em vez de 5.9 (gerenciado pelo Expo).
+- Migration `0000_foundation` → nome real `20260826000000_foundation.sql` (formato da CLI).
+- `is_admin()`/`has_entitlement()` **não** criados (dependem de tabelas de produto) — corrigido também no ROADMAP.
+- Branch única `foundation/spec-000` com 7 commits atômicos (D-46), em vez de 8 PRs.
+
+### Open questions — resolução
+| OQ | Resolução |
+|---|---|
+| OQ1 | Node **22.23.2** (D-43) |
+| OQ2 | Sem pre-commit local (CI cobre) |
+| OQ3 | Expo **SDK 57 / RN 0.86.2** pinado (D-44) |
+| OQ4 | Branch protection **não aplicada** (NG4) — ação humana pendente |
+| OQ5 | `config.toml` de auth deixado no padrão da CLI; SPEC-001 configura OTP/Apple/Google |
+| OQ6 | CODEOWNERS `@gabrielfmorais` confirmado (D-45); sem segundo revisor |

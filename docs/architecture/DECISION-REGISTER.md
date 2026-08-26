@@ -58,7 +58,8 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 | D-47 | Dependências da SPEC-000 | Aprovadas como **candidatas**, não obrigatórias; cada instalação justificada (requisito, manutenção, compatibilidade Node 22 + Expo 57 + runtime, install scripts, supply chain) | SPEC-000 §19 evidência | **DECIDED** |
 | D-48 | `core != utils` | `packages/core` só contém primitivas de domínio/application independentes de runtime com razão arquitetural explícita; sem fs, env, rede, UI, side effects | `packages/core/README.md`, lint | **DECIDED** |
 | D-49 | Spike core↔Deno | Estratégia A → B só com motivo documentado → **STOP** e escalar se B trouxer complexidade/duplicação/hacks; nunca emendar ADR-007 silenciosamente | `CORE-RUNTIME-SPIKE.md` | **DECIDED** |
-| D-33 | date-fns / date-fns-tz | **Não aceitas automaticamente.** Se introduzidas, verificar Node/Hermes/Deno, tree-shaking, tz e DST; se tz não for necessária para os AC da Foundation, **adiar** | SPEC-000 §19 | **OPEN (avaliar na implementação)** |
+| D-33 | date-fns / date-fns-tz | **Não introduzidas.** `toLocalDate` implementado com `Intl.DateTimeFormat` (nativo em Node, Deno e Hermes), testado incluindo DST histórico. Uma lib de datas só entra via SPEC futura com justificativa | `packages/core/src/shared/time/local-date.ts` | **DECIDED (2026-08-26, implementação SPEC-000)** |
+| D-40 | Bundling core → Edge | **Estratégia A**: Deno consome `packages/core/src` diretamente via `supabase/functions/deno.json` (imports `.ts` no core). Sem build. Verificação residual do bundling de deploy na SPEC-004 | `docs/architecture/CORE-RUNTIME-SPIKE.md` | **DECIDED (2026-08-26)** |
 
 ## C. DEFERRED / OPEN (não decidir agora)
 
@@ -75,7 +76,7 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 | D-37 | E2E: Maestro vs Detox | Maestro | Fase 10 | L | DEFERRED |
 | D-38 | Captcha em signup/OTP | sim antes do lançamento | SPEC-001/013 | L | DEFERRED |
 | D-39 | Retenção de `audit_log` e analytics | 12 meses | Antes da fase 10 | L | DEFERRED |
-| D-40 | Bundling do core para Edge (import direto vs ESM prebuilt) | spike | **SPEC-000** | L | OPEN → spike em SPEC-000 |
+| ~~D-40~~ | movido para B2 (decidido: Estratégia A) | — | — | — | DECIDED |
 
 ## D. Histórico
 | Data | Mudança |

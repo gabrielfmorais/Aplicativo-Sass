@@ -12,6 +12,8 @@
 | Arquitetura | [SKILLS-PLAN](architecture/SKILLS-PLAN.md) | Skills do agente |
 | Arquitetura | [DECISION-REGISTER](architecture/DECISION-REGISTER.md) | Decisões: ready / humano / defer |
 | Arquitetura | [FOUNDATION-REVIEW](architecture/FOUNDATION-REVIEW.md) | Auditoria crítica da fundação (v0.2) |
+| Arquitetura | [CORE-RUNTIME-SPIKE](architecture/CORE-RUNTIME-SPIKE.md) | Resultado do spike core ↔ Node/Deno/Hermes (Estratégia A) |
+| Segurança | [AUDIT-EXCEPTIONS](security/AUDIT-EXCEPTIONS.md) | Exceções documentadas do `pnpm audit` (com expiry) |
 | Segurança | [SECURITY-BASELINE](security/SECURITY-BASELINE.md) | Regras invioláveis |
 | Segurança | [THREAT-MODEL](security/THREAT-MODEL.md) | Ameaças e mitigações |
 | Segurança | [SUPABASE-RLS-STRATEGY](security/SUPABASE-RLS-STRATEGY.md) | Matriz RLS e RPCs |
