@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@app/core": ["packages/core/src/index.ts"],
+      "@app/core/*": ["packages/core/src/*"]
+    }
+  },
+  "files": [],
+  "references": [{ "path": "packages/core" }]
+}

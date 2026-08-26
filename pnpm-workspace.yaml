@@ -1,0 +1,7 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Dependencies allowed to run install/postinstall scripts. Empty by default.
+# Adding an entry requires justification in the PR (SECURITY-BASELINE §11).
+onlyBuiltDependencies: []
