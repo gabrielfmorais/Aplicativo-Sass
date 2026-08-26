@@ -1,0 +1,17 @@
+# gitleaks configuration (SECURITY-BASELINE §6, SPEC-000 AC5). Extends the default ruleset.
+title = "hair-care-assistant"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Files that legitimately contain variable NAMES or documented placeholders, never values."
+paths = [
+  '''^\.env\.example$''',
+  '''^docs/security/SECURITY-BASELINE\.md$''',
+  '''^pnpm-lock\.yaml$''',
+]
+regexes = [
+  # Supabase local development defaults documented by the CLI are public, non-secret values.
+  '''supabase_local_default''',
+]

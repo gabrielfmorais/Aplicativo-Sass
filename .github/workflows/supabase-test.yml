@@ -1,0 +1,43 @@
+name: supabase-test
+
+# Local Supabase stack + pgTAP security guardrails (SUPABASE-RLS-STRATEGY §6-§7).
+# Never touches a remote project.
+on:
+  pull_request:
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/supabase-test.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+
+permissions:
+  contents: read
+
+jobs:
+  pgtap:
+    name: db reset · pgTAP security checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@d347ba47d3fb7eeeddbbc793bc8d4779caf773ea # v1.5.0
+        with:
+          version: 2.115.0
+
+      - name: Start local stack (db only services needed for tests)
+        run: supabase start -x studio,realtime,storage-api,imgproxy,inbucket,edge-runtime,logflare,vector
+
+      - name: Apply migrations + local seeds (test helpers, allowlists)
+        run: supabase db reset --local
+
+      - name: Run pgTAP tests (includes negative fixture)
+        run: supabase test db --local
+
+      - name: Stop
+        if: always()
+        run: supabase stop --no-backup
