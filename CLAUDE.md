@@ -5,7 +5,7 @@ Projeto: assistente pessoal de cuidados capilares (mobile, Expo + Supabase). Idi
 ## 0. Estado atual
 **Arquitetura aprovada (2026-08-26). SPEC-000 — Engineering Foundation: implementada na branch `foundation/spec-000`, aguardando revisão humana e merge.** **Nenhuma feature de produto está autorizada**; SPEC-001 (Identity) **não** começou e só começa com SPEC aprovada. Node **22.23.x** (D-43), Expo **SDK 57 / RN 0.86** (D-44). Decisões humanas vinculantes: `docs/architecture/DECISION-REGISTER.md`. Guardrails executáveis: `pnpm verify`, `pnpm check:boundaries`, `supabase/tests/security`, `.github/workflows`.
 - `supabase/functions/deno.json` deve espelhar as dependências de `packages/core/package.json` (`pnpm exec node scripts/check-deno-import-map.mjs`).
-- Rota `apps/mobile/src/app/index.tsx` + `features/foundation-status` são smoke da fundação, não tela de produto — substituir na SPEC-001, nunca evoluir.
+- Rota `apps/mobile/src/app/index.tsx` + `apps/mobile/src/features/foundation-status` são smoke da fundação, não tela de produto — substituir na SPEC-001, nunca evoluir.
 
 ## 1. Antes de qualquer tarefa
 1. Ler este arquivo.
