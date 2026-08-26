@@ -3,8 +3,24 @@
 | Campo | Valor |
 |---|---|
 | Data | 2026-08-26 |
-| Fase | **ARQUITETURA APROVADA (2026-08-26)** → fase autorizada: SPEC-000 Engineering Foundation |
-| Resultado | Revisão humana concluída; decisões registradas em [DECISION-REGISTER](DECISION-REGISTER.md) v0.2. Este documento é mantido como registro histórico da auditoria; §8 (auth) foi resolvido por D-21 (OTP). |
+| Fase | **ARQUITETURA APROVADA (2026-08-26) · SPEC-000 IMPLEMENTADA — READY FOR MERGE** |
+| Resultado | Revisão humana concluída; decisões em [DECISION-REGISTER](DECISION-REGISTER.md) v0.3. Este documento é mantido como registro histórico da auditoria; §8 (auth) foi resolvido por D-21 (OTP). Close-out em §17. |
+
+## 17. Close-out da Foundation (2026-08-26)
+
+| Item | Estado |
+|---|---|
+| Arquitetura | Aprovada; ADR-001…011 `Accepted` (nenhuma reaberta) |
+| SPEC-000 | Implementada na branch `foundation/spec-000` (PR #1, HEAD `46c5fe8`) — [evidência](../specs/SPEC-000-engineering-foundation.md#25-implementation-evidence-2026-08-26-branch-foundationspec-000) |
+| CI `ci` (lint · typecheck · tests · boundaries · `expo export` · audit · gitleaks) | **verde** |
+| CI `core-deno` (core sob Deno) | **verde** |
+| CI `supabase-test` (Postgres local + pgTAP, fixture negativo) | **verde** |
+| Guardrail de exceções de segurança (`check:security-exceptions`) | **verde** (2 exceções válidas até 2026-11-30) |
+| AC12 (autossuficiência documental) | **DEFERRED por decisão humana (D-50)** — não bloqueante; não executado nem simulado |
+| Foundation | **pronta para merge** (merge é ação humana) |
+| Próxima SPEC permitida | SPEC-001 — Identity & Authentication (**não** autorizada nesta execução; requer `/spec-create` + aprovação humana) |
+
+Os guardrails que existiam apenas como documento na v0.1 desta revisão (§16, ressalva de "vibe coding safety") agora são executáveis: lint/dep-cruiser de fronteiras com fixtures negativos, pin de Node, pgTAP fail-closed, verificação de exceções de audit, skills com stop conditions.
 
 ---
 

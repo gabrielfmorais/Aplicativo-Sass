@@ -58,6 +58,7 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 | D-47 | Dependências da SPEC-000 | Aprovadas como **candidatas**, não obrigatórias; cada instalação justificada (requisito, manutenção, compatibilidade Node 22 + Expo 57 + runtime, install scripts, supply chain) | SPEC-000 §19 evidência | **DECIDED** |
 | D-48 | `core != utils` | `packages/core` só contém primitivas de domínio/application independentes de runtime com razão arquitetural explícita; sem fs, env, rede, UI, side effects | `packages/core/README.md`, lint | **DECIDED** |
 | D-49 | Spike core↔Deno | Estratégia A → B só com motivo documentado → **STOP** e escalar se B trouxer complexidade/duplicação/hacks; nunca emendar ADR-007 silenciosamente | `CORE-RUNTIME-SPIKE.md` | **DECIDED** |
+| D-50 | AC12 — teste de autossuficiência documental (SPEC-000) | **DEFER.** Blocking: **NO**. Motivo: decisão de workflow humana — preservar a sessão ativa do agente em vez de abrir sessão nova exclusiva para o teste. Não executado, não simulado, sem evidência registrada. Trigger: próxima sessão naturalmente nova de agente ou onboarding de novo agente/desenvolvedor. Decisão operacional, não arquitetural | SPEC-000 §25 AC12 | **DEFERRED (2026-08-26)** |
 | D-33 | date-fns / date-fns-tz | **Não introduzidas.** `toLocalDate` implementado com `Intl.DateTimeFormat` (nativo em Node, Deno e Hermes), testado incluindo DST histórico. Uma lib de datas só entra via SPEC futura com justificativa | `packages/core/src/shared/time/local-date.ts` | **DECIDED (2026-08-26, implementação SPEC-000)** |
 | D-40 | Bundling core → Edge | **Estratégia A**: Deno consome `packages/core/src` diretamente via `supabase/functions/deno.json` (imports `.ts` no core). Sem build. Verificação residual do bundling de deploy na SPEC-004 | `docs/architecture/CORE-RUNTIME-SPIKE.md` | **DECIDED (2026-08-26)** |
 
@@ -83,3 +84,4 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 |---|---|
 | 2026-08-26 | v0.1 criado na Foundation Review. |
 | 2026-08-26 | v0.2: aprovação humana B1 (D-01…D-11, D-13…D-15); ADR-002 aprovada; D-21…D-28 decididas/adiadas conforme registro humano. Fase autorizada: SPEC-000. |
+| 2026-08-26 | v0.3: revisão da SPEC-000 (D-41…D-49); implementação concluída (D-33, D-40 resolvidos); close-out com CI verde; D-50 AC12 deferred. Próxima SPEC permitida: SPEC-001 (ainda **não** autorizada para redação/implementação). |

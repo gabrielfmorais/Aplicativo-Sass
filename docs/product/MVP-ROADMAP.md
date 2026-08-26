@@ -37,6 +37,7 @@ Racional da ordem:
 ### Fase 0 — Foundation (SPEC-000) · ~1 semana
 Skeleton `apps/mobile` (vazio, sem telas de produto) + `packages/core` (shared: errors, time, result; contextos vazios com README) · pnpm workspaces · TS strict · ESLint boundaries + dependency-cruiser · Vitest/Jest · Supabase local + migration `0000_foundation` (extensões, `set_updated_at` — `is_admin`/`has_entitlement` movidos para SPEC-001/010, ver SPEC-000 §8) · pgTAP + checks de RLS em CI · GitHub Actions · branch protection · CODEOWNERS · `.claude/skills` (5) · runbooks base · spike: Edge Function importando `packages/core`.
 **Saída:** CI verde num repo sem produto; regra de dependência verificável.
+**Status (2026-08-26): IMPLEMENTADA — ready for merge** (PR #1; `ci`, `core-deno`, `supabase-test` verdes; AC12 deferred, D-50). Próxima fase permitida: 1 — Identity (SPEC-001, ainda não autorizada).
 
 ### Fase 1 — Identity & Account (SPEC-001) · ~1–2 semanas
 Auth (Apple, Google, email) · sessão segura · `profiles` + trigger · timezone/locale · consentimentos · exclusão de conta (RPC + purga) · testes RLS.
