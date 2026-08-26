@@ -50,9 +50,10 @@ $$;
 -- role running the test (information_schema.role_table_grants only lists rows visible to the
 -- *current* role's memberships, which makes counts depend on who runs the harness).
 --
--- NOTE — Supabase platform baseline: `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES
--- TO anon, authenticated, service_role` means every NEW relation in public silently receives ALL
--- privileges for anon/authenticated. Those implicit grants are reported here as unapproved (fail
+-- NOTE — platform default privileges: Supabase configures ALTER DEFAULT PRIVILEGES in public, so a
+-- NEW relation may silently receive privileges for anon/authenticated. The exact set is
+-- version-dependent (observed in CI on 2026-08-26: MAINTAIN, REFERENCES, TRIGGER, TRUNCATE) and is
+-- treated as untrusted, never as a contract. Implicit grants are reported here as unapproved (fail
 -- closed): every migration must `revoke all ... from anon, authenticated` before granting minimally.
 create or replace function tests.unapproved_grants()
 returns table(grantee text, table_name text, privilege text, grantor text)
