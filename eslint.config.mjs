@@ -70,9 +70,25 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     // Repo tooling scripts run on Node (never shipped).
-    files: ['scripts/**/*.mjs', '*.cjs', '*.mjs'],
+    files: [
+      'scripts/**/*.mjs',
+      '*.cjs',
+      '*.mjs',
+      'apps/*/*.config.js',
+      'apps/*/babel.config.js',
+      'apps/*/metro.config.js',
+    ],
     languageOptions: {
-      globals: { console: 'readonly', process: 'readonly', module: 'writable', require: 'readonly' },
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        module: 'writable',
+        require: 'readonly',
+        __dirname: 'readonly',
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off', // CommonJS config files (Metro, Jest)
     },
   },
   {

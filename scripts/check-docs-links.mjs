@@ -28,6 +28,8 @@ const knownDirs = [
   'docs/product',
   'docs/runbooks',
   '.github',
+  'apps/mobile',
+  'supabase',
 ];
 for (const rel of candidates) {
   // Skip tokens that are clearly not files in this repo (package names, scoped imports).
