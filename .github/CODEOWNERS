@@ -1,0 +1,13 @@
+# Revisão humana obrigatória (branch protection: "Require review from Code Owners")
+# Substituir @gabrielfmorais pelo(s) handle(s) corretos / team.
+
+*                                   @gabrielfmorais
+/supabase/                          @gabrielfmorais
+/packages/core/src/**/domain/       @gabrielfmorais
+/packages/core/src/diagnostic/      @gabrielfmorais
+/packages/core/src/schedule/        @gabrielfmorais
+/packages/core/src/subscription/    @gabrielfmorais
+/.github/                           @gabrielfmorais
+/CLAUDE.md                          @gabrielfmorais
+/docs/adr/                          @gabrielfmorais
+/docs/security/                     @gabrielfmorais

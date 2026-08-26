@@ -1,0 +1,91 @@
+# MVP ROADMAP
+
+| Campo | Valor |
+|---|---|
+| Status | Draft v0.1 — aguardando aprovação |
+| Princípio | Cada fase entrega algo testável end-to-end; nenhuma fase começa sem SPEC aprovada |
+
+## 1. Grafo de dependências
+
+```mermaid
+flowchart LR
+    F0[0 Foundation] --> F1[1 Identity & Account]
+    F0 --> F3[3 Diagnostic Engine v1<br/>core puro — pode começar em paralelo]
+    F0 --> F4c[4a Schedule Engine v1<br/>core puro]
+    F1 --> F2[2 Hair Profile + Onboarding]
+    F2 --> F3
+    F3 --> F4[4b generate-plan + persistência]
+    F4c --> F4
+    F4 --> F5[5 Care Tracking: Today · Calendar · Execute · Reschedule + Content v1]
+    F5 --> F6[6 Check-ins]
+    F5 --> F7[7 Notifications local]
+    F6 --> F8[8 Progress v1 + Reassessment]
+    F8 --> F9[9 Subscription & Entitlements]
+    F7 --> F10[10 Release: analytics · observability · stores · LGPD]
+    F9 --> F10
+```
+
+Racional da ordem:
+- **Engines antes de UI** (fases 3/4a): são puros, testáveis sem app, e são o maior risco de produto (regras capilares). Podem ser desenvolvidos em paralelo com Identity/Onboarding.
+- **Check-ins depois de Execution**: dependem de `care_executions`.
+- **Notifications depois de Care Tracking**: intents precisam de plano e execuções.
+- **Subscription por último antes do release**: valor primeiro (P01); entitlements já existem como stub free desde a Foundation.
+- **Analytics provider no fim, catálogo desde o início**: eventos são emitidos para adapter no-op desde a fase 1; provider entra na fase 10 com consentimento.
+
+## 2. Fases
+
+### Fase 0 — Foundation (SPEC-000) · ~1 semana
+Skeleton `apps/mobile` (vazio, sem telas de produto) + `packages/core` (shared: errors, time, result; contextos vazios com README) · pnpm workspaces · TS strict · ESLint boundaries + dependency-cruiser · Vitest/Jest · Supabase local + migration `0000_foundation` (extensões, `set_updated_at` — `is_admin`/`has_entitlement` movidos para SPEC-001/010, ver SPEC-000 §8) · pgTAP + checks de RLS em CI · GitHub Actions · branch protection · CODEOWNERS · `.claude/skills` (5) · runbooks base · spike: Edge Function importando `packages/core`.
+**Saída:** CI verde num repo sem produto; regra de dependência verificável.
+
+### Fase 1 — Identity & Account (SPEC-001) · ~1–2 semanas
+Auth (Apple, Google, email) · sessão segura · `profiles` + trigger · timezone/locale · consentimentos · exclusão de conta (RPC + purga) · testes RLS.
+**Saída:** usuária cria conta, entra, sai, exclui.
+
+### Fase 2 — Hair Profile + Onboarding (SPEC-002) · ~1–2 semanas
+Perguntas (≤ 8) · `hair_profiles` versionado · validação zod + CHECK · tela de onboarding com estados · evento `onboarding_*`.
+**Saída:** perfil salvo; "preview" ainda não.
+
+### Fase 3 — Diagnostic Engine v1 (SPEC-003) · ~1–2 semanas (paralelizável desde F0)
+Regras v1 com especialista capilar · `runDiagnostic` puro · explanations · golden tests · contratos.
+**Saída:** pacote testado; sem persistência ainda.
+
+### Fase 4 — Schedule Engine v1 + generate-plan (SPEC-004) · ~2 semanas
+4a: `generateSchedule` puro (ciclo H/N/R por necessidade, frequência de lavagem, janela 8 semanas, referenceDate injetado, golden tests).
+4b: Edge Function `generate-plan` + RPC `create_plan_tx` + tabelas `diagnostic_results`, `hair_plans`, `scheduled_cares` + RLS + rate limit + preview no cliente + tela "Este é o seu cronograma".
+**Saída:** H1 mensurável (onboarding → plano).
+
+### Fase 5 — Care Tracking + Content v1 (SPEC-005, SPEC-007) · ~2 semanas
+Tela Hoje · calendário (planejado vs executado) · `complete_care` idempotente · reagendar/pular · desfazer · conteúdo contextual por care_type (seed) · eventos.
+**Saída:** loop diário completo; H2 mensurável.
+
+### Fase 6 — Check-ins (SPEC-006) · ~1 semana
+`submit_checkin` · UI de 3–4 toques · evento.
+**Saída:** H4 mensurável.
+
+### Fase 7 — Notifications (SPEC-008) · ~1 semana
+Intents puros · preferências · permissão · canal local · reconciliação · deep links validados.
+**Saída:** H3 mensurável (ON vs OFF).
+
+### Fase 8 — Progress v1 + Reassessment (SPEC-009, SPEC-014) · ~1–2 semanas
+Adesão, histórico, streak (se aprovado) · reavaliar → novo diagnóstico → novo plano (supersede).
+**Saída:** loop mensal.
+
+### Fase 9 — Subscription & Entitlements (SPEC-010) · ~2 semanas
+Provider (RevenueCat candidato) · webhook · `subscriptions` · `has_entitlement` · paywall · 1–2 features premium (insights avançados, customização) · sandbox testing.
+**Saída:** H5 mensurável.
+
+### Fase 10 — Release (SPEC-011, 012, 013) · ~1–2 semanas
+Analytics provider + consentimento · crash reporting · privacy labels · política de privacidade · store listings · E2E Maestro da jornada crítica · beta (TestFlight / internal testing) · lançamento.
+
+**Total estimado: ~14–18 semanas** com 1 dev + agente, sem contar validação com especialista capilar e design.
+
+## 3. Pós-MVP (roadmap, sem compromisso)
+Push remoto · exportação de dados (UI) · share cards / referral / deep links (Growth) · admin web (`apps/admin`) · regras configuráveis via admin · "o que tenho em casa" (produtos) · fotos e análise · AI assistant · creators/afiliados · comunidade · B2B/salões.
+
+## 4. Marcos de decisão (checkpoints humanos)
+- ✅ Aprovação da fundação (este pacote).
+- Após F4: revisar regras dos engines com especialista antes de F5.
+- Após F7: decidir streaks (gamificação) com base em dados qualitativos.
+- Antes de F9: decidir provider de billing e preços.
+- Antes de F10: revisão jurídica LGPD (base legal para analytics).

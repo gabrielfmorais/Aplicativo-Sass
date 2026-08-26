@@ -1,0 +1,48 @@
+# secrets / env
+.env
+.env.*
+!.env.example
+*.pem
+*.p8
+*.p12
+*.keystore
+google-services.json
+GoogleService-Info.plist
+
+# node
+node_modules/
+.pnpm-store/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# expo / eas
+.expo/
+.expo-shared/
+expo-env.d.ts
+ios/
+android/
+*.jks
+*.orig.*
+web-build/
+
+# supabase local
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+
+# os / ide
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# claude local state
+.claude/settings.local.json
+
+# python leftovers
+__pycache__/
+*.pyc
