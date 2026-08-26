@@ -69,6 +69,9 @@ jobs:
       - name: Dependency audit (high+; exceptions in docs/security/AUDIT-EXCEPTIONS.md)
         run: pnpm audit --audit-level=high
 
+      - name: Audit exceptions still valid (expiry + reachability premises, fail closed)
+        run: pnpm check:security-exceptions
+
       - name: Secret scanning (gitleaks)
         uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
         env:

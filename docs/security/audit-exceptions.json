@@ -1,0 +1,71 @@
+{
+  "$comment": "Machine-readable source of truth for docs/security/AUDIT-EXCEPTIONS.md. Validated by scripts/check-security-exceptions.mjs (pnpm verify + CI). Every entry requires a human decision recorded in the markdown file.",
+  "exceptions": [
+    {
+      "id": "EX-001",
+      "ghsa": "GHSA-w3rx-r6r6-pgpr",
+      "cve": "CVE-2025-71330",
+      "package": "image-size",
+      "vulnerableRange": "<=2.0.2",
+      "upstreamSeverity": "high",
+      "exposure": "build-tooling",
+      "productionRuntimeExposure": false,
+      "remoteUserExposure": false,
+      "reachableInProjectExecutionPath": false,
+      "acceptedOn": "2026-08-26",
+      "expires": "2026-11-30",
+      "acceptedBy": "human review (SPEC-000)",
+      "premises": {
+        "installedVersionMax": "2.0.2",
+        "expoCliMetroMustNotDeclare": "image-size",
+        "acceptedDependents": [
+          {
+            "name": "metro",
+            "declares": "image-size",
+            "installedAt": "node_modules/@react-native/metro-config/node_modules/metro",
+            "reachedThrough": [
+              "react-native",
+              "@react-native/community-cli-plugin",
+              "@react-native/metro-config"
+            ]
+          }
+        ],
+        "forbiddenScripts": ["react-native start", "react-native bundle", "react-native run-"],
+        "forbiddenAssetExtensions": [".icns", ".jxl", ".heif", ".heic"]
+      }
+    },
+    {
+      "id": "EX-002",
+      "ghsa": "GHSA-5p2g-fcmc-qvqq",
+      "cve": "CVE-2025-71329",
+      "package": "image-size",
+      "vulnerableRange": "<=2.0.2",
+      "upstreamSeverity": "high",
+      "exposure": "build-tooling",
+      "productionRuntimeExposure": false,
+      "remoteUserExposure": false,
+      "reachableInProjectExecutionPath": false,
+      "acceptedOn": "2026-08-26",
+      "expires": "2026-11-30",
+      "acceptedBy": "human review (SPEC-000)",
+      "premises": {
+        "installedVersionMax": "2.0.2",
+        "expoCliMetroMustNotDeclare": "image-size",
+        "acceptedDependents": [
+          {
+            "name": "metro",
+            "declares": "image-size",
+            "installedAt": "node_modules/@react-native/metro-config/node_modules/metro",
+            "reachedThrough": [
+              "react-native",
+              "@react-native/community-cli-plugin",
+              "@react-native/metro-config"
+            ]
+          }
+        ],
+        "forbiddenScripts": ["react-native start", "react-native bundle", "react-native run-"],
+        "forbiddenAssetExtensions": [".icns", ".jxl", ".heif", ".heic"]
+      }
+    }
+  ]
+}
