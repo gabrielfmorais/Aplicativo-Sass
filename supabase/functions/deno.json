@@ -1,0 +1,15 @@
+{
+  "$comment": "Deno config for Supabase Edge Functions. Strategy A (SPEC-000 §20 / D-49): core is consumed directly from the workspace sources, no build step. Bare npm specifiers used by core are mapped here and must match packages/core/package.json.",
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["deno.window"]
+  },
+  "imports": {
+    "@app/core": "../../packages/core/src/index.ts",
+    "@app/core/": "../../packages/core/src/",
+    "zod": "npm:zod@4.4.3"
+  },
+  "lint": {
+    "rules": { "tags": ["recommended"] }
+  }
+}

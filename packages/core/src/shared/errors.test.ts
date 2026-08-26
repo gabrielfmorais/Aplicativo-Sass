@@ -6,7 +6,7 @@ import {
   NotFoundError,
   ValidationError,
   isAppError,
-} from './errors.js';
+} from './errors.ts';
 
 describe('typed errors', () => {
   it('carry kind, code and a user-safe message', () => {

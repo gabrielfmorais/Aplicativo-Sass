@@ -1,3 +1,3 @@
-export * from './events.js';
-export * from './port.js';
-export * from './noop-analytics.js';
+export * from './events.ts';
+export * from './port.ts';
+export * from './noop-analytics.ts';

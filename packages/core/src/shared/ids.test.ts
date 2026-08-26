@@ -1,4 +1,4 @@
-import { cryptoIdGenerator, isUuid, uuidFromString } from './ids.js';
+import { cryptoIdGenerator, isUuid, uuidFromString } from './ids.ts';
 
 describe('ids', () => {
   it('generates valid v4 uuids from Web Crypto', () => {

@@ -1,4 +1,4 @@
-import { err, isErr, isOk, mapResult, ok, unwrap } from './result.js';
+import { err, isErr, isOk, mapResult, ok, unwrap } from './result.ts';
 
 describe('Result', () => {
   it('ok/err discriminate', () => {

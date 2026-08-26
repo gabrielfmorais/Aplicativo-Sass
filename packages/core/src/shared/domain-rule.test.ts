@@ -3,7 +3,7 @@ import {
   assertProductionRules,
   isProductionReadyRule,
   type DomainRule,
-} from './domain-rule.js';
+} from './domain-rule.ts';
 
 const base: DomainRule = {
   rule_id: 'diagnostic.example.placeholder',

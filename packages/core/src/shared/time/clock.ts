@@ -1,5 +1,5 @@
-import type { Instant } from './instant.js';
-import { toLocalDate, type LocalDate } from './local-date.js';
+import type { Instant } from './instant.ts';
+import { toLocalDate, type LocalDate } from './local-date.ts';
 
 /**
  * Port for reading the current time (ADR-008). Engines never depend on it — they receive

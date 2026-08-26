@@ -1,5 +1,5 @@
-import type { Clock } from './clock.js';
-import { instantFromEpochMs } from './instant.js';
+import type { Clock } from './clock.ts';
+import { instantFromEpochMs } from './instant.ts';
 
 /**
  * The ONLY place in @app/core allowed to read the ambient clock (ADR-008; eslint override).

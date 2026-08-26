@@ -1,5 +1,5 @@
-import { fixedClock, todayFor } from './clock.js';
-import { instantFromEpochMs, instantFromString, isInstant } from './instant.js';
+import { fixedClock, todayFor } from './clock.ts';
+import { instantFromEpochMs, instantFromString, isInstant } from './instant.ts';
 import {
   addDays,
   compareLocalDates,
@@ -8,8 +8,8 @@ import {
   isValidTimeZone,
   localDateFromString,
   toLocalDate,
-} from './local-date.js';
-import { systemClock } from './system-clock.js';
+} from './local-date.ts';
+import { systemClock } from './system-clock.ts';
 
 describe('Instant', () => {
   it('validates ISO UTC strings', () => {

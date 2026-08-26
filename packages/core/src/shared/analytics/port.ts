@@ -1,4 +1,4 @@
-import type { AnalyticsEvent } from './events.js';
+import type { AnalyticsEvent } from './events.ts';
 
 /**
  * Port implemented by infrastructure (provider adapter). Application code depends on this only.

@@ -1,4 +1,4 @@
-import { instantToEpochMs, type Instant } from './instant.js';
+import { instantToEpochMs, type Instant } from './instant.ts';
 
 /**
  * A civil calendar date (YYYY-MM-DD) with no time and no timezone (ADR-008).
