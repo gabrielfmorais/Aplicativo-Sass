@@ -1,0 +1,79 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  EXPO_NO_TELEMETRY: '1'
+  CI: 'true'
+
+jobs:
+  verify:
+    name: lint · typecheck · test · boundaries · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0 # gitleaks scans history of the PR range
+
+      - name: Setup pnpm (version from package.json#packageManager)
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+
+      - name: Setup Node (pinned by .node-version — DECISION-REGISTER D-43)
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install (frozen lockfile, dependency scripts not executed unless allow-listed)
+        run: pnpm install --frozen-lockfile
+
+      - name: Node pin check
+        run: pnpm check:node
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint (architectural boundaries)
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Dependency rules (dependency-cruiser)
+        run: pnpm dep-cruise
+
+      - name: Negative boundary fixtures must be rejected
+        run: pnpm check:boundaries
+
+      - name: Unit tests (core + mobile)
+        run: pnpm test
+
+      - name: Docs links referenced by CLAUDE.md exist
+        run: pnpm check:docs-links
+
+      - name: Mobile bundle validation (expo export, no EAS)
+        run: pnpm --filter mobile run export:check
+
+      - name: Dependency audit (high+; exceptions in docs/security/AUDIT-EXCEPTIONS.md)
+        run: pnpm audit --audit-level=high
+
+      - name: Audit exceptions still valid (expiry + reachability premises, fail closed)
+        run: pnpm check:security-exceptions
+
+      - name: Secret scanning (gitleaks)
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml

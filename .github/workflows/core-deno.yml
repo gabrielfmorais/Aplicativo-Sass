@@ -1,0 +1,47 @@
+name: core-deno
+
+# Proves packages/core stays consumable from Supabase Edge Functions (Deno) — CORE-RUNTIME-SPIKE.md.
+on:
+  pull_request:
+    paths:
+      - 'packages/core/**'
+      - 'supabase/functions/**'
+      - '.github/workflows/core-deno.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/core/**'
+      - 'supabase/functions/**'
+
+permissions:
+  contents: read
+
+jobs:
+  deno:
+    name: deno check · run smoke · lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: supabase/functions
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@e95548e56dfa95d4e1a28d6f422fafe75c4c26fb # v2.0.3
+        with:
+          deno-version: v2.x
+
+      - name: Type-check functions and core against Deno
+        run: deno check health/index.ts _spike/core-smoke.ts
+
+      - name: Run core smoke under Deno
+        run: deno run _spike/core-smoke.ts
+
+      - name: Deno lint
+        run: deno lint
+
+      - name: Import map mirrors core dependencies
+        working-directory: .
+        run: node scripts/check-deno-import-map.mjs

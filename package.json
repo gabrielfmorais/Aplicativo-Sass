@@ -1,0 +1,41 @@
+{
+  "name": "hair-care-assistant",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Engineering foundation for the hair-care assistant mobile app (Expo + Supabase). See CLAUDE.md and docs/.",
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": "22.23.x",
+    "pnpm": ">=10 <11"
+  },
+  "scripts": {
+    "check:node": "node scripts/check-node.mjs",
+    "check:docs-links": "node scripts/check-docs-links.mjs",
+    "check:boundaries": "node scripts/check-boundary-fixtures.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "dep-cruise": "node scripts/dep-cruise.mjs",
+    "test": "pnpm -r --if-present test",
+    "test:core": "pnpm --filter @app/core test",
+    "verify": "pnpm check:node && pnpm format:check && pnpm lint && pnpm typecheck && pnpm dep-cruise && pnpm test && pnpm check:boundaries && pnpm check:docs-links && pnpm check:security-exceptions",
+    "check:security-exceptions": "node scripts/check-security-exceptions.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "dependency-cruiser": "^18.2.0",
+    "eslint": "^10.9.1",
+    "prettier": "^3.9.6",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.68.0"
+  },
+  "pnpm": {
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-w3rx-r6r6-pgpr",
+        "GHSA-5p2g-fcmc-qvqq"
+      ]
+    }
+  }
+}
