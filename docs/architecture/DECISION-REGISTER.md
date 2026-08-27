@@ -98,13 +98,13 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 
 | ID | Decisão | Recomendação provisória | Quando decidir | Custo tardio | Status |
 |---|---|---|---|---|---|
-| D-12 | "Desfazer execução" (`voided_at`, 10 min) | (b) void em janela | SPEC-005 | L | DEFERRED |
+| D-12 | "Desfazer execução" (`voided_at`, 10 min) | (b) void em janela | **SPEC-005 — PERGUNTA ABERTA AGORA** (Draft v0.1 §23 OQ1) | L | DEFERRED — aguarda decisão humana |
 | D-30 | Nome do produto | placeholder "Hairo" | Antes da fase 10 | L/M | OPEN |
 | D-31 | Provider analytics / crash | PostHog + Sentry | Fase 10 | L | DEFERRED |
 | D-32 | Base legal LGPD para analytics | consentimento | Antes da fase 10 (jurídico) | L | OPEN |
 | D-33 | Lib de datas (`date-fns-tz` vs `Temporal`) | date-fns-tz | **SPEC-000** (proposta em §Dependencies) | L | OPEN → proposta em SPEC-000 |
 | D-34 | Janela de geração de `scheduled_cares` | 8 semanas | SPEC-004 | L | DEFERRED |
-| D-35 | Múltiplas execuções por scheduled_care | não | SPEC-005 | L | DEFERRED |
+| D-35 | Múltiplas execuções por scheduled_care | não | **SPEC-005 — PERGUNTA ABERTA AGORA** (Draft v0.1 §23 OQ2) | L | DEFERRED — aguarda decisão humana |
 | D-36 | Estado global (Zustand vs Context) | Zustand só se necessário | SPEC-001+ | L | DEFERRED |
 | D-37 | E2E: Maestro vs Detox | Maestro | Fase 10 | L | DEFERRED |
 | D-38 | Captcha em signup/OTP | sim antes do lançamento | SPEC-001/013 | L | DEFERRED |

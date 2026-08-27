@@ -43,7 +43,7 @@ Idea → Requirement → (ADR se decisão arquitetural) → SPEC → Implementat
 | [SPEC-002](SPEC-002-hair-profile-onboarding.md) | Hair Profile & Onboarding | Hair Profile | 2 | **IMPLEMENTED — merged em `main` (PR #6, 2026-08-27); required CI verde (pgTAP incl.)** |
 | [SPEC-003](SPEC-003-diagnostic-engine-v1.md) | Diagnostic Engine v1 | Diagnostic | 3 | **FOLDED INTO SPEC-004 (D-66, 2026-08-27; ADR-007 A2) — não implementada; fronteira de domínio preservada** |
 | [SPEC-004](SPEC-004-schedule-engine-generate-plan.md) | Schedule Engine v1 + generate-plan (inclui Assessment — D-66) | Schedule | 4 | **IMPLEMENTED (v0.6, 2026-08-27; aprovada por D-68) — engines v1 + generate-plan + RLS/pgTAP; PUBLIC RELEASE exige regras `validated` (D-26/OQ-REL)** |
-| SPEC-005 | Care Tracking: Today, Calendar, Execution, Reschedule/Skip | Care Tracking | 5 | Reservado |
+| [SPEC-005](SPEC-005-care-tracking-today.md) | Care Tracking: Hoje, próximos cuidados e transições (concluir/pular/reagendar) | Care Tracking | 5 | **Draft v0.1 (2026-08-27) — aguarda aprovação humana; 2 BLOCKING (D-12, D-35)** |
 | SPEC-006 | Check-ins | Care Tracking | 6 | Reservado |
 | SPEC-007 | Content v1 (seed + tela contextual) | Content | 5 | Reservado |
 | SPEC-008 | Notifications (local) | Notifications | 7 | Reservado |
