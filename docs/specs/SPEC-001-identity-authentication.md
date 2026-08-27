@@ -201,6 +201,28 @@ Dados: email e `provider_id` (só em `auth.*`, finalidade identidade/recuperaç�
 ## 25. Migration / Rollback Plan
 Uma migration aditiva (`account_deletion_requests` + RLS/grants), pgTAP, `-- ROLLBACK:` (drop). Local → PR → staging → prod humano. Configuração de Auth via `config.toml` (local) e dashboard (remoto, humano).
 
+## 25b. Implementation evidence (branch `feat/spec-001-auth`, 2026-08-27)
+
+**Arquitetura implementada (mínima):** Supabase Auth (Email OTP; Apple/Google por OAuth browser + PKCE — D-56) · `expo-secure-store` com chunking + fallback em memória + descarte em reinstalação (D-59) · `account_deletion_requests` (1 migration, RLS/grants/PK, sem RPC) · core `identity` (schemas de email/OTP, redação de logs, `AuthPort`/`DeletionRequestPort`, estado) · 2 telas mínimas (`SignInScreen`, `AccountScreen`) e 1 rota.
+
+| AC | Status | Evidência |
+|---|---|---|
+| AC1 | PASS (local, mock) / **pendente de execução real** | Fluxo OTP/OAuth implementado sobre supabase-js; Jest cobre o adapter; execução contra Supabase real exige `supabase start` (Docker) ou staging com SMTP |
+| AC2 | DEFERRED (provider-managed) | Linking por email verificado é comportamento do Supabase Auth; nenhuma lógica de linking existe na aplicação (verificado por revisão: `grep -ri "link\|merge" apps/mobile/src packages/core/src/identity` → 0 ocorrências de lógica) |
+| AC3 | PASS (por construção) | idem — nenhuma inferência/merge na aplicação |
+| AC4 | PASS | `signInWithOtp({ shouldCreateUser: true })` sempre; mesma mensagem na UI (teste `sign-in-screen`) |
+| AC5 | DEFERRED (provider) | uso único/limites são do Supabase; teste de integração real pendente (Docker/staging) |
+| AC6 | PASS (unit) | refresh automático (`autoRefreshToken` + `AppState`); refresh inválido → `onAuthStateChange` → `unauthenticated` (teste `auth-adapter`) |
+| AC7 | PASS | `secure-session-storage.test.ts`: chunking e fallback em memória sem storage inseguro |
+| AC8 | PASS (unit) | `signOut({ scope: 'local' })` + cleanups mesmo com erro do servidor (teste); expiração do access token documentada (§10) |
+| AC9 | **PASS in CI / BLOCKED locally (Docker)** | pgTAP `010_spec001_account_deletion_requests.sql`: A/B isolamento, UPDATE negado, INSERT com `user_id` alheio negado, anon negado |
+| AC10 | PASS in CI / BLOCKED locally | mesmo arquivo: PK contra duplicata, cancelamento por DELETE próprio, no-op repetido |
+| AC11 | PASS | `redactForLog`/`redactEmail` (teste core); adapters não logam payloads; catálogo de eventos não alterado (eventos adiados para SPEC-011) |
+| AC12 | PASS (lint/typecheck/tests/boundaries) / pgTAP no CI | `pnpm verify` verde; guardrails `tables_without_rls`/`unapproved_grants`/DEFINER cobertos no teste 010 |
+| AC13 | DEFERRED | E2E em staging exige credenciais Apple/Google e SMTP (D-57/D-58) |
+
+Dependências adicionadas (todas justificadas): `@supabase/supabase-js` (cliente), `expo-secure-store` (storage seguro), `expo-web-browser` (sessão de autenticação do browser para OAuth), `expo-file-system` (já transitiva; marcador de instalação). Nenhuma lib de crypto, SDK nativo, state manager ou ferramenta E2E.
+
 ## 26. Open Questions
 | ID | Classe | Pergunta | Assunção enquanto aberta |
 |---|---|---|---|

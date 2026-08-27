@@ -7,6 +7,13 @@
 
 create schema if not exists tests;
 
+-- pgTAP files switch the current role to authenticated/anon (tests.as_user/as_anon) and keep calling
+-- helpers afterwards, so those roles need USAGE on the schema (functions are EXECUTE PUBLIC by default).
+-- Local-only seed; the public-schema guardrails are unaffected.
+grant usage on schema tests to anon, authenticated;
+-- pgTAP lives in `extensions`; assertions keep running after the role switch (no-op if already granted).
+grant usage on schema extensions to anon, authenticated;
+
 -- Tables in schema public that do not have RLS enabled AND forced (SECURITY-BASELINE S1).
 create or replace function tests.tables_without_rls()
 returns table(table_name text, rls_enabled boolean, rls_forced boolean)

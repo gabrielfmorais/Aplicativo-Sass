@@ -1,9 +1,14 @@
-import { FoundationStatusScreen } from '@/features/foundation-status/FoundationStatusScreen';
+import { useAuth } from '@/bootstrap/auth';
+import { AccountScreen } from '@/features/account/AccountScreen';
+import { SignInScreen } from '@/features/auth/SignInScreen';
 
-/**
- * Placeholder route (SPEC-000 §14). Exists ONLY to prove the mobile skeleton builds and can
- * consume @app/core. It is NOT a product screen and will be replaced under SPEC-001.
- */
+/** Single route: authentication state decides what is shown (SPEC-001 §12/§14). */
 export default function IndexRoute() {
-  return <FoundationStatusScreen />;
+  const { state, auth, deletion } = useAuth();
+  if (state === 'loading') return null;
+  return state.status === 'authenticated' ? (
+    <AccountScreen auth={auth} deletion={deletion} />
+  ) : (
+    <SignInScreen auth={auth} />
+  );
 }

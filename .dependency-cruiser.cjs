@@ -27,9 +27,10 @@ module.exports = {
       name: 'core-context-isolation',
       severity: 'error',
       comment: 'a context may import another context only through its public index (ADR-006).',
-      from: { path: '^packages/core/src/(?<ctx>[^/]+)/' },
+      from: { path: '^packages/core/src/([^/]+)/' },
       to: {
-        path: '^packages/core/src/(?!shared/)(?!\\k<ctx>/)[^/]+/(domain|application)/',
+        path: '^packages/core/src/(?!shared/)[^/]+/(domain|application)/',
+        pathNot: '^packages/core/src/$1/',
       },
     },
     {

@@ -77,10 +77,10 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 ### C1. Decisões de implementação da SPEC-001 (não reabrem a SPEC)
 | ID | Decisão | Classe | Recomendação provisória | Quando |
 |---|---|---|---|---|
-| D-56 | Integração Apple/Google: SDK nativo vs OAuth por browser | IMPORTANT BEFORE RELEVANT IMPLEMENTATION | spike na fase de provedores; critérios: fricção, sem deep link de sessão, dev build | fase 5 da SPEC-001 |
+| D-56 | Integração Apple/Google: SDK nativo vs OAuth por browser | **DECIDED (implementação SPEC-001, 2026-08-27)** | **OAuth por browser com PKCE** (`signInWithOAuth` + `expo-web-browser` `openAuthSessionAsync` + `exchangeCodeForSession`) para **ambos** os provedores: um único mecanismo, sem SDK nativo, sem dev build, sem rota de deep link (o browser devolve a URL de callback à função). Redirect `haircare://auth/callback` (+ `exp://` só em dev) allowlistado. Reavaliar SDK nativo só se a UX do browser se provar um problema medido | `apps/mobile/src/infrastructure/supabase/auth-adapter.ts` |
 | D-57 | Provedor SMTP para OTP | IMPORTANT BEFORE RELEVANT IMPLEMENTATION (staging/prod) | inbox de teste local até lá | antes de OTP em staging |
 | D-58 | Credenciais Apple Developer / Google Cloud, keystores, dev builds | IMPORTANT BEFORE RELEVANT IMPLEMENTATION | — | antes dos testes reais dos provedores |
-| D-59 | Implementação concreta do storage seguro (Expo SecureStore ou equivalente; limite de tamanho) | IMPORTANT BEFORE RELEVANT IMPLEMENTATION | avaliar com evidência; sem crypto própria (D-53) | fase 3 da SPEC-001 |
+| D-59 | Implementação concreta do storage seguro | **DECIDED (implementação SPEC-001, 2026-08-27)** | **`expo-secure-store`** como storage adapter do supabase-js; valores divididos em chunks de 1800 bytes (limite ~2 KB por chave; chunking não é criptografia — o keychain/keystore cifra); indisponível → sessão só em memória (nunca storage inseguro); reinstalação detectada por marcador em `expo-file-system` (`Paths.document`) → sessão residual descartada | `secure-session-storage.ts`, `fresh-install.ts` |
 | D-60 | Política de exclusão: imediata vs grace period (+ sessão pós-pedido) | HUMAN DECISION — IMPORTANT BEFORE RELEVANT IMPLEMENTATION | não fixar; tabela registra só `requested_at` | antes do job de purga / release |
 | D-61 | Caminho externo/web para solicitar exclusão (Google Play) | RELEASE REQUIREMENT | SPEC-013 | antes do release Android |
 

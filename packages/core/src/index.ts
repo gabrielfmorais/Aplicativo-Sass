@@ -5,3 +5,4 @@
 export const CORE_VERSION = '0.0.0-foundation' as const;
 
 export * from './shared/index.ts';
+export * from './identity/index.ts';

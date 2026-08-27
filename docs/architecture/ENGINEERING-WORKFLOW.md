@@ -28,6 +28,7 @@ flowchart LR
 ## 2. Papéis
 - **Humano (owner):** aprova SPEC/ADR, revisa PR, autoriza migrations prod, aprova dependências/MCPs.
 - **Agente (Claude Code):** propõe SPEC, implementa dentro do escopo, roda testes, prepara PR, reporta riscos. Nunca faz merge, deploy ou migration prod.
+  **PR ownership:** an implementation task owns its PR until every required CI check is green. CI failures caused by the current work must be investigated (full logs, root cause, local reproduction when useful), fixed with the smallest correct change, committed, pushed and revalidated autonomously — never by weakening RLS/guardrails, skipping or removing tests. Human intervention is required only for an actual human gate (CLAUDE.md §0.1).
 
 ## 3. Branches e commits
 - `main` protegido: PR obrigatório, ≥ 1 aprovação humana, CI verde, sem force push, linear history (squash).

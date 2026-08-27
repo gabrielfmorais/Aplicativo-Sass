@@ -18,6 +18,15 @@ create table if not exists tests.grants_allowlist (
   primary key (grantee, table_name, privilege)
 );
 
--- SPEC-000: no SECURITY DEFINER functions, no product tables, therefore no grants.
+-- allowlist tables are read by tests.* check functions, which may run while the role is authenticated/anon.
+grant select on all tables in schema tests to anon, authenticated;
+
 truncate tests.security_definer_allowlist;
 truncate tests.grants_allowlist;
+
+-- SPEC-000: no SECURITY DEFINER functions.
+-- SPEC-001 §18: account_deletion_requests — authenticated may SELECT/INSERT/DELETE own rows; no UPDATE; anon nothing.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'account_deletion_requests', 'SELECT', 'SPEC-001'),
+  ('authenticated', 'account_deletion_requests', 'INSERT', 'SPEC-001'),
+  ('authenticated', 'account_deletion_requests', 'DELETE', 'SPEC-001');
