@@ -86,7 +86,7 @@ Push remoto · exportação de dados (UI) · share cards / referral / deep links
 
 ## 4. Marcos de decisão (checkpoints humanos)
 - ✅ Aprovação da fundação (este pacote).
-- Após F4: revisar regras dos engines com especialista antes de F5.
+- Após F4: revisar regras dos engines com especialista. **Re-escopado por D-67/D-68 (2026-08-27):** as regras V1 são `candidate` — dev/internal beta liberados, então este checkpoint **não bloqueia F5**. O sign-off de domínio (`candidate → validated`) permanece **obrigatório antes do PUBLIC RELEASE** (D-26 / ADR-007 A1 / SPEC-004 OQ-REL).
 - Após F7: decidir streaks (gamificação) com base em dados qualitativos.
 - Antes de F9: decidir provider de billing e preços.
 - Antes de F10: revisão jurídica LGPD (base legal para analytics).
