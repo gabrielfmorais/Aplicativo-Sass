@@ -23,30 +23,30 @@ const makePort = () =>
   }) as unknown as jest.Mocked<HairProfilePort>;
 
 // Uses option labels that are unique across the screen so each press is unambiguous.
-const fillSingles = (s: ReturnType<typeof render>) => {
-  fireEvent.press(s.getByText('Cacheado')); // hairPattern = curly
-  fireEvent.press(s.getByText('Médio')); // strandThickness = medium
-  fireEvent.press(s.getByText('Equilibrado')); // scalpTendency = balanced
-  fireEvent.press(s.getByText('2x por semana')); // washFrequency = twice_weekly
-  fireEvent.press(s.getByText('Quase nunca')); // heatUsage = almost_never
-  fireEvent.press(s.getByText('Manter o cabelo saudável')); // primaryGoal
+const fillSingles = async (s: Awaited<ReturnType<typeof render>>) => {
+  await fireEvent.press(s.getByText('Cacheado')); // hairPattern = curly
+  await fireEvent.press(s.getByText('Médio')); // strandThickness = medium
+  await fireEvent.press(s.getByText('Equilibrado')); // scalpTendency = balanced
+  await fireEvent.press(s.getByText('2x por semana')); // washFrequency = twice_weekly
+  await fireEvent.press(s.getByText('Quase nunca')); // heatUsage = almost_never
+  await fireEvent.press(s.getByText('Manter o cabelo saudável')); // primaryGoal
 };
 
 describe('OnboardingScreen (SPEC-002)', () => {
-  it('does not save until every required answer is given', () => {
+  it('does not save until every required answer is given', async () => {
     const port = makePort();
-    const s = render(<OnboardingScreen hairProfile={port} onSaved={jest.fn()} />);
-    fireEvent.press(s.getByText('Salvar perfil')); // disabled → no-op
+    const s = await render(<OnboardingScreen hairProfile={port} onSaved={jest.fn()} />);
+    await fireEvent.press(s.getByText('Salvar perfil')); // disabled → no-op
     expect(port.save).not.toHaveBeenCalled();
   });
 
   it('saves the mapped answers (empty chemical = none) and reports the snapshot', async () => {
     const port = makePort();
     const onSaved = jest.fn();
-    const s = render(<OnboardingScreen hairProfile={port} onSaved={onSaved} />);
-    fillSingles(s);
-    fireEvent.press(s.getByText('Com bastante frizz')); // currentConcerns = [frizz]
-    fireEvent.press(s.getByText('Salvar perfil'));
+    const s = await render(<OnboardingScreen hairProfile={port} onSaved={onSaved} />);
+    await fillSingles(s);
+    await fireEvent.press(s.getByText('Com bastante frizz')); // currentConcerns = [frizz]
+    await fireEvent.press(s.getByText('Salvar perfil'));
     await waitFor(() =>
       expect(port.save).toHaveBeenCalledWith({
         hairPattern: 'curly',
@@ -64,11 +64,11 @@ describe('OnboardingScreen (SPEC-002)', () => {
 
   it('keeps no_major_concern exclusive', async () => {
     const port = makePort();
-    const s = render(<OnboardingScreen hairProfile={port} onSaved={jest.fn()} />);
-    fillSingles(s);
-    fireEvent.press(s.getByText('Com bastante frizz')); // frizz
-    fireEvent.press(s.getByText('Sem problema importante')); // clears frizz → [no_major_concern]
-    fireEvent.press(s.getByText('Salvar perfil'));
+    const s = await render(<OnboardingScreen hairProfile={port} onSaved={jest.fn()} />);
+    await fillSingles(s);
+    await fireEvent.press(s.getByText('Com bastante frizz')); // frizz
+    await fireEvent.press(s.getByText('Sem problema importante')); // clears frizz → [no_major_concern]
+    await fireEvent.press(s.getByText('Salvar perfil'));
     await waitFor(() =>
       expect(port.save).toHaveBeenCalledWith(
         expect.objectContaining({ currentConcerns: ['no_major_concern'] }),
