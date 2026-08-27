@@ -39,8 +39,8 @@ Idea → Requirement → (ADR se decisão arquitetural) → SPEC → Implementat
 | ID | Título | Contexto | Fase | Status |
 |---|---|---|---|---|
 | [SPEC-000](SPEC-000-engineering-foundation.md) | Engineering Foundation (skeleton, CI, lint boundaries, time lib, error types, Supabase local, skills, spike) | — | 0 | **IMPLEMENTED — merged em `main` (PR #1, 2026-08-26); AC12 deferred (D-50)** |
-| [SPEC-001](SPEC-001-identity-authentication.md) | Identity & Authentication (Apple, Google, Email OTP, sessão segura, linking, RLS, contrato mínimo de exclusão; `profiles` deferido para SPEC-002) | Identity & Account | 1 | **APPROVED (v0.3, 2026-08-26, D-51) — implementação não iniciada** |
-| SPEC-002 | Hair Profile & Onboarding | Hair Profile | 2 | Reservado |
+| [SPEC-001](SPEC-001-identity-authentication.md) | Identity & Authentication (Apple, Google, Email OTP, sessão segura, linking, RLS, contrato mínimo de exclusão; `profiles` deferido para SPEC-002) | Identity & Account | 1 | **IMPLEMENTED — merged em `main` (PR #3, 2026-08-27); required CI verde; AC2/AC5/AC13 deferred (provider-managed/E2E), ver SPEC §25b** |
+| [SPEC-002](SPEC-002-hair-profile-onboarding.md) | Hair Profile & Onboarding | Hair Profile | 2 | **APPROVED (v0.4, 2026-08-27, D-62/D-63/D-64/D-65) — implementação autorizada** |
 | SPEC-003 | Diagnostic Engine v1 | Diagnostic | 3 | Reservado |
 | SPEC-004 | Schedule Engine v1 + generate-plan | Schedule | 4 | Reservado |
 | SPEC-005 | Care Tracking: Today, Calendar, Execution, Reschedule/Skip | Care Tracking | 5 | Reservado |
