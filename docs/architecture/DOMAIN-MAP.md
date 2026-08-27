@@ -25,7 +25,7 @@ flowchart LR
 
     ID -->|user_id| HP
     HP -->|HairProfile snapshot| DG
-    DG -->|DiagnosticResult| SC
+    DG -->|AssessmentOutput| SC
     SC -->|HairPlan + ScheduledCares| CT
     CT -->|executions, check-ins| PR
     CT -->|intents| NT
@@ -65,18 +65,19 @@ Legenda: seta cheia = dependência de dados/fluxo; pontilhada = consulta/cross-c
 - **Invariantes:** snapshots imutáveis (sem UPDATE/DELETE); enums fechados validados no banco (`CHECK`) e em zod; `unknown`/`varies` permitidos onde aprovado (P02: não forçar respostas).
 - **Ownership:** usuária.
 
-### 3.3 Diagnostic (Core — regras)
-- **Responsabilidade:** `HairProfile` + `DiagnosticAnswers` + `algorithm_version` → `DiagnosticResult`.
-- **Domain Service:** `DiagnosticEngine.run(input): DiagnosticResult` — **puro, determinístico, sem I/O**.
-- **Saída (conceitual):** necessidades por eixo (hidratação/nutrição/reconstrução: baixa/média/alta), fatores explicativos (`reasons[]` legíveis), flags (ex.: `heat_damage`, `chemical_damage`), confiança.
-- **Invariantes:** resultado imutável; sempre carrega `algorithm_version`; a mesma entrada + mesma versão ⇒ mesma saída (testado por golden tests).
-- **Versionamento:** `packages/core/src/diagnostic/versions/v1.ts` … Versões antigas permanecem no código enquanto existirem resultados que as referenciam (ou até migração explícita).
+### 3.3 Diagnostic / Assessment (Core — regras; implementado na SPEC-004)
+- **Responsabilidade:** `HairProfileSnapshot` → `AssessmentOutput`. Termo de produto: **"avaliação capilar"** (cosmética), nunca diagnóstico médico (D-26).
+- **Domain Service:** `assess(snapshot): AssessmentOutput` — **puro, determinístico, sem I/O**.
+- **Saída (implementada):** `{ emphasis: hydration|nutrition|balanced, includeReconstruction: boolean, evidenceCodes: string[] }`. Só **inferências**: dado observado o Schedule lê do snapshot. **Sem** níveis, score, porcentagem ou `confidence` (falsa precisão proibida — D-66).
+- **Invariantes:** mesma entrada + mesma versão ⇒ mesma saída (golden tests); o resultado é **transitório** — não há tabela `diagnostic_results` (necessity review SPEC-004 §9).
+- **Versionamento:** `packages/core/src/diagnostic/engine/v1/` (diretório imutável após release); versão atual exportada como `CURRENT_ASSESSMENT_VERSION` e gravada em `hair_plans.assessment_algorithm_version`. Regras em `engine/v1/rules.ts` com `validation_status` (hoje `candidate` — D-67).
 
-### 3.4 Schedule / Planning (Core — regras)
-- **Responsabilidade:** `DiagnosticResult` + contexto (frequência de lavagem, data de início, timezone, preferências) → `HairPlan` + `ScheduledCare[]`.
-- **Domain Service:** `ScheduleEngine.generate(input): { plan, cares }` — puro; o "hoje" é **injetado** (`referenceDate`), nunca lido do relógio.
-- **Agregado:** `HairPlan` (raiz) → `ScheduledCare` (filhos gerados na criação para uma janela — ex. 8 semanas — e estendidos por regeneração).
-- **Invariantes:** um único plano `active` por usuária; plano nunca é editado retroativamente — reavaliação cria novo plano e marca o antigo `superseded`; `ScheduledCare` planejado no passado quando plano é superseded permanece (histórico); `algorithm_version` obrigatório.
+### 3.4 Schedule / Planning (Core — regras; implementado na SPEC-004)
+- **Responsabilidade:** `AssessmentOutput` + contexto (`HairProfileSnapshot` para o dado observado, `startsOn`) → `HairPlanDraft` + `ScheduledCareDraft[]`.
+- **Domain Service:** `generateSchedule(assessment, context): { plan, cares, evidenceCodes }` — puro; o "hoje" é **injetado** (`startsOn`), nunca lido do relógio. `buildPlan(snapshot, startsOn)` é a composição única usada pelo preview do cliente **e** pela Edge Function (mesma lógica autoritativa).
+- **Agregado:** `HairPlan` (raiz) → `ScheduledCare` (filhos gerados na criação para uma janela de **28 dias** — D-67).
+- **Invariantes:** um único plano `active` por usuária (índice único parcial no banco); plano nunca é editado retroativamente — reavaliação cria novo plano e marca o antigo `superseded`; `ScheduledCare` de plano superseded permanece (histórico); as **duas** versões de algoritmo são obrigatórias no plano.
+- **Versionamento:** `packages/core/src/schedule/engine/v1/`; `CURRENT_SCHEDULE_VERSION` gravado em `hair_plans.schedule_algorithm_version`.
 - **Domain Events (conceituais):** `PlanGenerated`, `PlanSuperseded`.
 
 ### 3.5 Care Tracking (Core)
@@ -127,7 +128,7 @@ Legenda: seta cheia = dependência de dados/fluxo; pontilhada = consulta/cross-c
 | Upstream → Downstream | Tipo | Contrato |
 |---|---|---|
 | Hair Profile → Diagnostic | Conformist | `HairProfileSnapshot` (tipo em core) |
-| Diagnostic → Schedule | Conformist | `DiagnosticResult` (tipo versionado) |
+| Diagnostic → Schedule | Conformist | `AssessmentOutput` (tipo versionado, transitório — SPEC-004) |
 | Schedule → Care Tracking | Shared kernel (mesmo package) | `ScheduledCare` |
 | Care Tracking → Progress / Notifications | Published language (read models) | queries/views |
 | Subscription → todos (entitlements) | Anti-corruption layer | `EntitlementService`; provider nunca vaza |

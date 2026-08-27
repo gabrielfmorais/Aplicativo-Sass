@@ -1,5 +1,14 @@
 # schedule (bounded context)
 
-Empty until its SPEC is approved. See `docs/architecture/DOMAIN-MAP.md` and `docs/specs/README.md`.
+Schedule half of the SPEC-004 vertical slice. Pure, deterministic, no I/O: it never reads a clock —
+`startsOn` is an input (ADR-008).
 
-Layout when populated: `domain/`, `application/`, `index.ts` (public surface).
+- `domain/plan.ts` — `HairPlanDraft`, `ScheduledCareDraft`, `CARE_TYPE_CODES`.
+- `engine/v1/` — **immutable once released** (ADR-007); `rules.ts` is the governance register.
+- `application/build-plan.ts` — `buildPlan(snapshot, startsOn)`, the single authoritative path from a
+  profile to a plan. The client preview and the `generate-plan` Edge Function both call it, so an
+  instant preview and the persisted plan cannot drift (SPEC-004 AC3).
+- `application/ports.ts` — `HairPlanPort`: reads under RLS, creation only through the Edge Function.
+
+Persistence and the one-active-plan / idempotency invariants live in the database
+(`supabase/migrations/20260829000000_hair_plans_scheduled_cares.sql`), not here.

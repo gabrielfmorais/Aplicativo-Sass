@@ -21,7 +21,7 @@
 | Enums | `text` + `CHECK (col in (...))` no MVP (mais fácil de migrar que `enum type`); valores em snake_case; espelhados em zod |
 | JSON | `jsonb` apenas para snapshots imutáveis e atributos versionados por algoritmo; nunca para dados consultados por filtro sem índice |
 | Soft delete | **Não.** Exclusão de conta usa `account_deletion_requests` (estado explícito + grace) e depois hard delete em cascade. Histórico é preservado por status, não por `deleted_at` |
-| Versionamento | `algorithm_version text` em `diagnostic_results` e `hair_plans`; `version int` em `hair_profiles` |
+| Versionamento | `assessment_algorithm_version` + `schedule_algorithm_version` (text) em `hair_plans`; `hair_profiles` sem numeração (snapshots por `id` — D-64) |
 | Status | Máquinas de estado explícitas com `CHECK`; transições validadas em RPC |
 | Índices | Sempre em `(user_id, ...)` para tabelas de usuária; índices parciais para `status = 'active'` |
 | Naming | snake_case; tabelas no plural; FKs `<entidade>_id`; booleans `is_` / `has_` |
@@ -33,18 +33,17 @@ erDiagram
     auth_users ||--|| profiles : "1:1"
     profiles ||--o{ consents : has
     auth_users ||--o{ hair_profiles : "snapshots (SPEC-002; ownership direto — D-63)"
+    auth_users ||--o{ hair_plans : "planos (SPEC-004; ownership direto)"
     profiles ||--o{ diagnostic_results : has
-    profiles ||--o{ hair_plans : has
     profiles ||--o{ care_executions : has
     profiles ||--o| notification_preferences : has
     profiles ||--o{ subscriptions : has
     profiles ||--o| account_deletion_requests : has
-    hair_profiles ||--o{ diagnostic_results : "input of"
-    diagnostic_results ||--o{ hair_plans : "generates"
+    hair_profiles ||--o{ hair_plans : "generates (SPEC-004; sem diagnostic_results — D-66/§9)"
     hair_plans ||--o{ scheduled_cares : contains
     scheduled_cares o|--o{ care_executions : "fulfilled by"
     care_executions ||--o| checkins : has
-    care_types ||--o{ scheduled_cares : typed
+    care_types ||--o{ scheduled_cares : "typed (código text + CHECK até a SPEC-007)"
     care_types ||--o{ care_executions : typed
     care_types ||--o{ content_articles : explains
     admin_users }o--|| auth_users : is
@@ -92,49 +91,37 @@ Append-only por versão; permite comprovar base legal (LGPD).
 - **Sem** `extra_attributes` (D-64/necessity review); `porosity`/`elasticity`/`scalp_oiliness`/`density`/`goals` genérico/2A–4C **fora do MVP** (SPEC-002 §10).
 - **PII:** sensibilidade baixa/média (características físicas). Tratar como dado pessoal (LGPD), não sensível de saúde.
 
-### 3.4 `diagnostic_results` — Diagnostic (imutável)
+### 3.4 `diagnostic_results` — **NÃO EXISTE** (necessity review SPEC-004 §9, D-66)
+Removida do modelo: no MVP a avaliação só existe para gerar um plano, nenhuma feature a consulta isoladamente e a reprodutibilidade não exige cópia (engines determinísticos + versões liberadas imutáveis). O `AssessmentOutput` é um **artefato transitório** entre os dois engines. Reabrir só com requisito concreto (ex.: histórico de avaliação sem plano).
+
+### 3.5 `hair_plans` — Schedule (raiz do agregado; implementado na SPEC-004)
 | Coluna | Tipo | Notas |
 |---|---|---|
-| id, user_id | | |
-| hair_profile_id | FK | |
-| algorithm_version | text not null | ex. `diag-v1` |
-| answers_snapshot | jsonb not null | respostas exatas usadas |
-| result | jsonb not null | saída do engine (needs, reasons, flags) |
-| created_at | | |
+| id | uuid PK | |
+| user_id | uuid not null, FK `auth.users` on delete cascade | RLS `user_id = auth.uid()` |
+| hair_profile_id | uuid not null, FK `hair_profiles` on delete cascade | proveniência do snapshot |
+| starts_on | date not null | dia local da 1ª sessão (input do engine) |
+| assessment_algorithm_version | text not null | provenance (§11) |
+| schedule_algorithm_version | text not null | provenance (§11) |
+| status | text CHECK (active/superseded) | sem `archived` no MVP |
+| client_request_id | uuid not null | idempotência de `generate-plan` |
+| created_at | timestamptz | sem `updated_at` (plano é histórico) |
 
-- Só escrita pelo servidor (Edge Function via service role **ou** RPC dedicada). Usuária: SELECT próprio.
-- Nunca UPDATE/DELETE por usuária (exclusão só via cascade de conta).
+- **Invariantes DB:** `hair_plans_one_active_per_user` (único parcial em `user_id` where `status='active'`); `UNIQUE (user_id, client_request_id)` (idempotência); `UNIQUE (id, user_id)` (alvo do FK composto de `scheduled_cares`). Índice `(user_id, created_at desc)`.
+- **REMOVIDOS na necessity review (SPEC-004 §10):** `diagnostic_result_id`, `timezone`, `strategy`, `input_snapshot`, `updated_at`, `superseded_by_plan_id`. Reprodutibilidade = `hair_profile_id` + as duas versões de algoritmo.
+- **Escrita só server-side:** `authenticated` tem apenas SELECT próprio; criação/supersessão exclusivamente pela RPC `create_plan_tx` (SECURITY DEFINER, EXECUTE só para `service_role`), chamada pela Edge Function `generate-plan`.
 
-### 3.5 `hair_plans` — Schedule (raiz do agregado)
+### 3.6 `scheduled_cares` — planejado (implementado na SPEC-004; colunas de execução → SPEC-005)
 | Coluna | Tipo | Notas |
 |---|---|---|
-| id, user_id | | |
-| diagnostic_result_id | FK | |
-| algorithm_version | text not null | ex. `sched-v1` |
-| status | text CHECK (active/superseded/archived) | |
-| starts_on | date not null | dia local |
-| timezone | text not null | snapshot da tz no momento da geração |
-| strategy | jsonb not null | padrão de ciclo (ex. sequência H,H,N,H,R), cadência, racional |
-| input_snapshot | jsonb not null | contexto usado (frequência de lavagem etc.) |
-| superseded_by_plan_id | FK null | |
-| created_at / updated_at | | updated_at só por transição de status |
-
-- **Invariante DB:** `CREATE UNIQUE INDEX one_active_plan_per_user ON hair_plans(user_id) WHERE status = 'active'`.
-- Transição só por RPC/Edge; usuária não faz UPDATE direto.
-
-### 3.6 `scheduled_cares` — planejado
-| Coluna | Tipo | Notas |
-|---|---|---|
-| id, user_id, plan_id | | |
-| care_type_code | FK care_types | |
+| id | uuid PK | |
+| plan_id, user_id | FK composto `(plan_id, user_id) → hair_plans (id, user_id)` on delete cascade | o banco impede `user_id` divergir do dono do plano (SPEC-004 AC13); `user_id` também FK `auth.users` |
+| care_type_code | text CHECK (hydration/nutrition/reconstruction) | conjunto aprovado em D-67; tabela/FK `care_types` → SPEC-007 |
 | planned_date | date not null | dia local |
-| sequence | int | posição no ciclo |
-| status | text CHECK (planned/completed/skipped/rescheduled) | |
-| rescheduled_to_id | FK scheduled_cares null | quando status = rescheduled |
-| origin | text CHECK (generated/rescheduled/manual) | |
-| skip_reason | text null | |
-| created_at / updated_at | | |
+| created_at | timestamptz | |
 
+- **Adiado para a SPEC-005 (não existe hoje):** `status`, `rescheduled_to_id`, `origin`, `skip_reason`, `updated_at`. `sequence` removido (ordem derivável de `(planned_date, id)`).
+- **Escrita só server-side:** `authenticated` tem apenas SELECT próprio.
 - **Índices:** `(user_id, planned_date)`, `(plan_id, planned_date)`.
 - **Invariantes:** `status='rescheduled' ⇔ rescheduled_to_id is not null` (CHECK); `status='completed'` só via `complete_care` (trigger/RPC); usuária **não** altera `planned_date` (reagendar = nova linha).
 - "Atrasado" é calculado, nunca armazenado. Por D-28, não existe job/trigger que mova `planned_date` ou crie reagendamentos automáticos; toda transição de cuidado atrasado nasce de ação explícita da usuária via RPC.
@@ -282,5 +269,5 @@ Ninguém faz UPDATE/DELETE (nem service role por policy de app; retenção via j
 
 ## 6. Decisões em aberto (para SPECs)
 - Permitir "desfazer execução"? (proposta: sim, 10 min, via `voided_at` — ver DECISION-REGISTER D-12).
-- Janela de geração de `scheduled_cares` (proposta: 8 semanas, estendida por job/on-demand).
+- ~~Janela de geração de `scheduled_cares`~~ — **DECIDIDA (D-67, SPEC-004): 28 dias / 4 semanas**, gerada na criação do plano. Extensão por job/on-demand não existe no MVP.
 - Streaks: **DEFERRED (D-25)** — nenhuma tabela/campo de streak no MVP; se necessário, derivar de `care_executions`.
