@@ -80,11 +80,17 @@ select throws_ok(
 
 -- Idempotency (AC9): the same client_request_id returns the same plan, creates nothing,
 -- and does not supersede the active plan.
-select is(
-  (select public.create_plan_tx('00000000-0000-4000-8000-0000000000a4', '00000000-0000-4000-8000-0000000000f1', '2026-09-01', 'v1', 'v1', '00000000-0000-4000-8000-00000000c001', '[{"care_type_code":"hydration","planned_date":"2026-09-01"}]'::jsonb)),
-  (select id from public.hair_plans limit 1),
-  'a retry with the same client_request_id returns the existing plan');
+-- The return value is stashed in a GUC instead of being compared inline, because service_role holds
+-- no privilege at all on hair_plans — by design: the Edge Function only ever calls create_plan_tx.
+select set_config(
+  'tests.retry_plan_id',
+  public.create_plan_tx('00000000-0000-4000-8000-0000000000a4', '00000000-0000-4000-8000-0000000000f1', '2026-09-01', 'v1', 'v1', '00000000-0000-4000-8000-00000000c001', '[{"care_type_code":"hydration","planned_date":"2026-09-01"}]'::jsonb)::text,
+  true);
 reset role;
+select is(
+  current_setting('tests.retry_plan_id'),
+  (select id::text from public.hair_plans limit 1),
+  'a retry with the same client_request_id returns the existing plan');
 select is((select count(*)::int from public.hair_plans), 1, 'the retry created no second plan');
 select is((select count(*)::int from public.hair_plans where status = 'active'), 1, 'the retry caused no spurious supersede');
 select is((select count(*)::int from public.scheduled_cares), 2, 'the retry inserted no extra cares');
