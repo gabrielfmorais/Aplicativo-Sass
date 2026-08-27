@@ -30,3 +30,8 @@ insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
   ('authenticated', 'account_deletion_requests', 'SELECT', 'SPEC-001'),
   ('authenticated', 'account_deletion_requests', 'INSERT', 'SPEC-001'),
   ('authenticated', 'account_deletion_requests', 'DELETE', 'SPEC-001');
+
+-- SPEC-002 §13: hair_profiles — authenticated may SELECT/INSERT own rows; no UPDATE/DELETE (immutable); anon nothing.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'hair_profiles', 'SELECT', 'SPEC-002'),
+  ('authenticated', 'hair_profiles', 'INSERT', 'SPEC-002');
