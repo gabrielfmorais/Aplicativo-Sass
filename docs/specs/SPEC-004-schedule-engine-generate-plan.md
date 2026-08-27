@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-004 |
-| Status | **Approved** (v0.5, 2026-08-27 — **D-68**; modelo técnico CLOSED + **regras V1 CANDIDATE** — D-67). **Implementação autorizada** (candidate; dev/internal beta). **PUBLIC RELEASE** exige `validated` (D-26). |
+| Status | **Implemented** (v0.6, 2026-08-27 — aprovada por **D-68**; modelo técnico CLOSED + **regras V1 CANDIDATE** — D-67). Evidência em §21. **PUBLIC RELEASE** continua bloqueado até `validated` (D-26/OQ-REL). |
 | Owner | @gabrielfmorais (humano) |
 | Bounded Context | Schedule/Planning (Core) + Assessment/Diagnostic (Core) — DOMAIN-MAP §3.3/§3.4 |
 | Related ADRs | ADR-007 (engines puros/versionados + A1 governança D-26 + **A2 vertical slice D-66**), ADR-004 (Supabase/RLS/RPC/Edge), ADR-001 (camadas), ADR-008 (time) |
@@ -205,11 +205,42 @@ Migrations aditivas: `hair_plans` + `scheduled_cares` + RLS/grants + índice ún
 
 > **Modelo técnico CLOSED FOR REVIEW + regras V1 CANDIDATE (2026-08-27).** Blocker para **IMPLEMENTAÇÃO = NENHUM** (regras `candidate` autorizadas — D-67). Blocker para **PUBLIC RELEASE = domain validation/sign-off** (`candidate → validated`, D-26/OQ-REL). Sem gaps técnicos abertos.
 
+## 21. Implementation evidence (2026-08-27)
+
+| AC | Como é atendido | Onde |
+|---|---|---|
+| AC1 | `assess` e `generateSchedule` puros/determinísticos; golden fixtures por ramo de regra; nenhum relógio/rede/random (eslint `no-restricted-syntax`/`no-restricted-globals` + dep-cruise) | `packages/core/src/{diagnostic,schedule}/engine/v1/`, `diagnostic/__fixtures__/`, testes `diagnostic.test.ts`/`schedule.test.ts` |
+| AC2 | Módulos sem React/Expo/`@supabase/*`; `AssessmentOutput` puro | `pnpm dep-cruise` + `pnpm lint` verdes; `pnpm check:boundaries` (8 fixtures negativos) |
+| AC3 | Preview e Edge chamam a **mesma** `buildPlan` | `packages/core/src/schedule/application/build-plan.ts`; `PlanScreen.tsx`; `supabase/functions/generate-plan/index.ts` |
+| AC4 | `authenticated` só tem SELECT; INSERT/UPDATE/DELETE e o próprio `create_plan_tx` negados (42501) | migration `20260829000000`; pgTAP 030 (5 asserções) |
+| AC5 | Índice único parcial `hair_plans_one_active_per_user` + `pg_advisory_xact_lock(hashtext(user_id))` cobrindo o **primeiro** plano | migration; pgTAP 030 (índice rejeita 2º ativo; presença do lock verificada em `pg_proc.prosrc`) |
+| AC6 | Nova criação supersede a anterior; planos e cuidados antigos permanecem | `create_plan_tx`; pgTAP 030 |
+| AC7 | RLS `user_id = (select auth.uid())` nas duas tabelas; anon sem grant | migration; pgTAP 030 (A/B + anon) |
+| AC8 | Plano reproduzível por `hair_profile_id` + `assessment_algorithm_version` + `schedule_algorithm_version`; sem `input_snapshot`, sem `diagnostic_results` | migration; `schedule.test.ts` ("stamps both algorithm versions") |
+| AC9 | `client_request_id` + `UNIQUE (user_id, client_request_id)`; pré-check sob o lock devolve o plano existente; subtransação faz o supersede voltar atrás numa colisão; a UI reusa o mesmo id no retry | `create_plan_tx`; pgTAP 030; `plan-screen.test.tsx` |
+| AC10 | `tables_without_rls`, `unapproved_grants`, `unapproved_security_definer_functions` = 0 com o novo schema; allowlist SPEC-004 com justificativa | `supabase/security/allowlists.sql`; pgTAP 030 (3 asserções) |
+| AC11 | Saída sem `confidence`/score (teste explícito das chaves); Edge não loga perfil nem token, só o `code` do erro | `diagnostic.test.ts`; `generate-plan/index.ts` |
+| AC12 | Golden fixtures refletem as regras V1 **candidate**; `assertProductionRules` **falha** para tudo que não é `validated` — o gate de PUBLIC RELEASE é testado | `engine/v1/rules.ts`; testes de governança em ambos os módulos |
+| AC13 | FK composta `(plan_id, user_id) → hair_plans (id, user_id)` | migration; pgTAP 030 (rejeita 23503 independente da RPC) |
+
+**Decisões técnicas tomadas na implementação (dentro do modelo aprovado):**
+- `create_plan_tx` recebe `p_user_id` e tem **EXECUTE só para `service_role`**: a Edge valida o JWT e passa a identidade resolvida. Conceder EXECUTE a `authenticated` deixaria um cliente adulterado montar o plano que quisesse (viola G2). `auth.uid()` continua validado quando presente, e a posse do `hair_profile_id` é reconferida no servidor.
+- `FORCE row level security` também vale para o dono da tabela, e a função DEFINER roda como ele: policies explícitas `to postgres` tornam o caminho da RPC determinístico em vez de depender de o papel de plataforma ter `BYPASSRLS`. Nada é concedido a `anon`/`authenticated` por elas.
+- `scheduled_cares` recebe índices `(plan_id, planned_date)` (leitura do app) e `(user_id, planned_date)` (cascade de exclusão de conta) — OQ2/§10 confirmados.
+- Rate limit da Edge (T07) é **em memória por isolate**: throttle, não quota; a proteção real contra plano duplicado é a idempotência + o índice de 1-ativo. Marcado no código com o teto e o caminho de upgrade.
+- `startsOn` vem do cliente (dia civil dela; o modelo não guarda timezone — §10) e é validado na Edge contra ±2 dias do dia UTC.
+- `DomainRuleValidationStatus` ganhou `candidate` (ADR-007 A1 já amendada por D-67).
+
+**Fora do escopo (confirmado):** SPEC-005 (transições/Today/calendário), SPEC-007 (`care_types`, conteúdo), IA, monetização, analytics, `diagnostic_results`, `confidence`/score, design final.
+
+**Não verificável neste ambiente:** `supabase test db` exige Docker + Supabase CLI, ausentes no notebook; o workflow `supabase-test` é o gate autoritativo do pgTAP. O smoke manual do fluxo real (Expo + projeto Supabase) permanece pendente — mesma situação de SPEC-001/002.
+
 ## 20. Change Log
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-08-27 | v0.1 Draft via `spec-create` (vertical slice D-66: Assessment+Schedule). Necessity review: **`diagnostic_results` REMOVE/DEFER**; `AssessmentOutput` só inferências (sem reempacotar observado, sem `confidence`); `care_types` texto+CHECK (tabela/FK → SPEC-007); criação server-enforced (Edge `generate-plan` + RPC `create_plan_tx`); 1 plano ativo; supersede. Conteúdo capilar = **HUMAN GATE / BLOCKING** (§13, D-26). | Claude |
 | 2026-08-27 | v0.2 **Final technical necessity review:** REMOVE `input_snapshot` (reprodutibilidade = `hair_profile_id` + 2 versões), `strategy`, `timezone`, `updated_at`, `sequence`, `scheduled_cares.status` (→ SPEC-005); KEEP `user_id` nas duas tabelas (convenção RLS DATA-MODEL §1); supersessão mínima = `status` + índice parcial único (superseded_by/at DEFER); **idempotência promovida a IMPORTANT**; Edge+RPC confirmados. | Claude |
 | 2026-08-27 | v0.4 **Domain V1 CANDIDATE** (D-67): regras de produto cosméticas definidas (care types H/N/R; `AssessmentOutput` emphasis/includeReconstruction/evidenceCodes; emphasis por goal→concerns→pattern; reconstruction 2-de-3; sessions/week por wash_frequency; janela 28d; ciclos; 1 R após dia 14; offsets; unknown never escalates). `validation_status=candidate`: **implementação/internal beta autorizados**; PUBLIC RELEASE exige `validated` (ADR-007 A1 ganha `candidate`). OQ1 resolvido; blocker de implementação = NENHUM. | Humano / Claude |
+| 2026-08-27 | v0.6 **IMPLEMENTED** — vertical slice completa: engines v1 puros + golden, `hair_plans`/`scheduled_cares` + `create_plan_tx`, Edge `generate-plan`, preview/confirmação no app. Evidência por AC em §21. PUBLIC RELEASE segue bloqueado por OQ-REL. | Claude |
 | 2026-08-27 | v0.5 **APPROVED (D-68)** — aprovação humana da SPEC. Escopo confirmado sem alteração técnica: vertical slice Assessment+Schedule com módulos internos separados, regras V1 `candidate` autorizadas para implementação/internal beta, D-26 mantido como PUBLIC RELEASE GATE. Nenhuma decisão aprovada reaberta. | Humano |
 | 2026-08-27 | v0.3 **Technical close** — 2 gaps de integridade resolvidos: (1) concorrência do **primeiro plano** por `pg_advisory_xact_lock(hashtext(user_id))` (o `FOR UPDATE` não travava com zero linhas); (2) **ownership** por composite FK `(plan_id,user_id)→hair_plans(id,user_id)` + `UNIQUE (id,user_id)` (o banco impede `user_id` divergir do dono do plano); colisão de `UNIQUE(user_id,client_request_id)` tratada por subtransação `EXCEPTION` que retorna o plano existente sem abortar. **Modelo técnico CLOSED FOR REVIEW**; único blocker = DOMAIN RULES (D-26). | Claude |

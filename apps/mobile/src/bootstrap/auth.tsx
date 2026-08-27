@@ -1,5 +1,12 @@
-import type { AuthPort, AuthState, DeletionRequestPort, HairProfilePort } from '@app/core';
-import { UNAUTHENTICATED } from '@app/core';
+import type {
+  AuthPort,
+  AuthState,
+  DeletionRequestPort,
+  HairPlanPort,
+  HairProfilePort,
+  LocalDate,
+} from '@app/core';
+import { UNAUTHENTICATED, cryptoIdGenerator, systemClock, todayFor } from '@app/core';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -8,6 +15,7 @@ import { AppState } from 'react-native';
 import { createSupabaseAuthAdapter } from '@/infrastructure/supabase/auth-adapter';
 import { supabase } from '@/infrastructure/supabase/client';
 import { createDeletionRequestAdapter } from '@/infrastructure/supabase/deletion-request-adapter';
+import { createHairPlanAdapter } from '@/infrastructure/supabase/hair-plan-adapter';
 import { createHairProfileAdapter } from '@/infrastructure/supabase/hair-profile-adapter';
 import { discardSessionIfFreshInstall } from '@/infrastructure/supabase/fresh-install';
 
@@ -16,6 +24,11 @@ type AuthContextValue = {
   auth: AuthPort;
   deletion: DeletionRequestPort;
   hairProfile: HairProfilePort;
+  hairPlan: HairPlanPort;
+  /** The user's civil day (ADR-008): the composition root owns the clock, screens never read it. */
+  today: () => LocalDate;
+  /** Fresh idempotency key for a user-initiated server write (SPEC-004 AC9). */
+  newRequestId: () => string;
 };
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -43,6 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [state],
   );
 
+  const hairPlan = useMemo(() => createHairPlanAdapter(supabase), []);
+
   useEffect(() => {
     let active = true;
     discardSessionIfFreshInstall('sb-session')
@@ -62,7 +77,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [auth]);
 
   return (
-    <AuthContext.Provider value={{ state, auth, deletion, hairProfile }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider
+      value={{
+        state,
+        auth,
+        deletion,
+        hairProfile,
+        hairPlan,
+        today: () => todayFor(systemClock, Intl.DateTimeFormat().resolvedOptions().timeZone),
+        newRequestId: () => cryptoIdGenerator.next(),
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
   );
 }
 

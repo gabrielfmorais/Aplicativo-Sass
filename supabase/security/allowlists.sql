@@ -35,3 +35,17 @@ insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
 insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
   ('authenticated', 'hair_profiles', 'SELECT', 'SPEC-002'),
   ('authenticated', 'hair_profiles', 'INSERT', 'SPEC-002');
+
+-- SPEC-004 §14: hair_plans / scheduled_cares — authenticated may only SELECT its own rows.
+-- Every write goes through create_plan_tx (service_role only); anon has nothing.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'hair_plans', 'SELECT', 'SPEC-004'),
+  ('authenticated', 'scheduled_cares', 'SELECT', 'SPEC-004');
+
+-- SPEC-004 §12b/§14: the single server-enforced write path into the plan tables.
+insert into tests.security_definer_allowlist (function_signature, spec, justification) values
+  (
+    'public.create_plan_tx(p_user_id uuid, p_hair_profile_id uuid, p_starts_on date, p_assessment_algorithm_version text, p_schedule_algorithm_version text, p_client_request_id uuid, p_cares jsonb)',
+    'SPEC-004',
+    'Only write path into hair_plans/scheduled_cares. Clients hold no INSERT/UPDATE privilege, so plan creation cannot be forged by a tampered client (G2/P10). Needs DEFINER to write tables no caller may write, and to keep supersede+insert+cares atomic with a per-user advisory lock. EXECUTE granted to service_role only; the generate-plan Edge Function verifies the JWT and passes the resolved user id; auth.uid() is validated when present; search_path is pinned; profile ownership is re-checked server-side.'
+  );

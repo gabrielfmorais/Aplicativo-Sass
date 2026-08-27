@@ -9,6 +9,9 @@ export {
   HEAT_USAGES,
   CURRENT_CONCERNS,
   PRIMARY_GOALS,
+  HAIR_PROFILE_COLUMNS,
+  HairProfileRowSchema,
+  hairProfileFromRow,
   type HairProfileInput,
   type HairProfileSnapshot,
 } from './domain/hair-profile.ts';

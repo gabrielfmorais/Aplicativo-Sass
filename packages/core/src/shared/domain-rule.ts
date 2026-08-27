@@ -5,11 +5,13 @@ import { z } from 'zod';
  *
  * Engineering designs the engine mechanism; it does NOT invent production rules.
  * Every rule used by an engine version must be described by this schema.
- * Only `validated` rules may be part of a production-ready engine version.
+ * `candidate` (ADR-007 A1, clarified by D-67) = human product decision, implementable and usable in
+ * development / internal beta. Only `validated` rules may be part of a PUBLIC RELEASE engine version.
  */
 export const DomainRuleValidationStatus = z.enum([
   'draft',
   'awaiting_domain_review',
+  'candidate',
   'validated',
   'deprecated',
 ]);

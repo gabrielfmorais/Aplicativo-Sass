@@ -80,3 +80,41 @@ export type HairProfileSnapshot = HairProfileInput & {
   readonly hairProfileId: string;
   readonly createdAt: string;
 };
+
+/**
+ * Shape of a `public.hair_profiles` row. snake_case is the database vocabulary; the enum sets are
+ * the same ones the CHECK constraints mirror. Every reader of the table (the mobile adapter and the
+ * `generate-plan` Edge Function) goes through this so the two cannot drift.
+ */
+export const HairProfileRowSchema = z.object({
+  id: z.string(),
+  created_at: z.string(),
+  hair_pattern: z.enum(HAIR_PATTERNS),
+  strand_thickness: z.enum(STRAND_THICKNESSES),
+  scalp_tendency: z.enum(SCALP_TENDENCIES),
+  wash_frequency: z.enum(WASH_FREQUENCIES),
+  chemical_treatments: z.array(z.enum(CHEMICAL_TREATMENTS)),
+  heat_usage: z.enum(HEAT_USAGES),
+  current_concerns: z.array(z.enum(CURRENT_CONCERNS)),
+  primary_goal: z.enum(PRIMARY_GOALS),
+});
+
+/** Columns to select for `HairProfileRowSchema`, in one place. */
+export const HAIR_PROFILE_COLUMNS = Object.keys(HairProfileRowSchema.shape).join(', ');
+
+/** Throws if the row does not match the contract (schema drift must fail loudly, never silently). */
+export const hairProfileFromRow = (row: unknown): HairProfileSnapshot => {
+  const r = HairProfileRowSchema.parse(row);
+  return {
+    hairProfileId: r.id,
+    createdAt: r.created_at,
+    hairPattern: r.hair_pattern,
+    strandThickness: r.strand_thickness,
+    scalpTendency: r.scalp_tendency,
+    washFrequency: r.wash_frequency,
+    chemicalTreatments: r.chemical_treatments,
+    heatUsage: r.heat_usage,
+    currentConcerns: r.current_concerns,
+    primaryGoal: r.primary_goal,
+  };
+};
