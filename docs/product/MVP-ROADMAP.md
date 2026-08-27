@@ -47,9 +47,9 @@ Auth (Apple, Google, email) · sessão segura · `profiles` + trigger · timezon
 Perguntas (≤ 8) · `hair_profiles` versionado · validação zod + CHECK · tela de onboarding com estados · evento `onboarding_*`.
 **Saída:** perfil salvo; "preview" ainda não.
 
-### Fase 3 — Diagnostic Engine v1 (SPEC-003) · ~1–2 semanas (paralelizável desde F0)
-Regras v1 com especialista capilar · `runDiagnostic` puro · explanations · golden tests · contratos.
-**Saída:** pacote testado; sem persistência ainda.
+### Fase 3 — Diagnostic/Assessment Engine v1 (**folded into SPEC-004** — D-66/ADR-007 A2) · (sem entrega isolada)
+Regras v1 com especialista capilar · `runDiagnostic`/assessment puro · reason codes · golden tests · contratos. **A entrega MVP acontece na vertical slice da Fase 4/SPEC-004** (o resultado da avaliação tem um único consumidor, o Schedule). O módulo `packages/core/src/diagnostic/` permanece separado.
+**Saída:** absorvida pela Fase 4.
 
 ### Fase 4 — Schedule Engine v1 + generate-plan (SPEC-004) · ~2 semanas
 4a: `generateSchedule` puro (ciclo H/N/R por necessidade, frequência de lavagem, janela 8 semanas, referenceDate injetado, golden tests).

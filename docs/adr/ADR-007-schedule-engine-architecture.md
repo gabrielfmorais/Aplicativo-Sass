@@ -1,6 +1,6 @@
 # ADR-007 — Diagnostic & Schedule Engine Architecture
 
-**Status:** **Accepted** (D-06, 2026-08-26) com **Amendment A1** (D-26) · **Data:** 2026-08-26
+**Status:** **Accepted** (D-06, 2026-08-26) com **Amendment A1** (D-26) e **Amendment A2** (D-66, 2026-08-27) · **Data:** 2026-08-26
 
 ## Amendment A1 — Governança das regras de domínio (decisão humana D-26, 2026-08-26)
 > **Engineering may design the engine. Engineering may NOT invent production hair-care rules.**
@@ -11,6 +11,13 @@
 - Só regras `validated` podem compor uma versão de engine marcada como produção; o build/teste deve falhar se uma versão de produção referenciar regra não validada.
 - Agentes de IA **não** apresentam suposições próprias como conhecimento capilar validado; regras que criarem nascem como `draft` com `rationale_source` explícito ("hipótese de engenharia — requer revisão").
 - Esta exigência não bloqueia a Foundation (SPEC-000), que implementa apenas o mecanismo e o schema das regras.
+
+## Amendment A2 — Entrega em vertical slice única (decisão humana D-66, 2026-08-27)
+> **Diagnostic/Assessment e Schedule mantêm fronteiras técnicas distintas, mas a primeira implementação MVP é entregue numa única vertical slice (SPEC-004).**
+
+- Preservados: dois domain services puros e responsabilidades distintas (`packages/core/src/diagnostic/` e `.../schedule/`), regras versionadas quando necessário, D-26, determinismo, golden tests, mesma lógica autoritativa em qualquer runtime.
+- Alterado **apenas** o que exigia SPEC-003 e SPEC-004 como **entregas separadas**: evita-se um pacote Diagnostic-esqueleto sem consumidor independente (único consumidor do resultado é o Schedule). A **SPEC-003 fica FOLDED INTO SPEC-004**; a fronteira de domínio Diagnostic **não** é revogada.
+- A persistência do resultado de avaliação (`diagnostic_results`) **não** é pré-aprovada por esta ADR: a SPEC-004 faz necessity review explícita (pode ser artefato transitório entre os engines). Provenance/versão só existem se houver necessidade real.
 
 ## Context
 Os engines são o coração do produto e o principal alvo de "melhorias" por agentes. Precisam ser determinísticos, versionados, testáveis, auditáveis e server-enforced, sem abrir mão de preview instantâneo no app (P01).
@@ -56,7 +63,7 @@ Cliente e servidor executam a **mesma versão** do pacote (garantido por lockfil
 − Edge Function precisa importar `packages/core` (spike na Foundation).
 
 ## Consequences
-- SPEC-003 (Diagnostic Engine) e SPEC-004 (Schedule Engine) definem regras v1 com participação de especialista capilar.
+- Assessment/Diagnostic e Schedule definem regras v1 com participação de especialista capilar, entregues juntos na **SPEC-004** (vertical slice — Amendment A2/D-66); SPEC-003 foi **folded into SPEC-004**. Os módulos `diagnostic/` e `schedule/` permanecem separados.
 - CODEOWNERS obriga revisão humana em `packages/core/src/{diagnostic,schedule}/engine/**`.
 
 ## Security Impact
