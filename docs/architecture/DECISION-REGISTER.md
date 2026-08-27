@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Status | v0.6 — 2026-08-27 — arquitetura aprovada; SPEC-000 e SPEC-001 implementadas/merged; **SPEC-002 Draft Ready for Approval** (decisões de produto D-62/D-63/D-64; D-64 amenda D-11); LEVEL 2 auto-merge ativo |
+| Status | v0.7 — 2026-08-27 — arquitetura aprovada; SPEC-000 e SPEC-001 implementadas/merged; **SPEC-002 APPROVED** (D-62/D-63/D-64/D-65; D-64 amenda D-11) — implementação autorizada; LEVEL 2 auto-merge ativo |
 | Uso | Fonte de verdade sobre o estado de cada decisão. Nenhum item muda de status sem registro humano nesta tabela. Agentes nunca resolvem itens `HUMAN DECISION` por conta própria. |
 
 Legenda de custo de mudança tardia: **L** (horas) · **M** (dias) · **H** (semanas ou migração de dados).
@@ -79,6 +79,7 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 | D-62 | Inputs mínimos do perfil capilar (MVP) | **8 inputs de produto aprovados** (não são diagnóstico médico/dermatológico): `hair_pattern`, `strand_thickness`, `scalp_tendency`, `wash_frequency`, `chemical_treatments` (multi), `heat_usage`, `current_concerns` (multi), `primary_goal`. Valores/UX em SPEC-002 §6. **Sem 2A–4C**, sem densidade. Não adicionar dimensões sem requisito concreto. Regras de diagnóstico continuam fora (D-26). | SPEC-002 §6; DATA-MODEL §3.3 (atualizar na implementação) | **DECIDED** |
 | D-63 | `profiles` na SPEC-002 | **REMOVE.** `profiles`, `ProfilePort`, `onboarding_status`, provisioning e trigger em `auth.users` **não** são implementados agora. Ownership direto `auth.users → hair_profiles.user_id`; "onboarding concluído" é derivado da existência de um hair profile válido. `profiles` nasce numa SPEC futura com requisito concreto. Confirma a necessity review; um DEFER anterior (D-52) não obriga a implementar. | SPEC-002 §12; DATA-MODEL §3.1 (atualizar na implementação) | **DECIDED** |
 | D-64 | Versionamento de `hair_profiles` (amenda D-11) | **"Versioned profile" = snapshots históricos imutáveis identificados por `id` estável, não necessariamente por número sequencial.** REMOVE `version int`, trigger de alocação, `MAX+1`, `UNIQUE(user_id,version)` e a lógica de concorrência criada só para numerar. Cada avaliação = nova linha imutável; atual = mais recente (`created_at desc, id desc`); downstream referencia `hair_profile_id`. Verificado: nenhum requisito atual depende de ordinal sequencial. | **Amenda D-11**; SPEC-002 §8/§9; DATA-MODEL §3.3 + DOMAIN-MAP §3.2 (atualizar na implementação) | **DECIDED** |
+| D-65 | SPEC-002 | **APPROVED** (v0.4) após revisão humana. Clarificações vinculantes: `chemical_treatments` `[]` = nenhuma (sem enum `none`); `current_concerns.no_major_concern` exclusivo (`cardinality=1`) por validação de cliente + CHECK server-side (sem RPC/trigger); **analytics DEFER** (nenhum evento/no-op na SPEC-002 — SPEC-011). Implementação autorizada (LEVEL 2). | SPEC-002 → Approved; índice | **DECIDED** |
 
 ## C. DEFERRED / OPEN (não decidir agora)
 
@@ -116,3 +117,4 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 | 2026-08-26 | v0.4: SPEC-001 aprovada (D-51…D-55); decisões de implementação rastreadas (D-56…D-61). Implementação de autenticação **não** iniciada. |
 | 2026-08-27 | v0.5: SPEC-001 implementada e mergeada em `main` (PR #3) via LEVEL 2 auto-merge; required CI verde (`ci`, `core-deno`, `supabase-test`; pgTAP 13/13). D-56 e D-59 decididos na implementação. Proteção da `main` no GitHub habilitada (required checks + PR + strict + enforce_admins; force-push/deleção bloqueados). |
 | 2026-08-27 | v0.6: correção de governança CI (PR #5, merged) — `core-deno`/`supabase-test` rodam em todo PR (required checks satisfazíveis). Decisões de produto da SPEC-002 (D-62/D-63/D-64); D-64 amenda D-11 (snapshots por `id`, sem numeração sequencial). SPEC-002 → Draft Ready for Approval (HUMAN GATE). |
+| 2026-08-27 | v0.7: **SPEC-002 APPROVED** (D-65) com clarificações (`chemical_treatments` `[]`=nenhuma; `no_major_concern` exclusivo; analytics DEFER). Implementação autorizada (LEVEL 2). |

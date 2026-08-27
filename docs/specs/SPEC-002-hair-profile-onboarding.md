@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-002 |
-| Status | **Draft — Ready for Approval** (v0.3, product decisions 2026-08-27; HUMAN GATE. Nenhum código, migration, dependência ou seed criado por esta SPEC) |
+| Status | **Approved** (v0.4, revisão humana 2026-08-27 — D-62/D-63/D-64 aprovadas + clarificações: `chemical_treatments` `[]`=nenhuma sem enum `none`, `no_major_concern` exclusivo, analytics **DEFER**). Implementação autorizada. |
 | Owner | @gabrielfmorais (humano) |
 | Bounded Context | Hair Profile (Core) — DOMAIN-MAP §3.2 |
 | Related ADRs | ADR-001 (camadas), ADR-004 (Supabase/RLS), ADR-006 (fronteiras), ADR-007 A1 (governança de regras capilares — D-26), ADR-008 (time) |
@@ -37,6 +37,7 @@ Depois de autenticar, a usuária registra seu cabelo, gerando um snapshot imutá
 - Numeração sequencial de versão (`version int`, trigger `MAX+1`, `UNIQUE(user_id,version)`, lógica de concorrência para numerar) — **REMOVE** (§13; D-64 amenda D-11).
 - Campos fora do conjunto aprovado (§10): porosity, elasticity, density, idade, gênero, comprimento, fotos, marcas/produtos/salão, histórico químico detalhado, classificação 2A–4C, `extra_attributes jsonb`.
 - Edição granular in-place; estado global (Zustand — D-36); nova dependência npm.
+- **Analytics** (eventos/adapter/no-op) — **DEFER** (revisão humana 2026-08-27): a existência de `hair_profiles` já permite derivar a conclusão do onboarding; nenhum código de analytics entra sem outro requisito aprovado (→ SPEC-011).
 
 ## 5. User Stories
 - US1 Recém-autenticada, a usuária responde o onboarding e o perfil é salvo.
@@ -55,7 +56,7 @@ Depois de autenticar, a usuária registra seu cabelo, gerando um snapshot imutá
 | 4 | `wash_frequency` | single | `once_or_less_weekly` · `twice_weekly` · `three_to_four_weekly` · `five_or_more_weekly` · `varies` | via `varies` | comportamento **atual** (não é a recomendação); UX: 1x ou menos/2x/3–4x/5x ou mais/Varia muito |
 | 5 | `chemical_treatments` | multi (0..N) | `coloring` · `bleaching_or_highlights` · `straightening_relaxing_or_progressive` · `perm_or_chemical_texturizing` | vazio = **nenhum** | processos químicos presentes; conjunto vazio representa "nenhum" (sem opção artificial `multiple`). **Não** coletar marca/produto/salão/data/histórico detalhado |
 | 6 | `heat_usage` | single | `almost_never` · `one_to_two_weekly` · `three_to_four_weekly` · `almost_daily` | — | uso de calor agregado (secador/chapinha/modelador/etc.), sem individualizar aparelho |
-| 7 | `current_concerns` | multi (1..N) | `dryness` · `breakage` · `tangling` · `dullness` · `frizz` · `no_major_concern` | via `no_major_concern` | queixas atuais (não sintomas médicos); `no_major_concern` é exclusivo; UX: Ressecado/Quebra com facilidade/Embaraça muito/Sem brilho/Com bastante frizz/Sem problema importante |
+| 7 | `current_concerns` | multi (1..N) | `dryness` · `breakage` · `tangling` · `dullness` · `frizz` · `no_major_concern` | via `no_major_concern` | queixas atuais (não sintomas médicos); **`no_major_concern` é exclusivo — se presente, é o único elemento do array** (validado no cliente e por CHECK server-side); UX: Ressecado/Quebra com facilidade/Embaraça muito/Sem brilho/Com bastante frizz/Sem problema importante |
 | 8 | `primary_goal` | single | `softness_and_hydration` · `reduce_breakage_and_strengthen` · `recover_chemical_or_heat_damage` · `definition_and_frizz_control` · `maintain_healthy_hair` | — | **uma** prioridade principal; UX conforme decisão humana §9 |
 
 ## 7. Business Rules
@@ -84,9 +85,9 @@ hair_profiles   (append-only, imutável)
 | `strand_thickness` | text not null, CHECK (§6) | idem | app | idem | sim | não |
 | `scalp_tendency` | text not null, CHECK (§6) | idem | app | idem | sim | não |
 | `wash_frequency` | text not null, CHECK (§6) | idem | app | idem | sim | não |
-| `chemical_treatments` | text[] not null default '{}', CHECK (elementos ⊆ §6) | idem | app | idem | sim | não |
+| `chemical_treatments` | text[] not null default '{}', CHECK (elementos ⊆ §6; `[]` = nenhuma, sem valor `none`) | idem | app | idem | sim | não |
 | `heat_usage` | text not null, CHECK (§6) | idem | app | idem | sim | não |
-| `current_concerns` | text[] not null, CHECK (elementos ⊆ §6; `no_major_concern` exclusivo) | idem | app | idem | sim | não |
+| `current_concerns` | text[] not null, CHECK (`cardinality>=1`; elementos ⊆ §6; **se contém `no_major_concern` então `cardinality=1`**) | idem | app | idem | sim | não |
 | `primary_goal` | text not null, CHECK (§6) | idem | app | idem | sim | não |
 | `created_at` | timestamptz not null default now() | ordenação/"atual"/histórico | servidor (default) | app | sim | não |
 
@@ -126,7 +127,7 @@ Checklist SECURITY-BASELINE §13: RLS ON+FORCE, policy por verbo ✔; `SECURITY 
 - Acessibilidade: labels, alvo de toque, Dynamic Type, contraste, foco por pergunta.
 
 ## 16. Analytics Events
-Tipos no catálogo (core), emitindo para o **adapter no-op** (provider real = SPEC-011): `onboarding_started {}` · `onboarding_completed {}` · `hair_profile_saved {}`. Proibido em propriedades: valores de resposta, `user_id` cru, notas, PII. Emitir agora vs. SPEC-011 = CAN DEFER.
+**DEFER (revisão humana 2026-08-27).** Nenhum evento/adapter/no-op é criado nesta SPEC. A conclusão do onboarding é derivável da existência de `hair_profiles`; analytics entra na SPEC-011 (com consentimento). Sem código de analytics sem outro requisito aprovado.
 
 ## 17. Edge Cases & Failure Modes
 - App fechado no meio: nada persistido (só `INSERT` final); recomeça (coerente com estado derivado).
@@ -146,7 +147,7 @@ Tipos no catálogo (core), emitindo para o **adapter no-op** (provider real = SP
 | AC7 | **Cliente hostil:** código do cliente não cria campos/valores não suportados (colunas desconhecidas rejeitadas pelo PostgREST; enums inválidos pelo CHECK). |
 | AC8 | **Guardrails Foundation verdes:** `tables_without_rls()`=0, `unapproved_grants()`=0 após allowlist, `unapproved_security_definer_functions()`=0, `pnpm verify`. |
 | AC9 | `HairProfileSnapshot` é exportado por `packages/core` sem depender de React/Expo/Supabase (dep-cruise verde). |
-| AC10 | Nenhum valor de resposta/PII/segredo aparece em logs ou analytics da aplicação (teste do redactor + revisão do catálogo). |
+| AC10 | Nenhum valor de resposta/PII/segredo aparece em logs da aplicação (analytics não é emitido nesta SPEC — §16). |
 
 ## 19. Testing Strategy
 - **Unit (core `hair-profile`):** `HairProfileSchema` (enums, subconjuntos, "não sei"/"varia"), mapeamento de erros → `AppError`, forma de `HairProfileSnapshot` (com `hair_profile_id`).
@@ -162,7 +163,7 @@ Tipos no catálogo (core), emitindo para o **adapter no-op** (provider real = SP
 | CHECK de enums + `text[]` de subconjunto | **KEEP** | integridade server-side dos inputs aprovados |
 | RLS ON+FORCE + grants (SELECT/INSERT) | **KEEP** | isolamento/imutabilidade fail-closed |
 | `HairProfilePort` / `HairProfileSchema` / `HairProfileSnapshot` | **KEEP** | contrato mínimo para o app e SPEC-003 |
-| Tipos de eventos de analytics (no-op) | **KEEP** (emissão CAN DEFER) | catálogo desde o início; sem PII |
+| Eventos de analytics (tipos/no-op) | **DEFER** | onboarding derivável de `hair_profiles`; sem requisito (SPEC-011) |
 | Tabela `profiles` (+ `ProfilePort`, provisioning, `onboarding_status`) | **REMOVE** | onboarding derivado; sem requisito atual (D-63) |
 | `version int` + trigger + `MAX+1` + `UNIQUE(user_id,version)` + advisory lock | **REMOVE** | identidade por `id`; nenhum requisito depende de ordinal (D-64) |
 | `extra_attributes jsonb` | **REMOVE** | sem escape hatch para futuro |
@@ -182,7 +183,7 @@ Tipos no catálogo (core), emitindo para o **adapter no-op** (provider real = SP
 3. Core `hair-profile`: `HairProfileSchema`, `HairProfileSnapshot`, `HairProfilePort`, erros (AC9).
 4. Infra mobile: adapter PostgREST do port.
 5. UI onboarding (campos aprovados de §6) + confirmação + roteamento por estado derivado.
-6. Catálogo de eventos (no-op) + docs (DATA-MODEL §3.3, DOMAIN-MAP §3.2, matriz RLS, README do contexto) refletindo a remoção de `profiles`/numeração.
+6. Docs (DATA-MODEL §3.3, DOMAIN-MAP §3.2, matriz RLS, README do contexto) refletindo a remoção de `profiles`/numeração. **Sem analytics** (§16 DEFER).
 
 ## 23. Migration / Rollback Plan
 Uma migration aditiva (`hair_profiles` + CHECK + RLS/grants), pgTAP e `-- ROLLBACK:` (drop de tabela/policies/grants + remoção das entradas de allowlist). `supabase gen types` commitado. Local → PR → staging (merge) → prod humano. Tabela nasce vazia; rollback não perde dado.
@@ -190,9 +191,9 @@ Uma migration aditiva (`hair_profiles` + CHECK + RLS/grants), pgTAP e `-- ROLLBA
 ## 24. Open Questions & Gates
 | ID | Classe | Pergunta | Assunção |
 |---|---|---|---|
-| — | **BLOCKING NOW** | nenhuma (inputs mínimos aprovados por D-62; regras de diagnóstico são SPEC-003 sob D-26) | — |
-| OQ1 | IMPORTANT | Confirmar a representação de "nenhum" em `chemical_treatments` como **array vazio** (sem valor `none`) e a exclusividade de `no_major_concern` em `current_concerns` via CHECK | adotar array vazio = nenhum; CHECK de exclusividade |
-| OQ2 | CAN DEFER | Emitir eventos de analytics agora (no-op) ou só na SPEC-011 | tipos agora; emissão adiável |
+| — | **BLOCKING NOW** | nenhuma | — |
+| OQ1 | **RESOLVED (2026-08-27)** | `chemical_treatments` `[]` = nenhuma (sem enum `none`); `no_major_concern` exclusivo (`cardinality=1`) validado no cliente e por CHECK | aplicado (§6/§8) |
+| OQ2 | **RESOLVED — DEFER (2026-08-27)** | Analytics não entra na SPEC-002 (§16) | — |
 | OQ3 | CAN DEFER | Rate limit anti-abuso de criação de snapshots | fora do MVP |
 | OQ4 | CAN DEFER | Ferramenta E2E do onboarding | fase 10 (Maestro — D-37) |
 | OQ5 | CAN DEFER | Refinamento futuro (2A–4C, porosity) como opcional | fora do MVP (§10) |
@@ -203,3 +204,4 @@ Uma migration aditiva (`hair_profiles` + CHECK + RLS/grants), pgTAP e `-- ROLLBA
 | 2026-08-27 | v0.1 Draft via `spec-create` (incluía `profiles` mínimo, `extra_attributes`, advisory lock, dimensões candidatas). | Claude |
 | 2026-08-27 | v0.2 Necessity review: removeu `profiles`/`extra_attributes`; versionamento sem advisory lock; conteúdo de domínio como gate. | Claude |
 | 2026-08-27 | v0.3 **Product decisions (humano):** 8 inputs aprovados (§6, D-62); `profiles` removida (D-63); **numeração sequencial removida** — snapshots imutáveis por `id`, atual = mais recente (D-64, **amenda D-11**); removidos porosity/elasticity/density/idade/gênero/comprimento/fotos/marcas/2A–4C/`extra_attributes`; número de perguntas = alvo de UX; ACs finais. Modelo mínimo `auth.users → hair_profiles`. Status → **Ready for Approval**. | Claude |
+| 2026-08-27 | v0.4 **APPROVED** (revisão humana): clarificações finais — `chemical_treatments` `[]`=nenhuma sem enum `none`; `no_major_concern` exclusivo (`cardinality=1`) via cliente + CHECK; **analytics DEFER** (nenhum evento/no-op nesta SPEC). OQ1/OQ2 resolvidos. Implementação autorizada (LEVEL 2). | Humano / Claude |
