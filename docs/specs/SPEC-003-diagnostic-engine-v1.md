@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-003 |
-| Status | **Draft** (v0.2, boundary review 2026-08-27; aguarda **decisão humana de arquitetura** — separar vs. fold em SPEC-004, §23-OQ0 — e revisão. HUMAN GATE. Nenhum código/migration/dependência criado por esta SPEC) |
+| Status | **FOLDED INTO SPEC-004** (decisão humana 2026-08-27 — D-66; ADR-007 Amendment A2). **Não implementada** — nenhum código/migration/dependência foi criado. A responsabilidade técnica do Assessment/Diagnostic é entregue na vertical slice da SPEC-004; a fronteira de domínio Diagnostic permanece (módulo `packages/core/src/diagnostic/`). Este documento fica como registro histórico. |
 | Owner | @gabrielfmorais (humano) |
 | Bounded Context | Diagnostic (Core — regras) — DOMAIN-MAP §3.3 |
 | Related ADRs | ADR-001 (camadas), ADR-007 (Diagnostic & Schedule Engine + A1 governança de regras — D-26), ADR-008 (time) |
@@ -17,7 +17,7 @@
 >
 > **Separação obrigatória (D-26):** esta SPEC define **(A) a estrutura técnica** do engine (função pura, versionada, determinística, testável). Ela **NÃO** define **(B) o conteúdo de domínio** — as regras que mapeiam os inputs para a saída (pesos, níveis, "se X então Y", classificação de dano, frequência ideal). O conteúdo (B) é **hipótese de engenharia até validação especializada** e **bloqueia a implementação** do que for voltado à usuária (§23, BLOCKING).
 >
-> ⚠️ **Decisão de arquitetura PENDENTE (HUMAN GATE) — §23 OQ0:** manter Diagnostic como SPEC/slice **separada** vs. **fold** o engine na SPEC-004 (mantendo `diagnostic/` e `schedule/` como módulos e `diagnostic_results` como artefato persistido). Ver o *SPEC-003 Product Boundary Decision memo* (2026-08-27). Esta SPEC permanece Draft até essa decisão. Termo de produto: **"Avaliação capilar"** (nunca diagnóstico médico/dermatológico).
+> ✅ **Decisão de arquitetura RESOLVIDA (D-66, 2026-08-27 — ADR-007 Amendment A2):** **FOLD** — a entrega do Assessment/Diagnostic Engine acontece na **SPEC-004** (vertical slice), mantendo `diagnostic/` e `schedule/` como módulos distintos. `diagnostic_results` **não** é pré-aprovada (necessity review na SPEC-004). Este documento permanece como registro; o conteúdo técnico abaixo é insumo para a SPEC-004. Termo de produto: **"Avaliação capilar"** (nunca diagnóstico médico/dermatológico).
 
 ## 1. Context
 SPEC-002 coleta e preserva o perfil capilar (8 inputs aprovados — D-62) como `HairProfileSnapshot` imutável. Ainda não há nada que **interprete** esse perfil. O Diagnostic Engine é a primeira peça de valor derivado: transforma o perfil numa avaliação estruturada e **determinística**, que a SPEC-004 usará para gerar o cronograma. Maior risco de produto = as regras capilares (D-26): por isso o engine é isolado, puro e versionado, e as regras são governadas.
@@ -161,7 +161,7 @@ Nenhuma migration (pacote puro). Rollback = reverter a PR de código. Versões d
 ## 23. Open Questions & Gates
 | ID | Classe | Pergunta | Assunção |
 |---|---|---|---|
-| **OQ0** | **BLOCKING NOW — HUMAN ARCHITECTURE DECISION** | Manter Diagnostic como SPEC/slice **separada** (Option A) ou **fold** o engine na SPEC-004 (Option B), mantendo módulos `diagnostic/`+`schedule/` e `diagnostic_results`? Ver memo 2026-08-27. | recomendação do memo: **fold em SPEC-004** (único consumidor hoje; taxonomia só definível junto ao Schedule) — requer amendment de ADR-007 §Consequences. |
+| **OQ0** | **RESOLVED (D-66, 2026-08-27)** | Separar vs. fold. | **FOLD em SPEC-004** (ADR-007 Amendment A2); módulos `diagnostic/`+`schedule/` mantidos; `diagnostic_results` sob necessity review na SPEC-004. |
 | **OQ1** | **BLOCKING BEFORE IMPLEMENTATION (HUMAN PRODUCT GATE + especialista / D-26)** | Qual é a **taxonomia de saída** aprovada (eixos/rótulos/flags) e as **regras v1** que mapeiam os 8 inputs para ela (incl. `unknown`/`varies`)? Sem `confidence`. | não inventar; engine só entra em produção com regras `validated`. A estrutura técnica (§7-A) pode ser construída antes; o conteúdo user-facing não. |
 | OQ2 | IMPORTANT BEFORE IMPLEMENTATION | Como versões futuras do `HairProfileSnapshot` (novos inputs) se relacionam com versões do engine (EC2)? | contrato estável; input novo ⇒ possível nova versão do engine |
 | OQ3 | CAN DEFER | `reasons[]` — vocabulário/estrutura final (códigos + mensagens pt-BR) | definir com o conteúdo de domínio (OQ1) |
@@ -172,3 +172,4 @@ Nenhuma migration (pacote puro). Rollback = reverter a PR de código. Versões d
 |---|---|---|
 | 2026-08-27 | v0.1 Draft via `spec-create`. Escopo mínimo (Ponytail/YAGNI): engine **puro, versionado, determinístico** + contrato `DiagnosticResult` + regras-como-dados com envelope D-26 + golden tests. **Sem** persistência/Edge/RLS/UI/dependência/IA (deferidos). Conteúdo capilar (taxonomia + regras v1) separado como **HUMAN GATE / BLOCKING** (§7-B, §23-OQ1, D-26). "diagnostic" = avaliação capilar personalizada, não médica. | Claude |
 | 2026-08-27 | v0.2 **Boundary review** (memo): removida falsa precisão (`confidence`/score); `reasons[]` → `evidence` (reason codes estáveis, copy na UI/conteúdo); termo de produto "Avaliação capilar"; lista exata de decisões de domínio (§7-B); **OQ0 BLOCKING NOW** — decisão de arquitetura separar vs. fold em SPEC-004 (recomendação: fold). Continua Draft. | Claude |
+| 2026-08-27 | **FOLDED INTO SPEC-004** (decisão humana D-66; ADR-007 Amendment A2). Não implementada; sem código. Fronteira de domínio preservada (módulo `diagnostic/`). Documento vira registro histórico + insumo da SPEC-004. | Humano / Claude |

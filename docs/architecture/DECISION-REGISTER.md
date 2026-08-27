@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Status | v0.8 — 2026-08-27 — arquitetura aprovada; SPEC-000, SPEC-001 e **SPEC-002 implementadas/merged** (SPEC-002 PR #6; D-62/D-63/D-64/D-65; D-64 amenda D-11); LEVEL 2 auto-merge ativo |
+| Status | v0.9 — 2026-08-27 — arquitetura aprovada; SPEC-000/001/002 implementadas/merged; **SPEC-003 FOLDED INTO SPEC-004** (D-66; ADR-007 A2), fronteira Diagnostic preservada; próxima entrega = SPEC-004 (Draft); LEVEL 2 auto-merge ativo |
 | Uso | Fonte de verdade sobre o estado de cada decisão. Nenhum item muda de status sem registro humano nesta tabela. Agentes nunca resolvem itens `HUMAN DECISION` por conta própria. |
 
 Legenda de custo de mudança tardia: **L** (horas) · **M** (dias) · **H** (semanas ou migração de dados).
@@ -80,6 +80,7 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 | D-63 | `profiles` na SPEC-002 | **REMOVE.** `profiles`, `ProfilePort`, `onboarding_status`, provisioning e trigger em `auth.users` **não** são implementados agora. Ownership direto `auth.users → hair_profiles.user_id`; "onboarding concluído" é derivado da existência de um hair profile válido. `profiles` nasce numa SPEC futura com requisito concreto. Confirma a necessity review; um DEFER anterior (D-52) não obriga a implementar. | SPEC-002 §12; DATA-MODEL §3.1 (atualizar na implementação) | **DECIDED** |
 | D-64 | Versionamento de `hair_profiles` (amenda D-11) | **"Versioned profile" = snapshots históricos imutáveis identificados por `id` estável, não necessariamente por número sequencial.** REMOVE `version int`, trigger de alocação, `MAX+1`, `UNIQUE(user_id,version)` e a lógica de concorrência criada só para numerar. Cada avaliação = nova linha imutável; atual = mais recente (`created_at desc, id desc`); downstream referencia `hair_profile_id`. Verificado: nenhum requisito atual depende de ordinal sequencial. | **Amenda D-11**; SPEC-002 §8/§9; DATA-MODEL §3.3 + DOMAIN-MAP §3.2 (atualizar na implementação) | **DECIDED** |
 | D-65 | SPEC-002 | **APPROVED** (v0.4) após revisão humana. Clarificações vinculantes: `chemical_treatments` `[]` = nenhuma (sem enum `none`); `current_concerns.no_major_concern` exclusivo (`cardinality=1`) por validação de cliente + CHECK server-side (sem RPC/trigger); **analytics DEFER** (nenhum evento/no-op na SPEC-002 — SPEC-011). Implementação autorizada (LEVEL 2). | SPEC-002 → Approved; índice | **DECIDED** |
+| D-66 | SPEC-003 / fronteira Diagnostic×Schedule | **FOLD**: a entrega MVP do Assessment/Diagnostic Engine acontece na **SPEC-004** (vertical slice), não numa SPEC-003 isolada (único consumidor do resultado é o Schedule; taxonomia só definível junto ao Schedule; SPEC-003 isolada seria pacote-esqueleto). **Fronteira de domínio preservada** (módulos `diagnostic/`+`schedule/`). `diagnostic_results` **não** pré-aprovada (necessity review na SPEC-004). Falsa precisão (`confidence`/score) proibida; `evidence`/reason codes no core, copy na UI. | **ADR-007 Amendment A2**; SPEC-003 → Folded; SPEC-004 index | **DECIDED** |
 
 ## C. DEFERRED / OPEN (não decidir agora)
 
@@ -119,3 +120,4 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 | 2026-08-27 | v0.6: correção de governança CI (PR #5, merged) — `core-deno`/`supabase-test` rodam em todo PR (required checks satisfazíveis). Decisões de produto da SPEC-002 (D-62/D-63/D-64); D-64 amenda D-11 (snapshots por `id`, sem numeração sequencial). SPEC-002 → Draft Ready for Approval (HUMAN GATE). |
 | 2026-08-27 | v0.7: **SPEC-002 APPROVED** (D-65) com clarificações (`chemical_treatments` `[]`=nenhuma; `no_major_concern` exclusivo; analytics DEFER). Implementação autorizada (LEVEL 2). |
 | 2026-08-27 | v0.8: **SPEC-002 implementada e mergeada** em `main` (PR #6) via LEVEL 2; required CI verde (pgTAP 020 18/18). `hair_profiles` imutável por `id` (D-64), sem `profiles` (D-63), 8 inputs (D-62). Pendente doc-sync de DATA-MODEL/DOMAIN-MAP. |
+| 2026-08-27 | v0.9: doc-sync DATA-MODEL/DOMAIN-MAP/CLAUDE.md feito (PR #8). **SPEC-003 FOLDED INTO SPEC-004** (D-66; ADR-007 Amendment A2) — não implementada, fronteira Diagnostic preservada. |
