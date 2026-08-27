@@ -3,7 +3,7 @@
 | Campo | Valor |
 | --- | --- |
 | ID | SPEC-005 |
-| Status | **Approved** (v0.2, 2026-08-27 — **D-69**; D-12 e D-35 decididas). Implementação autorizada (LEVEL 2). |
+| Status | **Implemented** (v0.3, 2026-08-27 — aprovada por **D-69**). Evidência em §25. |
 | Owner | @gabrielfmorais (humano) |
 | Bounded Context | Care Tracking (Core) — DOMAIN-MAP §3.5 |
 | Related ADRs | ADR-001 (camadas), ADR-004 (Supabase/RLS/RPC), ADR-008 (time), ADR-007 (fronteira: o engine **não** é invocado para reagendar) |
@@ -314,9 +314,49 @@ Comentário `-- ROLLBACK:` na migration: drop das quatro funções → drop de `
 | OQ5 | CAN DEFER | Histórico atravessa planos superseded? | Não nesta fatia (BR9): histórico é do plano ativo. Reabrir na SPEC-009 (Progress), que é quem precisa de série longa. |
 | OQ6 | CAN DEFER | Limite de itens em "Próximos"/"Histórico"? | Janela de 28 dias cabe inteira na tela; paginar só se a SPEC-014 permitir planos longos. |
 
+## 25. Implementation evidence (2026-08-27)
+
+| AC | Como é atendido | Onde |
+|---|---|---|
+| AC1 | `buildTodayView(cares, executions, today)` puro; `today` é input, sem relógio (eslint `no-restricted-syntax` + dep-cruise) | `packages/core/src/care-tracking/domain/care-tracking.ts`; `care-tracking.test.ts` |
+| AC2 | `complete_care` só insere em `care_executions`; pgTAP compara `status|planned_date` antes e depois | migration `20260830000000`; pgTAP 040 |
+| AC3 | `UNIQUE (user_id, client_execution_id)` + pré-check + subtransação `EXCEPTION` | `complete_care`; pgTAP 040; `today-screen.test.tsx` |
+| AC4 | `authenticated` só tem SELECT; UPDATE/INSERT/DELETE diretos e o helper interno negados (42501) | migration; pgTAP 040 (5 asserções) |
+| AC5 | `skip_care` marca `skipped` e não cria execução | pgTAP 040 |
+| AC6 | `reschedule_care` cria a nova linha e marca a original `rescheduled` + `rescheduled_to_id`; pgTAP verifica que a `planned_date` original **não** mudou | pgTAP 040 |
+| AC7 | `care_lock_actionable` recusa qualquer transição fora de `planned` | pgTAP 040 |
+| AC8 | Janela `[hoje, hoje+28]` validada no servidor com o dia local calculado | `reschedule_care`; pgTAP 040 |
+| AC9 | `care_local_today` calcula o dia civil e recusa fuso inválido/implausível (>1 dia de UTC) | migration; pgTAP 040 |
+| AC10 | RLS `user_id = (select auth.uid())`; transição em cuidado alheio → `P0002`; anon nada | migration; pgTAP 040 |
+| AC11 | Guardrails da Foundation em 0 com a nova tabela e as quatro RPCs | `allowlists.sql`; pgTAP 040 |
+| AC12 | pgTAP inspeciona o schema: não existe coluna de conclusão nem de atraso, e o enum não tem `completed` | pgTAP 040 |
+| AC13 | Toda a tela deriva do servidor a cada leitura; sem cache local | `index.tsx` recarrega o board a cada mudança; `today-screen.test.tsx` |
+| AC14 | `busyId` bloqueia a segunda chamada em voo; a chave de idempotência é reusada no retry | `TodayScreen.tsx`; `today-screen.test.tsx` |
+| AC15 | Estados vazios ("Nenhum cuidado hoje" / "Seu cronograma chegou ao fim") | `today-screen.test.tsx` |
+| AC16 | `void_execution` preenche `voided_at`; a linha permanece e o cuidado volta a acionável | migration; pgTAP 040; `care-tracking.test.ts` |
+| AC17 | Fora de 15 min e undo repetido → `23514`, nada muda | pgTAP 040 (com `executed_at` fixado no passado) |
+| AC18 | Índice único parcial `WHERE voided_at IS NULL` recusa a segunda execução efetiva; após anular, nova execução é aceita | migration; pgTAP 040 |
+| AC19 | `care_lock_actionable` checa **também** a ausência de execução efetiva | pgTAP 040 (skip e reschedule em cuidado concluído) |
+| AC20 | `voided_at` é a única coluna mutável, e só pela RPC; sem grant de UPDATE/DELETE | migration; pgTAP 040 |
+
+**Decisões técnicas tomadas na implementação (dentro do modelo aprovado):**
+- **Sem Edge Function.** Não há engine a rodar no servidor; as transições são mudanças de estado que o Postgres já sabe impor. `EXECUTE` das quatro RPCs vai para `authenticated` — seguro porque elas recebem só um id que já é dela, uma chave de idempotência e um fuso; a usuária vem de `auth.uid()`.
+- `care_lock_actionable` centraliza as duas checagens (`status='planned'` **e** sem execução efetiva) num único lugar, em vez de repeti-las nas três RPCs — o bug de "pular um cuidado já feito" só não existe porque a checagem é compartilhada.
+- `care_local_today` é **SECURITY INVOKER**: não toca tabela, logo não precisa de privilégio elevado nem de entrada na allowlist de DEFINER.
+- `FOR UPDATE` basta (a linha sempre existe); o advisory lock da SPEC-004 existia para o caso "nenhuma linha ainda".
+- O board é lido em três queries encadeadas, com as execuções limitadas aos cuidados **daquele** plano — execução de plano superseded não entra na tela.
+- `ScheduledCare` ganhou `status`/`rescheduledToId` (shared kernel Schedule↔Care Tracking, DOMAIN-MAP §6); o adapter da SPEC-004 passou a selecioná-las. Compatibilidade, não reabertura da SPEC-004.
+- `PlanScreen` virou preview-only: a rota carrega o board uma vez e decide entre preview e tela diária, evitando duas leituras do plano.
+- Reagendamento na UI oferece três atalhos (+1/+3/+7 dias), todos dentro da janela aprovada — date picker é design, fora desta fatia.
+
+**Fora do escopo (confirmado):** SPEC-006 (check-ins), SPEC-007 (conteúdo/`care_types`), SPEC-008 (notificações), progresso/streaks, calendário em grade, execução avulsa, `note`, `skip_reason`, `origin`, analytics, IA, monetização, design final.
+
+**Não verificável neste ambiente:** `supabase test db` exige Docker + Supabase CLI, ausentes no notebook; o workflow `supabase-test` é o gate autoritativo do pgTAP. Smoke manual do fluxo real (Expo + projeto Supabase) permanece pendente — mesma situação de SPEC-001/002/004.
+
 ## 24. Change Log
 
 | Data | Mudança | Autor |
 | --- | --- | --- |
+| 2026-08-27 | v0.3 **IMPLEMENTED** — `buildTodayView` puro + `care_executions` + quatro RPCs (`complete_care`, `skip_care`, `reschedule_care`, `void_execution`) + tela Hoje. Evidência por AC em §25. | Claude |
 | 2026-08-27 | v0.2 **APPROVED (D-69)** — decisões humanas: **D-12 = sim, undo em janela de 15 min** com a execução anulada preservada (`voided_at`); **D-35 = 0 ou 1 execução efetiva** por cuidado, garantido por índice único parcial no banco; `status='completed'` **não** persistido (§8.2 confirmada). Adicionados: RPC `void_execution`, AC16–AC20, EC12–EC16. Corrigida uma lacuna do v0.1: pular/reagendar precisam checar **também** a ausência de execução efetiva, já que concluir não altera `status` (BR5/AC19). Roadmap sincronizado quanto ao checkpoint de especialista (D-67/D-68); gate de PUBLIC RELEASE inalterado. | Humano / Claude |
 | 2026-08-27 | v0.1 Draft. Escopo: tornar o cronograma da SPEC-004 utilizável (hoje/atrasado/próximos + concluir/pular/reagendar). Necessity review: **sem Edge Function** (não há engine a rodar no servidor), **sem `status='completed'`** (derivado da execução), `origin`/`skip_reason`/`note`/`updated_at`/execução avulsa/calendário em grade **DEFER**, analytics **DEFER** (D-65). D-28 aplicada integralmente. **Dois BLOCKING**: D-12 e D-35, ambos agendados pelo registro para esta SPEC. | Claude |
