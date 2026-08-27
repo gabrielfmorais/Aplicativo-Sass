@@ -18,6 +18,9 @@ create table if not exists tests.grants_allowlist (
   primary key (grantee, table_name, privilege)
 );
 
+-- allowlist tables are read by tests.* check functions, which may run while the role is authenticated/anon.
+grant select on all tables in schema tests to anon, authenticated;
+
 truncate tests.security_definer_allowlist;
 truncate tests.grants_allowlist;
 
