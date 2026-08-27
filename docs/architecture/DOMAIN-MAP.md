@@ -52,9 +52,9 @@ Legenda: seta cheia = dependência de dados/fluxo; pontilhada = consulta/cross-c
 ## 3. Contextos
 
 ### 3.1 Identity & Account (Supporting)
-- **Responsabilidade:** autenticação (delegada ao Supabase Auth), sessão, `profiles` (timezone, locale, display_name, onboarding_status), consentimentos, exclusão/exportação de conta.
-- **Entidades:** `Profile` (1:1 com `auth.users`), `Consent`, `AccountDeletionRequest`.
-- **Invariantes:** todo `auth.users` possui exatamente um `profile` (criado por trigger em `auth.users` insert); timezone sempre IANA válida; exclusão é soft por até N dias (grace) e depois hard (cascade) — política em SECURITY-BASELINE.
+- **Responsabilidade:** autenticação (delegada ao Supabase Auth), sessão, pedido de exclusão de conta (SPEC-001); perfil de aplicação (`profiles`: timezone, locale, display_name, onboarding_status), consentimentos e exportação são responsabilidades **conceituais** cuja implementação começa quando um requisito de produto as exigir (perfil: SPEC-002; consentimentos/termos: SPEC-013). *Identity authenticates the user; application profile/product data begins only when a product requirement needs it.*
+- **Entidades:** `AccountDeletionRequest` (SPEC-001); `Profile` (1:1 com `auth.users`, SPEC-002); `Consent` (SPEC-013).
+- **Invariantes:** quando o perfil existir, todo `auth.users` possui no máximo um `profile`, criado por comando idempotente na primeira sessão autenticada (sem trigger em `auth.users` — ADR-005 A1); timezone sempre IANA válida; exclusão efetiva de `auth.users` é privilegiada/server-owned (política imediata vs grace pendente — D-55).
 - **Não faz:** autorização de negócio; regras de produto.
 - **Engine em core:** apenas `TimeZone` VO e validações.
 

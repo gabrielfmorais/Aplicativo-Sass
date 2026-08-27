@@ -3,7 +3,13 @@
 Projeto: assistente pessoal de cuidados capilares (mobile, Expo + Supabase). Idioma dos docs: pt-BR; código, identificadores e commits em inglês.
 
 ## 0. Estado atual
-**Arquitetura aprovada (2026-08-26). SPEC-000 — Engineering Foundation: IMPLEMENTED — READY FOR MERGE (PR #1, CI verde; AC12 deferred por decisão humana D-50, não bloqueante).** **Nenhuma feature de produto está autorizada.** Próxima SPEC permitida: **SPEC-001 — Identity & Authentication**, que **ainda não foi autorizada** — só começa via skill `spec-create` (`.claude/skills/spec-create/SKILL.md`) + aprovação humana explícita. Node **22.23.x** (D-43), Expo **SDK 57 / RN 0.86** (D-44). Decisões humanas vinculantes: `docs/architecture/DECISION-REGISTER.md`. Guardrails executáveis: `pnpm verify`, `pnpm check:boundaries`, `supabase/tests/security`, `.github/workflows`.
+**Arquitetura aprovada (2026-08-26). SPEC-000 — Engineering Foundation: IMPLEMENTED / MERGED (AC12 deferred por decisão humana D-50, não bloqueante). SPEC-001 — Identity & Authentication: APPROVED (D-51); implementação NOT STARTED.** Nenhuma outra SPEC de produto está autorizada; novas SPECs nascem via skill `spec-create` (`.claude/skills/spec-create/SKILL.md`) + aprovação humana. Node **22.23.x** (D-43), Expo **SDK 57 / RN 0.86** (D-44). Decisões humanas vinculantes: `docs/architecture/DECISION-REGISTER.md`. Guardrails executáveis: `pnpm verify`, `pnpm check:boundaries`, `supabase/tests/security`, `.github/workflows`.
+
+### 0.1 Bounded Autonomous Execution
+Dentro de arquitetura/ADR/SPEC **já aprovados**, o agente tem autonomia operacional, sem pedir autorização para o rotineiro: criar branch · implementar o escopo aprovado · executar testes · corrigir erros causados pelo trabalho atual · commits atômicos · push da branch · corrigir CI · atualizar documentação diretamente afetada · deixar a PR pronta para revisão.
+**Human gates (obrigatórios):** mudança de produto · expansão de escopo · nova decisão arquitetural · trade-off relevante de segurança · operação destrutiva · produção · custo externo · secrets/credenciais ausentes · decisões legais/policy · merge na `main`.
+**Nunca:** push direto na `main` · force push na `main` · merge autônomo na `main` · operação destrutiva em produção · commit de secrets.
+Vale a regra de necessidade (YAGNI, `DECISION-REGISTER` D-47/D-48; compatível com Ponytail FULL): a menor mudança que atende à SPEC; nada "para depois".
 - `supabase/functions/deno.json` deve espelhar as dependências de `packages/core/package.json` (`pnpm exec node scripts/check-deno-import-map.mjs`).
 - Rota `apps/mobile/src/app/index.tsx` + `apps/mobile/src/features/foundation-status` são smoke da fundação, não tela de produto — substituir na SPEC-001, nunca evoluir.
 
@@ -47,7 +53,7 @@ Antes de editar: "Qual é a menor mudança segura?" Refactor significativo = SPE
 ## 6. Git
 - Branches: `feature/*`, `fix/*`, `chore/*`, `docs/*`. Nunca commitar direto em `main`.
 - Conventional Commits: `feat(schedule): ...`, `fix(auth): ...`, `docs(adr): ...`, `test(rls): ...`.
-- Commits pequenos e atômicos. PR usa `.github/PULL_REQUEST_TEMPLATE.md`. Sem commit/push sem pedido.
+- Commits pequenos e atômicos. PR usa `.github/PULL_REQUEST_TEMPLATE.md`. Commit/push da branch de trabalho são autônomos dentro de SPEC aprovada (§0.1); merge na `main` é humano.
 
 ## 7. Testes e qualidade
 - Engines: unit + golden fixtures. RLS/RPC: pgTAP em `supabase/tests`. UI: RNTL para lógica de tela; E2E só em jornadas críticas.

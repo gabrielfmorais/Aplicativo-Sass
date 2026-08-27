@@ -15,9 +15,9 @@ Público jovem, mobile, baixa tolerância a fricção (P01). Apple exige Sign in
 - **Sessão:** JWT de acesso curto (padrão 1h) + refresh token rotation; tokens em `expo-secure-store`; logout revoga refresh token e cancela notificações locais.
 - **Deep links de auth** (OTP/magic link, OAuth callback): rota allowlisted, parâmetros validados, sem tokens em logs; preferir código digitado a link clicável no MVP para reduzir superfície de deep link.
 - **Onboarding anônimo:** não usar usuários anônimos no MVP; onboarding começa localmente e a conta é criada antes de persistir o Hair Profile.
-- **Perfil:** trigger `on auth.users insert` cria `profiles` (única exceção de trigger em schema `auth`, documentada).
+- **Perfil:** ~~trigger `on auth.users insert` cria `profiles`~~ — **Amendment A1 (SPEC-001 aprovada, 2026-08-26):** o provisionamento do perfil de aplicação é **adiado para a SPEC-002** e feito por comando idempotente na primeira sessão autenticada (Opção B); a SPEC-001 **não** usa trigger em `auth.users` nem RPC `ensure_my_profile`. A decisão principal desta ADR (Apple + Google + Email OTP) permanece inalterada.
 - **Admin (pós-MVP):** mesma instância de Auth; `admin_users` + custom claim `app_role` via Custom Access Token Hook; MFA TOTP obrigatório (`aal2`); sessão mais curta; sem login social para admin.
-- **Exclusão de conta:** exigida pela Apple; RPC `request_account_deletion` + grace + purga.
+- **Exclusão de conta:** exigida pela Apple; **Amendment A1:** a SPEC-001 registra o pedido em `account_deletion_requests` por acesso direto (grants mínimos + RLS + constraints; sem RPC wrapper); a exclusão efetiva de `auth.users` permanece privilegiada/server-owned e a política (imediata vs grace) é decisão humana pendente (D-55).
 
 A SPEC-001 (Identity) deve tratar explicitamente: Sign in with Apple; Google; Email OTP; account linking; prevenção de contas duplicadas; colisão email/provider; expiração de OTP; rate limiting; deep link security; sessão; logout; account recovery.
 

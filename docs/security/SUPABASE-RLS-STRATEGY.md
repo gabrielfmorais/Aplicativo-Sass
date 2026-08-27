@@ -32,7 +32,7 @@ Legenda: **U** = `authenticated` (própria linha via `user_id = auth.uid()`) · 
 
 | Tabela | RLS | SELECT | INSERT | UPDATE | DELETE | Notas |
 |---|---|---|---|---|---|---|
-| profiles | ON | U | S (trigger no signup) | U (colunas permitidas: display_name, timezone, locale, onboarding_status) | — (exclusão via RPC) | Colunas sensíveis protegidas por trigger/`GRANT UPDATE (cols)` |
+| profiles (**SPEC-002**, não SPEC-001) | ON | U | U via comando idempotente (sem trigger em `auth.users` — ADR-005 A1) | U (colunas permitidas: display_name, timezone, locale; `onboarding_status` conforme SPEC-002) | — | Colunas sensíveis protegidas por `GRANT UPDATE (cols)` |
 | consents | ON | U | U | — | — | append-only; revogação = novo registro |
 | hair_profiles | ON | U | U (INSERT direto; trigger BEFORE INSERT atribui `version` com advisory lock) | — | — | imutável |
 | diagnostic_results | ON | U | S | — | — | escrito por `generate-plan` |
@@ -46,7 +46,7 @@ Legenda: **U** = `authenticated` (própria linha via `user_id = auth.uid()`) · 
 | subscriptions | ON | U | S | S | — | webhook |
 | admin_users | ON | admin (`is_admin()`) | M | M | M | |
 | audit_log | ON | admin | S / função definer | — | — | append-only |
-| account_deletion_requests | ON | U | R (`request_account_deletion`) | R (`cancel_account_deletion`) | — | |
+| account_deletion_requests (**SPEC-001 aprovada**) | ON | U | U (`with check user_id = auth.uid()`) | **— (sem grant de UPDATE)** | U (cancelar = apagar o próprio pedido) | Acesso direto: grants mínimos + RLS + PK; sem RPC. `anon`: nenhum privilégio. Exclusão efetiva de `auth.users` é privilegiada/server-owned |
 
 ## 4. RPCs planejadas e postura de segurança
 
@@ -59,7 +59,7 @@ Legenda: **U** = `authenticated` (própria linha via `user_id = auth.uid()`) · 
 | `submit_checkin(care_execution_id, ...)` | INVOKER | |
 | `void_execution(care_execution_id)` | INVOKER | "desfazer" em janela curta; grava `voided_at` (pendente D-12) |
 | `get_my_entitlements()` | INVOKER | lê `subscriptions` própria |
-| `request_account_deletion()` | **DEFINER** | precisa escrever em `audit_log` e agendar purga; justificativa: usuária não tem grant em `audit_log`. Controles: `search_path=''`, usa `auth.uid()` internamente, sem args sensíveis, `REVOKE FROM public/anon`, `GRANT EXECUTE TO authenticated` |
+| ~~`request_account_deletion()`~~ | — | **Removida pela SPEC-001 (aprovada):** o pedido de exclusão é escrito por acesso direto com grants mínimos + RLS + PK; `audit_log` foi adiado; nenhuma função `SECURITY DEFINER` é introduzida pela SPEC-001 |
 | `create_plan_tx(...)` | chamada só por Edge com service role | transação de geração de plano; `REVOKE EXECUTE FROM authenticated, anon` |
 | `is_admin()`, `has_entitlement()` | INVOKER, STABLE | usadas em policies |
 
