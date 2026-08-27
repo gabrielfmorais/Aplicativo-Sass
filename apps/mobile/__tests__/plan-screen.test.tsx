@@ -18,36 +18,49 @@ const profile: HairProfileSnapshot = {
   primaryGoal: 'softness_and_hydration',
 };
 
-const activePlan: HairPlan = {
+const createdPlan: HairPlan = {
   id: 'plan-1',
   hairProfileId: 'hp-1',
   startsOn: '2026-09-01',
   assessmentAlgorithmVersion: 'v1',
   scheduleAlgorithmVersion: 'v1',
   createdAt: '2026-09-01T10:00:00Z',
-  cares: [{ id: 'c1', careTypeCode: 'hydration', plannedDate: '2026-09-01' }],
+  cares: [
+    {
+      id: 'c1',
+      careTypeCode: 'hydration',
+      plannedDate: '2026-09-01',
+      status: 'planned',
+      rescheduledToId: null,
+    },
+  ],
 };
 
 const makePort = (overrides: Partial<HairPlanPort> = {}): jest.Mocked<HairPlanPort> =>
   ({
     getActive: jest.fn(async () => null),
-    generate: jest.fn(async () => activePlan),
+    generate: jest.fn(async () => createdPlan),
     ...overrides,
   }) as unknown as jest.Mocked<HairPlanPort>;
 
-const renderScreen = (plans: HairPlanPort, newRequestId = () => 'req-1') =>
+const renderScreen = (
+  plans: HairPlanPort,
+  onCreated: () => void = jest.fn(),
+  newRequestId: () => string = () => 'req-1',
+) =>
   render(
     <PlanScreen
       profile={profile}
       plans={plans}
       today={TODAY}
       newRequestId={newRequestId}
+      onCreated={onCreated}
       onOpenAccount={jest.fn()}
     />,
   );
 
-describe('PlanScreen (SPEC-004 §5/§7)', () => {
-  it('shows the assessment and the previewed schedule when there is no plan yet', async () => {
+describe('PlanScreen (SPEC-004 §5) — preview and confirmation only', () => {
+  it('shows the assessment and the previewed schedule', async () => {
     const screen = await renderScreen(makePort());
     await waitFor(() => screen.getByText('Este é o seu cronograma'));
     screen.getByText('Sua avaliação capilar');
@@ -58,13 +71,14 @@ describe('PlanScreen (SPEC-004 §5/§7)', () => {
     expect(screen.getAllByText(/Hidratação|Nutrição|Reconstrução/)).toHaveLength(8);
   });
 
-  it('creates the plan server-side on confirmation and then shows it as active', async () => {
+  it('creates the plan server-side on confirmation and hands control back to the route', async () => {
     const plans = makePort();
-    const screen = await renderScreen(plans);
+    const onCreated = jest.fn();
+    const screen = await renderScreen(plans, onCreated);
     await waitFor(() => screen.getByText('Este é o seu cronograma'));
 
     await fireEvent.press(screen.getByText('Começar meu cronograma'));
-    await waitFor(() => screen.getByText('Seu cronograma'));
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
     expect(plans.generate).toHaveBeenCalledWith({ clientRequestId: 'req-1', startsOn: '2026-09-01' });
     expect(plans.generate).toHaveBeenCalledTimes(1);
   });
@@ -80,53 +94,25 @@ describe('PlanScreen (SPEC-004 §5/§7)', () => {
     await fireEvent.press(screen.getByText('Criando…'));
     expect(plans.generate).toHaveBeenCalledTimes(1);
 
-    release(activePlan);
-    await waitFor(() => screen.getByText('Seu cronograma'));
+    release(createdPlan);
   });
 
   it('retrying a failed creation reuses the same clientRequestId (idempotent, AC9)', async () => {
     const generate = jest
       .fn<Promise<HairPlan>, [{ clientRequestId: string; startsOn: string }]>()
       .mockRejectedValueOnce(new Error('network'))
-      .mockResolvedValueOnce(activePlan);
+      .mockResolvedValueOnce(createdPlan);
     const plans = makePort({ generate });
+    const onCreated = jest.fn();
     let issued = 0;
-    const screen = await renderScreen(plans, () => `req-${++issued}`);
+    const screen = await renderScreen(plans, onCreated, () => `req-${++issued}`);
     await waitFor(() => screen.getByText('Este é o seu cronograma'));
 
     await fireEvent.press(screen.getByText('Começar meu cronograma'));
     await waitFor(() => screen.getByText('Não foi possível criar seu cronograma. Tente novamente.'));
 
     await fireEvent.press(screen.getByText('Começar meu cronograma'));
-    await waitFor(() => screen.getByText('Seu cronograma'));
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
     expect(generate.mock.calls.map((c) => c[0].clientRequestId)).toEqual(['req-1', 'req-1']);
-  });
-
-  it('renders the persisted plan when one is already active (reopening the app)', async () => {
-    const plans = makePort({ getActive: jest.fn(async () => activePlan) });
-    const screen = await renderScreen(plans);
-    await waitFor(() => screen.getByText('Seu cronograma'));
-    screen.getByText('Cronograma ativo desde ter, 01/09.');
-    expect(screen.queryByText('Começar meu cronograma')).toBeNull();
-  });
-
-  it('offers a recoverable path when the plan cannot be read', async () => {
-    const getActive = jest
-      .fn<Promise<HairPlan | null>, []>()
-      .mockRejectedValueOnce(new Error('offline'))
-      .mockResolvedValueOnce(activePlan);
-    const screen = await renderScreen(makePort({ getActive }));
-    await waitFor(() => screen.getByText('Não foi possível carregar seu cronograma.'));
-
-    await fireEvent.press(screen.getByText('Tentar novamente'));
-    await waitFor(() => screen.getByText('Seu cronograma'));
-  });
-
-  it('survives an active plan with no cares without breaking navigation', async () => {
-    const plans = makePort({ getActive: jest.fn(async () => ({ ...activePlan, cares: [] })) });
-    const screen = await renderScreen(plans);
-    await waitFor(() => screen.getByText('Seu cronograma'));
-    screen.getByText('Nenhum cuidado programado ainda.');
-    screen.getByText('Sua conta');
   });
 });

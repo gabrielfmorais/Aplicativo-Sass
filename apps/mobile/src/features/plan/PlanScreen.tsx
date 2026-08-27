@@ -1,6 +1,6 @@
-import type { HairPlan, HairPlanPort, HairProfileSnapshot, LocalDate, PlanDraft } from '@app/core';
+import type { HairPlanPort, HairProfileSnapshot, LocalDate, PlanDraft } from '@app/core';
 import { buildPlan } from '@app/core';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { CARE_TYPE_LABEL, EVIDENCE_LABEL, formatPlannedDate } from './copy';
@@ -48,35 +48,29 @@ function Assessment({ draft }: { draft: PlanDraft }) {
  * runs, so what she confirms is what gets persisted (AC3). Confirming calls the server, which is the
  * only thing that can create a plan. Retrying reuses the same `clientRequestId`, so a failed or lost
  * response can never produce a second plan or a spurious supersede (AC9).
+ *
+ * Shown only while there is no active plan: the route loads the board once and renders the daily
+ * screen instead as soon as one exists (SPEC-005).
  */
 export function PlanScreen({
   profile,
   plans,
   today,
   newRequestId,
+  onCreated,
   onOpenAccount,
 }: {
   profile: HairProfileSnapshot;
   plans: HairPlanPort;
   today: LocalDate;
   newRequestId: () => string;
+  onCreated: () => void;
   onOpenAccount: () => void;
 }) {
-  // 'loading' → reading; 'error' → read failed (retry); null → no plan yet (preview); plan → active.
-  const [plan, setPlan] = useState<'loading' | 'error' | HairPlan | null>('loading');
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   // One id per user intent: reused across retries so the server call stays idempotent.
   const requestId = useRef<string | null>(null);
-
-  const load = useCallback(() => {
-    setPlan('loading');
-    plans
-      .getActive()
-      .then(setPlan)
-      .catch(() => setPlan('error'));
-  }, [plans]);
-  useEffect(load, [load]);
 
   const draft = useMemo(() => buildPlan(profile, today), [profile, today]);
 
@@ -87,36 +81,20 @@ export function PlanScreen({
     setMessage(null);
     plans
       .generate({ clientRequestId: requestId.current, startsOn: today })
-      .then((created) => {
+      .then(() => {
         requestId.current = null;
-        setPlan(created);
+        onCreated();
       })
       .catch(() => setMessage('Não foi possível criar seu cronograma. Tente novamente.'))
       .finally(() => setSubmitting(false));
   };
 
-  if (plan === 'loading') return null;
-
-  if (plan === 'error') {
-    return (
-      <View style={styles.center}>
-        <Text accessibilityLiveRegion="polite">Não foi possível carregar seu cronograma.</Text>
-        <Pressable style={styles.secondary} onPress={load} accessibilityRole="button">
-          <Text>Tentar novamente</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
-  const previewing = plan === null;
-  const items: Item[] = previewing
-    ? draft.cares.map((c, i) => ({ key: `${c.plannedDate}-${i}`, ...c }))
-    : plan.cares.map((c) => ({ key: c.id, careTypeCode: c.careTypeCode, plannedDate: c.plannedDate }));
+  const items: Item[] = draft.cares.map((c, i) => ({ key: `${c.plannedDate}-${i}`, ...c }));
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title} accessibilityRole="header">
-        {previewing ? 'Este é o seu cronograma' : 'Seu cronograma'}
+        Este é o seu cronograma
       </Text>
 
       <Assessment draft={draft} />
@@ -128,20 +106,14 @@ export function PlanScreen({
         <Schedule items={items} />
       </View>
 
-      {previewing ? (
-        <Pressable
-          style={[styles.primary, submitting && styles.disabled]}
-          disabled={submitting}
-          onPress={confirm}
-          accessibilityRole="button"
-        >
-          <Text style={styles.primaryText}>{submitting ? 'Criando…' : 'Começar meu cronograma'}</Text>
-        </Pressable>
-      ) : (
-        <Text style={styles.confirmed} accessibilityLiveRegion="polite">
-          Cronograma ativo desde {formatPlannedDate(plan.startsOn)}.
-        </Text>
-      )}
+      <Pressable
+        style={[styles.primary, submitting && styles.disabled]}
+        disabled={submitting}
+        onPress={confirm}
+        accessibilityRole="button"
+      >
+        <Text style={styles.primaryText}>{submitting ? 'Criando…' : 'Começar meu cronograma'}</Text>
+      </Pressable>
 
       {message ? (
         <Text accessibilityLiveRegion="polite" style={styles.message}>

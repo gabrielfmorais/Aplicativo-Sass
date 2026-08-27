@@ -1,10 +1,10 @@
-import type { CareTypeCode, HairPlan, HairPlanPort, ScheduledCare } from '@app/core';
+import type { CareTypeCode, HairPlan, HairPlanPort, ScheduledCare, ScheduledCareStatus } from '@app/core';
 import { InfrastructureError } from '@app/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 const PLAN_COLUMNS =
   'id, hair_profile_id, starts_on, assessment_algorithm_version, schedule_algorithm_version, created_at';
-const CARE_COLUMNS = 'id, care_type_code, planned_date';
+const CARE_COLUMNS = 'id, care_type_code, planned_date, status, rescheduled_to_id';
 const fail = (code: string, e: { message: string }) => new InfrastructureError(code, e.message);
 
 type PlanRow = {
@@ -15,12 +15,20 @@ type PlanRow = {
   schedule_algorithm_version: string;
   created_at: string;
 };
-type CareRow = { id: string; care_type_code: string; planned_date: string };
+type CareRow = {
+  id: string;
+  care_type_code: string;
+  planned_date: string;
+  status: string;
+  rescheduled_to_id: string | null;
+};
 
 const toCare = (r: CareRow): ScheduledCare => ({
   id: r.id,
   careTypeCode: r.care_type_code as CareTypeCode,
   plannedDate: r.planned_date,
+  status: r.status as ScheduledCareStatus,
+  rescheduledToId: r.rescheduled_to_id,
 });
 
 /**

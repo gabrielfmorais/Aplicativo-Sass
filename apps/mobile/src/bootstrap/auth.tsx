@@ -1,12 +1,14 @@
 import type {
   AuthPort,
   AuthState,
+  CareTrackingPort,
   DeletionRequestPort,
   HairPlanPort,
   HairProfilePort,
+  Instant,
   LocalDate,
 } from '@app/core';
-import { UNAUTHENTICATED, cryptoIdGenerator, systemClock, todayFor } from '@app/core';
+import { UNAUTHENTICATED, cryptoIdGenerator, systemClock, toLocalDate } from '@app/core';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -15,6 +17,7 @@ import { AppState } from 'react-native';
 import { createSupabaseAuthAdapter } from '@/infrastructure/supabase/auth-adapter';
 import { supabase } from '@/infrastructure/supabase/client';
 import { createDeletionRequestAdapter } from '@/infrastructure/supabase/deletion-request-adapter';
+import { createCareTrackingAdapter } from '@/infrastructure/supabase/care-tracking-adapter';
 import { createHairPlanAdapter } from '@/infrastructure/supabase/hair-plan-adapter';
 import { createHairProfileAdapter } from '@/infrastructure/supabase/hair-profile-adapter';
 import { discardSessionIfFreshInstall } from '@/infrastructure/supabase/fresh-install';
@@ -25,9 +28,14 @@ type AuthContextValue = {
   deletion: DeletionRequestPort;
   hairProfile: HairProfilePort;
   hairPlan: HairPlanPort;
+  careTracking: CareTrackingPort;
   /** The user's civil day (ADR-008): the composition root owns the clock, screens never read it. */
   today: () => LocalDate;
-  /** Fresh idempotency key for a user-initiated server write (SPEC-004 AC9). */
+  /** Current instant — used only to decide whether the undo window is still open (SPEC-005). */
+  now: () => Instant;
+  /** The device's IANA timezone; the server computes the civil day from it (SPEC-005 §9/T22). */
+  timeZone: () => string;
+  /** Fresh idempotency key for a user-initiated server write (SPEC-004 AC9 / SPEC-005 AC14). */
   newRequestId: () => string;
 };
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -57,6 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const hairPlan = useMemo(() => createHairPlanAdapter(supabase), []);
+  const careTracking = useMemo(() => createCareTrackingAdapter(supabase), []);
+  const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   useEffect(() => {
     let active = true;
@@ -84,7 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         deletion,
         hairProfile,
         hairPlan,
-        today: () => todayFor(systemClock, Intl.DateTimeFormat().resolvedOptions().timeZone),
+        careTracking,
+        today: () => toLocalDate(systemClock.now(), timeZone()),
+        now: () => systemClock.now(),
+        timeZone,
         newRequestId: () => cryptoIdGenerator.next(),
       }}
     >
