@@ -1,142 +1,111 @@
-# SPEC-004 — Domain Rules Worksheet (para preenchimento/aprovação humana)
+# SPEC-004 — Domain Rules V1 (CANDIDATE)
 
 | Campo | Valor |
 |---|---|
-| Status | **WORKSHEET — aguardando design de regra humano/especialista** (D-26 / ADR-007 A1). Nada aqui é regra validada. |
-| Relacionados | SPEC-004 §13, ADR-007 (A1/A2), SPEC-002 §6 (inputs), DATA-MODEL §3.9, MVP-ROADMAP F4 |
-| Regra | Engenharia **não** preenche comportamento capilar. Toda célula de comportamento = `TBD — HUMAN/DOMAIN VALIDATION`. Só `validation_status = validated` entra em produção. |
+| Status | **V1 CANDIDATE** (decisão humana de produto 2026-08-27 — D-67). **Cosmetic product heuristics — NÃO** diagnóstico médico/dermatológico. |
+| validation_status | **candidate** — implementável em **dev/internal beta**; **PUBLIC RELEASE** exige `validated` (domain reviewer sign-off) — D-26 (esclarecido em D-67) / ADR-007 A1. |
+| Inputs autoritativos | os 8 campos da SPEC-002 apenas. Termo de produto: **"Avaliação capilar"**. |
 
-> **Inputs autoritativos (únicos):** os 8 campos da SPEC-002 — `hair_pattern`, `strand_thickness`, `scalp_tendency`, `wash_frequency`, `chemical_treatments`, `heat_usage`, `current_concerns`, `primary_goal`. Nenhum outro dado entra sem nova SPEC. Termo de produto: **"Avaliação capilar"** (cosmético, não médico).
-
----
-
-## 1. Candidate care types
-Candidatos vindos dos docs existentes (DATA-MODEL §3.9; ciclo "H/N/R" em MVP-ROADMAP F4). **Não** são regra científica; carecem de aprovação.
-
-| code | Nome UX (pt-BR) | Propósito de produto | O que **NÃO** significa | Status |
-|---|---|---|---|---|
-| `hydration` | Hidratação | passo de cuidado cosmético (rótulo de agenda) | não é tratamento médico; não repõe nada "clinicamente" | **CANDIDATE** |
-| `nutrition` | Nutrição | passo de cuidado cosmético | idem | **CANDIDATE** |
-| `reconstruction` | Reconstrução | passo de cuidado cosmético | idem | **CANDIDATE** |
-| _(outro?)_ | _TBD_ | _só se houver requisito de produto concreto_ | — | **TBD** |
-
-**Decisões humanas:** confirmar/renomear o conjunto; aprovar `code`s finais; decidir se há outros (ex.: limpeza/finalização) — **sem inventar**.
-
-## 2. Assessment outputs requiring decisions
-Estrutura **mínima** para o Schedule decidir. Proibido: `confidence`, score, porcentagem, severidade arbitrária.
-
-| Output candidato | Decisão do Schedule que habilita | Por que não é derivável direto do perfil | Status |
-|---|---|---|---|
-| "necessidade" por care type (ex.: precisa de hidratação? nível?) | escolher mix/ênfase dos cuidados | requer mapear características → necessidade (conhecimento capilar) | **TBD — HUMAN** |
-| flag "cabelo quimicamente tratado" | possível ênfase de reconstrução/cautela | está perto do observado (`chemical_treatments`) → talvez **não** agregue decisão além da necessidade | **TBD — decidir se agrega** |
-| flag "alto uso de calor" | possível ênfase | idem `heat_usage` observado | **TBD — decidir se agrega** |
-| reason codes (§6) | explicar o "porquê" na tela | derivado da regra que disparou | **TBD — só se houver tela e regra** |
-
-**Decisão humana:** qual é o `AssessmentOutput` mínimo (provável: um conjunto de "necessidades" por care type) — **sem** níveis/pesos até validação.
-
-## 3. Input → rule matrix
-Valores de cada input são factuais (SPEC-002). **Efeitos no schedule = TBD.** Não preencher "se X então Y".
-
-### `hair_pattern` (straight · wavy · curly · coily · transitioning_or_mixed · unknown)
-| Input value | Possible effect on schedule | Evidence/rationale required? | Rule status |
-|---|---|---|---|
-| straight / wavy / curly / coily / transitioning_or_mixed / unknown | _(por valor)_ | Sim | **TBD — HUMAN/DOMAIN VALIDATION** |
-
-### `strand_thickness` (fine · medium · coarse · unknown)
-| Input value | Possible effect | Evidence required? | Rule status |
-|---|---|---|---|
-| fine / medium / coarse / unknown | — | Sim | **TBD — HUMAN/DOMAIN VALIDATION** |
-
-### `scalp_tendency` (oily_quickly · balanced · dry_tendency · unknown)
-| Input value | Possible effect | Evidence required? | Rule status |
-|---|---|---|---|
-| oily_quickly / balanced / dry_tendency / unknown | — | Sim | **TBD — HUMAN/DOMAIN VALIDATION** |
-
-### `wash_frequency` (once_or_less_weekly · twice_weekly · three_to_four_weekly · five_or_more_weekly · varies)
-| Input value | Possible effect | Evidence required? | Rule status |
-|---|---|---|---|
-| (cada faixa) / varies | — (provável base para nº de cuidados/semana) | Sim | **TBD — HUMAN/DOMAIN VALIDATION** |
-
-### `chemical_treatments` (coloring · bleaching_or_highlights · straightening_relaxing_or_progressive · perm_or_chemical_texturizing · [] = nenhuma)
-| Input value | Possible effect | Evidence required? | Rule status |
-|---|---|---|---|
-| cada química / combinação / nenhuma | — | Sim | **TBD — HUMAN/DOMAIN VALIDATION** |
-
-### `heat_usage` (almost_never · one_to_two_weekly · three_to_four_weekly · almost_daily)
-| Input value | Possible effect | Evidence required? | Rule status |
-|---|---|---|---|
-| cada faixa | — | Sim | **TBD — HUMAN/DOMAIN VALIDATION** |
-
-### `current_concerns` (dryness · breakage · tangling · dullness · frizz · no_major_concern)
-| Input value | Possible effect | Evidence required? | Rule status |
-|---|---|---|---|
-| cada queixa / no_major_concern | — | Sim | **TBD — HUMAN/DOMAIN VALIDATION** |
-
-### `primary_goal` (softness_and_hydration · reduce_breakage_and_strengthen · recover_chemical_or_heat_damage · definition_and_frizz_control · maintain_healthy_hair)
-| Input value | Possible effect | Evidence required? | Rule status |
-|---|---|---|---|
-| cada objetivo | — (provável peso na priorização) | Sim | **TBD — HUMAN/DOMAIN VALIDATION** |
-
-## 4. Cadence decisions required
-Slots explícitos para decisão humana (nenhum número preenchido):
-- Nº de cuidados por semana: **TBD** (função de `wash_frequency`?).
-- Proporção/mix entre care types: **TBD**.
-- Intervalo mínimo entre certos care types (ex.: espaçar reconstruções): **TBD**.
-- Comportamento quando há química (`chemical_treatments ≠ []`): **TBD**.
-- Comportamento com alto uso de calor (`heat_usage` alto): **TBD**.
-- Comportamento para `unknown`/`varies`: **TBD** (default conservador — §6 abaixo).
-- Limites conservadores (mínimo/máximo por semana; teto de intensidade): **TBD**.
-
-## 5. Plan-window options
-Comparação **de produto** (sem escolher ciência):
-| Janela | Benefício de produto | Custo de produto | Status |
-|---|---|---|---|
-| **2 semanas** | menos compromisso percebido; re-engajamento mais frequente; regenera cedo se o hábito mudar | mais regenerações/lembretes; menos "visão de longo prazo" | opção |
-| **4 semanas** | senso de plano/rotina; menos regenerações | maior chance de o plano "envelhecer" antes de refazer | opção |
-| outra | só com requisito concreto | — | **TBD** |
-
-**Decisão humana:** escolher a janela (ou regra de extensão). Sem impacto em ciência capilar — é decisão de produto/UX.
-
-## 6. Unknown/varies policy
-- Toda dimensão aceita `unknown`; `wash_frequency` aceita `varies` (SPEC-002).
-- Política de engine: **nunca erro**; cair em **default conservador** — **qual default? TBD — HUMAN/DOMAIN VALIDATION**.
-- Regra: não penalizar/assumir dano sem evidência declarada.
-
-## 7. Explainability decisions
-Estrutura mínima **se** a tela mostrar "Por que este cronograma?":
-- `evidence: { reasonCode }[]` — identificadores **estáveis**, um por regra aprovada.
-- **Não** criar reason codes sem uma regra correspondente aprovada; **não** escrever copy final (a copy pt-BR é da camada de UI/conteúdo).
-- Lista de reason codes: **TBD — depende das regras aprovadas (§3/§4)**.
-
-## 8. Safety boundary (cosmético, não médico)
-O engine é **cosmético**; não diagnostica couro cabeludo nem doença. Os 8 inputs atuais são todos cosméticos (não coletam sintoma médico). Categorias de **relato** que, se um dia forem coletadas/relatadas, devem ficar **FORA** do engine e **orientar procurar profissional** (dermatologista/tricologista) — **sem** o app diagnosticar ou tratar:
-- Queda de cabelo súbita/acentuada ou falhas.
-- Feridas, sangramento, crostas, pus no couro.
-- Dor, ardência intensa ou coceira persistente.
-- Descamação severa/persistente; sinais de infecção.
-- Reação alérgica a produto.
-**Decisão humana:** aprovar esta fronteira e a mensagem de encaminhamento (copy = UI/conteúdo). Nada disso vira regra diagnóstica.
-
-## 9. Rules requiring external/domain validation (Validation Register)
-Toda regra futura (assessment e schedule) preenche este registro (ADR-007 A1). Nenhuma entrada ainda.
-| rule_id | rationale/source | reviewer (domain validator) | validation_status | version |
-|---|---|---|---|---|
-| _(ex.: `assess.hydration_need`)_ | _(fonte/racional)_ | _(especialista)_ | `draft` → `awaiting_domain_review` → `validated` | `v1` |
-| _(a preencher)_ | — | — | **draft** | — |
-
-Só `validation_status = validated` compõe a versão de produção; build/teste falha se produção referenciar regra não validada.
-
-## 10. Exact decisions needed from human
-1. **Care types**: confirmar o conjunto e os `code`s (§1).
-2. **AssessmentOutput mínimo**: quais "necessidades"/flags existem e o que cada uma habilita (§2) — sem níveis/pesos até validado.
-3. **Regras `input → efeito`** para os 8 inputs (§3), incl. combinações relevantes.
-4. **Cadência** (§4): nº/semana, mix, intervalos, comportamento com química/calor, limites conservadores.
-5. **`unknown`/`varies` default** (§6).
-6. **Janela do plano** (§5) — decisão de produto.
-7. **Reason codes** (§7) — só os atrelados a regras aprovadas.
-8. **Fronteira de segurança** e mensagem de encaminhamento (§8).
-9. Para cada regra: `rule_id` + `rationale/source` + `reviewer` + `validation_status` + `version` (§9).
+> Estas regras são **heurísticas de produto**, não fatos científicos. Não apresentar `nutrition` como alimentação biológica do fio, `reconstruction` como reparo permanente, nem nenhum care type como tratamento médico.
 
 ---
 
-DOMAIN WORKSHEET READY FOR HUMAN RULE DESIGN
+## 1. Care types — approved for V1
+| code | UX (pt-BR) | Definição operacional (cosmética) | NÃO é |
+|---|---|---|---|
+| `hydration` | Hidratação | cuidado condicionante focado em maciez, desembaraço e manejo de ressecamento | reparo médico |
+| `nutrition` | Nutrição | cuidado condicionante de perfil lipídico/óleos: lubrificação, maleabilidade, frizz | alimentação biológica do fio |
+| `reconstruction` | Reconstrução | cuidado com proteínas/aminoácidos hidrolisados: condicionamento/fortalecimento **temporário** cosmético | reparo permanente / tratamento de doença |
+
+## 2. Minimal AssessmentOutput (V1)
+`AssessmentOutput = { emphasis: 'hydration' | 'nutrition' | 'balanced'; includeReconstruction: boolean; evidenceCodes: string[] }`.
+- `evidenceCodes` = só códigos de decisões realmente tomadas (§11).
+- **REMOVE:** levels, score, confidence, percentages, severity, passthrough do HairProfile.
+
+## 3. Emphasis rules (ordem determinística)
+**Prioridade 1 — `primary_goal`:**
+| primary_goal | emphasis | evidence |
+|---|---|---|
+| softness_and_hydration | hydration | goal_hydration |
+| definition_and_frizz_control | nutrition | goal_frizz_definition |
+| reduce_breakage_and_strengthen | hydration | goal_breakage_strength |
+| recover_chemical_or_heat_damage | hydration | goal_damage_recovery |
+| maintain_healthy_hair | (continua avaliação ↓) | — |
+
+**Prioridade 2 — `current_concerns`** (se goal não decidiu):
+- contém `dryness` OR `tangling` OR `dullness` OR `breakage` → **hydration** (evidence: concern_dryness/concern_tangling/concern_dullness/concern_breakage conforme presentes)
+- senão contém `frizz` → **nutrition** (concern_frizz)
+
+**Prioridade 3 — `hair_pattern`** (se ainda não decidiu):
+- `curly` OR `coily` OR `transitioning_or_mixed` → **hydration** (textured_hair_moisture_support)
+- senão → **balanced** (balanced_default)
+
+Não usar `strand_thickness` nem `scalp_tendency` para alterar H/N/R na V1. Nem todo input altera o Schedule (por design).
+
+## 4. Reconstruction rule
+- `CHEMICAL = chemical_treatments.length > 0`
+- `HIGH_HEAT = heat_usage ∈ {three_to_four_weekly, almost_daily}`
+- `DAMAGE = current_concerns contém breakage OR primary_goal ∈ {reduce_breakage_and_strengthen, recover_chemical_or_heat_damage}`
+- `includeReconstruction = true` **somente** se ≥ 2 de {CHEMICAL, HIGH_HEAT, DAMAGE}; senão `false`. (Conservadora.)
+- evidence: chemical_exposure / frequent_heat / (goal_breakage_strength|goal_damage_recovery|concern_breakage) conforme as categorias presentes.
+
+## 5. Care sessions / week (do cronograma — NÃO recomenda lavagem)
+| wash_frequency | sessions/week |
+|---|---|
+| once_or_less_weekly | 1 |
+| twice_weekly | 2 |
+| three_to_four_weekly | 3 |
+| five_or_more_weekly | 3 |
+| varies | 2 |
+evidence: wash_frequency_baseline.
+
+## 6. Plan window
+**28 dias / 4 semanas.**
+
+## 7. Base care cycle
+- emphasis=hydration: `H → N → H → …`
+- emphasis=nutrition: `N → H → N → …`
+- emphasis=balanced: `H → N → …`
+
+## 8. Reconstruction placement
+Quando `includeReconstruction=true`: **máx. 1 R** na janela de 28 dias; substituir o **primeiro** care programado em/ após o **dia 14** por `R`. Sem frequência maior na V1.
+
+## 9. Date distribution (DATE determinístico; `starts_on` = 1ª sessão)
+- 1/week offsets (dias): `0, 7, 14, 21`
+- 2/week offsets: `0, 4, 7, 11, 14, 18, 21, 25`
+- 3/week offsets: `0, 2, 5, 7, 9, 12, 14, 16, 19, 21, 23, 26`
+
+## 10. Unknown / varies policy
+**UNKNOWN NEVER ESCALATES CARE INTENSITY.**
+- `hair_pattern=unknown` → sem efeito · `strand_thickness=unknown` → sem efeito · `scalp_tendency=unknown` → sem efeito (não usados na V1 de qualquer forma).
+- `wash_frequency=varies` → 2/week.
+- `chemical_treatments=[]` → sem CHEMICAL.
+- `current_concerns=[no_major_concern]` → sem sinal de concern.
+- Nenhuma regra gera direção suficiente → `emphasis=balanced`, `includeReconstruction=false`.
+
+## 11. Evidence codes (só os disparados por regra real; sem copy pt-BR no core)
+`goal_hydration` · `goal_frizz_definition` · `goal_breakage_strength` · `goal_damage_recovery` · `concern_dryness` · `concern_tangling` · `concern_dullness` · `concern_frizz` · `concern_breakage` · `chemical_exposure` · `frequent_heat` · `textured_hair_moisture_support` · `wash_frequency_baseline` · `balanced_default`. Cada code é emitido apenas quando o ramo da regra correspondente dispara; remover qualquer code sem consumidor/decisão real.
+
+## 12. Safety
+SPEC-004 é estritamente cosmética. Os 8 inputs não têm sintomas médicos → **não** criar sistema de red-flag/diagnóstico não utilizado nesta SPEC. Nunca produzir diagnóstico de couro/alopecia, tratamento de doença ou promessa médica. Free-text/AI futuro terá safety boundary própria.
+
+## 13. Validation register (D-26 / ADR-007 A1)
+Todas as regras abaixo nascem `candidate` (decisão humana de produto D-67); **PUBLIC RELEASE exige `validated`** por domain reviewer.
+| rule_id | rationale/source | reviewer (domain) | validation_status | version |
+|---|---|---|---|---|
+| `assess.emphasis_by_goal` | D-67 (human product decision) — §3 P1 | _(pendente)_ | **candidate** | v1 |
+| `assess.emphasis_by_concern` | D-67 — §3 P2 | _(pendente)_ | **candidate** | v1 |
+| `assess.emphasis_by_pattern` | D-67 — §3 P3 | _(pendente)_ | **candidate** | v1 |
+| `assess.include_reconstruction_2of3` | D-67 — §4 (conservadora) | _(pendente)_ | **candidate** | v1 |
+| `schedule.sessions_per_week` | D-67 — §5 | _(pendente)_ | **candidate** | v1 |
+| `schedule.plan_window_28d` | D-67 — §6 | _(pendente)_ | **candidate** | v1 |
+| `schedule.base_cycle` | D-67 — §7 | _(pendente)_ | **candidate** | v1 |
+| `schedule.reconstruction_placement` | D-67 — §8 | _(pendente)_ | **candidate** | v1 |
+| `schedule.date_offsets` | D-67 — §9 | _(pendente)_ | **candidate** | v1 |
+| `assess.unknown_no_escalation` | D-67 — §10 | _(pendente)_ | **candidate** | v1 |
+
+Build/teste de **produção pública** deve falhar se referenciar regra não `validated` (ADR-007 A1).
+
+---
+
+V1 CANDIDATE RULES — implementable in dev/internal beta; PUBLIC RELEASE gated on domain validation (D-26/D-67).

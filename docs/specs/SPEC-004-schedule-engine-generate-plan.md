@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-004 |
-| Status | **Draft** (v0.3, **modelo técnico CLOSED FOR REVIEW** 2026-08-27; concorrência/idempotência/ownership fechados — §12b/§10. Único blocker restante = **DOMAIN RULES** §13/OQ1. HUMAN GATE. Nenhum código/migration/dependência criado por esta SPEC) |
+| Status | **Draft** (v0.4, 2026-08-27; modelo técnico CLOSED + **regras V1 CANDIDATE** — D-67). **Implementação autorizada** (candidate; dev/internal beta). **PUBLIC RELEASE** exige `validated` (D-26). Aguarda aprovação humana da SPEC. Nenhum código/migration/dependência criado por esta SPEC. |
 | Owner | @gabrielfmorais (humano) |
 | Bounded Context | Schedule/Planning (Core) + Assessment/Diagnostic (Core) — DOMAIN-MAP §3.3/§3.4 |
 | Related ADRs | ADR-007 (engines puros/versionados + A1 governança D-26 + **A2 vertical slice D-66**), ADR-004 (Supabase/RLS/RPC/Edge), ADR-001 (camadas), ADR-008 (time) |
@@ -140,8 +140,10 @@ Cenário: request chega, resposta se perde, cliente repete → sem proteção, d
 - **Fluxo (sob o lock):** (1) advisory xact lock por `user_id`; (2) se existe plano com o mesmo `(user_id, client_request_id)` → **retorna-o** (idempotente, sem novo/supersede); (3) senão, `UPDATE` do ativo → `superseded`; (4) `INSERT` do novo plano (`active`, versões, `client_request_id`); (5) `INSERT` dos `scheduled_cares`; (6) commit → lock liberado.
 - **Duas requests, mesma key:** o advisory lock serializa — a 2ª entra após o commit da 1ª, seu pré-check acha o plano e o **retorna** (sem 23505). Rede de segurança para qualquer caminho fora do lock: o `INSERT` do plano fica num bloco `BEGIN ... EXCEPTION WHEN unique_violation THEN ... END` (subtransação/savepoint) — a colisão de `UNIQUE (user_id, client_request_id)` **não aborta** a transação externa; o handler faz `SELECT` do plano existente por `(user_id, client_request_id)` e o retorna. **Duas requests, keys diferentes:** serializadas pelo lock + índice parcial `active` — a 2ª supersede a 1ª deterministicamente.
 
-## 13. DOMAIN RULES REQUIRED (HUMAN/ESPECIALISTA — D-26; nada escrito agora)
-> **Worksheet para design/aprovação:** [`docs/domain-rules/SPEC-004-domain-rules-worksheet.md`](../domain-rules/SPEC-004-domain-rules-worksheet.md) — care types, AssessmentOutput, input→rule matrix, cadência, janela, `unknown`/`varies`, explicabilidade, fronteira de segurança, validation register. Todas as células de comportamento estão `TBD — HUMAN/DOMAIN VALIDATION`.
+## 13. DOMAIN RULES — V1 CANDIDATE (D-67)
+> **Regras V1 CANDIDATE definidas** (decisão humana de produto D-67): care types H/N/R; `AssessmentOutput={emphasis, includeReconstruction, evidenceCodes}`; emphasis por `primary_goal→current_concerns→hair_pattern`; reconstruction 2-de-3; sessions/week por `wash_frequency`; janela 28d; ciclos H/N/R; 1 R após dia 14; offsets determinísticos; unknown never escalates. Detalhe em [`docs/domain-rules/SPEC-004-domain-rules-worksheet.md`](../domain-rules/SPEC-004-domain-rules-worksheet.md).
+>
+> **Status D-26/D-67:** são **heurísticas de produto cosméticas** (`validation_status = candidate`), **não** ciência validada. **Implementação, testes e internal beta autorizados** com as regras `candidate`. **PUBLIC RELEASE bloqueado** até `validated` (domain reviewer sign-off) — ADR-007 A1.
 
 A SPEC-004 primeiro fixa **quais decisões** o Schedule toma; depois lista o conhecimento a validar:
 1. **Decisão do Schedule:** quais **tipos de cuidado** existem (o conjunto `care_type_code`) e o que cada um é.
@@ -174,7 +176,7 @@ Até isso, `strategy`/`care_type_code`/necessidades permanecem **TBD**; a implem
 | AC10 | Guardrails da Foundation verdes com o novo schema/RPC (allowlist SPEC-004). |
 | AC11 | Nada de `confidence`/score na saída; nenhum valor de perfil em logs. |
 | AC13 | O banco **rejeita** um `scheduled_care` cujo `user_id` não seja o dono do `plan_id` (composite FK `(plan_id,user_id)→hair_plans(id,user_id)`) — pgTAP, independente da RPC. |
-| AC12 | **(BLOCKED até §13)** Golden fixtures refletem regras/cadência/care types **validados** por especialista. |
+| AC12 | Golden fixtures refletem as regras **V1 CANDIDATE** (D-67/worksheet) — determinísticas e testáveis já. **PUBLIC RELEASE** exige as mesmas regras `validated` (domain sign-off); build de release público falha se referenciar regra não `validated` (ADR-007 A1). |
 
 ## 16. Testing Strategy
 - **Unit + golden (Vitest, core):** determinismo dos dois engines; `unknown`/`varies`; imutabilidade entre versões.
@@ -193,18 +195,20 @@ Migrations aditivas: `hair_plans` + `scheduled_cares` + RLS/grants + índice ún
 ## 19. Open Questions & Gates
 | ID | Classe | Pergunta | Assunção |
 |---|---|---|---|
-| **OQ1** | **BLOCKING BEFORE IMPLEMENTATION (HUMAN/ESPECIALISTA — D-26)** | O conteúdo de §13 (care types, cadência/`ScheduleRulesV1`, necessidades/`AssessmentRulesV1`, janela, reason codes). | não inventar; produção só com `validated`. Mecanismo pode ser preparado antes. |
+| **OQ1** | **RESOLVED — V1 CANDIDATE (D-67)** | care types, emphasis, reconstruction, cadência, janela, offsets, unknown, evidence codes. | definidos como `candidate` (§13/worksheet); **implementação autorizada**. |
+| **OQ-REL** | **BLOCKING BEFORE PUBLIC RELEASE (D-26/D-67)** | domain reviewer sign-off das regras V1 (`candidate → validated`). | release público bloqueado até `validated`; dev/internal beta liberado. |
 | **OQ2** | **IMPORTANT — necessity (confirmar)** | Confirmar **REMOVE de `diagnostic_results` E de `input_snapshot`/`strategy`/`timezone`/`updated_at`/`sequence`/`scheduled_cares.status`** (§10) — reprodutibilidade por `hair_profile_id` + versões. | adotar a poda (§9/§10); reabrir item só com requisito concreto |
 | OQ3 | IMPORTANT | Manter as **duas** versões inline no plano como provenance? | sim (§11) |
 | OQ4 | IMPORTANT | `care_types` como texto+CHECK aqui e tabela/FK na SPEC-007? | sim (§9), evita catálogo antecipado |
 | OQ5 | **RESOLVED (technical close 2026-08-27)** | Concorrência/idempotência: advisory xact lock por `user_id` (cobre 1º plano) + `UNIQUE (user_id, client_request_id)` + subtransação `EXCEPTION` (§12b); ownership por composite FK (§10). | fechado |
 | OQ6 | CAN DEFER | Preview offline / reconciliação com versão do servidor (ADR-007 `expected_version`); rate limit exato | tratar na implementação |
 
-> **Modelo técnico CLOSED FOR REVIEW (2026-08-27).** Único blocker restante = **OQ1 (DOMAIN RULES, D-26)**. Não há mais gaps técnicos abertos; novas mudanças só por falha de segurança/integridade, contradição objetiva ou impossibilidade técnica.
+> **Modelo técnico CLOSED FOR REVIEW + regras V1 CANDIDATE (2026-08-27).** Blocker para **IMPLEMENTAÇÃO = NENHUM** (regras `candidate` autorizadas — D-67). Blocker para **PUBLIC RELEASE = domain validation/sign-off** (`candidate → validated`, D-26/OQ-REL). Sem gaps técnicos abertos.
 
 ## 20. Change Log
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-08-27 | v0.1 Draft via `spec-create` (vertical slice D-66: Assessment+Schedule). Necessity review: **`diagnostic_results` REMOVE/DEFER**; `AssessmentOutput` só inferências (sem reempacotar observado, sem `confidence`); `care_types` texto+CHECK (tabela/FK → SPEC-007); criação server-enforced (Edge `generate-plan` + RPC `create_plan_tx`); 1 plano ativo; supersede. Conteúdo capilar = **HUMAN GATE / BLOCKING** (§13, D-26). | Claude |
 | 2026-08-27 | v0.2 **Final technical necessity review:** REMOVE `input_snapshot` (reprodutibilidade = `hair_profile_id` + 2 versões), `strategy`, `timezone`, `updated_at`, `sequence`, `scheduled_cares.status` (→ SPEC-005); KEEP `user_id` nas duas tabelas (convenção RLS DATA-MODEL §1); supersessão mínima = `status` + índice parcial único (superseded_by/at DEFER); **idempotência promovida a IMPORTANT**; Edge+RPC confirmados. | Claude |
+| 2026-08-27 | v0.4 **Domain V1 CANDIDATE** (D-67): regras de produto cosméticas definidas (care types H/N/R; `AssessmentOutput` emphasis/includeReconstruction/evidenceCodes; emphasis por goal→concerns→pattern; reconstruction 2-de-3; sessions/week por wash_frequency; janela 28d; ciclos; 1 R após dia 14; offsets; unknown never escalates). `validation_status=candidate`: **implementação/internal beta autorizados**; PUBLIC RELEASE exige `validated` (ADR-007 A1 ganha `candidate`). OQ1 resolvido; blocker de implementação = NENHUM. | Humano / Claude |
 | 2026-08-27 | v0.3 **Technical close** — 2 gaps de integridade resolvidos: (1) concorrência do **primeiro plano** por `pg_advisory_xact_lock(hashtext(user_id))` (o `FOR UPDATE` não travava com zero linhas); (2) **ownership** por composite FK `(plan_id,user_id)→hair_plans(id,user_id)` + `UNIQUE (id,user_id)` (o banco impede `user_id` divergir do dono do plano); colisão de `UNIQUE(user_id,client_request_id)` tratada por subtransação `EXCEPTION` que retorna o plano existente sem abortar. **Modelo técnico CLOSED FOR REVIEW**; único blocker = DOMAIN RULES (D-26). | Claude |

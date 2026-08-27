@@ -7,8 +7,9 @@
 
 - O engine (mecanismo: tipos, execução, versionamento, testes) é responsabilidade de engenharia.
 - As **regras** (`DiagnosticRulesV1`, `ScheduleRulesV1`) são artefatos separados (`rules.ts` + documento `docs/domain-rules/*.md`) e passam por **validação humana especializada** antes de serem production-ready.
-- Cada regra possui obrigatoriamente: `rule_id`, `version`, `description`, `inputs`, `output`, `rationale_source`, `validation_status ∈ {draft, awaiting_domain_review, validated, deprecated}`.
-- Só regras `validated` podem compor uma versão de engine marcada como produção; o build/teste deve falhar se uma versão de produção referenciar regra não validada.
+- Cada regra possui obrigatoriamente: `rule_id`, `version`, `description`, `inputs`, `output`, `rationale_source`, `validation_status ∈ {draft, awaiting_domain_review, candidate, validated, deprecated}`.
+- **`candidate`** (esclarecimento D-67, 2026-08-27) = decisão humana de produto, **implementável e usável em desenvolvimento/internal beta**, ainda **não** validada por especialista.
+- Só regras `validated` podem compor uma versão de engine em **PUBLIC RELEASE**; o build/teste de release público deve falhar se referenciar regra não `validated`. Regras `candidate` podem ser implementadas/testadas e usadas em dev/internal beta, mas **não** em release público. O requisito de validação para release **não** é enfraquecido.
 - Agentes de IA **não** apresentam suposições próprias como conhecimento capilar validado; regras que criarem nascem como `draft` com `rationale_source` explícito ("hipótese de engenharia — requer revisão").
 - Esta exigência não bloqueia a Foundation (SPEC-000), que implementa apenas o mecanismo e o schema das regras.
 
