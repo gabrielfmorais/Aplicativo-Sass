@@ -2,11 +2,12 @@ name: supabase-test
 
 # Local Supabase stack + pgTAP security guardrails (SUPABASE-RLS-STRATEGY §6-§7).
 # Never touches a remote project.
+# Runs on every PR so it can be a required status check that always reports
+# (path-filtered required checks stay "Expected" forever on unrelated PRs and
+# block merge — LEVEL 2 governance). A few extra CI minutes are cheaper than
+# that governance complexity.
 on:
   pull_request:
-    paths:
-      - 'supabase/**'
-      - '.github/workflows/supabase-test.yml'
   push:
     branches: [main]
     paths:

@@ -1,12 +1,12 @@
 name: core-deno
 
 # Proves packages/core stays consumable from Supabase Edge Functions (Deno) — CORE-RUNTIME-SPIKE.md.
+# Runs on every PR so it can be a required status check that always reports
+# (path-filtered required checks stay "Expected" forever on unrelated PRs and
+# block merge — LEVEL 2 governance). A few extra CI minutes are cheaper than
+# that governance complexity.
 on:
   pull_request:
-    paths:
-      - 'packages/core/**'
-      - 'supabase/functions/**'
-      - '.github/workflows/core-deno.yml'
   push:
     branches: [main]
     paths:
