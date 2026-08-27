@@ -3,13 +3,13 @@
 | Campo | Valor |
 | --- | --- |
 | ID | SPEC-005 |
-| Status | **Draft** (v0.1, 2026-08-27). Aguarda aprovação humana. Nenhum código/migration criado por esta SPEC. |
+| Status | **Approved** (v0.2, 2026-08-27 — **D-69**; D-12 e D-35 decididas). Implementação autorizada (LEVEL 2). |
 | Owner | @gabrielfmorais (humano) |
 | Bounded Context | Care Tracking (Core) — DOMAIN-MAP §3.5 |
 | Related ADRs | ADR-001 (camadas), ADR-004 (Supabase/RLS/RPC), ADR-008 (time), ADR-007 (fronteira: o engine **não** é invocado para reagendar) |
 | Related SPECs | SPEC-004 (entrega `hair_plans`/`scheduled_cares`) · SPEC-006 (Check-ins) · SPEC-007 (Content) · SPEC-008 (Notifications) · SPEC-009 (Progress) |
-| Decisões vinculantes | **D-28** (cuidado atrasado: nunca deslocar o cronograma em silêncio) · **D-26** (não inventar regra capilar) · D-25 (sem streaks) · D-65 (precedente: analytics DEFER → SPEC-011) |
-| Decisões pendentes que esta SPEC precisa resolver | **D-12** (desfazer execução) · **D-35** (múltiplas execuções por cuidado) — §23 |
+| Decisões vinculantes | **D-69** (SPEC-005 approved; D-12/D-35) · **D-28** (cuidado atrasado: nunca deslocar o cronograma em silêncio) · **D-26** (não inventar regra capilar) · D-25 (sem streaks) · D-65 (precedente: analytics DEFER → SPEC-011) |
+| Decisões resolvidas nesta SPEC | **D-12** (desfazer execução: **sim, janela de 15 min**) · **D-35** (execução efetiva por cuidado: **0 ou 1**) — decisão humana D-69 |
 | Fase do roadmap | 5 — Care Tracking (a parte Content v1 da fase é a SPEC-007, fora daqui) |
 | Labels | `db`, `security` |
 | Criado / Atualizado | 2026-08-27 / 2026-08-27 |
@@ -73,7 +73,8 @@ Registrar um cuidado parece trivial e não é. Três coisas precisam ser verdade
 - **FR3** **Concluir** cria um `CareExecution` ligado ao `ScheduledCare`. O `ScheduledCare` **não** é alterado (§7 BR2).
 - **FR4** **Pular** marca o `ScheduledCare` como `skipped`. Não gera execução.
 - **FR5** **Reagendar** marca o original como `rescheduled`, aponta `rescheduled_to_id` para uma **nova** linha `planned` no mesmo plano, na data escolhida. A `planned_date` original **nunca** muda.
-- **FR6** Um cuidado só transiciona a partir de `planned`. Tentar transicionar um cuidado já resolvido é rejeitado (`conflict`), não silenciosamente aceito.
+- **FR6** Um cuidado só transiciona a partir de `planned` **e sem execução efetiva**. Tentar transicionar um cuidado já resolvido — pulado, reagendado **ou já concluído** — é rejeitado (`conflict`), não silenciosamente aceito.
+- **FR6b** **Desfazer** (D-69/D-12): a usuária pode anular uma execução dentro de **15 minutos** da criação. A execução anulada **permanece** no banco com `voided_at` preenchido; o cuidado volta a aparecer como não concluído e pode ser registrado de novo. Fora da janela, a anulação é rejeitada.
 - **FR7** Concluir é idempotente por `client_execution_id`: a mesma chave devolve a execução existente, sem criar um segundo fato.
 - **FR8** O servidor calcula `executed_on` e "hoje" a partir do **fuso IANA** enviado pelo cliente, validando plausibilidade (§11 / T22).
 - **FR9** O histórico do plano ativo (feitos, pulados, reagendados) é consultável na tela.
@@ -86,8 +87,10 @@ Todas as regras abaixo são **mecanismo**, não conhecimento capilar — nenhuma
 - **BR1** *(D-28)* O sistema **nunca** desloca um cuidado. Não existe job, trigger ou regra que altere `planned_date` ou crie reagendamento automático. Todo movimento nasce de ação explícita.
 - **BR2** *(planejado ≠ executado)* `ScheduledCare` guarda a **intenção**; `CareExecution` guarda o **fato**. Concluir insere um fato e não reescreve a intenção. `packages/core/src/care-tracking/`.
 - **BR3** *(atrasado é derivado)* `overdue ⇔ planned_date < hoje ∧ status = 'planned' ∧ sem execução`. Nunca persistido.
-- **BR4** *(concluído é derivado)* Um cuidado está concluído **se e somente se** existe uma `CareExecution` para ele. Não há `status='completed'` — ver a necessity review em §8.
-- **BR5** *(transição a partir de `planned`)* `planned → skipped`, `planned → rescheduled`, `planned → (execução criada)`. Nenhuma outra transição existe. Estados resolvidos são terminais nesta fatia.
+- **BR4** *(concluído é derivado — D-69)* Um cuidado está concluído **se e somente se** existe uma `CareExecution` **efetiva** (`voided_at IS NULL`) para ele. Não há `status='completed'` — necessity review em §8.2, aprovada por D-69.
+- **BR4b** *(0 ou 1 execução efetiva — D-69/D-35)* Um `ScheduledCare` tem **no máximo uma** `CareExecution` efetiva. Garantido pelo **banco** (índice único parcial), não pela UI. Uma execução anulada não conta, então depois de desfazer a usuária pode registrar de novo.
+- **BR4c** *(anular é reversão, não apagamento — D-69/D-12)* Anular preenche `voided_at`; a linha **permanece** no histórico. A janela é de **15 minutos** a partir de `executed_at`, medida pelo relógio do servidor. Fora dela, rejeitado. Não existe edição de histórico, correção de dias anteriores nem fluxo administrativo (§4).
+- **BR5** *(transição a partir de `planned` e sem execução efetiva)* `planned → skipped`, `planned → rescheduled`, `planned → (execução criada)`. Como concluir **não** altera `status` (BR2), pular e reagendar precisam checar as **duas** condições: `status='planned'` **e** ausência de execução efetiva — senão seria possível pular um cuidado já feito. Fora isso, estados resolvidos são terminais nesta fatia.
 - **BR6** *(invariante de reagendamento)* `status = 'rescheduled' ⇔ rescheduled_to_id IS NOT NULL` (CHECK) — invariante 6 do DATA-MODEL.
 - **BR7** *(fronteira ADR-007)* Reagendar **não** invoca o Schedule Engine. O engine cria cuidados; Care Tracking transiciona e cria a linha de reagendamento.
 - **BR8** *(janela de reagendamento)* A nova data é `hoje ≤ data ≤ hoje + 28`. O limite reusa a janela de plano já aprovada (D-67) em vez de inventar um número; o piso impede "reagendar para ontem", que criaria um atraso artificial. A nova linha pode cair fora da janela original do plano — a janela governa **geração**, não reagendamento.
@@ -127,13 +130,14 @@ O DATA-MODEL §3.6 previa `completed` no enum. Nesta fatia isso seria uma **segu
 | `executed_on date not null` | **KEEP** | dia civil da usuária, **calculado pelo servidor** (§9/T22) |
 | `created_at timestamptz` | **KEEP** | |
 | ~~`note`~~ | **DEFER** | texto livre é PII e território de check-in (SPEC-006) |
-| ~~`voided_at`~~ | **DEPENDE DE D-12** | §23 — sem D-12 aprovado, a coluna não existe |
+| `voided_at timestamptz null` | **KEEP (D-69/D-12)** | anulação dentro de 15 min; a linha permanece no histórico. É a **única** coluna mutável da tabela. |
 
 Invariantes:
 
 - `UNIQUE (user_id, client_execution_id)` — idempotência (T19). *(O DATA-MODEL §3.7 dizia `UNIQUE` global; escopar por usuária mantém a mesma garantia e segue o padrão de `hair_plans.client_request_id` da SPEC-004.)*
-- `UNIQUE (scheduled_care_id)` — no máximo uma execução por cuidado (**depende de D-35**; ver §23).
+- `UNIQUE (scheduled_care_id) WHERE voided_at IS NULL` — **índice único parcial**: no máximo uma execução **efetiva** por cuidado (D-69/D-35). Anular libera o cuidado para uma nova execução sem apagar a anterior.
 - Índice `(user_id, executed_on desc)` para o histórico.
+- **Imutabilidade:** `voided_at` é o único campo que muda, e só pela RPC `void_execution`. `executed_at`, `executed_on`, `scheduled_care_id` e `care_type_code` nunca sofrem UPDATE. Nunca há DELETE pela usuária.
 
 **Sem** `checkins`, **sem** `care_types`, **sem** tabela de progresso.
 
@@ -148,12 +152,14 @@ Três RPCs `SECURITY DEFINER`, `search_path` fixo, `EXECUTE` para `authenticated
 | `complete_care` | `p_scheduled_care_id uuid`, `p_client_execution_id uuid`, `p_timezone text` | `uuid` (execution id) | `P0002` cuidado não encontrado/não é seu · `23514` estado inválido (não é `planned`) · `22023` fuso implausível |
 | `skip_care` | `p_scheduled_care_id uuid` | `void` | idem |
 | `reschedule_care` | `p_scheduled_care_id uuid`, `p_new_date date`, `p_timezone text` | `uuid` (novo scheduled care) | idem + `22023` data fora de `[hoje, hoje+28]` |
+| `void_execution` | `p_execution_id uuid` | `void` | `P0002` não encontrada/não é sua · `23514` fora da janela de 15 min ou já anulada |
 
 Comportamento comum:
 
 - Ownership verificada por `auth.uid()` **e** pela FK composta — nunca só pela RPC.
 - `complete_care` é idempotente: se já existe execução com `(auth.uid(), p_client_execution_id)`, retorna-a sem criar nada. A colisão de `UNIQUE` é tratada em subtransação, então um retry concorrente nunca aborta a transação externa (mesmo padrão de `create_plan_tx`).
-- `skip_care` e `reschedule_care` só agem sobre `status = 'planned'`; a linha é travada com `FOR UPDATE` (a linha **existe**, então aqui `FOR UPDATE` basta — o advisory lock da SPEC-004 existia por causa do caso "nenhuma linha ainda").
+- `skip_care` e `reschedule_care` exigem `status = 'planned'` **e** nenhuma execução efetiva (BR5); a linha do cuidado é travada com `FOR UPDATE` (a linha **existe**, então `FOR UPDATE` basta — o advisory lock da SPEC-004 existia por causa do caso "nenhuma linha ainda").
+- `void_execution` trava a execução com `FOR UPDATE`, exige `voided_at IS NULL` e `now() - executed_at <= interval '15 minutes'`. A janela é medida pelo **relógio do servidor**; o cliente não a influencia. Anular é idempotente na prática: uma segunda tentativa cai em "já anulada" (`23514`) sem alterar nada.
 - **Fuso:** `executed_on := (now() AT TIME ZONE p_timezone)::date`. O Postgres rejeita fuso inválido. Plausibilidade (T22): a data resultante deve estar a **≤ 1 dia** da data UTC do servidor — o offset civil real vai de −12h a +14h.
 
 Leitura: `SELECT` direto nas duas tabelas sob RLS. A derivação de hoje/atrasado/próximos é `packages/core` (§G7), não view nem query mágica.
@@ -163,14 +169,14 @@ Leitura: `SELECT` direto nas duas tabelas sob RLS. A derivação de hoje/atrasad
 | Ator | `scheduled_cares` | `care_executions` | RPCs |
 | --- | --- | --- | --- |
 | `anon` | nada | nada | nada |
-| `authenticated` | **SELECT** próprio | **SELECT** próprio | EXECUTE nas três |
-| RPC (DEFINER) | SELECT/UPDATE | INSERT | — |
+| `authenticated` | **SELECT** próprio | **SELECT** próprio | EXECUTE nas quatro |
+| RPC (DEFINER) | SELECT/UPDATE | INSERT + UPDATE de `voided_at` | — |
 
 RLS ON + FORCE nas duas tabelas; policies `SELECT` por `user_id = (select auth.uid())`. **Nenhum grant de escrita para `authenticated`** — é o que impede um cliente adulterado de forjar um fato. Como `FORCE RLS` vale também para o dono da tabela e a função DEFINER roda como ele, as policies explícitas `to postgres` da SPEC-004 são estendidas a `care_executions` (mesmo motivo: não depender de `BYPASSRLS` do papel de plataforma).
 
-`EXECUTE` para `authenticated` é seguro aqui — ao contrário de `create_plan_tx`. Aquela RPC recebia o **conteúdo** do plano, então quem pudesse chamá-la poderia inventar um plano. Estas recebem só o id de um cuidado que já é dela, uma chave de idempotência e um fuso; tudo mais é derivado no servidor. Não há nada a forjar.
+`EXECUTE` para `authenticated` é seguro aqui — ao contrário de `create_plan_tx`. Aquela RPC recebia o **conteúdo** do plano, então quem pudesse chamá-la poderia inventar um plano. Estas recebem só o id de um registro que já é dela, uma chave de idempotência e um fuso; tudo mais é derivado no servidor, inclusive a janela de 15 minutos do undo. Não há nada a forjar.
 
-As três funções entram em `supabase/security/allowlists.sql` com justificativa (SECURITY-BASELINE S5).
+As quatro funções entram em `supabase/security/allowlists.sql` com justificativa (SECURITY-BASELINE S5).
 
 ## 11. Security Considerations
 
@@ -207,6 +213,7 @@ Estados:
 - **error** — mensagem genérica + **Tentar novamente**. Nunca a mensagem do banco.
 - **em voo** — o cuidado sendo transicionado fica desabilitado; sem duplo toque.
 - **conflito** — se a ação falhar por já estar resolvido, a tela **recarrega** e mostra o estado real, em vez de insistir num erro.
+- **desfazer** — um cuidado concluído há menos de 15 minutos mostra **Desfazer**. Passada a janela, a ação some da tela (a UI não oferece o que o servidor vai recusar); se ainda assim for chamada, o servidor recusa.
 
 Um cuidado atrasado mostra há quanto tempo ("atrasada há 2 dias") e as três ações lado a lado (D-28). Acessibilidade: alvos ≥ 44pt, `accessibilityRole="button"`, `accessibilityLiveRegion` nas mudanças de estado — mesmo padrão das telas existentes.
 
@@ -223,6 +230,11 @@ Um cuidado atrasado mostra há quanto tempo ("atrasada há 2 dias") e as três a
 - **EC9** Plano superseded no meio da sessão (outro aparelho reavaliou) → a leitura seguinte traz o novo plano ativo; cuidados do antigo somem da tela e permanecem no banco.
 - **EC10** Todos os cuidados do plano no passado → seção Hoje vazia, Atrasados povoada; navegação intacta.
 - **EC11** Relógio do aparelho adiantado em dias → o servidor calcula `executed_on`; a validação de plausibilidade rejeita o fuso implausível.
+- **EC12** Desfazer dentro da janela → a execução fica anulada, o cuidado volta a Hoje/Atrasados e pode ser concluído de novo — com **nova** `client_execution_id`, porque é uma nova intenção.
+- **EC13** Desfazer no minuto 16 → rejeitado; a tela recarrega e mostra o cuidado ainda concluído.
+- **EC14** Desfazer duas vezes (toque duplo) → a segunda cai em "já anulada"; nenhum estado muda.
+- **EC15** Concluir → desfazer → concluir de novo → existe **uma** execução efetiva e uma anulada; o índice parcial permite exatamente isso.
+- **EC16** Pular um cuidado já concluído → rejeitado (BR5); sem esta checagem seria possível pular algo já feito, porque concluir não altera `status`.
 
 ## 16. Failure Modes
 
@@ -233,6 +245,7 @@ Um cuidado atrasado mostra há quanto tempo ("atrasada há 2 dias") e as três a
 | RPC falha (conflito) | recarrega e mostra o estado real |
 | Fuso inválido/implausível | erro genérico; nenhum fato gravado |
 | Sem plano ativo | rota volta ao fluxo da SPEC-004 |
+| Undo fora da janela / já anulada | erro genérico; a tela recarrega e mostra o estado real |
 
 Nenhuma mensagem de erro expõe SQL, id alheio ou detalhe interno.
 
@@ -255,12 +268,17 @@ Nenhuma mensagem de erro expõe SQL, id alheio ou detalhe interno.
 | **AC13** | Reabrir o app reconstrói o estado a partir do servidor: sem cache local, o que foi feito continua feito (teste de componente com remount). |
 | **AC14** | Duplo toque em uma ação dispara **uma** chamada; o retry após falha reusa o mesmo `client_execution_id` (teste de componente). |
 | **AC15** | Estados vazios (sem cuidado hoje; plano todo no passado) renderizam sem quebrar a navegação. |
+| **AC16** | *(D-69/D-12)* Anular dentro de 15 min marca `voided_at`, **mantém a linha** no banco e faz o cuidado voltar a não concluído (pgTAP). |
+| **AC17** | *(D-69/D-12)* Anular depois de 15 min é rejeitado e nada muda; anular duas vezes também (pgTAP com `executed_at` fixado no passado). |
+| **AC18** | *(D-69/D-35)* O **banco** rejeita uma segunda execução efetiva para o mesmo cuidado (`23505`), independente da RPC; após anular, uma nova execução é aceita (pgTAP). |
+| **AC19** | Pular ou reagendar um cuidado **já concluído** é rejeitado (pgTAP) — concluir não altera `status`, então a checagem de execução efetiva é obrigatória. |
+| **AC20** | Nenhum UPDATE altera `executed_at`, `executed_on`, `scheduled_care_id` ou `care_type_code`: `voided_at` é a única coluna mutável, e só por `void_execution` (pgTAP + ausência de grant). |
 
 ## 18. Testing Strategy
 
 - **Unit (Vitest, core):** `buildTodayView` — hoje/atrasado/próximos/histórico, viradas de dia, plano todo no passado, cuidado reagendado não conta duas vezes. Determinismo com `today` injetado.
 - **Integração (pgTAP):** `040_spec005_care_tracking.sql` — as três RPCs (feliz, conflito, idempotência, ownership, fuso), negação de escrita direta, isolamento A/B/anon, guardrails, ausência das colunas derivadas.
-- **Component (Jest/RNTL):** tela Hoje — loading, vazio, erro+retry, duplo toque, conflito recarrega, remount preserva estado.
+- **Component (Jest/RNTL):** tela Hoje — loading, vazio, erro+retry, duplo toque, conflito recarrega, remount preserva estado, botão Desfazer aparece dentro da janela e some fora dela.
 - **E2E:** fora (ferramenta na fase 10).
 - **Boundary:** dep-cruise — `care-tracking` puro, sem React/Expo/Supabase.
 
@@ -273,7 +291,7 @@ SPEC-004 (plano ativo e `scheduled_cares`). ADR-001/004/007/008. **Nenhuma depen
 Uma PR, quatro commits, na ordem em que cada um pode ser verificado sozinho:
 
 1. `packages/core/src/care-tracking/` — tipos, `buildTodayView` puro, `CareTrackingPort`, testes unitários.
-2. Migration: colunas de transição em `scheduled_cares`, `care_executions`, RLS/grants/policies, as três RPCs, allowlist + pgTAP `040`.
+2. Migration: colunas de transição em `scheduled_cares`, `care_executions` (com `voided_at` + índice único parcial), RLS/grants/policies, as **quatro** RPCs, allowlist + pgTAP `040`.
 3. App: adapter das RPCs + `TodayScreen` + rota; testes de componente.
 4. Docs: DATA-MODEL §3.6/§3.7, DOMAIN-MAP §3.5, README do contexto, evidência por AC.
 
@@ -283,14 +301,14 @@ Uma migration aditiva, `NNNNNNNNNNNNNN_care_tracking.sql`. `scheduled_cares.stat
 
 ## 22. Rollback Plan
 
-Comentário `-- ROLLBACK:` na migration: drop das três funções → drop de `care_executions` → drop das colunas/índices adicionados em `scheduled_cares`. Sem perda de dados de outras SPECs (`care_executions` nasce vazia). Código: reverter a PR.
+Comentário `-- ROLLBACK:` na migration: drop das quatro funções → drop de `care_executions` → drop das colunas/índices adicionados em `scheduled_cares`. Sem perda de dados de outras SPECs (`care_executions` nasce vazia). Código: reverter a PR.
 
 ## 23. Open Questions
 
 | ID | Classe | Pergunta | Recomendação |
 | --- | --- | --- | --- |
-| **OQ1** | **BLOCKING — decisão humana agendada para esta SPEC (D-12)** | Existe "desfazer" de uma execução? | **Sim, janela curta** (a recomendação provisória do registro). Sem isso, um toque errado em "Fiz hoje" é **irreversível** — a tabela é append-only e a usuária não tem DELETE. Custo: uma coluna `voided_at`, uma RPC `void_execution`, e o índice único vira parcial (`WHERE voided_at IS NULL`). Se a resposta for "não", removo os três e a fatia encolhe. |
-| **OQ2** | **BLOCKING — decisão humana agendada para esta SPEC (D-35)** | Um mesmo `scheduled_care` pode ter mais de uma execução? | **Não** (a recomendação provisória do registro). Com "não", `UNIQUE (scheduled_care_id)` (parcial, se OQ1 for sim). Repetir um cuidado no mesmo dia seria execução avulsa, que está fora do escopo (§4). |
+| **OQ1** | **RESOLVED — decisão humana D-69 (D-12)** | Existe "desfazer" de uma execução? | **Sim, janela de 15 minutos** a partir de `executed_at`. A execução anulada **permanece** no histórico (`voided_at`), não é apagada. Objetivo é corrigir toque acidental — não há edição de histórico, correção de dias anteriores, undo ilimitado nem fluxo administrativo. |
+| **OQ2** | **RESOLVED — decisão humana D-69 (D-35)** | Um mesmo `scheduled_care` pode ter mais de uma execução? | **Não: 0 ou 1 execução efetiva**, garantido pelo banco (índice único parcial `WHERE voided_at IS NULL`). Uma execução anulada não conta, então após desfazer a usuária pode registrar de novo. Execução avulsa continua DEFER. |
 | OQ3 | IMPORTANT — resolvida nesta SPEC | Guardar `status='completed'` além do fato de execução? | **Não** (§8.2): segunda fonte de verdade para o mesmo fato. |
 | OQ4 | IMPORTANT — resolvida nesta SPEC | Reagendar só cuidado atrasado, ou qualquer `planned`? | **Qualquer `planned`.** Uma regra só, e D-28 não restringe. |
 | OQ5 | CAN DEFER | Histórico atravessa planos superseded? | Não nesta fatia (BR9): histórico é do plano ativo. Reabrir na SPEC-009 (Progress), que é quem precisa de série longa. |
@@ -300,4 +318,5 @@ Comentário `-- ROLLBACK:` na migration: drop das três funções → drop de `c
 
 | Data | Mudança | Autor |
 | --- | --- | --- |
+| 2026-08-27 | v0.2 **APPROVED (D-69)** — decisões humanas: **D-12 = sim, undo em janela de 15 min** com a execução anulada preservada (`voided_at`); **D-35 = 0 ou 1 execução efetiva** por cuidado, garantido por índice único parcial no banco; `status='completed'` **não** persistido (§8.2 confirmada). Adicionados: RPC `void_execution`, AC16–AC20, EC12–EC16. Corrigida uma lacuna do v0.1: pular/reagendar precisam checar **também** a ausência de execução efetiva, já que concluir não altera `status` (BR5/AC19). Roadmap sincronizado quanto ao checkpoint de especialista (D-67/D-68); gate de PUBLIC RELEASE inalterado. | Humano / Claude |
 | 2026-08-27 | v0.1 Draft. Escopo: tornar o cronograma da SPEC-004 utilizável (hoje/atrasado/próximos + concluir/pular/reagendar). Necessity review: **sem Edge Function** (não há engine a rodar no servidor), **sem `status='completed'`** (derivado da execução), `origin`/`skip_reason`/`note`/`updated_at`/execução avulsa/calendário em grade **DEFER**, analytics **DEFER** (D-65). D-28 aplicada integralmente. **Dois BLOCKING**: D-12 e D-35, ambos agendados pelo registro para esta SPEC. | Claude |

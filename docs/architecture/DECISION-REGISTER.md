@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Status | v0.12 — 2026-08-27 — SPEC-000/001/002/**004** implementadas/merged; SPEC-003 folded (D-66). Regras capilares V1 continuam `candidate` (D-67): **PUBLIC RELEASE bloqueado** até o domain sign-off (`candidate → validated`, D-26/OQ-REL). LEVEL 2 ativo |
+| Status | v0.13 — 2026-08-27 — SPEC-000/001/002/004 implementadas/merged; SPEC-003 folded (D-66); **SPEC-005 APPROVED (D-69; D-12 e D-35 decididas)**. Regras capilares V1 continuam `candidate` (D-67): **PUBLIC RELEASE bloqueado** até o domain sign-off (`candidate → validated`, D-26/OQ-REL). LEVEL 2 ativo |
 | Uso | Fonte de verdade sobre o estado de cada decisão. Nenhum item muda de status sem registro humano nesta tabela. Agentes nunca resolvem itens `HUMAN DECISION` por conta própria. |
 
 Legenda de custo de mudança tardia: **L** (horas) · **M** (dias) · **H** (semanas ou migração de dados).
@@ -84,6 +84,14 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 | D-67 | SPEC-004 regras de domínio V1 | **CANDIDATE rules** aprovadas (heurísticas de produto cosméticas, não diagnóstico): care types H/N/R; `AssessmentOutput={emphasis,includeReconstruction,evidenceCodes}` (sem levels/score/confidence); emphasis por `primary_goal`→`current_concerns`→`hair_pattern`; reconstruction 2-de-3 (CHEMICAL/HIGH_HEAT/DAMAGE); sessions/week por `wash_frequency`; janela 28d; ciclos H/N/R; 1 R após dia 14; offsets determinísticos; unknown never escalates. **Esclarece D-26:** `candidate` PODE ser implementada/testada em dev/internal beta; **PUBLIC RELEASE** exige `validated` (domain sign-off) — requisito de release **não** enfraquecido. | **ADR-007 A1** (add `candidate`); `docs/domain-rules/SPEC-004-domain-rules-worksheet.md`; SPEC-004 §13 | **DECIDED (candidate)** |
 | D-68 | SPEC-004 | **APPROVED** (v0.5) por aprovação humana. Escopo confirmado: Assessment + Schedule na mesma vertical slice com módulos internos separados; regras V1 `candidate` autorizadas para implementação/internal beta; **D-26 permanece PUBLIC RELEASE GATE**; care types `hydration`/`nutrition`/`reconstruction`; `AssessmentOutput` V1; emphasis rules; reconstruction rule; cadência; janela de 28 dias; política `unknown`/`varies`; evidence codes mínimos; modelo técnico v0.3/v0.4 fechado. Implementação autorizada (LEVEL 2). | SPEC-004 → Approved; índice de SPECs | **DECIDED** |
 
+## B5. DECIDED — decisões de produto da SPEC-005 Care Tracking (2026-08-27)
+
+| ID | Decisão | Conteúdo decidido | Efeito | Status |
+|---|---|---|---|---|
+| D-12 | Desfazer execução | **SIM.** A usuária pode anular uma execução registrada por engano dentro de **15 minutos** da criação. A execução anulada **permanece** no histórico (`voided_at`), nunca é apagada; o cuidado volta ao estado derivado de não concluído (desde que não tenha sido pulado/reagendado) e pode ser registrado de novo. **Fora do escopo:** edição arbitrária de histórico, correção de execução de dias anteriores, undo ilimitado, fluxo administrativo. | SPEC-005 §7 BR4b/BR4c, §9 `void_execution`, AC16/AC17 | **DECIDED** |
+| D-35 | Múltiplas execuções por `scheduled_care` | **NÃO.** Invariante de produto: um `ScheduledCare` → **0 ou 1** `CareExecution` **efetiva**. Uma execução anulada por D-12 não conta, portanto após desfazer é possível registrar de novo. Garantido **no banco** (índice único parcial `WHERE voided_at IS NULL`), não só na UI. Sem suporte a duas execuções válidas nem a repetição do mesmo cuidado como feature; execução avulsa continua DEFER. | SPEC-005 §8.3, AC18 | **DECIDED** |
+| D-69 | SPEC-005 | **APPROVED** (v0.2). Escopo confirmado: Hoje/atrasado/próximos/histórico + concluir, pular, reagendar e desfazer (15 min). `status='completed'` **não** persistido — conclusão derivada da existência de execução efetiva (evita duas fontes de verdade). Reusa integralmente D-28 e as regras já aprovadas de reagendar/pular/overdue. Implementação autorizada (LEVEL 2). | SPEC-005 → Approved; índice de SPECs | **DECIDED** |
+
 ## C. DEFERRED / OPEN (não decidir agora)
 
 ### C1. Decisões de implementação da SPEC-001 (não reabrem a SPEC)
@@ -98,13 +106,13 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 
 | ID | Decisão | Recomendação provisória | Quando decidir | Custo tardio | Status |
 |---|---|---|---|---|---|
-| D-12 | "Desfazer execução" (`voided_at`, 10 min) | (b) void em janela | **SPEC-005 — PERGUNTA ABERTA AGORA** (Draft v0.1 §23 OQ1) | L | DEFERRED — aguarda decisão humana |
+| ~~D-12~~ | movido para B5 (**DECIDED** 2026-08-27: sim, janela de 15 min) | — | — | — | DECIDED |
 | D-30 | Nome do produto | placeholder "Hairo" | Antes da fase 10 | L/M | OPEN |
 | D-31 | Provider analytics / crash | PostHog + Sentry | Fase 10 | L | DEFERRED |
 | D-32 | Base legal LGPD para analytics | consentimento | Antes da fase 10 (jurídico) | L | OPEN |
 | D-33 | Lib de datas (`date-fns-tz` vs `Temporal`) | date-fns-tz | **SPEC-000** (proposta em §Dependencies) | L | OPEN → proposta em SPEC-000 |
 | D-34 | Janela de geração de `scheduled_cares` | 8 semanas | SPEC-004 | L | DEFERRED |
-| D-35 | Múltiplas execuções por scheduled_care | não | **SPEC-005 — PERGUNTA ABERTA AGORA** (Draft v0.1 §23 OQ2) | L | DEFERRED — aguarda decisão humana |
+| ~~D-35~~ | movido para B5 (**DECIDED** 2026-08-27: 0 ou 1 execução efetiva) | — | — | — | DECIDED |
 | D-36 | Estado global (Zustand vs Context) | Zustand só se necessário | SPEC-001+ | L | DEFERRED |
 | D-37 | E2E: Maestro vs Detox | Maestro | Fase 10 | L | DEFERRED |
 | D-38 | Captcha em signup/OTP | sim antes do lançamento | SPEC-001/013 | L | DEFERRED |
@@ -126,3 +134,4 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 | 2026-08-27 | v0.10: SPEC-004 modelo técnico CLOSED; **regras de domínio V1 CANDIDATE (D-67)**; ADR-007 A1 ganha status `candidate` (implementável em dev/internal beta; PUBLIC RELEASE exige `validated`). |
 | 2026-08-27 | v0.11: **SPEC-004 APPROVED (D-68)** por aprovação humana; implementação autorizada (LEVEL 2). PUBLIC RELEASE continua bloqueado até o domain sign-off das regras V1 (`candidate → validated`). |
 | 2026-08-27 | v0.12: **SPEC-004 implementada e mergeada** em `main` (PR #11) via LEVEL 2; required CI verde (pgTAP 030 29/29). Engines `assess`/`generateSchedule` v1 puros com golden; `hair_plans`/`scheduled_cares` + RPC `create_plan_tx` (advisory lock por usuária, idempotência por `client_request_id`, FK composta de ownership); Edge `generate-plan`; preview/confirmação no app. **Nenhuma decisão nova**: implementação dentro de D-66/D-67/D-68. **Único bloqueio remanescente para PUBLIC RELEASE: OQ-REL — sign-off de domínio das regras V1.** |
+| 2026-08-27 | v0.13: **SPEC-005 APPROVED (D-69)** por aprovação humana, com **D-12** (desfazer execução: sim, janela de 15 min, registro anulado preservado) e **D-35** (0 ou 1 execução efetiva por cuidado, garantido no banco) **decididas** e movidas de C para B5. `status='completed'` não persistido. Implementação autorizada (LEVEL 2). MVP-ROADMAP sincronizado: o checkpoint de especialista "antes de F5" foi re-escopado por D-67/D-68 — **o gate de PUBLIC RELEASE permanece inalterado**. |
