@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Status | v0.11 — 2026-08-27 — SPEC-000/001/002 implementadas/merged; SPEC-003 folded (D-66); **SPEC-004 APPROVED (D-68)** — modelo técnico CLOSED + regras V1 CANDIDATE (D-67); implementação autorizada com `candidate`, PUBLIC RELEASE exige `validated` (D-26/D-67); LEVEL 2 ativo |
+| Status | v0.12 — 2026-08-27 — SPEC-000/001/002/**004** implementadas/merged; SPEC-003 folded (D-66). Regras capilares V1 continuam `candidate` (D-67): **PUBLIC RELEASE bloqueado** até o domain sign-off (`candidate → validated`, D-26/OQ-REL). LEVEL 2 ativo |
 | Uso | Fonte de verdade sobre o estado de cada decisão. Nenhum item muda de status sem registro humano nesta tabela. Agentes nunca resolvem itens `HUMAN DECISION` por conta própria. |
 
 Legenda de custo de mudança tardia: **L** (horas) · **M** (dias) · **H** (semanas ou migração de dados).
@@ -125,3 +125,4 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 | 2026-08-27 | v0.9: doc-sync DATA-MODEL/DOMAIN-MAP/CLAUDE.md feito (PR #8). **SPEC-003 FOLDED INTO SPEC-004** (D-66; ADR-007 Amendment A2) — não implementada, fronteira Diagnostic preservada. |
 | 2026-08-27 | v0.10: SPEC-004 modelo técnico CLOSED; **regras de domínio V1 CANDIDATE (D-67)**; ADR-007 A1 ganha status `candidate` (implementável em dev/internal beta; PUBLIC RELEASE exige `validated`). |
 | 2026-08-27 | v0.11: **SPEC-004 APPROVED (D-68)** por aprovação humana; implementação autorizada (LEVEL 2). PUBLIC RELEASE continua bloqueado até o domain sign-off das regras V1 (`candidate → validated`). |
+| 2026-08-27 | v0.12: **SPEC-004 implementada e mergeada** em `main` (PR #11) via LEVEL 2; required CI verde (pgTAP 030 29/29). Engines `assess`/`generateSchedule` v1 puros com golden; `hair_plans`/`scheduled_cares` + RPC `create_plan_tx` (advisory lock por usuária, idempotência por `client_request_id`, FK composta de ownership); Edge `generate-plan`; preview/confirmação no app. **Nenhuma decisão nova**: implementação dentro de D-66/D-67/D-68. **Único bloqueio remanescente para PUBLIC RELEASE: OQ-REL — sign-off de domínio das regras V1.** |
