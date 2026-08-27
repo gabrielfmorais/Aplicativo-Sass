@@ -3,7 +3,7 @@
 Projeto: assistente pessoal de cuidados capilares (mobile, Expo + Supabase). Idioma dos docs: pt-BR; código, identificadores e commits em inglês.
 
 ## 0. Estado atual
-**Arquitetura aprovada (2026-08-26). SPEC-000 — Engineering Foundation: IMPLEMENTED / MERGED (AC12 deferred por decisão humana D-50, não bloqueante). SPEC-001 — Identity & Authentication: APPROVED (D-51); implementação NOT STARTED.** Nenhuma outra SPEC de produto está autorizada; novas SPECs nascem via skill `spec-create` (`.claude/skills/spec-create/SKILL.md`) + aprovação humana. Node **22.23.x** (D-43), Expo **SDK 57 / RN 0.86** (D-44). Decisões humanas vinculantes: `docs/architecture/DECISION-REGISTER.md`. Guardrails executáveis: `pnpm verify`, `pnpm check:boundaries`, `supabase/tests/security`, `.github/workflows`.
+**Arquitetura aprovada (2026-08-26). SPEC-000 — Engineering Foundation: IMPLEMENTED / MERGED (AC12 deferred por decisão humana D-50, não bloqueante). SPEC-001 — Identity & Authentication: IMPLEMENTED / MERGED (PR #3, 2026-08-27). SPEC-002 — Hair Profile & Onboarding: IMPLEMENTED / MERGED (PR #6, 2026-08-27; D-62/D-63/D-64/D-65, D-64 amenda D-11).** Nenhuma outra SPEC de produto está autorizada; novas SPECs nascem via skill `spec-create` (`.claude/skills/spec-create/SKILL.md`) + aprovação humana. **LEVEL 2 operante**: `main` protegida no GitHub (required checks + PR + strict + enforce_admins; force-push/deleção bloqueados) e o GitHub executa o merge via auto-merge somente após as proteções — os human gates de §0.1 permanecem inalterados. Node **22.23.x** (D-43), Expo **SDK 57 / RN 0.86** (D-44). Decisões humanas vinculantes: `docs/architecture/DECISION-REGISTER.md`. Guardrails executáveis: `pnpm verify`, `pnpm check:boundaries`, `supabase/tests/security`, `.github/workflows`.
 
 ### 0.1 Bounded Autonomous Execution
 Dentro de arquitetura/ADR/SPEC **já aprovados**, o agente tem autonomia operacional, sem pedir autorização para o rotineiro: criar branch · implementar o escopo aprovado · executar testes · corrigir erros causados pelo trabalho atual · commits atômicos · push da branch · corrigir CI · atualizar documentação diretamente afetada · deixar a PR pronta para revisão.
@@ -11,7 +11,7 @@ Dentro de arquitetura/ADR/SPEC **já aprovados**, o agente tem autonomia operaci
 **Nunca:** push direto na `main` · force push na `main` · merge autônomo na `main` · operação destrutiva em produção · commit de secrets.
 Vale a regra de necessidade (YAGNI, `DECISION-REGISTER` D-47/D-48; compatível com Ponytail FULL): a menor mudança que atende à SPEC; nada "para depois".
 - `supabase/functions/deno.json` deve espelhar as dependências de `packages/core/package.json` (`pnpm exec node scripts/check-deno-import-map.mjs`).
-- Rota `apps/mobile/src/app/index.tsx` decide entre `apps/mobile/src/features/auth` e `apps/mobile/src/features/account` pelo estado de autenticação (SPEC-001); ainda não existem telas de produto.
+- Rota `apps/mobile/src/app/index.tsx`: não autenticada → `apps/mobile/src/features/auth`; autenticada **sem** hair profile → `apps/mobile/src/features/onboarding` (SPEC-002); **com** hair profile → `apps/mobile/src/features/account`. O onboarding capilar (SPEC-002) é a primeira tela de produto; "onboarding concluído" é derivado da existência de um `hair_profiles` (sem `onboarding_status` — D-63).
 
 ## 1. Antes de qualquer tarefa
 1. Ler este arquivo.
