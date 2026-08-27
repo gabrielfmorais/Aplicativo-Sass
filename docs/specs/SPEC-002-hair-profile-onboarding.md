@@ -3,209 +3,203 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-002 |
-| Status | **Draft** (v0.2, necessity review 2026-08-27; aguarda revisão humana — HUMAN GATE. Nenhum código, migration, dependência ou seed criado por esta SPEC) |
+| Status | **Draft — Ready for Approval** (v0.3, product decisions 2026-08-27; HUMAN GATE. Nenhum código, migration, dependência ou seed criado por esta SPEC) |
 | Owner | @gabrielfmorais (humano) |
 | Bounded Context | Hair Profile (Core) — DOMAIN-MAP §3.2 |
 | Related ADRs | ADR-001 (camadas), ADR-004 (Supabase/RLS), ADR-006 (fronteiras), ADR-007 A1 (governança de regras capilares — D-26), ADR-008 (time) |
-| Related SPECs | SPEC-001 (Identity — implemented; entrega `auth.uid()` e sessão) · SPEC-003 (Diagnostic — consome `HairProfileSnapshot`; **define o conjunto mínimo de inputs** — ver §7/§23) |
-| Decisões vinculantes | D-11 (versionamento server-authoritative de `hair_profiles`; **implementação revista** — ver §9), D-26 (engenharia projeta o mecanismo; **não** inventa dimensão/opção/regra capilar) |
+| Related SPECs | SPEC-001 (Identity — implemented; entrega `auth.uid()` e sessão) · SPEC-003 (Diagnostic — consome `HairProfileSnapshot` por `hair_profile_id`) |
+| Decisões vinculantes | D-62/D-63/D-64 (inputs mínimos, remoção de `profiles`, snapshots imutáveis por id — 2026-08-27); D-64 **amenda** D-11; D-26 (engenharia não inventa regra/ciência capilar) |
 | Fase do roadmap | 2 — Hair Profile + Onboarding |
 | Labels | `db`, `security` |
 | Criado / Atualizado | 2026-08-27 / 2026-08-27 |
 
-> Princípio (Ponytail/YAGNI + herdado da SPEC-001): **a menor solução correta**. Cada mecanismo (tabela / RPC / trigger / dependência / estado / serviço) só existe se responder SIM a: (1) funcionalidade central do MVP, (2) segurança/integridade/privacidade, (3) caro/perigoso corrigir depois, (4) valida hipótese central. Senão: **DEFER** ou **REMOVE**. Uma decisão anterior de DEFER **não** obriga a implementar agora.
+> Princípio (Ponytail/YAGNI): **a menor solução correta**. Um DEFER anterior não obriga a implementar agora; *future possibility ≠ current requirement*.
 >
-> **Separação obrigatória (D-26):** esta SPEC define a **estrutura técnica** de armazenar/versionar um perfil (engenharia). **NÃO** define **quais** dimensões, opções ou perguntas compõem o perfil — isso é **conteúdo de domínio** e exige validação especializada. Ver §7-B e §23 (BLOCKING).
+> **Escopo (D-26):** SPEC-002 **coleta e preserva** dados de perfil. **NÃO** diagnostica, não define pesos/scores/fórmulas/frequência ideal nem qualquer ciência capilar — isso é SPEC-003+ sob D-26. Os inputs abaixo são **inputs de produto para personalização**, aprovados por decisão humana; **não** constituem diagnóstico médico/dermatológico.
 
 ## 1. Context
-SPEC-001 entregou identidade e sessão. O produto ainda não coleta nada sobre o cabelo, e o Diagnostic Engine (SPEC-003) não tem entrada. Esta SPEC fixa **como** um perfil capilar é armazenado (imutável, versionado, isolado por usuária). Hipótese: **H1 (≥ 60% concluem o onboarding)** — daí o alvo de produto de baixa fricção (§14), não um número fixo de perguntas.
+SPEC-001 entregou identidade e sessão. O produto ainda não coleta nada sobre o cabelo. Esta SPEC coleta um perfil capilar mínimo e o preserva como **snapshot histórico imutável**, insumo do Diagnostic Engine (SPEC-003). Hipótese: **H1 (≥ 60% concluem o onboarding)** → baixa fricção (§15).
 
 ## 2. Problem
-Depois de autenticar, a usuária precisa registrar seu cabelo gerando um snapshot **imutável e versionado**, isolado por RLS, que sirva de entrada determinística para o diagnóstico e possa ser refeito no futuro sem apagar o histórico (base para SPEC-014). O **conteúdo** desse perfil (dimensões/opções) ainda não está validado por domínio.
+Depois de autenticar, a usuária registra seu cabelo, gerando um snapshot imutável, isolado por RLS, identificável de forma estável (por `id`), que sirva de entrada determinística ao diagnóstico e possa ser refeito no futuro sem apagar o histórico (base para SPEC-014).
 
 ## 3. Goals
-- G1 A usuária conclui o onboarding e tem exatamente **um** snapshot capilar atual.
-- G2 Snapshots são **append-only versionados**: refazer cria nova versão; a anterior é preservada.
-- G3 Isolamento por RLS fail-closed em `hair_profiles`, provado por pgTAP; nenhuma usuária lê/escreve o de outra.
-- G4 `version` é **server-authoritative**: o cliente nunca escolhe; concorrência não corrompe o histórico.
-- G5 "Onboarding concluído" é **estado derivado** (existe snapshot atual?), não coluna persistida.
-- G6 Nenhuma dimensão/opção/regra capilar é inventada por engenharia; o conteúdo é `draft` e **bloqueia** a implementação até validação de domínio (D-26).
+- G1 A usuária conclui o onboarding e passa a ter um snapshot capilar atual.
+- G2 Snapshots são **append-only imutáveis**: refazer cria nova linha; nenhuma anterior é sobrescrita.
+- G3 Cada snapshot é identificável de forma estável por `hair_profiles.id`; downstream (SPEC-003/004) referencia esse `hair_profile_id`.
+- G4 "Snapshot atual" é **derivado** (o mais recente), sem estado duplicado (`is_current`/`active_version`).
+- G5 Isolamento por RLS fail-closed, provado por pgTAP; nenhuma usuária acessa o de outra; cliente hostil não burla ownership.
+- G6 Engenharia coleta/preserva; **não** diagnostica (D-26).
 
 ## 4. Non-Goals
-- Interpretar o perfil / diagnóstico / plano → **SPEC-003/004**.
-- **Tabela `profiles`** — REMOVIDA desta SPEC (§8). Nasce quando um requisito concreto de produto precisar dela (SPEC futura).
-- `onboarding_status`, `timezone`, `display_name`, `locale` — não entram (derivado ou DEFER; §8).
-- `extra_attributes jsonb` — REMOVIDO (§8); sem escape hatch para requisitos futuros.
-- Edição granular in-place (o modelo é versionado: "editar" = nova versão).
-- Fotos, faixa etária/gênero; estado global (Zustand — D-36); nova dependência npm; preview de diagnóstico.
-- **Definição do conteúdo do questionário** (é domínio; §7-B, §23 BLOCKING).
+- Diagnóstico/plano/scores/fórmulas/frequência ideal → SPEC-003/004 (D-26).
+- Tabela `profiles` e derivados (`ProfilePort`, provisioning, `onboarding_status`, `ensure_my_profile`, trigger em `auth.users`) — **REMOVE** (§12).
+- Numeração sequencial de versão (`version int`, trigger `MAX+1`, `UNIQUE(user_id,version)`, lógica de concorrência para numerar) — **REMOVE** (§13; D-64 amenda D-11).
+- Campos fora do conjunto aprovado (§10): porosity, elasticity, density, idade, gênero, comprimento, fotos, marcas/produtos/salão, histórico químico detalhado, classificação 2A–4C, `extra_attributes jsonb`.
+- Edição granular in-place; estado global (Zustand — D-36); nova dependência npm.
 
 ## 5. User Stories
 - US1 Recém-autenticada, a usuária responde o onboarding e o perfil é salvo.
-- US2 Em qualquer pergunta que não saiba, escolhe "não sei" e segue (P02) — *quando o conjunto de perguntas estiver definido por domínio*.
-- US3 Reabrindo com perfil atual salvo, a usuária **não** repete o onboarding (estado derivado).
-- US4 (base para SPEC-014) A usuária refaz o onboarding depois; a nova versão vira a atual, a antiga é preservada.
+- US2 Onde aplicável, escolhe "Não sei"/"Varia" e segue (P02).
+- US3 Reabrindo com um snapshot salvo, a usuária **não** repete o onboarding (estado derivado).
+- US4 (base para SPEC-014) Refaz o onboarding depois; a nova avaliação vira a atual e as anteriores são preservadas.
 
-## 6. Functional Requirements
-| ID | Requisito |
-|---|---|
-| FR1 | Após autenticação, se **não** existe snapshot atual da usuária, o app roteia para o onboarding; caso contrário, para o destino pós-onboarding (placeholder nesta SPEC — SPEC-003+ substitui). "Existe snapshot atual" = `SELECT 1 FROM hair_profiles WHERE user_id = auth.uid() LIMIT 1`. |
-| FR2 | Salvar o perfil = **um** `INSERT` em `hair_profiles` (RLS `WITH CHECK user_id = auth.uid()`); o cliente **não** envia `version` (servidor atribui — §9). |
-| FR3 | "Perfil atual" = maior `version` da usuária (derivado; sem flag `is_current`). |
-| FR4 | Refazer o onboarding cria nova `version`; nenhuma linha anterior é alterada ou apagada. |
-| FR5 | Validação: zod no cliente **e** `CHECK`/constraints no banco — **do conjunto de dimensões que o domínio aprovar** (§7-B). Até lá, o schema concreto é TODO (BLOCKING). |
-| FR6 | Onboarding parcial não persiste linha (só o `INSERT` final atômico); todo estado dá feedback (§14). |
+## 6. Approved onboarding inputs (decisão humana — D-62)
+8 inputs conceituais de produto. Não constituem diagnóstico. Não adicionar dimensões sem requisito concreto.
+
+| # | Campo | Cardinalidade | Valores permitidos | "Não sei"? | Por que é necessário |
+|---|---|---|---|---|---|
+| 1 | `hair_pattern` | single | `straight` · `wavy` · `curly` · `coily` · `transitioning_or_mixed` · `unknown` | sim (`unknown`) | dimensão base de personalização; UX: Liso/Ondulado/Cacheado/Crespo/Misto ou Em transição/Não sei. **Sem 2A–4C no MVP.** |
+| 2 | `strand_thickness` | single | `fine` · `medium` · `coarse` · `unknown` | sim | espessura do fio (≠ densidade); UX: Fino/Médio/Grosso/Não sei |
+| 3 | `scalp_tendency` | single | `oily_quickly` · `balanced` · `dry_tendency` · `unknown` | sim | tendência do couro (não é diagnóstico dermatológico); UX: Fica oleoso rapidamente/Equilibrado/Tende a ficar seco/Não sei |
+| 4 | `wash_frequency` | single | `once_or_less_weekly` · `twice_weekly` · `three_to_four_weekly` · `five_or_more_weekly` · `varies` | via `varies` | comportamento **atual** (não é a recomendação); UX: 1x ou menos/2x/3–4x/5x ou mais/Varia muito |
+| 5 | `chemical_treatments` | multi (0..N) | `coloring` · `bleaching_or_highlights` · `straightening_relaxing_or_progressive` · `perm_or_chemical_texturizing` | vazio = **nenhum** | processos químicos presentes; conjunto vazio representa "nenhum" (sem opção artificial `multiple`). **Não** coletar marca/produto/salão/data/histórico detalhado |
+| 6 | `heat_usage` | single | `almost_never` · `one_to_two_weekly` · `three_to_four_weekly` · `almost_daily` | — | uso de calor agregado (secador/chapinha/modelador/etc.), sem individualizar aparelho |
+| 7 | `current_concerns` | multi (1..N) | `dryness` · `breakage` · `tangling` · `dullness` · `frizz` · `no_major_concern` | via `no_major_concern` | queixas atuais (não sintomas médicos); `no_major_concern` é exclusivo; UX: Ressecado/Quebra com facilidade/Embaraça muito/Sem brilho/Com bastante frizz/Sem problema importante |
+| 8 | `primary_goal` | single | `softness_and_hydration` · `reduce_breakage_and_strengthen` · `recover_chemical_or_heat_damage` · `definition_and_frizz_control` · `maintain_healthy_hair` | — | **uma** prioridade principal; UX conforme decisão humana §9 |
 
 ## 7. Business Rules
-
-### 7-A. Estrutura técnica (engenharia — definida aqui)
 | ID | Regra | Onde |
 |---|---|---|
-| BR1 | `hair_profiles` é **append-only e imutável**: sem UPDATE, sem DELETE pela usuária (só cascade de conta). | RLS/grants |
-| BR2 | `version` é **server-authoritative**: atribuída por trigger `BEFORE INSERT` (`max+1` por usuária), valor do cliente ignorado; integridade garantida por `UNIQUE (user_id, version)` (§9). | trigger + constraint |
-| BR3 | Concorrência de dois INSERTs não corrompe o histórico: no pior caso um falha com `unique_violation` e o cliente reenvia; nunca há duas linhas com a mesma versão nem sobrescrita (§9). | `UNIQUE (user_id, version)` |
-| BR4 | Ownership e autorização exclusivamente por RLS/grants/constraints com `(select auth.uid())`; nenhuma regra em componente. | Postgres |
-| BR5 | Nenhuma PII sensível nova; características do cabelo são dado pessoal **não sensível** (LGPD); notas livres (se o domínio as incluir) nunca em logs/analytics. | catálogo + adapter de log |
+| BR1 | `hair_profiles` é **append-only e imutável**: sem UPDATE, sem DELETE pelo papel do app (só cascade de conta). | RLS/grants |
+| BR2 | Snapshot identificado por `id` uuid estável; downstream referencia `hair_profile_id`. **Sem numeração sequencial** (D-64). | PK + contrato |
+| BR3 | "Snapshot atual" = o mais recente da usuária (`ORDER BY created_at DESC, id DESC LIMIT 1`); derivado, sem `is_current`/`active_version`. | query |
+| BR4 | Refazer cria **nova linha**; nenhuma linha anterior é alterada ou apagada. | INSERT + ausência de UPDATE/DELETE |
+| BR5 | Ownership e autorização exclusivamente por RLS/grants/constraints com `(select auth.uid())`; nada em componente. | Postgres |
+| BR6 | Valores restritos aos conjuntos aprovados (§6), validados por `CHECK` (servidor) e zod (cliente); multi-selects por subconjunto. | banco + core |
+| BR7 | Sem PII sensível nova; características do cabelo = pessoal **não sensível** (LGPD); nada de valores/respostas em logs/analytics. | catálogo + log adapter |
 
-### 7-B. Conteúdo de domínio (NÃO definido aqui — HUMAN GATE / D-26)
-As **dimensões** candidatas em DOMAIN-MAP §3.2 (`curl_pattern`, `strand_thickness`, `porosity`, `scalp_oiliness`, `elasticity`, `wash_frequency`, `heat_usage`, `chemical_treatments`, `goals`) e suas opções/subtipos são **hipótese de engenharia — não validadas**. Não são aprovadas por esta SPEC. O conjunto **mínimo** de inputs de perfil é determinado pelo que o **Diagnostic Engine (SPEC-003)** precisa e exige **validação de domínio/produto** antes da implementação (§23, **BLOCKING**). Engenharia entrega o envelope (7-A); o domínio entrega o conteúdo.
-
-## 8. Data Model Impact (conceitual; sem migration)
-
-Necessity review por mecanismo:
-
-| Mecanismo | (1) MVP | (2) Seg./integr. | (3) Caro depois? | (4) Hipótese | Decisão |
-|---|---|---|---|---|---|
-| Tabela `hair_profiles` (versionada, append-only) | **sim** — insumo do diagnóstico | integridade (imutável) | **sim** (H) | H1 | **KEEP** |
-| Tabela `profiles` | onboarding é **derivável** de "existe snapshot"; nenhum requisito atual usa dados de `profiles` | nenhuma | não (L) | — | **REMOVE** (nasce numa SPEC futura com requisito concreto) |
-| `ProfilePort` / provisionamento / `INSERT ON CONFLICT` / RLS+testes de `profiles` | dependem de `profiles` | — | — | — | **REMOVE** (sem função sem a tabela) |
-| Coluna `onboarding_status` | derivável (existe snapshot atual?) | nenhuma | não | — | **REMOVE** — estado derivado, não duplicado |
-| Colunas `timezone` / `display_name` / `locale` | nenhum fluxo desta SPEC os usa | nenhuma | não (L) | — | **DEFER** (timezone → SPEC-004 Schedule; display_name → quando houver personalização; locale sempre `pt-BR`) |
-| `extra_attributes jsonb` | nenhum atributo atual aprovado é impossível de tipar | nenhuma | evitar escape hatch | — | **REMOVE** (colunas tipadas quando o domínio definir; §7-B) |
-| Trigger `BEFORE INSERT` (version) | sim — server-authoritative | **sim** (cliente não escolhe versão) | integridade | — | **KEEP** |
-| Advisory lock no trigger | `UNIQUE` já garante integridade; lock só evita um retry raro | não agrega correção | — | — | **REMOVE** (§9; revisão de D-11 — IMPORTANT) |
-| RPC / Edge Function / custom claim / dependência npm | nada no MVP; zod já existe | — | — | — | **NONE** |
-
-**Modelo mínimo resultante:**
+## 8. Final data model (conceitual; sem migration)
 ```
 auth.users
    ↓  user_id (FK, on delete cascade) — ownership only
-hair_profiles   (imutável, versionado)
+hair_profiles   (append-only, imutável)
 ```
+`hair_profiles`:
+| Coluna | Tipo | Fluxo que usa | Escreve | Lê | Source of truth? | Derivável? |
+|---|---|---|---|---|---|---|
+| `id` | uuid PK default gen_random_uuid() | identidade do snapshot (downstream) | servidor (default) | app, SPEC-003+ | **sim** (identidade) | não |
+| `user_id` | uuid not null, FK `auth.users` on delete cascade | ownership/RLS | app (INSERT, `= auth.uid()`) | app | sim | não |
+| `hair_pattern` | text not null, CHECK (§6) | onboarding/diagnóstico | app | app, SPEC-003 | sim | não |
+| `strand_thickness` | text not null, CHECK (§6) | idem | app | idem | sim | não |
+| `scalp_tendency` | text not null, CHECK (§6) | idem | app | idem | sim | não |
+| `wash_frequency` | text not null, CHECK (§6) | idem | app | idem | sim | não |
+| `chemical_treatments` | text[] not null default '{}', CHECK (elementos ⊆ §6) | idem | app | idem | sim | não |
+| `heat_usage` | text not null, CHECK (§6) | idem | app | idem | sim | não |
+| `current_concerns` | text[] not null, CHECK (elementos ⊆ §6; `no_major_concern` exclusivo) | idem | app | idem | sim | não |
+| `primary_goal` | text not null, CHECK (§6) | idem | app | idem | sim | não |
+| `created_at` | timestamptz not null default now() | ordenação/"atual"/histórico | servidor (default) | app | sim | não |
 
-`hair_profiles` — **envelope técnico (definido)**:
-| Coluna | Tipo | Notas |
-|---|---|---|
-| id | uuid PK default gen_random_uuid() | |
-| user_id | uuid not null, FK `auth.users` on delete cascade | ownership |
-| version | int not null | server-authoritative (§9); `UNIQUE (user_id, version)` |
-| created_at | timestamptz not null default now() | **sem `updated_at`** — imutável |
-| *(atributos de perfil)* | **TBD** | **BLOCKING (D-26/§23):** colunas tipadas + CHECK definidas só após o conjunto mínimo de inputs ser validado por domínio (§7-B) |
+Sem `version`, sem `updated_at`, sem `is_current`, sem `profiles`, sem `extra_attributes`. Índice sugerido: `(user_id, created_at desc)` para o lookup do snapshot atual.
 
-Índice: `(user_id, version desc)`. **Consequência documental:** DATA-MODEL §3.1 (previa `profiles` criado nesta SPEC) e §3.3 recebem nota de atualização em commit da implementação, refletindo a remoção de `profiles` desta SPEC e o versionamento revisto.
+## 9. Snapshot / versioning decision (D-64; amenda D-11)
+Necessidade real: **cada avaliação usada pelo produto permanece como snapshot histórico imutável e identificável.** Verificação no repositório: nenhum requisito atual depende de número sequencial (`v1/v2/v3`) — o downstream (`diagnostic_results.hair_profile_id`, DATA-MODEL §3.4; contrato `HairProfileSnapshot`, DOMAIN-MAP §4) referencia por **`hair_profile_id`**, nunca por número. Portanto:
+- **REMOVE:** `version int`, trigger de alocação, `MAX(version)+1`, `UNIQUE(user_id, version)`, lógica de concorrência criada só para numerar, advisory lock.
+- **Identidade do snapshot:** `hair_profiles.id` (uuid estável) — inforjável, único por padrão, sem trigger.
+- **Atual:** o mais recente (`created_at desc, id desc`), determinístico.
+- **Rastreabilidade:** downstream referencia o `hair_profile_id` que originou o diagnóstico/cronograma.
 
-## 9. Versioning mechanism review (D-11)
-Requisito arquitetural preservado: `hair_profiles` **imutável e versionado, server-authoritative**. Revisão da implementação proposta em D-11 ("trigger + advisory lock"):
+**D-11 impact:** D-11 dizia `version` sequencial por trigger com advisory lock. Amendado por **D-64**: *"versioned profile" = snapshots históricos imutáveis identificados por ID estável, não necessariamente por número sequencial.* Sem numeração no MVP. Nenhuma dependência concreta impede a simplificação (verificado). Se um requisito futuro exigir ordinal explícito, ele pode ser derivado por `row_number() over (order by created_at)` na leitura, sem coluna.
 
-- **Qual race concreta o mecanismo resolve?** Dois INSERTs concorrentes da mesma usuária lendo o mesmo `max(version)=N` e ambos calculando `N+1`.
-- **`UNIQUE(user_id, version)` sozinho é insuficiente? Por quê?** Para **integridade**, é **suficiente**: impede duas linhas com a mesma versão e qualquer sobrescrita — o segundo INSERT falha com `unique_violation` (23505). O que `UNIQUE` sozinho **não** dá é a *alocação server-authoritative* (impedir o cliente de escolher a versão) — isso vem do **trigger**. E não dá *ausência de erro* sob concorrência — isso viria do advisory lock.
-- **Solução mais simples mantendo server-authoritative?** **Trigger `BEFORE INSERT`** que faz `NEW.version = COALESCE(max(version) por user_id, 0) + 1` e **ignora** o valor do cliente, **+ `UNIQUE (user_id, version)`**. **Sem advisory lock.**
-- **O cliente consegue influenciar `version`?** **Não** — o trigger sobrescreve qualquer valor enviado.
-- **Como a concorrência de dois INSERTs é resolvida?** Ambos calculam `N+1`; `UNIQUE` deixa **um** commitar e o outro falha com 23505; o cliente reenvia e obtém `N+2`. Nenhuma corrupção; histórico intacto. O botão de salvar já é desabilitado durante `submitting` (§14), tornando a colisão rara.
-- **Decisão:** **trigger + `UNIQUE`, remover o advisory lock.** É a menor solução correta; preserva imutabilidade, unicidade de versão e autoridade do servidor. Advisory lock só converteria um erro raro em espera serializada — complexidade sem ganho de correção para um cenário single-user. **Isto revisa a implementação sugerida em D-11 (que citava advisory lock) — requer confirmação humana (§23, IMPORTANT).** Alternativa considerada e descartada: eliminar `version int` e ordenar por `created_at` — muda mais o contrato (D-11/DATA-MODEL) e complica "versão N" da reavaliação (SPEC-014).
+## 10. Removed inputs (§ decisão humana)
+REMOVE/DEFER, sem criar campo "para depois": `porosity` · `elasticity` · `density` · idade · gênero · comprimento · fotos · marcas de produto/shampoo · salão · data/histórico químico detalhado · classificação 2A–4C (possível refinamento futuro, fora do MVP) · `extra_attributes jsonb`.
 
-## 10. API / Contracts
-- **Sem RPC e sem Edge Function.** Acesso direto por PostgREST sob RLS (espelha SPEC-001).
-- Core `hair-profile` (application): `HairProfileSchema` (zod — **forma definida após §7-B**), `HairProfilePort { getCurrent(): HairProfile | null; save(input): HairProfile }` (`save` = `INSERT`; `getCurrent` = `SELECT ... ORDER BY version DESC LIMIT 1`). `HairProfileSnapshot` (tipo em core) = contrato Conformist para SPEC-003. Erros → `AppError` da Foundation.
+## 11. API / Contracts
+- **Sem RPC, sem Edge Function, sem DEFINER.** Acesso direto por PostgREST sob RLS (espelha SPEC-001).
+- Core `hair-profile` (application): `HairProfileSchema` (zod — enums e subconjuntos de §6), `HairProfilePort { getCurrent(): HairProfile | null; save(input): HairProfile }` (`save` = `INSERT`; `getCurrent` = `SELECT ... ORDER BY created_at DESC, id DESC LIMIT 1`). `HairProfileSnapshot` (tipo em core, com `hair_profile_id`) = contrato Conformist para SPEC-003. Erros → `AppError` da Foundation.
 
-## 11. Authorization
-- `hair_profiles`: `enable` + `force row level security`; `revoke all from anon, authenticated`; `grant select, insert to authenticated` (**sem UPDATE, sem DELETE** — append-only, BR1). Policies `authenticated`: select `using (user_id = (select auth.uid()))`, insert `with check (user_id = (select auth.uid()))`. `anon`: nada.
-- Entradas na allowlist de grants (`supabase/security/allowlists.sql`) com referência SPEC-002; trigger de versão é `SECURITY INVOKER` (não entra na allowlist de DEFINER). Guardrails da Foundation (`tables_without_rls`, `unapproved_grants`, `unapproved_security_definer_functions`) permanecem em zero. Sem entitlements.
+## 12. profiles decision (D-63)
+`profiles` **REMOVIDA** da SPEC-002 e não implementada: `profiles`, `ProfilePort`, `onboarding_status`, provisioning, `ensure_my_profile`, trigger de provisionamento em `auth.users`. Ownership parte direto de `auth.users → hair_profiles.user_id`. "Onboarding concluído" = existe um `hair_profile` válido da usuária. `profiles` nasce numa SPEC futura quando houver requisito concreto (ex.: timezone para Schedule na SPEC-004).
 
-## 12. Security Considerations
-Checklist SECURITY-BASELINE §13:
-- RLS ON + FORCE em `hair_profiles`, policy por verbo ✔; sem policy = negado ✔.
-- `SECURITY DEFINER`: **0**; RPC: **0** ✔. Trigger de versão INVOKER ✔.
-- Inputs validados: zod (cliente) **e** CHECK/constraints (servidor) — **após §7-B** ✔.
-- Idempotência/consistência: versão server-authoritative + `UNIQUE` (§9) ✔.
-- PII nova: características do cabelo (pessoal, **não** sensível); sem tokens/segredos; nada em logs/analytics ✔.
-- Testes RLS positivos e negativos (pgTAP) ✔. Rollback: migration aditiva com `-- ROLLBACK:` ✔.
+## 13. RLS / grants
+- `hair_profiles`: `ENABLE` + `FORCE ROW LEVEL SECURITY`; `REVOKE ALL FROM anon, authenticated`; `GRANT SELECT, INSERT TO authenticated` (**sem UPDATE, sem DELETE** — imutável, BR1). Policies `authenticated`: select `USING (user_id = (select auth.uid()))`; insert `WITH CHECK (user_id = (select auth.uid()))`. `anon`: nenhum grant.
+- Allowlist de grants (`supabase/security/allowlists.sql`) com referência SPEC-002; sem entradas de DEFINER. Guardrails da Foundation (`tables_without_rls`, `unapproved_grants`, `unapproved_security_definer_functions`) permanecem em zero.
 
-**Cliente hostil:** só `anon key` + JWT próprio. Não pode: ler/escrever `hair_profiles` de terceiros (RLS); forjar `version` (trigger); forjar `user_id` (policy `with check`); alterar/apagar snapshot (sem grant UPDATE/DELETE); inserir valor fora do CHECK (após §7-B). Ameaças candidatas: T01 (isolamento), T05 (input), T10 (integridade) — confirmar T-ids no THREAT-MODEL na revisão.
-
-## 13. Privacy Considerations
-Dado pessoal novo: características do cabelo (`hair_profiles`) — **pessoal não sensível** (LGPD); finalidade: diagnóstico/plano; retenção: até exclusão de conta (cascade). Nada em logs/analytics além de eventos sem propriedades sensíveis (§... ver abaixo). Exportação coberta pela arquitetura (`user_id` em tudo). Consentimento/termos: SPEC-013.
-
-## 14. Analytics Events
-Definir **tipos** no catálogo (core), emitindo para o **adapter no-op** (provider real = SPEC-011):
-- `onboarding_started {}` · `onboarding_completed {}` · `hair_profile_saved { version }`
-Proibido em propriedades: qualquer valor de resposta, `user_id` cru, notas livres, PII. Emitir agora vs. adiar para SPEC-011 = CAN DEFER.
+## 14. Security Considerations
+Checklist SECURITY-BASELINE §13: RLS ON+FORCE, policy por verbo ✔; `SECURITY DEFINER`=0, RPC=0 ✔; inputs validados zod + CHECK ✔; imutabilidade por ausência de grant UPDATE/DELETE ✔; PII nova = pessoal não sensível, sem tokens/segredos, nada em logs/analytics ✔; pgTAP positivo/negativo ✔; rollback aditivo ✔. **Cliente hostil** (só `anon key` + JWT próprio) não pode: acessar snapshot de terceiros (RLS), forjar `user_id` (policy `with check`), alterar/apagar snapshot (sem grant), inserir valor fora do CHECK, criar coluna não suportada (PostgREST rejeita). Ameaças candidatas: T01/T05/T10 (confirmar T-ids no THREAT-MODEL na revisão).
 
 ## 15. UX Notes (sem design visual)
-- **Alvo de produto (não requisito arquitetural):** baixa fricção para sustentar H1. O **número de perguntas é consequência** do conjunto mínimo de inputs (§7-B/§23), **não** um alvo fixo; não inventar perguntas para atingir um número.
-- Telas: Onboarding (perguntas definidas por domínio; "não sei" onde aplicável) → confirmação ("perfil salvo") → destino pós-onboarding (placeholder).
+- **Alvo de produto (não requisito arquitetural):** baixa fricção (H1). Os 8 campos **não** implicam 8 telas; a composição visual é de UX. Objetivo: mínima fricção + respostas claras + opção "não sei"/"varia" onde aplicável. Não inventar perguntas para atingir um número.
+- Fluxo: Onboarding → confirmação ("perfil salvo") → destino pós-onboarding (placeholder — SPEC-003+).
 - Estados: `loading` (checando snapshot atual) · `answering` · `submitting` (botão desabilitado) · `success` · `error` (retry) · `offline`.
-- Roteamento: reusa o auth gate da SPEC-001 (`apps/mobile/src/app/index.tsx`); substitui o placeholder pós-auth, não a lógica de auth.
+- Roteamento: reusa o auth gate da SPEC-001 (`apps/mobile/src/app/index.tsx`), por estado derivado (existe snapshot?); substitui o placeholder pós-auth, não a lógica de auth.
 - Acessibilidade: labels, alvo de toque, Dynamic Type, contraste, foco por pergunta.
 
-## 16. Edge Cases & Failure Modes
-- App fechado no meio do onboarding: nada persistido (só `INSERT` final); recomeça (sem retomada — coerente com "sem `onboarding_status`").
-- Double submit: cada `INSERT` tenta uma versão; `UNIQUE` + trigger serializam a integridade; UI desabilita o botão em `submitting`; colisão rara → retry (§9).
-- Valor fora do CHECK apesar do zod: erro genérico, sem detalhe interno; log sem PII.
-- Rede cai no save: estado `error` com retry; respostas preservadas em memória.
+## 16. Analytics Events
+Tipos no catálogo (core), emitindo para o **adapter no-op** (provider real = SPEC-011): `onboarding_started {}` · `onboarding_completed {}` · `hair_profile_saved {}`. Proibido em propriedades: valores de resposta, `user_id` cru, notas, PII. Emitir agora vs. SPEC-011 = CAN DEFER.
 
-## 17. Acceptance Criteria (revisados pós-poda)
+## 17. Edge Cases & Failure Modes
+- App fechado no meio: nada persistido (só `INSERT` final); recomeça (coerente com estado derivado).
+- Double submit: cada `INSERT` cria uma linha nova imutável (sem numeração, não há colisão de versão); UI desabilita o botão em `submitting` para evitar duplicata acidental; se ocorrer, a "atual" é a mais recente e as demais ficam no histórico (aceitável).
+- Valor fora do CHECK apesar do zod: erro genérico, sem detalhe interno; log sem PII.
+- Rede cai no save: estado `error` com retry; respostas em memória.
+
+## 18. Acceptance Criteria
 | ID | Critério |
 |---|---|
-| AC1 | Dado uma usuária autenticada **sem** snapshot atual, quando conclui o onboarding, então existe exatamente **1** `hair_profile` com `version = 1` e **nenhuma** outra tabela é criada/preenchida (sem `profiles`). |
-| AC2 | **(preserva versão anterior)** Dado uma usuária com snapshot atual `version = N`, quando refaz o onboarding, então é criada uma linha `version = N+1`, a linha `N` permanece **inalterada**, e "perfil atual" passa a ser `N+1`. |
-| AC3 | **(cliente não escolhe versão)** Dado um cliente modificado que envia `version` arbitrária, quando insere, então o trigger atribui `max+1` e ignora o valor enviado (pgTAP). |
-| AC4 | **(concorrência não corrompe)** Dadas duas inserções concorrentes para a mesma usuária, então nunca resultam duas linhas com a mesma `version`; no máximo uma persiste por versão e a outra falha com `unique_violation` (pgTAP simulando concorrência/colisão de versão). |
-| AC5 | **(isolamento A/B + imutabilidade + anon)** Dado usuárias A e B com cliente modificado: A não faz SELECT/INSERT em `hair_profiles` de B; A não faz UPDATE/DELETE em snapshot algum (sem grant); anon não acessa nada; `user_id` forjado no INSERT é rejeitado pela policy `with check` (pgTAP + revisão de grants). |
-| AC6 | **(valores de domínio)** Uma vez aprovado o schema de domínio (§7-B), valores fora do conjunto fechado são rejeitados por zod (cliente) **e** por CHECK (servidor) — teste unit + pgTAP. *(Bloqueado até §23-BLOCKING resolvido.)* |
-| AC7 | Os guardrails da Foundation permanecem verdes: `tables_without_rls()` = 0, `unapproved_grants()` = 0 após allowlist, `unapproved_security_definer_functions()` = 0, `pnpm verify`. |
-| AC8 | `HairProfileSnapshot` é exportado por `packages/core` sem depender de React/Expo/Supabase (dep-cruise verde). |
-| AC9 | Nenhum valor de resposta/nota/PII em logs ou analytics (teste do redactor + revisão do catálogo). |
+| AC1 | Usuária autenticada cria seu próprio snapshot válido (todos os campos de §6 respeitando cardinalidade/enum) e ele fica legível por ela. |
+| AC2 | **Isolamento (pgTAP):** A não faz SELECT de snapshots de B; A não faz INSERT com `user_id` de B (rejeitado por `WITH CHECK`); `anon` não acessa `hair_profiles`. |
+| AC3 | **Imutabilidade (pgTAP + grants):** o papel do app (`authenticated`) não faz UPDATE nem DELETE de snapshot histórico (sem grant). |
+| AC4 | **Histórico:** enviar uma nova avaliação cria uma nova linha e preserva as anteriores inalteradas; o "atual" passa a ser o mais recente (`created_at desc, id desc`). |
+| AC5 | **Identidade estável:** cada snapshot é referenciável por `hair_profiles.id`; o `HairProfileSnapshot` exposto ao downstream carrega esse `hair_profile_id`. |
+| AC6 | **Validação de domínio (servidor + cliente):** valores fora dos conjuntos aprovados (§6) são rejeitados por CHECK (servidor) e por zod (cliente); multi-selects rejeitam elementos fora do subconjunto. |
+| AC7 | **Cliente hostil:** código do cliente não cria campos/valores não suportados (colunas desconhecidas rejeitadas pelo PostgREST; enums inválidos pelo CHECK). |
+| AC8 | **Guardrails Foundation verdes:** `tables_without_rls()`=0, `unapproved_grants()`=0 após allowlist, `unapproved_security_definer_functions()`=0, `pnpm verify`. |
+| AC9 | `HairProfileSnapshot` é exportado por `packages/core` sem depender de React/Expo/Supabase (dep-cruise verde). |
+| AC10 | Nenhum valor de resposta/PII/segredo aparece em logs ou analytics da aplicação (teste do redactor + revisão do catálogo). |
 
-## 18. Testing Strategy
-- **Unit (core `hair-profile`):** `HairProfileSchema` (após §7-B), mapeamento de erros → `AppError`, forma de `HairProfileSnapshot`.
-- **Integração (Supabase local + pgTAP):** trigger de versão (monotônica, ignora valor do cliente); colisão concorrente resolvida por `UNIQUE` (AC4); RLS positiva/negativa (A vs B, anon, UPDATE/DELETE negados); CHECK de domínio (após §7-B).
-- **Component (Jest + RNTL):** roteamento onboarding vs. pós-onboarding (estado derivado); estados; botão desabilitado em `submitting`.
-- **E2E:** onboarding → salvo → reabrir sem repetir (não crítico como auth; ferramenta na fase 10).
+## 19. Testing Strategy
+- **Unit (core `hair-profile`):** `HairProfileSchema` (enums, subconjuntos, "não sei"/"varia"), mapeamento de erros → `AppError`, forma de `HairProfileSnapshot` (com `hair_profile_id`).
+- **Integração (Supabase local + pgTAP):** RLS positiva/negativa (A vs B, anon, `WITH CHECK` de `user_id`); imutabilidade (UPDATE/DELETE negados por ausência de grant); CHECK de enums e subconjuntos; "atual" = mais recente; nova avaliação preserva anteriores.
+- **Component (Jest + RNTL):** roteamento por estado derivado; estados; botão desabilitado em `submitting`; multi-select com exclusividade de `no_major_concern`.
+- **E2E:** onboarding → salvo → reabrir sem repetir (não crítico; ferramenta na fase 10).
 - **Manual smoke:** checklist no PR.
 
-## 19. Dependencies
+## 20. Architecture mechanisms
+| Mecanismo | KEEP / REMOVE / DEFER | Motivo |
+|---|---|---|
+| Tabela `hair_profiles` (append-only) | **KEEP** | insumo do diagnóstico; imutável; caro retrofitar (H) |
+| CHECK de enums + `text[]` de subconjunto | **KEEP** | integridade server-side dos inputs aprovados |
+| RLS ON+FORCE + grants (SELECT/INSERT) | **KEEP** | isolamento/imutabilidade fail-closed |
+| `HairProfilePort` / `HairProfileSchema` / `HairProfileSnapshot` | **KEEP** | contrato mínimo para o app e SPEC-003 |
+| Tipos de eventos de analytics (no-op) | **KEEP** (emissão CAN DEFER) | catálogo desde o início; sem PII |
+| Tabela `profiles` (+ `ProfilePort`, provisioning, `onboarding_status`) | **REMOVE** | onboarding derivado; sem requisito atual (D-63) |
+| `version int` + trigger + `MAX+1` + `UNIQUE(user_id,version)` + advisory lock | **REMOVE** | identidade por `id`; nenhum requisito depende de ordinal (D-64) |
+| `extra_attributes jsonb` | **REMOVE** | sem escape hatch para futuro |
+| RPC / Edge Function / DEFINER / custom claim | **REMOVE** | acesso direto + RLS resolve |
+| Nova dependência npm / state manager | **REMOVE (NONE)** | zod já existe; sem necessidade |
+| `timezone` / `display_name` / `locale` | **DEFER** | nenhum fluxo desta SPEC os usa (timezone → SPEC-004) |
+| classificação 2A–4C, porosity, elasticity, density, etc. | **DEFER/REMOVE** | fora do conjunto aprovado (§10) |
+
+## 21. Dependencies
 - SPEC-001 (implemented) — sessão e `auth.uid()`; reusa o auth gate.
-- **SPEC-003 (bloqueante de conteúdo):** o conjunto mínimo de inputs do diagnóstico determina as colunas de domínio (§7-B/§23).
 - ADR-001/004/006/007-A1/008.
-- **Nenhuma dependência npm nova** (zod já presente; sem lib de form, state manager ou crypto). Nenhum serviço externo.
+- **Nenhuma dependência npm nova** (zod já presente). Nenhum serviço externo.
 
-## 20. Implementation Plan (fases pequenas — NÃO iniciar antes do gate de domínio §23)
-1. `hair_profiles` **envelope** + trigger de versão (§9, sem advisory lock) + `UNIQUE` + RLS/grants + allowlist + pgTAP (AC2–AC5, AC7).
-2. **[após §23-BLOCKING]** colunas de domínio tipadas + CHECK + zod correspondente (AC6).
-3. `supabase gen types` → commit `database.types.ts`.
-4. Core `hair-profile`: `HairProfileSchema`, `HairProfileSnapshot`, `HairProfilePort`, erros.
-5. Infra mobile: adapter PostgREST do port.
-6. UI onboarding (perguntas do domínio aprovado) + confirmação + roteamento por estado derivado.
-7. Catálogo de eventos (no-op) + docs (DATA-MODEL §3.1/§3.3, matriz RLS, README do contexto).
+## 22. Implementation Plan (fases pequenas — NÃO iniciar; HUMAN GATE)
+1. `hair_profiles` (colunas de §6 + CHECK/subconjunto) + RLS/grants + allowlist + pgTAP (AC2–AC4, AC6–AC8).
+2. `supabase gen types` → commit `database.types.ts`.
+3. Core `hair-profile`: `HairProfileSchema`, `HairProfileSnapshot`, `HairProfilePort`, erros (AC9).
+4. Infra mobile: adapter PostgREST do port.
+5. UI onboarding (campos aprovados de §6) + confirmação + roteamento por estado derivado.
+6. Catálogo de eventos (no-op) + docs (DATA-MODEL §3.3, DOMAIN-MAP §3.2, matriz RLS, README do contexto) refletindo a remoção de `profiles`/numeração.
 
-## 21. Migration Plan
-Migration aditiva (`hair_profiles` envelope + trigger + `UNIQUE` + RLS/grants), depois migration aditiva das colunas de domínio (fase 2). pgTAP e `-- ROLLBACK:` em cada uma. `supabase gen types` commitado. Local → PR → staging (merge) → prod humano. Sem migração de dados (tabela nova).
+## 23. Migration / Rollback Plan
+Uma migration aditiva (`hair_profiles` + CHECK + RLS/grants), pgTAP e `-- ROLLBACK:` (drop de tabela/policies/grants + remoção das entradas de allowlist). `supabase gen types` commitado. Local → PR → staging (merge) → prod humano. Tabela nasce vazia; rollback não perde dado.
 
-## 22. Rollback Plan
-Reverter código pela PR; migrations reversíveis por `-- ROLLBACK:` (drop de tabela/trigger/policies/grants + remoção das entradas de allowlist). Tabela nasce vazia; rollback não perde dado de produção.
-
-## 23. Open Questions & Gates
-| ID | Classe | Pergunta | Assunção enquanto aberta |
+## 24. Open Questions & Gates
+| ID | Classe | Pergunta | Assunção |
 |---|---|---|---|
-| **OQ1** | **BLOCKING BEFORE IMPLEMENTATION (HUMAN GATE / D-26)** | Qual é o **conjunto mínimo de inputs de perfil** que o Diagnostic Engine (SPEC-003) exige, e quais dimensões/opções/subtipos são **validados por domínio**? | **A implementação da SPEC-002 não começa** enquanto isso não for definido. Dimensões de DOMAIN-MAP §3.2 são hipótese `draft`, não aprovadas. |
-| OQ2 | IMPORTANT BEFORE IMPLEMENTATION | Confirmar a revisão de D-11: **remover o advisory lock**, mantendo trigger + `UNIQUE (user_id, version)` (§9)? | adotar a versão sem lock (menor solução correta); requer sign-off humano por ser item do Decision Register |
-| OQ3 | CAN DEFER | Emitir os eventos de analytics agora (no-op) ou só na SPEC-011? | definir tipos agora; emissão pode ser adiada |
-| OQ4 | CAN DEFER | Limite anti-abuso de versões por usuária (rate) | fora do MVP; tratar no release se necessário |
-| OQ5 | CAN DEFER | Ferramenta E2E do onboarding | fase 10 (Maestro candidato — D-37) |
+| — | **BLOCKING NOW** | nenhuma (inputs mínimos aprovados por D-62; regras de diagnóstico são SPEC-003 sob D-26) | — |
+| OQ1 | IMPORTANT | Confirmar a representação de "nenhum" em `chemical_treatments` como **array vazio** (sem valor `none`) e a exclusividade de `no_major_concern` em `current_concerns` via CHECK | adotar array vazio = nenhum; CHECK de exclusividade |
+| OQ2 | CAN DEFER | Emitir eventos de analytics agora (no-op) ou só na SPEC-011 | tipos agora; emissão adiável |
+| OQ3 | CAN DEFER | Rate limit anti-abuso de criação de snapshots | fora do MVP |
+| OQ4 | CAN DEFER | Ferramenta E2E do onboarding | fase 10 (Maestro — D-37) |
+| OQ5 | CAN DEFER | Refinamento futuro (2A–4C, porosity) como opcional | fora do MVP (§10) |
 
-## 24. Change Log
+## 25. Change Log
 | Data | Mudança | Autor |
 |---|---|---|
-| 2026-08-27 | v0.1 Draft via `spec-create` (incluía `profiles` mínimo, `extra_attributes`, advisory lock, lista de dimensões). | Claude |
-| 2026-08-27 | v0.2 **Necessity review (Ponytail/YAGNI)**: `profiles` **removida** (onboarding derivado; sem requisito concreto) junto de `ProfilePort`/provisionamento/RLS de perfil; `onboarding_status` removido (estado derivado); `timezone`/`display_name`/`locale` **DEFER**; `extra_attributes jsonb` **removido**; versionamento revisto para **trigger + `UNIQUE`, sem advisory lock** (§9, revisão de D-11 — IMPORTANT); conteúdo de dimensões separado como **HUMAN GATE / BLOCKING** (§7-B, §23-OQ1, D-26); número de perguntas reclassificado como alvo de produto; ACs revisados. Modelo mínimo: `auth.users → hair_profiles`. | Claude |
+| 2026-08-27 | v0.1 Draft via `spec-create` (incluía `profiles` mínimo, `extra_attributes`, advisory lock, dimensões candidatas). | Claude |
+| 2026-08-27 | v0.2 Necessity review: removeu `profiles`/`extra_attributes`; versionamento sem advisory lock; conteúdo de domínio como gate. | Claude |
+| 2026-08-27 | v0.3 **Product decisions (humano):** 8 inputs aprovados (§6, D-62); `profiles` removida (D-63); **numeração sequencial removida** — snapshots imutáveis por `id`, atual = mais recente (D-64, **amenda D-11**); removidos porosity/elasticity/density/idade/gênero/comprimento/fotos/marcas/2A–4C/`extra_attributes`; número de perguntas = alvo de UX; ACs finais. Modelo mínimo `auth.users → hair_profiles`. Status → **Ready for Approval**. | Claude |
