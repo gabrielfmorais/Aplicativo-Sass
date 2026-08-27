@@ -7,3 +7,5 @@ export const CORE_VERSION = '0.0.0-foundation' as const;
 export * from './shared/index.ts';
 export * from './identity/index.ts';
 export * from './hair-profile/index.ts';
+export * from './diagnostic/index.ts';
+export * from './schedule/index.ts';
