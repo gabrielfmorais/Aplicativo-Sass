@@ -19,6 +19,11 @@ insert into public.hair_profiles
   (id, user_id, hair_pattern, strand_thickness, scalp_tendency, wash_frequency, chemical_treatments, heat_usage, current_concerns, primary_goal)
 values
   ('00000000-0000-4000-8000-0000000000e2', '00000000-0000-4000-8000-0000000000b5', 'wavy', 'fine', 'balanced', 'twice_weekly', '{}', 'almost_never', array['no_major_concern'], 'maintain_healthy_hair');
+-- `reset role` restores the role but NOT request.jwt.claims, and create_plan_tx refuses a
+-- p_user_id that disagrees with a present auth.uid() (SPEC-004 defence in depth). Clear the
+-- impersonation before acting as service_role, otherwise the setup creates A's plan while still
+-- carrying B's identity.
+select tests.as_anon();
 reset role;
 
 -- A plan for each user, created the only way it can be (SPEC-004).
