@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-002 |
-| Status | **Approved** (v0.4, revisão humana 2026-08-27 — D-62/D-63/D-64 aprovadas + clarificações: `chemical_treatments` `[]`=nenhuma sem enum `none`, `no_major_concern` exclusivo, analytics **DEFER**). Implementação autorizada. |
+| Status | **Implemented** — merged em `main` (PR #6, branch `feat/spec-002-hair-profile-onboarding`, 2026-08-27); required CI verde (pgTAP incl.). Aprovada v0.4 (D-62/D-63/D-64/D-65). |
 | Owner | @gabrielfmorais (humano) |
 | Bounded Context | Hair Profile (Core) — DOMAIN-MAP §3.2 |
 | Related ADRs | ADR-001 (camadas), ADR-004 (Supabase/RLS), ADR-006 (fronteiras), ADR-007 A1 (governança de regras capilares — D-26), ADR-008 (time) |
@@ -205,3 +205,4 @@ Uma migration aditiva (`hair_profiles` + CHECK + RLS/grants), pgTAP e `-- ROLLBA
 | 2026-08-27 | v0.2 Necessity review: removeu `profiles`/`extra_attributes`; versionamento sem advisory lock; conteúdo de domínio como gate. | Claude |
 | 2026-08-27 | v0.3 **Product decisions (humano):** 8 inputs aprovados (§6, D-62); `profiles` removida (D-63); **numeração sequencial removida** — snapshots imutáveis por `id`, atual = mais recente (D-64, **amenda D-11**); removidos porosity/elasticity/density/idade/gênero/comprimento/fotos/marcas/2A–4C/`extra_attributes`; número de perguntas = alvo de UX; ACs finais. Modelo mínimo `auth.users → hair_profiles`. Status → **Ready for Approval**. | Claude |
 | 2026-08-27 | v0.4 **APPROVED** (revisão humana): clarificações finais — `chemical_treatments` `[]`=nenhuma sem enum `none`; `no_major_concern` exclusivo (`cardinality=1`) via cliente + CHECK; **analytics DEFER** (nenhum evento/no-op nesta SPEC). OQ1/OQ2 resolvidos. Implementação autorizada (LEVEL 2). | Humano / Claude |
+| 2026-08-27 | **IMPLEMENTED** — mergeada em `main` (PR #6) via LEVEL 2 auto-merge; required CI verde (`ci`, `core-deno`, `supabase-test`; pgTAP 020 18/18). `hair_profiles` + RLS/grants + core `hair-profile` + onboarding mobile. Status → **Implemented**. Pendente: sincronizar DATA-MODEL §3.1/§3.3 e DOMAIN-MAP §3.2 (remoção de `profiles`/numeração) numa passada documental. | Claude |
