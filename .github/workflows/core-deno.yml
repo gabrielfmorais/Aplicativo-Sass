@@ -34,7 +34,7 @@ jobs:
           deno-version: v2.x
 
       - name: Type-check functions and core against Deno
-        run: deno check health/index.ts _spike/core-smoke.ts
+        run: deno check health/index.ts generate-plan/index.ts _spike/core-smoke.ts
 
       - name: Run core smoke under Deno
         run: deno run _spike/core-smoke.ts
