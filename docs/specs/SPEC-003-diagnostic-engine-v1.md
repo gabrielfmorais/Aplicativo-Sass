@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-003 |
-| Status | **Draft** (via `spec-create` 2026-08-27; aguarda revisão humana — HUMAN GATE. Nenhum código, migration, dependência ou seed criado por esta SPEC) |
+| Status | **Draft** (v0.2, boundary review 2026-08-27; aguarda **decisão humana de arquitetura** — separar vs. fold em SPEC-004, §23-OQ0 — e revisão. HUMAN GATE. Nenhum código/migration/dependência criado por esta SPEC) |
 | Owner | @gabrielfmorais (humano) |
 | Bounded Context | Diagnostic (Core — regras) — DOMAIN-MAP §3.3 |
 | Related ADRs | ADR-001 (camadas), ADR-007 (Diagnostic & Schedule Engine + A1 governança de regras — D-26), ADR-008 (time) |
@@ -16,6 +16,8 @@
 > **Terminologia (produto):** "diagnostic" aqui = **avaliação/classificação capilar personalizada**, **não** diagnóstico médico ou dermatológico. Nada nesta SPEC afirma condição de saúde.
 >
 > **Separação obrigatória (D-26):** esta SPEC define **(A) a estrutura técnica** do engine (função pura, versionada, determinística, testável). Ela **NÃO** define **(B) o conteúdo de domínio** — as regras que mapeiam os inputs para a saída (pesos, níveis, "se X então Y", classificação de dano, frequência ideal). O conteúdo (B) é **hipótese de engenharia até validação especializada** e **bloqueia a implementação** do que for voltado à usuária (§23, BLOCKING).
+>
+> ⚠️ **Decisão de arquitetura PENDENTE (HUMAN GATE) — §23 OQ0:** manter Diagnostic como SPEC/slice **separada** vs. **fold** o engine na SPEC-004 (mantendo `diagnostic/` e `schedule/` como módulos e `diagnostic_results` como artefato persistido). Ver o *SPEC-003 Product Boundary Decision memo* (2026-08-27). Esta SPEC permanece Draft até essa decisão. Termo de produto: **"Avaliação capilar"** (nunca diagnóstico médico/dermatológico).
 
 ## 1. Context
 SPEC-002 coleta e preserva o perfil capilar (8 inputs aprovados — D-62) como `HairProfileSnapshot` imutável. Ainda não há nada que **interprete** esse perfil. O Diagnostic Engine é a primeira peça de valor derivado: transforma o perfil numa avaliação estruturada e **determinística**, que a SPEC-004 usará para gerar o cronograma. Maior risco de produto = as regras capilares (D-26): por isso o engine é isolado, puro e versionado, e as regras são governadas.
@@ -28,7 +30,7 @@ Dado um `HairProfileSnapshot`, produzir uma avaliação **estável, explicável 
 - G2 A entrada autoritativa é o `HairProfileSnapshot` da SPEC-002 (os 8 inputs); sem coletar dados novos.
 - G3 A saída carrega `algorithm_version` e é **imutável**; toda avaliação é rastreável ao `hair_profile_id` de origem.
 - G4 As regras vivem como **dados versionados** com o envelope de governança D-26 (`rule_id, version, description, inputs, output, rationale_source, validation_status`); só `validated` vai a produção.
-- G5 Explicabilidade: a saída inclui `reasons[]` legíveis (por que aquela avaliação), sem jargão médico.
+- G5 Explicabilidade: a saída inclui **reason codes** estáveis (por que aquela avaliação); a copy pt-BR é da camada de UI/conteúdo, sem jargão médico. **Sem** score/porcentagem/`confidence` (falsa precisão — §3 do memo).
 - G6 Mudar comportamento = **nova versão** do engine; versões liberadas nunca são editadas.
 
 ## 4. Non-Goals
@@ -49,9 +51,9 @@ Dado um `HairProfileSnapshot`, produzir uma avaliação **estável, explicável 
 | ID | Requisito |
 |---|---|
 | FR1 | `DiagnosticEngine.run(input: HairProfileSnapshot, version: AlgorithmVersion): DiagnosticResult` — função pura em `packages/core/src/diagnostic/`. Sem I/O, sem `new Date()` (ADR-008), sem rede/fs/env. |
-| FR2 | A saída inclui `algorithm_version`, o `hair_profile_id` de origem, a avaliação estruturada (§7-B, taxonomia aprovada) e `reasons[]` legíveis. |
+| FR2 | A saída inclui `algorithm_version`, o `hair_profile_id` de origem, a avaliação estruturada (§7-B) e `evidence` (reason codes estáveis; a copy pt-BR fica na UI/conteúdo). **Sem** `confidence`/score/porcentagem. |
 | FR3 | Determinismo total: mesma `(input, version)` ⇒ saída idêntica (golden fixtures). |
-| FR4 | Inputs `unknown`/`varies` (SPEC-002) são tratados de forma **definida** pelas regras aprovadas (ex.: reduzem confiança / caem em default), nunca causam erro. |
+| FR4 | Inputs `unknown`/`varies` (SPEC-002) são tratados de forma **definida** pelas regras aprovadas (ex.: caem em default conservador), nunca causam erro. |
 | FR5 | Regras carregam o envelope D-26 e `validation_status`; o default de produção só pode apontar para uma versão `validated`. |
 | FR6 | Versionamento: regras/engine em `packages/core/src/diagnostic/versions/<v>/`; mudar comportamento = nova versão; versão liberada é imutável. |
 
@@ -67,9 +69,17 @@ Dado um `HairProfileSnapshot`, produzir uma avaliação **estável, explicável 
 
 ### 7-B. Conteúdo de domínio (NÃO definido aqui — HUMAN PRODUCT GATE / D-26)
 O que o engine **produz** e **como** os 8 inputs mapeiam para essa saída é **conteúdo capilar** e exige validação especializada. Itens que **não** são inventados por engenharia (nascem `draft`, requerem aprovação antes de produção):
-- **Taxonomia de saída:** quais eixos/rótulos a avaliação produz (ex.: necessidades de hidratação/nutrição/reconstrução em níveis; flags como dano por calor/química; confiança). *Hipótese de engenharia — não aprovada.*
+- **Taxonomia de saída:** quais eixos/rótulos a avaliação produz (ex.: necessidades de hidratação/nutrição/reconstrução em níveis; flags de dano por calor/química). *Hipótese de engenharia — não aprovada.* **Sem** `confidence`/score sem método calibrado (§3 do memo).
 - **Regras v1:** o mapeamento concreto `inputs → saída` (pesos, limiares, "se X então Y"), incluindo o tratamento de `unknown`/`varies` e como combinações interagem.
 - **Racional/fonte** de cada regra (`rationale_source`) e o critério de `validated`.
+
+**Decisões de domínio a validar (lista exata — HUMAN/ESPECIALISTA; nenhuma escrita agora):**
+1. Quais **outputs inferidos** a avaliação produz e por quê (eixos de necessidade e/ou flags) — só os que habilitam uma decisão concreta do Schedule.
+2. Para cada output: a **regra** `inputs(8) → output` (limiares/pesos/combinações), incl. `unknown`/`varies`.
+3. Quais flags são **inferência real** vs. mera repetição do observado (evitar "falsa inteligência" — §5 do memo).
+4. Conjunto de **reason codes** (identificadores estáveis) que justificam cada output.
+5. Critério de `validated` e `rationale_source` de cada regra; quem assina.
+6. O que a usuária **vê** como "Avaliação capilar" (se algo) e quando incrementa a versão.
 
 ## 8. Data Model Impact
 **Nenhum.** SPEC-003 é pacote puro: sem tabela, sem migration, sem RLS, sem seed. A persistência do `DiagnosticResult` (tabela `diagnostic_results`) é da **SPEC-004** (DATA-MODEL §3.4).
@@ -77,7 +87,7 @@ O que o engine **produz** e **como** os 8 inputs mapeiam para essa saída é **c
 ## 9. API / Contracts
 - **Core (`packages/core/src/diagnostic`)**, TypeScript puro:
   - `run(input: HairProfileSnapshot, version: AlgorithmVersion): DiagnosticResult`.
-  - `DiagnosticResult` (tipo/shape definido por engenharia; **conteúdo dos campos** conforme §7-B): `{ algorithmVersion, hairProfileId, assessment: <taxonomia aprovada>, reasons: ReadonlyArray<{ code: string; message: string }>, confidence?: <definido pelas regras> }`.
+  - `DiagnosticResult` (shape definido por engenharia; **conteúdo dos campos** conforme §7-B): `{ algorithmVersion, hairProfileId, assessment: <taxonomia aprovada>, evidence: ReadonlyArray<{ reasonCode: string }> }`. **Sem** `confidence`/score; **sem** strings de UX no core (copy pt-BR = camada de conteúdo/UI).
   - `AlgorithmVersion` (ex.: `'diag-v1'`).
   - Regras expostas como dados versionados com metadados D-26 (BR2).
 - Sem RPC, sem Edge Function, sem HTTP. O consumidor (SPEC-004) importa o tipo e chama a função pura (ou a executa numa Edge Function **na SPEC-004**, reusando `packages/core` via Deno — CORE-RUNTIME-SPIKE/D-40).
@@ -95,10 +105,10 @@ Nenhum dado pessoal novo é coletado ou persistido. O `HairProfileSnapshot` já 
 **Nenhum** nesta SPEC (coerente com SPEC-002: analytics deferido para SPEC-011). Eventos como `diagnostic_completed` podem surgir quando houver persistência/tela (SPEC-004+).
 
 ## 14. UX Notes
-Sem UI nesta SPEC. A apresentação ("como entendemos o seu cabelo", reasons) é da SPEC-004/005. Requisito de conteúdo: `reasons[]` em linguagem clara pt-BR, **sem** termos médicos/dermatológicos (D-26/terminologia).
+Sem UI nesta SPEC. A apresentação é da SPEC-004/005. A UI/conteúdo renderiza os **reason codes** em linguagem clara pt-BR; termo de produto: **"Avaliação capilar"** — **sem** termos médicos/dermatológicos (D-26/terminologia) e sem exibir score/porcentagem.
 
 ## 15. Edge Cases
-- EC1 Todos/vários inputs `unknown`/`varies`: a saída deve ser definida (ex.: baixa confiança / avaliação conservadora) — comportamento **conforme regras aprovadas** (§7-B).
+- EC1 Todos/vários inputs `unknown`/`varies`: a saída deve ser definida (avaliação conservadora / default) — comportamento **conforme regras aprovadas** (§7-B). Sem `confidence`.
 - EC2 `HairProfileSnapshot` de uma versão futura com campos extras: o engine ignora o desconhecido de forma determinística (contrato estável) — ou requer nova versão do engine (decisão de versionamento).
 - EC3 Combinações raras de inputs: cobertas por golden fixtures acordadas com o especialista.
 
@@ -151,7 +161,8 @@ Nenhuma migration (pacote puro). Rollback = reverter a PR de código. Versões d
 ## 23. Open Questions & Gates
 | ID | Classe | Pergunta | Assunção |
 |---|---|---|---|
-| **OQ1** | **BLOCKING BEFORE IMPLEMENTATION (HUMAN PRODUCT GATE + especialista / D-26)** | Qual é a **taxonomia de saída** aprovada (eixos/rótulos/flags/confiança) e as **regras v1** que mapeiam os 8 inputs para ela (incl. tratamento de `unknown`/`varies`)? | não inventar; engine só entra em produção com regras `validated`. A estrutura técnica (§7-A) pode ser construída antes; o conteúdo user-facing não. |
+| **OQ0** | **BLOCKING NOW — HUMAN ARCHITECTURE DECISION** | Manter Diagnostic como SPEC/slice **separada** (Option A) ou **fold** o engine na SPEC-004 (Option B), mantendo módulos `diagnostic/`+`schedule/` e `diagnostic_results`? Ver memo 2026-08-27. | recomendação do memo: **fold em SPEC-004** (único consumidor hoje; taxonomia só definível junto ao Schedule) — requer amendment de ADR-007 §Consequences. |
+| **OQ1** | **BLOCKING BEFORE IMPLEMENTATION (HUMAN PRODUCT GATE + especialista / D-26)** | Qual é a **taxonomia de saída** aprovada (eixos/rótulos/flags) e as **regras v1** que mapeiam os 8 inputs para ela (incl. `unknown`/`varies`)? Sem `confidence`. | não inventar; engine só entra em produção com regras `validated`. A estrutura técnica (§7-A) pode ser construída antes; o conteúdo user-facing não. |
 | OQ2 | IMPORTANT BEFORE IMPLEMENTATION | Como versões futuras do `HairProfileSnapshot` (novos inputs) se relacionam com versões do engine (EC2)? | contrato estável; input novo ⇒ possível nova versão do engine |
 | OQ3 | CAN DEFER | `reasons[]` — vocabulário/estrutura final (códigos + mensagens pt-BR) | definir com o conteúdo de domínio (OQ1) |
 | OQ4 | CAN DEFER | Persistência e execução via Edge (Deno) — desenho | SPEC-004 |
@@ -160,3 +171,4 @@ Nenhuma migration (pacote puro). Rollback = reverter a PR de código. Versões d
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-08-27 | v0.1 Draft via `spec-create`. Escopo mínimo (Ponytail/YAGNI): engine **puro, versionado, determinístico** + contrato `DiagnosticResult` + regras-como-dados com envelope D-26 + golden tests. **Sem** persistência/Edge/RLS/UI/dependência/IA (deferidos). Conteúdo capilar (taxonomia + regras v1) separado como **HUMAN GATE / BLOCKING** (§7-B, §23-OQ1, D-26). "diagnostic" = avaliação capilar personalizada, não médica. | Claude |
+| 2026-08-27 | v0.2 **Boundary review** (memo): removida falsa precisão (`confidence`/score); `reasons[]` → `evidence` (reason codes estáveis, copy na UI/conteúdo); termo de produto "Avaliação capilar"; lista exata de decisões de domínio (§7-B); **OQ0 BLOCKING NOW** — decisão de arquitetura separar vs. fold em SPEC-004 (recomendação: fold). Continua Draft. | Claude |
