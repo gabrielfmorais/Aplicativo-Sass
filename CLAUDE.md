@@ -11,7 +11,7 @@ Dentro de arquitetura/ADR/SPEC **já aprovados**, o agente tem autonomia operaci
 **Nunca:** push direto na `main` · force push na `main` · merge autônomo na `main` · operação destrutiva em produção · commit de secrets.
 Vale a regra de necessidade (YAGNI, `DECISION-REGISTER` D-47/D-48; compatível com Ponytail FULL): a menor mudança que atende à SPEC; nada "para depois".
 - `supabase/functions/deno.json` deve espelhar as dependências de `packages/core/package.json` (`pnpm exec node scripts/check-deno-import-map.mjs`).
-- Rota `apps/mobile/src/app/index.tsx`: não autenticada → `features/auth`; autenticada **sem** hair profile → `features/onboarding` (SPEC-002); **com** hair profile → `features/account`. O onboarding capilar (SPEC-002) é a primeira tela de produto; "onboarding concluído" é derivado da existência de um `hair_profiles` (sem `onboarding_status` — D-63).
+- Rota `apps/mobile/src/app/index.tsx`: não autenticada → `apps/mobile/src/features/auth`; autenticada **sem** hair profile → `apps/mobile/src/features/onboarding` (SPEC-002); **com** hair profile → `apps/mobile/src/features/account`. O onboarding capilar (SPEC-002) é a primeira tela de produto; "onboarding concluído" é derivado da existência de um `hair_profiles` (sem `onboarding_status` — D-63).
 
 ## 1. Antes de qualquer tarefa
 1. Ler este arquivo.
