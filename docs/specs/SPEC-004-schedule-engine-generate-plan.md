@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-004 |
-| Status | **Draft** (via `spec-create` 2026-08-27; aguarda revisão humana — HUMAN GATE. Nenhum código, migration, dependência ou seed criado por esta SPEC) |
+| Status | **Draft** (v0.2, final technical necessity review 2026-08-27; modelo técnico podado ao mínimo — único blocker restante = **DOMAIN RULES** §13. HUMAN GATE. Nenhum código/migration/dependência criado por esta SPEC) |
 | Owner | @gabrielfmorais (humano) |
 | Bounded Context | Schedule/Planning (Core) + Assessment/Diagnostic (Core) — DOMAIN-MAP §3.3/§3.4 |
 | Related ADRs | ADR-007 (engines puros/versionados + A1 governança D-26 + **A2 vertical slice D-66**), ADR-004 (Supabase/RLS/RPC/Edge), ADR-001 (camadas), ADR-008 (time) |
@@ -77,7 +77,7 @@ Conclusão provável: `AssessmentOutput` mínimo = **necessidades inferidas (+ r
 - Identidade própria necessária? **Não** agora.
 - Reusada por >1 consumidor atual? **Não** (só Schedule).
 - Auditoria/reprodutibilidade impossível de preservar mais simplesmente junto ao plano? **Não** — pode ser gravada **inline** no `HairPlan` (snapshot jsonb).
-→ **Decisão proposta: REMOVE/DEFER `diagnostic_results` como tabela independente.** `AssessmentOutput` é **transitório** entre os engines; a reprodutibilidade vive **inline** no `hair_plans` (`input_snapshot` + versões). Reabrir só se surgir requisito concreto (ex.: histórico de avaliação sem plano) — reportar antes.
+→ **Decisão: REMOVE/DEFER `diagnostic_results` como tabela independente.** `AssessmentOutput` é **transitório** entre os engines. Reprodutibilidade **não** exige snapshot copiado: como os engines são **determinísticos** e as versões liberadas são **imutáveis** (ADR-007), um plano é reproduzível a partir de **`hair_profile_id` (snapshot imutável da SPEC-002) + `assessment_algorithm_version` + `schedule_algorithm_version`**. Por isso **`input_snapshot jsonb` também é REMOVIDO** (§10). Reabrir só com requisito concreto (ex.: histórico de avaliação sem plano) — reportar antes.
 
 **KEEP (necessidade atual do MVP):**
 - `hair_plans` — a usuária precisa de um plano persistido e ativo.
@@ -86,45 +86,55 @@ Conclusão provável: `AssessmentOutput` mínimo = **necessidades inferidas (+ r
 **TBD/mínimo:**
 - `care_types` — `scheduled_cares` precisa tipar cada cuidado. O **conjunto** de care types é conteúdo capilar (§13). Proposta mínima: `scheduled_cares.care_type_code text` validado por **CHECK contra o conjunto aprovado**; **tabela `care_types` + FK e conteúdo ficam na SPEC-007** (Content) — não criar catálogo agora. Reavaliar se a SPEC-007 vier antes.
 
-## 10. Minimal proposed data model (conceitual; sem migration)
+## 10. Minimal proposed data model (conceitual; sem migration) — pós-poda técnica
 `hair_plans` (raiz; RLS por `auth.uid()`):
-| Coluna | Tipo | Necessidade |
+| Coluna | KEEP/REMOVE/TBD | Motivo |
 |---|---|---|
-| id | uuid PK | identidade do plano |
-| user_id | uuid not null FK auth.users on delete cascade | ownership |
-| hair_profile_id | uuid not null FK hair_profiles | proveniência (qual snapshot) |
-| status | text CHECK (active/superseded) | 1 ativo por usuária |
-| starts_on | date | dia local de início |
-| timezone | text | snapshot da tz na geração (ADR-008) |
-| strategy | jsonb | ciclo/cadência gerados (**conteúdo = §13**) |
-| input_snapshot | jsonb | perfil + `AssessmentOutput` usados (reprodutibilidade inline — substitui `diagnostic_results`) |
-| assessment_version, schedule_version | text | provenance **só se** §11 concluir que é necessário |
-| superseded_by_plan_id | uuid null FK hair_plans | reavaliação (SPEC-014) |
-| created_at / updated_at | | `updated_at` só na transição de status |
+| id | **KEEP** | identidade do plano |
+| user_id | **KEEP** | ownership; RLS uniforme `user_id = auth.uid()` (convenção DATA-MODEL §1) + índice |
+| hair_profile_id | **KEEP** | proveniência do snapshot (reprodutibilidade — §9) |
+| starts_on | **KEEP** | dia local de início (input do engine) |
+| assessment_algorithm_version | **KEEP** | provenance mínimo de um plano persistido (§11) |
+| schedule_algorithm_version | **KEEP** | idem |
+| status (active/superseded) | **KEEP** | menor garantia **server-side** de 1 ativo (índice parcial); alternativa "ativo = mais recente" descartada por não ser garantida no servidor |
+| client_request_id (uuid) | **KEEP** | idempotência de `generate-plan` (§9-idempotency); `UNIQUE (user_id, client_request_id)` |
+| created_at | **KEEP** | ordenação/histórico |
+| ~~timezone~~ | **REMOVE/DEFER** | geração usa só `DATE`s (starts_on/planned_date); tz é de SPEC-005/008 |
+| ~~strategy jsonb~~ | **REMOVE** | materializado em `scheduled_cares`; nenhuma feature MVP consulta a estratégia isolada |
+| ~~input_snapshot jsonb~~ | **REMOVE** | reprodutível de `hair_profile_id` + versões (§9); sem escape hatch |
+| ~~updated_at~~ | **REMOVE** | plano é histórico/imutável exceto supersessão; sem consumidor |
+| ~~superseded_by_plan_id / superseded_at~~ | **DEFER** | `status` + índice já identificam ativo e preservam histórico; linkage/timestamp só se SPEC-014 exigir |
 
-Invariante DB: `CREATE UNIQUE INDEX one_active_plan_per_user ON hair_plans(user_id) WHERE status='active'`.
+Invariante DB: `CREATE UNIQUE INDEX one_active_plan_per_user ON hair_plans(user_id) WHERE status='active'` (menor garantia server-side de 1 ativo). `UNIQUE (user_id, client_request_id)` (idempotência).
 
 `scheduled_cares` (itens do plano; RLS por `auth.uid()`):
-| Coluna | Tipo | Necessidade |
+| Coluna | KEEP/REMOVE/TBD | Motivo |
 |---|---|---|
-| id | uuid PK | |
-| user_id | uuid not null FK auth.users | ownership/RLS |
-| plan_id | uuid not null FK hair_plans | pertence ao plano |
-| care_type_code | text CHECK (conjunto aprovado — §13) | tipo do cuidado (FK→`care_types` só na SPEC-007) |
-| planned_date | date | dia local planejado |
-| sequence | int | posição no ciclo |
-| status | text CHECK default 'planned' | **apenas `planned` nesta SPEC**; transições (completed/skipped/rescheduled) = SPEC-005 |
-| created_at | | |
+| id | **KEEP** | |
+| plan_id | **KEEP** | pertence ao plano |
+| user_id | **KEEP** | convenção DATA-MODEL §1 (RLS uniforme + índice); gravado consistente pela RPC |
+| care_type_code | **TBD (domain gate §13)** | text + CHECK contra o conjunto aprovado; tabela/FK `care_types` → SPEC-007 |
+| planned_date | **KEEP** | dia local planejado |
+| created_at | **KEEP** | |
+| ~~sequence~~ | **REMOVE** | ordem derivável por `(planned_date, id)`; reintroduzir só se o domínio exigir ordem intra-dia |
+| ~~status~~ | **DEFER → SPEC-005** | nenhuma feature da SPEC-004 consulta status; todos nascem "planejados" implicitamente |
 
-Índices: `(user_id, planned_date)`, `(plan_id, planned_date)`. **Sem** `diagnostic_results`, sem colunas de reagendamento (SPEC-005), sem `algorithm_version` cerimonial (§11).
+Índices: `(plan_id, planned_date)` (e `(user_id, planned_date)` se a leitura por usuária/dia exigir — confirmar na implementação). **Sem** `diagnostic_results`, sem `input_snapshot`, sem `strategy`, sem colunas de reagendamento/execução (SPEC-005).
 
 ## 11. Algorithm versioning necessity
-- `assessment_version` / `schedule_version` só se **mudanças nas regras puderem gerar resultados diferentes para o mesmo input** E houver necessidade **real** de provenance de um plano persistido. Como o plano **é** persistido e a reavaliação cria novos planos (não regenera), há um caso real: explicar/reproduzir um plano histórico. → Proposta: **manter uma única string de versão por engine, gravada no plano** (o menor provenance útil). Não criar registro/tabela de versões nem versionar o que não persiste. Golden tests protegem cada versão liberada; versão só incrementa quando o comportamento muda.
+- **KEEP** `assessment_algorithm_version` + `schedule_algorithm_version` como **duas strings gravadas no plano** — são, junto de `hair_profile_id`, o **provenance/reprodutibilidade** completo do plano (agora que `input_snapshot` foi removido — §9). Justificativa real: o plano é persistido e a reavaliação cria novos planos (não regenera); é preciso saber "qual perfil + quais regras" geraram um plano histórico.
+- Não criar tabela/registro de versões nem versionar o que não persiste. Golden tests protegem cada versão liberada; versão só **incrementa quando o comportamento muda** (mesmo input ⇒ saída diferente). Reprodução: rodar as versões gravadas sobre o snapshot de `hair_profile_id`.
 
 ## 12. Proposed execution architecture
 - **Preview:** cliente executa `assess`+`generateSchedule` do `packages/core` (sem persistir) — P01.
 - **Criação oficial:** Edge Function **`generate-plan`** (Deno; importa `packages/core` — D-40/CORE-RUNTIME-SPIKE) valida a sessão, roda os engines e grava via **RPC transacional `create_plan_tx`** (supersede o plano ativo + insere `hair_plans` + `scheduled_cares` numa transação; garante o índice de 1 plano ativo). Cliente **nunca** insere plano direto (ADR-004/ADR-007). Rate limit por usuária na Edge (T07).
-- Necessity: a Edge Function é necessária porque o engine é TS/core e a criação precisa ser server-enforced; a RPC dá atomicidade + o invariante de plano único num só lugar. Sem Edge/RPC extra além disso.
+- Necessity (ambos KEEP; sem solução menor com as mesmas garantias): **Edge** é necessária porque o engine é TS/core e a criação precisa ser server-enforced + validação de input; **RPC** dá atomicidade (supersede + plano + cares numa transação) e concentra os invariantes (1-ativo, idempotência) no banco. Rodar o engine em plpgsql (dispensaria a Edge) viola D-06; inserts sequenciais na Edge (dispensaria a RPC) perdem atomicidade. **Não** enfraquecer a atomicidade para reduzir mecanismo.
+
+### 12b. Idempotency (IMPORTANT — §9 promovido)
+Cenário: request chega, resposta se perde, cliente repete a mesma intenção → sem proteção, dois `HairPlan` históricos para **uma** ação.
+- **Menor mecanismo:** o cliente gera um `client_request_id uuid` e o envia ao `generate-plan`; é persistido em `hair_plans` com `UNIQUE (user_id, client_request_id)`. **Sem tabela de idempotência separada, sem framework.**
+- **`create_plan_tx` (transação):** (1) `SELECT ... FOR UPDATE` do plano `active` da usuária (serializa concorrência por usuária); (2) se já existe plano com o mesmo `client_request_id`, **retorna-o** sem criar novo; (3) senão, marca o ativo como `superseded`, insere o novo plano (`active`) + `scheduled_cares`.
+- **Concorrência de duas requests com o mesmo `client_request_id`:** o `FOR UPDATE` serializa; a primeira cria, a segunda encontra o existente e o retorna. Caso ambas passem da checagem antes do commit, o `UNIQUE (user_id, client_request_id)` rejeita a segunda com `23505`, tratado como "já criado" → retorna o existente (idempotente, sem novo plano). Duas requests com **keys diferentes** são serializadas pelo `FOR UPDATE` + índice parcial `active` (a segunda supersede a primeira).
 
 ## 13. DOMAIN RULES REQUIRED (HUMAN/ESPECIALISTA — D-26; nada escrito agora)
 A SPEC-004 primeiro fixa **quais decisões** o Schedule toma; depois lista o conhecimento a validar:
@@ -139,7 +149,7 @@ Até isso, `strategy`/`care_type_code`/necessidades permanecem **TBD**; a implem
 
 ## 14. Security / integrity
 - Criação de plano **só server-side** (Edge + RPC/service role); `authenticated` **não** faz INSERT/UPDATE direto em `hair_plans`/`scheduled_cares` (só SELECT próprio). RLS ON+FORCE nas duas tabelas; policies SELECT por `auth.uid()`; sem grants de escrita para `authenticated` (escrita via RPC `SECURITY DEFINER` allowlistada com `search_path` fixo + `auth.uid()` validado — justificar na allowlist).
-- Invariante de **1 plano ativo** por índice único parcial. Idempotência da criação (ex.: `client_execution_id`) para evitar planos duplicados por ret** — avaliar na implementação.
+- Invariante de **1 plano ativo** por índice único parcial. **Idempotência** por `client_request_id` + `UNIQUE (user_id, client_request_id)` + `FOR UPDATE` na `create_plan_tx` (§12b) — evita planos duplicados em retry.
 - Rate limit por usuária na Edge (T07). Sem PII/segredos em logs. pgTAP positivo/negativo (isolamento A/B, anon negado, escrita direta negada, 1-ativo).
 - Guardrails da Foundation (`tables_without_rls`, `unapproved_grants`, `unapproved_security_definer_functions`) permanecem verdes (a RPC DEFINER entra na allowlist com referência SPEC-004 + justificativa).
 
@@ -153,10 +163,11 @@ Até isso, `strategy`/`care_type_code`/necessidades permanecem **TBD**; a implem
 | AC5 | Existe no máximo **1 plano `active`** por usuária (índice único parcial; teste). |
 | AC6 | Reavaliar cria novo plano e marca o anterior `superseded`; planos antigos e seus `scheduled_cares` permanecem (histórico). |
 | AC7 | Isolamento: A não lê plano/cuidados de B; anon nada (pgTAP). |
-| AC8 | Um plano persistido é reproduzível a partir de `hair_profile_id` + `input_snapshot` (+ versões, se mantidas) — sem `diagnostic_results`. |
-| AC9 | Guardrails da Foundation verdes com o novo schema/RPC (allowlist SPEC-004). |
-| AC10 | Nada de `confidence`/score na saída; nenhum valor de perfil em logs. |
-| AC11 | **(BLOCKED até §13)** Golden fixtures refletem regras/cadência/care types **validados** por especialista. |
+| AC8 | Um plano persistido é reproduzível a partir de `hair_profile_id` + `assessment_algorithm_version` + `schedule_algorithm_version` — **sem** `diagnostic_results` e **sem** `input_snapshot`. |
+| AC9 | **Idempotência:** dois `generate-plan` com o mesmo `client_request_id` resultam em **um** plano; o retry retorna o plano existente (nenhum novo, nenhum supersede espúrio) — teste concorrente. |
+| AC10 | Guardrails da Foundation verdes com o novo schema/RPC (allowlist SPEC-004). |
+| AC11 | Nada de `confidence`/score na saída; nenhum valor de perfil em logs. |
+| AC12 | **(BLOCKED até §13)** Golden fixtures refletem regras/cadência/care types **validados** por especialista. |
 
 ## 16. Testing Strategy
 - **Unit + golden (Vitest, core):** determinismo dos dois engines; `unknown`/`varies`; imutabilidade entre versões.
@@ -176,13 +187,14 @@ Migrations aditivas: `hair_plans` + `scheduled_cares` + RLS/grants + índice ún
 | ID | Classe | Pergunta | Assunção |
 |---|---|---|---|
 | **OQ1** | **BLOCKING BEFORE IMPLEMENTATION (HUMAN/ESPECIALISTA — D-26)** | O conteúdo de §13 (care types, cadência/`ScheduleRulesV1`, necessidades/`AssessmentRulesV1`, janela, reason codes). | não inventar; produção só com `validated`. Mecanismo pode ser preparado antes. |
-| **OQ2** | **IMPORTANT — necessity** | Confirmar **REMOVE/DEFER de `diagnostic_results`** (avaliação transitória + snapshot inline no plano)? | adotar REMOVE (§9); reabrir só com requisito concreto |
-| OQ3 | IMPORTANT | Manter `assessment_version`/`schedule_version` inline no plano (menor provenance)? | sim, uma string por engine (§11) |
+| **OQ2** | **IMPORTANT — necessity (confirmar)** | Confirmar **REMOVE de `diagnostic_results` E de `input_snapshot`/`strategy`/`timezone`/`updated_at`/`sequence`/`scheduled_cares.status`** (§10) — reprodutibilidade por `hair_profile_id` + versões. | adotar a poda (§9/§10); reabrir item só com requisito concreto |
+| OQ3 | IMPORTANT | Manter as **duas** versões inline no plano como provenance? | sim (§11) |
 | OQ4 | IMPORTANT | `care_types` como texto+CHECK aqui e tabela/FK na SPEC-007? | sim (§9), evita catálogo antecipado |
-| OQ5 | CAN DEFER | Idempotência de criação (`client_execution_id`) e rate limit exato | definir na implementação |
+| OQ5 | IMPORTANT | Idempotência por `client_request_id` + `UNIQUE` + `FOR UPDATE` (§12b) — confirmar o desenho. | adotar (sem tabela separada); rate limit exato na implementação |
 | OQ6 | CAN DEFER | Preview offline / reconciliação com versão do servidor (ADR-007 `expected_version`) | tratar na implementação |
 
 ## 20. Change Log
 | Data | Mudança | Autor |
 |---|---|---|
-| 2026-08-27 | v0.1 Draft via `spec-create` (vertical slice D-66: Assessment+Schedule). Necessity review: **`diagnostic_results` REMOVE/DEFER** (avaliação transitória + snapshot inline no `hair_plans`); `AssessmentOutput` só inferências (sem reempacotar observado, sem `confidence`); `care_types` texto+CHECK (tabela/FK → SPEC-007); provenance mínimo por versão inline; criação server-enforced (Edge `generate-plan` + RPC `create_plan_tx`); 1 plano ativo; supersede para reavaliação. Conteúdo capilar (regras/cadência/care types) = **HUMAN GATE / BLOCKING** (§13, D-26). | Claude |
+| 2026-08-27 | v0.1 Draft via `spec-create` (vertical slice D-66: Assessment+Schedule). Necessity review: **`diagnostic_results` REMOVE/DEFER**; `AssessmentOutput` só inferências (sem reempacotar observado, sem `confidence`); `care_types` texto+CHECK (tabela/FK → SPEC-007); criação server-enforced (Edge `generate-plan` + RPC `create_plan_tx`); 1 plano ativo; supersede. Conteúdo capilar = **HUMAN GATE / BLOCKING** (§13, D-26). | Claude |
+| 2026-08-27 | v0.2 **Final technical necessity review:** REMOVE `input_snapshot` (reprodutibilidade = `hair_profile_id` + 2 versões), `strategy`, `timezone`, `updated_at`, `sequence`, `scheduled_cares.status` (→ SPEC-005); KEEP `user_id` nas duas tabelas (convenção RLS DATA-MODEL §1); supersessão mínima = `status` + índice parcial único (superseded_by/at DEFER); **idempotência promovida a IMPORTANT** — `client_request_id` + `UNIQUE (user_id, client_request_id)` + `FOR UPDATE` na `create_plan_tx` (§12b); Edge+RPC confirmados. Único blocker restante = **DOMAIN RULES** (§13). | Claude |

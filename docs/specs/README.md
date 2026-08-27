@@ -42,7 +42,7 @@ Idea → Requirement → (ADR se decisão arquitetural) → SPEC → Implementat
 | [SPEC-001](SPEC-001-identity-authentication.md) | Identity & Authentication (Apple, Google, Email OTP, sessão segura, linking, RLS, contrato mínimo de exclusão; `profiles` deferido para SPEC-002) | Identity & Account | 1 | **IMPLEMENTED — merged em `main` (PR #3, 2026-08-27); required CI verde; AC2/AC5/AC13 deferred (provider-managed/E2E), ver SPEC §25b** |
 | [SPEC-002](SPEC-002-hair-profile-onboarding.md) | Hair Profile & Onboarding | Hair Profile | 2 | **IMPLEMENTED — merged em `main` (PR #6, 2026-08-27); required CI verde (pgTAP incl.)** |
 | [SPEC-003](SPEC-003-diagnostic-engine-v1.md) | Diagnostic Engine v1 | Diagnostic | 3 | **FOLDED INTO SPEC-004 (D-66, 2026-08-27; ADR-007 A2) — não implementada; fronteira de domínio preservada** |
-| [SPEC-004](SPEC-004-schedule-engine-generate-plan.md) | Schedule Engine v1 + generate-plan (inclui Assessment — D-66) | Schedule | 4 | **Draft (2026-08-27) — aguarda revisão humana; regras/cadência/care types = HUMAN GATE (D-26)** |
+| [SPEC-004](SPEC-004-schedule-engine-generate-plan.md) | Schedule Engine v1 + generate-plan (inclui Assessment — D-66) | Schedule | 4 | **Draft v0.2 — modelo técnico podado; único blocker = DOMAIN RULES (HUMAN GATE, D-26)** |
 | SPEC-005 | Care Tracking: Today, Calendar, Execution, Reschedule/Skip | Care Tracking | 5 | Reservado |
 | SPEC-006 | Check-ins | Care Tracking | 6 | Reservado |
 | SPEC-007 | Content v1 (seed + tela contextual) | Content | 5 | Reservado |
