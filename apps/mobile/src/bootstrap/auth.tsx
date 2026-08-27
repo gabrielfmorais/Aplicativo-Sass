@@ -1,4 +1,4 @@
-import type { AuthPort, AuthState, DeletionRequestPort } from '@app/core';
+import type { AuthPort, AuthState, DeletionRequestPort, HairProfilePort } from '@app/core';
 import { UNAUTHENTICATED } from '@app/core';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
@@ -8,9 +8,15 @@ import { AppState } from 'react-native';
 import { createSupabaseAuthAdapter } from '@/infrastructure/supabase/auth-adapter';
 import { supabase } from '@/infrastructure/supabase/client';
 import { createDeletionRequestAdapter } from '@/infrastructure/supabase/deletion-request-adapter';
+import { createHairProfileAdapter } from '@/infrastructure/supabase/hair-profile-adapter';
 import { discardSessionIfFreshInstall } from '@/infrastructure/supabase/fresh-install';
 
-type AuthContextValue = { state: AuthState | 'loading'; auth: AuthPort; deletion: DeletionRequestPort };
+type AuthContextValue = {
+  state: AuthState | 'loading';
+  auth: AuthPort;
+  deletion: DeletionRequestPort;
+  hairProfile: HairProfilePort;
+};
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 /** Composition root for identity (SPEC-001). Redirect URL must be allow-listed in Supabase Auth. */
@@ -23,6 +29,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const deletion = useMemo(
     () =>
       createDeletionRequestAdapter(supabase, () => {
+        if (state === 'loading' || state.status !== 'authenticated') throw new Error('not authenticated');
+        return state.session.userId;
+      }),
+    [state],
+  );
+  const hairProfile = useMemo(
+    () =>
+      createHairProfileAdapter(supabase, () => {
         if (state === 'loading' || state.status !== 'authenticated') throw new Error('not authenticated');
         return state.session.userId;
       }),
@@ -47,7 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [auth]);
 
-  return <AuthContext.Provider value={{ state, auth, deletion }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ state, auth, deletion, hairProfile }}>{children}</AuthContext.Provider>
+  );
 }
 
 export const useAuth = (): AuthContextValue => {
