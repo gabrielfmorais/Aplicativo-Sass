@@ -11,7 +11,7 @@ Dentro de arquitetura/ADR/SPEC **já aprovados**, o agente tem autonomia operaci
 **Nunca:** push direto na `main` · force push na `main` · merge autônomo na `main` · operação destrutiva em produção · commit de secrets.
 Vale a regra de necessidade (YAGNI, `DECISION-REGISTER` D-47/D-48; compatível com Ponytail FULL): a menor mudança que atende à SPEC; nada "para depois".
 - `supabase/functions/deno.json` deve espelhar as dependências de `packages/core/package.json` (`pnpm exec node scripts/check-deno-import-map.mjs`).
-- Rota `apps/mobile/src/app/index.tsx` + `apps/mobile/src/features/foundation-status` são smoke da fundação, não tela de produto — substituir na SPEC-001, nunca evoluir.
+- Rota `apps/mobile/src/app/index.tsx` decide entre `apps/mobile/src/features/auth` e `apps/mobile/src/features/account` pelo estado de autenticação (SPEC-001); ainda não existem telas de produto.
 
 ## 1. Antes de qualquer tarefa
 1. Ler este arquivo.
