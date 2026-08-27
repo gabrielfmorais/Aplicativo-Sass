@@ -141,6 +141,8 @@ Cenário: request chega, resposta se perde, cliente repete → sem proteção, d
 - **Duas requests, mesma key:** o advisory lock serializa — a 2ª entra após o commit da 1ª, seu pré-check acha o plano e o **retorna** (sem 23505). Rede de segurança para qualquer caminho fora do lock: o `INSERT` do plano fica num bloco `BEGIN ... EXCEPTION WHEN unique_violation THEN ... END` (subtransação/savepoint) — a colisão de `UNIQUE (user_id, client_request_id)` **não aborta** a transação externa; o handler faz `SELECT` do plano existente por `(user_id, client_request_id)` e o retorna. **Duas requests, keys diferentes:** serializadas pelo lock + índice parcial `active` — a 2ª supersede a 1ª deterministicamente.
 
 ## 13. DOMAIN RULES REQUIRED (HUMAN/ESPECIALISTA — D-26; nada escrito agora)
+> **Worksheet para design/aprovação:** [`docs/domain-rules/SPEC-004-domain-rules-worksheet.md`](../domain-rules/SPEC-004-domain-rules-worksheet.md) — care types, AssessmentOutput, input→rule matrix, cadência, janela, `unknown`/`varies`, explicabilidade, fronteira de segurança, validation register. Todas as células de comportamento estão `TBD — HUMAN/DOMAIN VALIDATION`.
+
 A SPEC-004 primeiro fixa **quais decisões** o Schedule toma; depois lista o conhecimento a validar:
 1. **Decisão do Schedule:** quais **tipos de cuidado** existem (o conjunto `care_type_code`) e o que cada um é.
 2. **Cadência/ciclo:** com que frequência e em que ordem cada cuidado entra, em função das necessidades e da frequência de lavagem observada — a regra `ScheduleRulesV1`.
