@@ -1,0 +1,137 @@
+import type { CareTypeCode, ScheduledCare } from '../../schedule/index.ts';
+import { addDays, diffDays, type LocalDate } from '../../shared/time/index.ts';
+import type { Instant } from '../../shared/time/index.ts';
+import { instantToEpochMs } from '../../shared/time/index.ts';
+
+/**
+ * SPEC-005 — what happened against the plan.
+ *
+ * `ScheduledCare` is the intention, `CareExecution` is the fact (BR2). Completing inserts a fact and
+ * never rewrites the intention, which is why "done" is not a stored status: it is derived from the
+ * existence of an *effective* execution (BR4, D-69/D-35).
+ */
+export type CareExecution = {
+  readonly id: string;
+  readonly scheduledCareId: string;
+  /** Server instant; the undo window is measured from it (D-69/D-12). */
+  readonly executedAt: string;
+  /** The user's civil day, computed server-side from her IANA timezone (T22). */
+  readonly executedOn: string;
+  /** Non-null once undone. The row stays in history — it is never deleted (BR4c). */
+  readonly voidedAt: string | null;
+};
+
+/** Undo window approved by D-69 (D-12): 15 minutes from `executedAt`. */
+export const UNDO_WINDOW_MINUTES = 15;
+
+/** How far ahead a care may be moved (BR8) — reuses the approved 28-day plan window (D-67). */
+export const RESCHEDULE_HORIZON_DAYS = 28;
+
+/**
+ * The state of a planned care as the user sees it. All of it is derived: nothing here is a column.
+ * `overdue` and `done` in particular are computed, never stored (BR3/BR4, AC12).
+ */
+export type CareOutcome = 'planned' | 'overdue' | 'done' | 'skipped' | 'rescheduled';
+
+export type CareItem = {
+  readonly id: string;
+  readonly careTypeCode: CareTypeCode;
+  readonly plannedDate: string;
+  readonly outcome: CareOutcome;
+  /** The effective execution, when the care is done. */
+  readonly execution: CareExecution | null;
+  /** Whole days between the planned day and today; 0 unless overdue. */
+  readonly daysLate: number;
+};
+
+export type TodayView = {
+  readonly overdue: readonly CareItem[];
+  readonly today: readonly CareItem[];
+  readonly upcoming: readonly CareItem[];
+  readonly history: readonly CareItem[];
+};
+
+const isEffective = (e: CareExecution): boolean => e.voidedAt === null;
+
+const outcomeOf = (care: ScheduledCare, execution: CareExecution | null, today: LocalDate): CareOutcome => {
+  // An effective execution wins: completing does not change `status`, so the fact is the truth (BR4).
+  if (execution) return 'done';
+  if (care.status === 'skipped') return 'skipped';
+  if (care.status === 'rescheduled') return 'rescheduled';
+  return care.plannedDate < today ? 'overdue' : 'planned';
+};
+
+const byDate =
+  (direction: 1 | -1) =>
+  (a: CareItem, b: CareItem): number =>
+    a.plannedDate === b.plannedDate
+      ? a.id.localeCompare(b.id) * direction
+      : (a.plannedDate < b.plannedDate ? -1 : 1) * direction;
+
+/**
+ * Derives the daily board from the plan's cares and the executions recorded against them.
+ *
+ * Pure and deterministic (G7): `today` is an input, never read from a clock (ADR-008). The same
+ * function feeds the screen and the tests, so what is asserted is what the user sees.
+ */
+export const buildTodayView = (
+  cares: readonly ScheduledCare[],
+  executions: readonly CareExecution[],
+  today: LocalDate,
+): TodayView => {
+  const effectiveByCare = new Map<string, CareExecution>();
+  for (const execution of executions) {
+    if (isEffective(execution)) effectiveByCare.set(execution.scheduledCareId, execution);
+  }
+
+  const overdue: CareItem[] = [];
+  const todayItems: CareItem[] = [];
+  const upcoming: CareItem[] = [];
+  const history: CareItem[] = [];
+
+  for (const care of cares) {
+    const execution = effectiveByCare.get(care.id) ?? null;
+    const outcome = outcomeOf(care, execution, today);
+    const item: CareItem = {
+      id: care.id,
+      careTypeCode: care.careTypeCode,
+      plannedDate: care.plannedDate,
+      outcome,
+      execution,
+      daysLate: outcome === 'overdue' ? diffDays(care.plannedDate as LocalDate, today) : 0,
+    };
+
+    if (outcome === 'overdue') overdue.push(item);
+    else if (outcome === 'skipped' || outcome === 'rescheduled') history.push(item);
+    else if (care.plannedDate === today) todayItems.push(item);
+    else if (outcome === 'done') history.push(item);
+    else upcoming.push(item);
+  }
+
+  return {
+    overdue: overdue.sort(byDate(1)),
+    today: todayItems.sort(byDate(1)),
+    upcoming: upcoming.sort(byDate(1)),
+    history: history.sort(byDate(-1)),
+  };
+};
+
+/**
+ * Whether the undo affordance should still be offered (D-69/D-12).
+ *
+ * The server is the authority — it re-checks the window and rejects a late call. This only decides
+ * what to render, so the UI does not offer something that will fail. It is evaluated at render time
+ * rather than on a ticker: if the window closes while the screen is open, the tap is refused and the
+ * screen reloads, which is the same recovery path as any other conflict.
+ */
+export const canUndo = (execution: CareExecution, now: Instant): boolean => {
+  if (execution.voidedAt !== null) return false;
+  const elapsedMs = instantToEpochMs(now) - Date.parse(execution.executedAt);
+  return elapsedMs >= 0 && elapsedMs <= UNDO_WINDOW_MINUTES * 60_000;
+};
+
+/** The inclusive range a care may be moved to (BR8). */
+export const rescheduleRange = (today: LocalDate): { readonly from: LocalDate; readonly to: LocalDate } => ({
+  from: today,
+  to: addDays(today, RESCHEDULE_HORIZON_DAYS),
+});
