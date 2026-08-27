@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-004 |
-| Status | **Draft** (v0.2, final technical necessity review 2026-08-27; modelo técnico podado ao mínimo — único blocker restante = **DOMAIN RULES** §13. HUMAN GATE. Nenhum código/migration/dependência criado por esta SPEC) |
+| Status | **Draft** (v0.3, **modelo técnico CLOSED FOR REVIEW** 2026-08-27; concorrência/idempotência/ownership fechados — §12b/§10. Único blocker restante = **DOMAIN RULES** §13/OQ1. HUMAN GATE. Nenhum código/migration/dependência criado por esta SPEC) |
 | Owner | @gabrielfmorais (humano) |
 | Bounded Context | Schedule/Planning (Core) + Assessment/Diagnostic (Core) — DOMAIN-MAP §3.3/§3.4 |
 | Related ADRs | ADR-007 (engines puros/versionados + A1 governança D-26 + **A2 vertical slice D-66**), ADR-004 (Supabase/RLS/RPC/Edge), ADR-001 (camadas), ADR-008 (time) |
@@ -105,7 +105,7 @@ Conclusão provável: `AssessmentOutput` mínimo = **necessidades inferidas (+ r
 | ~~updated_at~~ | **REMOVE** | plano é histórico/imutável exceto supersessão; sem consumidor |
 | ~~superseded_by_plan_id / superseded_at~~ | **DEFER** | `status` + índice já identificam ativo e preservam histórico; linkage/timestamp só se SPEC-014 exigir |
 
-Invariante DB: `CREATE UNIQUE INDEX one_active_plan_per_user ON hair_plans(user_id) WHERE status='active'` (menor garantia server-side de 1 ativo). `UNIQUE (user_id, client_request_id)` (idempotência).
+Invariantes DB: `CREATE UNIQUE INDEX one_active_plan_per_user ON hair_plans(user_id) WHERE status='active'` (1 ativo, server-side); `UNIQUE (user_id, client_request_id)` (idempotência); `UNIQUE (id, user_id)` (alvo do composite FK de ownership de `scheduled_cares` — §10 abaixo).
 
 `scheduled_cares` (itens do plano; RLS por `auth.uid()`):
 | Coluna | KEEP/REMOVE/TBD | Motivo |
@@ -119,6 +119,8 @@ Invariante DB: `CREATE UNIQUE INDEX one_active_plan_per_user ON hair_plans(user_
 | ~~sequence~~ | **REMOVE** | ordem derivável por `(planned_date, id)`; reintroduzir só se o domínio exigir ordem intra-dia |
 | ~~status~~ | **DEFER → SPEC-005** | nenhuma feature da SPEC-004 consulta status; todos nascem "planejados" implicitamente |
 
+**Integridade de ownership (constraint, não só a RPC):** `FOREIGN KEY (plan_id, user_id) REFERENCES hair_plans (id, user_id) ON DELETE CASCADE` — o banco **impede** `scheduled_cares.user_id` divergir do dono do `plan_id` (não depende da RPC). Menor solução: uma composite FK contra `hair_plans (id, user_id)` (viável pela `UNIQUE (id, user_id)`) cobre existência do plano **e** consistência do dono numa só constraint. `scheduled_cares.user_id` também referencia `auth.users` `on delete cascade` (purga de conta). RLS permanece `user_id = (select auth.uid())`.
+
 Índices: `(plan_id, planned_date)` (e `(user_id, planned_date)` se a leitura por usuária/dia exigir — confirmar na implementação). **Sem** `diagnostic_results`, sem `input_snapshot`, sem `strategy`, sem colunas de reagendamento/execução (SPEC-005).
 
 ## 11. Algorithm versioning necessity
@@ -130,11 +132,13 @@ Invariante DB: `CREATE UNIQUE INDEX one_active_plan_per_user ON hair_plans(user_
 - **Criação oficial:** Edge Function **`generate-plan`** (Deno; importa `packages/core` — D-40/CORE-RUNTIME-SPIKE) valida a sessão, roda os engines e grava via **RPC transacional `create_plan_tx`** (supersede o plano ativo + insere `hair_plans` + `scheduled_cares` numa transação; garante o índice de 1 plano ativo). Cliente **nunca** insere plano direto (ADR-004/ADR-007). Rate limit por usuária na Edge (T07).
 - Necessity (ambos KEEP; sem solução menor com as mesmas garantias): **Edge** é necessária porque o engine é TS/core e a criação precisa ser server-enforced + validação de input; **RPC** dá atomicidade (supersede + plano + cares numa transação) e concentra os invariantes (1-ativo, idempotência) no banco. Rodar o engine em plpgsql (dispensaria a Edge) viola D-06; inserts sequenciais na Edge (dispensaria a RPC) perdem atomicidade. **Não** enfraquecer a atomicidade para reduzir mecanismo.
 
-### 12b. Idempotency (IMPORTANT — §9 promovido)
-Cenário: request chega, resposta se perde, cliente repete a mesma intenção → sem proteção, dois `HairPlan` históricos para **uma** ação.
-- **Menor mecanismo:** o cliente gera um `client_request_id uuid` e o envia ao `generate-plan`; é persistido em `hair_plans` com `UNIQUE (user_id, client_request_id)`. **Sem tabela de idempotência separada, sem framework.**
-- **`create_plan_tx` (transação):** (1) `SELECT ... FOR UPDATE` do plano `active` da usuária (serializa concorrência por usuária); (2) se já existe plano com o mesmo `client_request_id`, **retorna-o** sem criar novo; (3) senão, marca o ativo como `superseded`, insere o novo plano (`active`) + `scheduled_cares`.
-- **Concorrência de duas requests com o mesmo `client_request_id`:** o `FOR UPDATE` serializa; a primeira cria, a segunda encontra o existente e o retorna. Caso ambas passem da checagem antes do commit, o `UNIQUE (user_id, client_request_id)` rejeita a segunda com `23505`, tratado como "já criado" → retorna o existente (idempotente, sem novo plano). Duas requests com **keys diferentes** são serializadas pelo `FOR UPDATE` + índice parcial `active` (a segunda supersede a primeira).
+### 12b. Concorrência e idempotência de `create_plan_tx` (IMPORTANT)
+Cenário: request chega, resposta se perde, cliente repete → sem proteção, dois `HairPlan` para **uma** ação; ou duas requests concorrentes criam dois planos ativos.
+
+- **Serialização por usuária — inclusive no primeiro plano:** a `create_plan_tx` começa com **`pg_advisory_xact_lock(hashtext(user_id::text))`** (lock transaction-scoped derivado do `user_id`). Isto serializa **todas** as criações/supersessões da mesma usuária, inclusive quando ela **ainda não tem plano** (o `SELECT ... FOR UPDATE` do ativo não bastava: sem linha, nada é travado). O lock é liberado no fim da transação. *Existe especificamente para esta race de criação/supersessão — não é abstração genérica.*
+- **Idempotência:** `client_request_id uuid` enviado pelo cliente e persistido com `UNIQUE (user_id, client_request_id)`. **Sem tabela/framework de idempotência.**
+- **Fluxo (sob o lock):** (1) advisory xact lock por `user_id`; (2) se existe plano com o mesmo `(user_id, client_request_id)` → **retorna-o** (idempotente, sem novo/supersede); (3) senão, `UPDATE` do ativo → `superseded`; (4) `INSERT` do novo plano (`active`, versões, `client_request_id`); (5) `INSERT` dos `scheduled_cares`; (6) commit → lock liberado.
+- **Duas requests, mesma key:** o advisory lock serializa — a 2ª entra após o commit da 1ª, seu pré-check acha o plano e o **retorna** (sem 23505). Rede de segurança para qualquer caminho fora do lock: o `INSERT` do plano fica num bloco `BEGIN ... EXCEPTION WHEN unique_violation THEN ... END` (subtransação/savepoint) — a colisão de `UNIQUE (user_id, client_request_id)` **não aborta** a transação externa; o handler faz `SELECT` do plano existente por `(user_id, client_request_id)` e o retorna. **Duas requests, keys diferentes:** serializadas pelo lock + índice parcial `active` — a 2ª supersede a 1ª deterministicamente.
 
 ## 13. DOMAIN RULES REQUIRED (HUMAN/ESPECIALISTA — D-26; nada escrito agora)
 A SPEC-004 primeiro fixa **quais decisões** o Schedule toma; depois lista o conhecimento a validar:
@@ -160,13 +164,14 @@ Até isso, `strategy`/`care_type_code`/necessidades permanecem **TBD**; a implem
 | AC2 | Módulos `diagnostic/` e `schedule/` não importam React/Expo/`@supabase/*`; o `AssessmentOutput` é puro (dep-cruise). |
 | AC3 | Preview no cliente e criação na Edge produzem o **mesmo** plano para o mesmo input+versão. |
 | AC4 | Criação oficial só ocorre server-side; `authenticated` não consegue INSERT/UPDATE direto em `hair_plans`/`scheduled_cares` (pgTAP + grants). |
-| AC5 | Existe no máximo **1 plano `active`** por usuária (índice único parcial; teste). |
+| AC5 | Existe no máximo **1 plano `active`** por usuária, inclusive sob **duas criações concorrentes com a usuária sem plano** (advisory xact lock por `user_id` + índice parcial único; teste de concorrência). |
 | AC6 | Reavaliar cria novo plano e marca o anterior `superseded`; planos antigos e seus `scheduled_cares` permanecem (histórico). |
 | AC7 | Isolamento: A não lê plano/cuidados de B; anon nada (pgTAP). |
 | AC8 | Um plano persistido é reproduzível a partir de `hair_profile_id` + `assessment_algorithm_version` + `schedule_algorithm_version` — **sem** `diagnostic_results` e **sem** `input_snapshot`. |
 | AC9 | **Idempotência:** dois `generate-plan` com o mesmo `client_request_id` resultam em **um** plano; o retry retorna o plano existente (nenhum novo, nenhum supersede espúrio) — teste concorrente. |
 | AC10 | Guardrails da Foundation verdes com o novo schema/RPC (allowlist SPEC-004). |
 | AC11 | Nada de `confidence`/score na saída; nenhum valor de perfil em logs. |
+| AC13 | O banco **rejeita** um `scheduled_care` cujo `user_id` não seja o dono do `plan_id` (composite FK `(plan_id,user_id)→hair_plans(id,user_id)`) — pgTAP, independente da RPC. |
 | AC12 | **(BLOCKED até §13)** Golden fixtures refletem regras/cadência/care types **validados** por especialista. |
 
 ## 16. Testing Strategy
@@ -190,11 +195,14 @@ Migrations aditivas: `hair_plans` + `scheduled_cares` + RLS/grants + índice ún
 | **OQ2** | **IMPORTANT — necessity (confirmar)** | Confirmar **REMOVE de `diagnostic_results` E de `input_snapshot`/`strategy`/`timezone`/`updated_at`/`sequence`/`scheduled_cares.status`** (§10) — reprodutibilidade por `hair_profile_id` + versões. | adotar a poda (§9/§10); reabrir item só com requisito concreto |
 | OQ3 | IMPORTANT | Manter as **duas** versões inline no plano como provenance? | sim (§11) |
 | OQ4 | IMPORTANT | `care_types` como texto+CHECK aqui e tabela/FK na SPEC-007? | sim (§9), evita catálogo antecipado |
-| OQ5 | IMPORTANT | Idempotência por `client_request_id` + `UNIQUE` + `FOR UPDATE` (§12b) — confirmar o desenho. | adotar (sem tabela separada); rate limit exato na implementação |
-| OQ6 | CAN DEFER | Preview offline / reconciliação com versão do servidor (ADR-007 `expected_version`) | tratar na implementação |
+| OQ5 | **RESOLVED (technical close 2026-08-27)** | Concorrência/idempotência: advisory xact lock por `user_id` (cobre 1º plano) + `UNIQUE (user_id, client_request_id)` + subtransação `EXCEPTION` (§12b); ownership por composite FK (§10). | fechado |
+| OQ6 | CAN DEFER | Preview offline / reconciliação com versão do servidor (ADR-007 `expected_version`); rate limit exato | tratar na implementação |
+
+> **Modelo técnico CLOSED FOR REVIEW (2026-08-27).** Único blocker restante = **OQ1 (DOMAIN RULES, D-26)**. Não há mais gaps técnicos abertos; novas mudanças só por falha de segurança/integridade, contradição objetiva ou impossibilidade técnica.
 
 ## 20. Change Log
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-08-27 | v0.1 Draft via `spec-create` (vertical slice D-66: Assessment+Schedule). Necessity review: **`diagnostic_results` REMOVE/DEFER**; `AssessmentOutput` só inferências (sem reempacotar observado, sem `confidence`); `care_types` texto+CHECK (tabela/FK → SPEC-007); criação server-enforced (Edge `generate-plan` + RPC `create_plan_tx`); 1 plano ativo; supersede. Conteúdo capilar = **HUMAN GATE / BLOCKING** (§13, D-26). | Claude |
-| 2026-08-27 | v0.2 **Final technical necessity review:** REMOVE `input_snapshot` (reprodutibilidade = `hair_profile_id` + 2 versões), `strategy`, `timezone`, `updated_at`, `sequence`, `scheduled_cares.status` (→ SPEC-005); KEEP `user_id` nas duas tabelas (convenção RLS DATA-MODEL §1); supersessão mínima = `status` + índice parcial único (superseded_by/at DEFER); **idempotência promovida a IMPORTANT** — `client_request_id` + `UNIQUE (user_id, client_request_id)` + `FOR UPDATE` na `create_plan_tx` (§12b); Edge+RPC confirmados. Único blocker restante = **DOMAIN RULES** (§13). | Claude |
+| 2026-08-27 | v0.2 **Final technical necessity review:** REMOVE `input_snapshot` (reprodutibilidade = `hair_profile_id` + 2 versões), `strategy`, `timezone`, `updated_at`, `sequence`, `scheduled_cares.status` (→ SPEC-005); KEEP `user_id` nas duas tabelas (convenção RLS DATA-MODEL §1); supersessão mínima = `status` + índice parcial único (superseded_by/at DEFER); **idempotência promovida a IMPORTANT**; Edge+RPC confirmados. | Claude |
+| 2026-08-27 | v0.3 **Technical close** — 2 gaps de integridade resolvidos: (1) concorrência do **primeiro plano** por `pg_advisory_xact_lock(hashtext(user_id))` (o `FOR UPDATE` não travava com zero linhas); (2) **ownership** por composite FK `(plan_id,user_id)→hair_plans(id,user_id)` + `UNIQUE (id,user_id)` (o banco impede `user_id` divergir do dono do plano); colisão de `UNIQUE(user_id,client_request_id)` tratada por subtransação `EXCEPTION` que retorna o plano existente sem abortar. **Modelo técnico CLOSED FOR REVIEW**; único blocker = DOMAIN RULES (D-26). | Claude |
