@@ -32,7 +32,7 @@
 erDiagram
     auth_users ||--|| profiles : "1:1"
     profiles ||--o{ consents : has
-    profiles ||--o{ hair_profiles : "versions"
+    auth_users ||--o{ hair_profiles : "snapshots (SPEC-002; ownership direto — D-63)"
     profiles ||--o{ diagnostic_results : has
     profiles ||--o{ hair_plans : has
     profiles ||--o{ care_executions : has
@@ -56,14 +56,14 @@ erDiagram
 ### 3.1 `profiles` — Identity & Account
 | Coluna | Tipo | Notas |
 |---|---|---|
-| user_id | uuid PK, FK auth.users | **entidade conceitual/futura** — criada pela SPEC-002 via comando idempotente na primeira sessão autenticada; **não** faz parte da SPEC-001 (sem trigger em `auth.users`) |
+| user_id | uuid PK, FK auth.users | **entidade conceitual/futura** — **NÃO** criada pela SPEC-002 (D-63): nasce numa SPEC futura quando houver requisito concreto (ex.: `timezone` para Schedule, SPEC-004). Dados de produto ancoram direto em `auth.users` até lá; sem trigger em `auth.users` |
 | display_name | text null | dado pessoal (nome/apelido) — opcional |
 | timezone | text not null default 'America/Sao_Paulo' | IANA; validada |
 | locale | text not null default 'pt-BR' | |
 | onboarding_status | text CHECK (not_started/in_progress/completed) | |
 | created_at / updated_at | | |
 
-- **Ownership:** usuária. **Lifecycle:** criado na SPEC-002 (primeiro acesso ao produto) → ativo → (pedido de exclusão em `account_deletion_requests`, cancelável; política de purga pendente — D-55) → hard delete cascade a partir de `auth.users`. *(Revisão v0.2: coluna `deleted_at` removida — fonte única de verdade é `account_deletion_requests`.)*
+- **Ownership:** usuária. **Lifecycle:** criado numa SPEC futura (não SPEC-002 — D-63) → ativo → (pedido de exclusão em `account_deletion_requests`, cancelável; política de purga pendente — D-55) → hard delete cascade a partir de `auth.users`. *(Revisão v0.2: coluna `deleted_at` removida — fonte única de verdade é `account_deletion_requests`.)*
 - **PII:** display_name. Email/telefone vivem apenas em `auth.users`.
 - **Não armazenar:** gênero, data de nascimento completa (se necessário para ICP, usar faixa etária opcional em `hair_profiles.attributes`... ou não coletar — **decisão: não coletar no MVP**).
 
@@ -77,20 +77,19 @@ erDiagram
 
 Append-only por versão; permite comprovar base legal (LGPD).
 
-### 3.3 `hair_profiles` — Hair Profile (append-only)
+### 3.3 `hair_profiles` — Hair Profile (append-only, implementado na SPEC-002)
 | Coluna | Tipo | Notas |
 |---|---|---|
-| id, user_id | | |
-| version | int not null | `UNIQUE (user_id, version)` |
-| curl_pattern, strand_thickness, porosity, scalp_oiliness, elasticity, wash_frequency | text CHECK | colunas tipadas para as dimensões estáveis |
-| chemical_treatments | text[] | valores validados por CHECK/constraint de subconjunto |
-| heat_usage | text CHECK | |
-| goals | text[] | |
-| extra_attributes | jsonb default '{}' | atributos ainda não promovidos a coluna; schema zod versionado |
-| created_at | | sem updated_at — imutável |
+| id | uuid PK | identidade estável do snapshot; referenciada pelo downstream como `hair_profile_id` (D-64) |
+| user_id | uuid not null, FK `auth.users` on delete cascade | ownership direto (sem `profiles` — D-63) |
+| hair_pattern, strand_thickness, scalp_tendency, wash_frequency, heat_usage, primary_goal | text CHECK | 8 inputs aprovados (D-62; conjuntos em SPEC-002 §6) |
+| chemical_treatments | text[] not null default '{}' | subconjunto validado; `[]` = nenhuma (sem valor `none`) |
+| current_concerns | text[] not null | `cardinality>=1`; `no_major_concern` exclusivo |
+| created_at | timestamptz | sem `updated_at` — imutável |
 
-- **Invariante:** "perfil atual" = maior `version`. Índice `(user_id, version desc)`.
-- **Atribuição de `version`:** INSERT direto pelo cliente (RLS `WITH CHECK user_id = auth.uid()`) com trigger `BEFORE INSERT` que ignora o valor enviado e define `version = max+1` sob `pg_advisory_xact_lock(hashtext(user_id::text))`. Não há RPC para isso (revisão v0.2 — evita "tudo em RPC").
+- **Invariante:** snapshots **imutáveis**; cada avaliação = nova linha; "snapshot atual" = o mais recente (`ORDER BY created_at DESC, id DESC LIMIT 1`). **Sem `version` sequencial, sem `is_current`** (D-64). Índice `(user_id, created_at desc, id desc)`.
+- **Atribuição:** INSERT direto pelo cliente (RLS `WITH CHECK user_id = auth.uid()`); **sem trigger, sem advisory lock, sem RPC** (D-64). Imutabilidade por ausência de grant UPDATE/DELETE.
+- **Sem** `extra_attributes` (D-64/necessity review); `porosity`/`elasticity`/`scalp_oiliness`/`density`/`goals` genérico/2A–4C **fora do MVP** (SPEC-002 §10).
 - **PII:** sensibilidade baixa/média (características físicas). Tratar como dado pessoal (LGPD), não sensível de saúde.
 
 ### 3.4 `diagnostic_results` — Diagnostic (imutável)
@@ -273,7 +272,7 @@ Ninguém faz UPDATE/DELETE (nem service role por policy de app; retenção via j
 1. Um plano ativo por usuária (índice parcial único).
 2. Execução idempotente (`client_execution_id` único).
 3. Check-in 1:1 com execução.
-4. Versão de perfil única por usuária.
+4. `hair_profiles` imutável (append-only; sem UPDATE/DELETE); snapshot atual = mais recente por `(created_at, id)` — sem numeração de versão (D-64).
 5. Enums fechados (CHECK).
 6. Reagendamento consistente (CHECK status ⇔ rescheduled_to_id).
 7. Toda linha de usuária tem `user_id` NOT NULL com FK cascade.

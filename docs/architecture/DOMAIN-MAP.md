@@ -52,17 +52,17 @@ Legenda: seta cheia = dependência de dados/fluxo; pontilhada = consulta/cross-c
 ## 3. Contextos
 
 ### 3.1 Identity & Account (Supporting)
-- **Responsabilidade:** autenticação (delegada ao Supabase Auth), sessão, pedido de exclusão de conta (SPEC-001); perfil de aplicação (`profiles`: timezone, locale, display_name, onboarding_status), consentimentos e exportação são responsabilidades **conceituais** cuja implementação começa quando um requisito de produto as exigir (perfil: SPEC-002; consentimentos/termos: SPEC-013). *Identity authenticates the user; application profile/product data begins only when a product requirement needs it.*
-- **Entidades:** `AccountDeletionRequest` (SPEC-001); `Profile` (1:1 com `auth.users`, SPEC-002); `Consent` (SPEC-013).
+- **Responsabilidade:** autenticação (delegada ao Supabase Auth), sessão, pedido de exclusão de conta (SPEC-001); perfil de aplicação (`profiles`: timezone, locale, display_name, onboarding_status), consentimentos e exportação são responsabilidades **conceituais** cuja implementação começa quando um requisito de produto as exigir (perfil: **SPEC futura, NÃO SPEC-002** — D-63; consentimentos/termos: SPEC-013). *Identity authenticates the user; application profile/product data begins only when a product requirement needs it.*
+- **Entidades:** `AccountDeletionRequest` (SPEC-001); `Profile` (1:1 com `auth.users`, **SPEC futura — D-63**); `Consent` (SPEC-013).
 - **Invariantes:** quando o perfil existir, todo `auth.users` possui no máximo um `profile`, criado por comando idempotente na primeira sessão autenticada (sem trigger em `auth.users` — ADR-005 A1); timezone sempre IANA válida; exclusão efetiva de `auth.users` é privilegiada/server-owned (política imediata vs grace pendente — D-55).
 - **Não faz:** autorização de negócio; regras de produto.
 - **Engine em core:** apenas `TimeZone` VO e validações.
 
 ### 3.2 Hair Profile (Core)
 - **Responsabilidade:** representação estruturada do cabelo e hábitos.
-- **Entidade:** `HairProfile` (append-only por versão; `is_current` derivado da maior versão).
-- **Value Objects (candidatos, lista não definitiva):** `CurlPattern` (liso/ondulado/cacheado/crespo + subtipo), `StrandThickness` (fino/médio/grosso), `Porosity` (baixa/média/alta/desconhecida), `ScalpOiliness`, `ChemicalTreatments` (set: descoloração, coloração, alisamento, relaxamento, nenhum), `HeatUsage` (frequência), `Elasticity`, `WashFrequency`, `Goals` (set: definição, brilho, crescimento, reduzir frizz, recuperar danos...), `Habits`.
-- **Invariantes:** versão monotônica por usuária; enums fechados validados no banco (`CHECK`) e em zod; atributos desconhecidos permitidos como `unknown` (P02: não forçar respostas).
+- **Entidade:** `HairProfile` (append-only; **snapshots imutáveis identificados por `id`**; snapshot atual = o mais recente por `(created_at, id)` — sem `version`/`is_current`, D-64).
+- **Value Objects (aprovados na SPEC-002 §6 — D-62):** `hair_pattern`, `strand_thickness`, `scalp_tendency`, `wash_frequency`, `chemical_treatments` (multi), `heat_usage`, `current_concerns` (multi), `primary_goal`. Refinamentos como porosidade/elasticidade/2A–4C ficam **fora do MVP** (SPEC-002 §10). Conteúdo é input de produto, não diagnóstico (D-26).
+- **Invariantes:** snapshots imutáveis (sem UPDATE/DELETE); enums fechados validados no banco (`CHECK`) e em zod; `unknown`/`varies` permitidos onde aprovado (P02: não forçar respostas).
 - **Ownership:** usuária.
 
 ### 3.3 Diagnostic (Core — regras)
