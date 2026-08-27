@@ -9,6 +9,8 @@ Schedule half of the SPEC-004 vertical slice. Pure, deterministic, no I/O: it ne
   profile to a plan. The client preview and the `generate-plan` Edge Function both call it, so an
   instant preview and the persisted plan cannot drift (SPEC-004 AC3).
 - `application/ports.ts` — `HairPlanPort`: reads under RLS, creation only through the Edge Function.
+  `ScheduledCare` is the shared kernel with care-tracking (DOMAIN-MAP §6): Schedule creates cares,
+  Care Tracking transitions them (SPEC-005).
 
 Persistence and the one-active-plan / idempotency invariants live in the database
 (`supabase/migrations/20260829000000_hair_plans_scheduled_cares.sql`), not here.

@@ -8,7 +8,8 @@ export { PLAN_WINDOW_DAYS } from './engine/v1/generate-schedule.ts';
 export type { ScheduleContext, ScheduleResult } from './engine/v1/generate-schedule.ts';
 export { buildPlan } from './application/build-plan.ts';
 export type { PlanDraft } from './application/build-plan.ts';
-export type { HairPlan, HairPlanPort, ScheduledCare } from './application/ports.ts';
+export { SCHEDULED_CARE_STATUSES } from './application/ports.ts';
+export type { HairPlan, HairPlanPort, ScheduledCare, ScheduledCareStatus } from './application/ports.ts';
 
 /** The version every new plan is generated with. Bump only when behaviour changes (ADR-007). */
 export const CURRENT_SCHEDULE_VERSION = SCHEDULE_ALGORITHM_VERSION_V1;

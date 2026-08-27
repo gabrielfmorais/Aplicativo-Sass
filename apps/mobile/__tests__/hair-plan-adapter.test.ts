@@ -11,8 +11,20 @@ const planRow = {
   created_at: '2026-09-01T10:00:00Z',
 };
 const careRows = [
-  { id: 'c1', care_type_code: 'hydration', planned_date: '2026-09-01' },
-  { id: 'c2', care_type_code: 'nutrition', planned_date: '2026-09-05' },
+  {
+    id: 'c1',
+    care_type_code: 'hydration',
+    planned_date: '2026-09-01',
+    status: 'planned',
+    rescheduled_to_id: null,
+  },
+  {
+    id: 'c2',
+    care_type_code: 'nutrition',
+    planned_date: '2026-09-05',
+    status: 'skipped',
+    rescheduled_to_id: null,
+  },
 ];
 
 /** Minimal PostgREST chain double: `.select().eq().maybeSingle()` and `.select().eq().order().order()`. */
@@ -54,8 +66,20 @@ describe('hair plan adapter (SPEC-004 §12)', () => {
       scheduleAlgorithmVersion: 'v1',
       createdAt: '2026-09-01T10:00:00Z',
       cares: [
-        { id: 'c1', careTypeCode: 'hydration', plannedDate: '2026-09-01' },
-        { id: 'c2', careTypeCode: 'nutrition', plannedDate: '2026-09-05' },
+        {
+          id: 'c1',
+          careTypeCode: 'hydration',
+          plannedDate: '2026-09-01',
+          status: 'planned',
+          rescheduledToId: null,
+        },
+        {
+          id: 'c2',
+          careTypeCode: 'nutrition',
+          plannedDate: '2026-09-05',
+          status: 'skipped',
+          rescheduledToId: null,
+        },
       ],
     });
   });

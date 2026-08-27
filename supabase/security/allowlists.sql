@@ -42,6 +42,38 @@ insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
   ('authenticated', 'hair_plans', 'SELECT', 'SPEC-004'),
   ('authenticated', 'scheduled_cares', 'SELECT', 'SPEC-004');
 
+-- SPEC-005 §10: care_executions — authenticated may only SELECT its own rows.
+-- Every write goes through the care-tracking RPCs below; anon has nothing.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'care_executions', 'SELECT', 'SPEC-005');
+
+-- SPEC-005 §9/§10: the only write path for care transitions. EXECUTE is granted to `authenticated`
+-- (unlike create_plan_tx) because these take only an id that already belongs to the caller, an
+-- idempotency key and a timezone — the user comes from auth.uid(), never from a parameter, so there
+-- is nothing to forge. DEFINER is needed because the client holds no write privilege on
+-- scheduled_cares / care_executions. search_path is pinned on all four.
+insert into tests.security_definer_allowlist (function_signature, spec, justification) values
+  (
+    'public.complete_care(p_scheduled_care_id uuid, p_client_execution_id uuid, p_timezone text)',
+    'SPEC-005',
+    'Records a care as done. Writes care_executions, which no client may write. Idempotent by (user_id, client_execution_id) so a retry cannot create a second fact; executed_on is computed server-side from the IANA timezone with a plausibility check (T22); ownership re-verified against auth.uid().'
+  ),
+  (
+    'public.skip_care(p_scheduled_care_id uuid)',
+    'SPEC-005',
+    'Marks a planned care as skipped. Updates scheduled_cares, which no client may update. Only acts on a care that is planned AND has no effective execution, so an already-completed care cannot be skipped; ownership re-verified against auth.uid().'
+  ),
+  (
+    'public.reschedule_care(p_scheduled_care_id uuid, p_new_date date, p_timezone text)',
+    'SPEC-005',
+    'Ends the original care and creates its replacement in one transaction, never rewriting the original planned_date (D-28). Updates/inserts scheduled_cares, which no client may write. Target date bounded to [today, today+28] using the server-computed local day; ownership re-verified against auth.uid().'
+  ),
+  (
+    'public.void_execution(p_execution_id uuid)',
+    'SPEC-005',
+    'Undo of an accidental execution within 15 minutes (D-69/D-12). Sets voided_at on care_executions, which no client may update; the row is kept, never deleted. The window is measured by the server clock, so the client cannot extend it; ownership re-verified against auth.uid().'
+  );
+
 -- SPEC-004 §12b/§14: the single server-enforced write path into the plan tables.
 insert into tests.security_definer_allowlist (function_signature, spec, justification) values
   (

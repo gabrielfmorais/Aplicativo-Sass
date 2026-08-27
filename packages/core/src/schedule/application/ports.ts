@@ -1,11 +1,25 @@
 import type { CareTypeCode } from '../domain/plan.ts';
 
-/** A plan as persisted, with its cares (SPEC-004 §10). Read-only for the client. */
+/**
+ * Lifecycle of the *intention* (SPEC-005). There is no `completed`: a care is done when an
+ * effective execution exists (SPEC-005 §8.2, D-69) — one fact, one source of truth.
+ */
+export const SCHEDULED_CARE_STATUSES = ['planned', 'skipped', 'rescheduled'] as const;
+export type ScheduledCareStatus = (typeof SCHEDULED_CARE_STATUSES)[number];
+
+/**
+ * A plan as persisted, with its cares (SPEC-004 §10). Read-only for the client.
+ * Shared kernel between Schedule and Care Tracking (DOMAIN-MAP §6): Schedule creates cares,
+ * Care Tracking transitions them.
+ */
 export type ScheduledCare = {
   readonly id: string;
   readonly careTypeCode: CareTypeCode;
-  /** ISO `YYYY-MM-DD`, the user's local day. */
+  /** ISO `YYYY-MM-DD`, the user's local day. Never rewritten — rescheduling creates a new row. */
   readonly plannedDate: string;
+  readonly status: ScheduledCareStatus;
+  /** Set only when `status === 'rescheduled'`: the row that replaced this one. */
+  readonly rescheduledToId: string | null;
 };
 
 export type HairPlan = {

@@ -120,27 +120,30 @@ Removida do modelo: no MVP a avaliação só existe para gerar um plano, nenhuma
 | planned_date | date not null | dia local |
 | created_at | timestamptz | |
 
-- **Adiado para a SPEC-005 (não existe hoje):** `status`, `rescheduled_to_id`, `origin`, `skip_reason`, `updated_at`. `sequence` removido (ordem derivável de `(planned_date, id)`).
+- **Adicionado pela SPEC-005:** `status text not null default 'planned'` CHECK `in ('planned','skipped','rescheduled')` — **sem `completed`** (D-69: concluído é derivado da existência de execução efetiva, evita duas fontes de verdade); `rescheduled_to_id uuid null` com CHECK `(status='rescheduled') = (rescheduled_to_id is not null)` e FK composta `(rescheduled_to_id, user_id)`; `UNIQUE (id, user_id)` (alvo do FK de ownership de `care_executions`); índice parcial `(user_id, planned_date) WHERE status='planned'`.
+- **Ainda adiado:** `origin`, `skip_reason`, `updated_at` (SPEC-005 §8.1 — sem consumidor). `sequence` removido (ordem derivável de `(planned_date, id)`).
 - **Escrita só server-side:** `authenticated` tem apenas SELECT próprio.
 - **Índices:** `(user_id, planned_date)`, `(plan_id, planned_date)`.
 - **Invariantes:** `status='rescheduled' ⇔ rescheduled_to_id is not null` (CHECK); `status='completed'` só via `complete_care` (trigger/RPC); usuária **não** altera `planned_date` (reagendar = nova linha).
 - "Atrasado" é calculado, nunca armazenado. Por D-28, não existe job/trigger que mova `planned_date` ou crie reagendamentos automáticos; toda transição de cuidado atrasado nasce de ação explícita da usuária via RPC.
 
-### 3.7 `care_executions` — executado (append-only)
+### 3.7 `care_executions` — executado (append-only; implementado na SPEC-005)
 | Coluna | Tipo | Notas |
 |---|---|---|
-| id, user_id | | |
-| scheduled_care_id | FK null | null = ad hoc |
-| care_type_code | FK | redundante para ad hoc e histórico |
-| client_execution_id | uuid not null **UNIQUE** | idempotência |
-| executed_at | timestamptz not null | instante real |
-| executed_on | date not null | dia local no momento (calculado no servidor a partir de tz enviada + validação) |
-| note | text null (≤ 280) | texto livre — PII potencial; não logar |
-| voided_at | timestamptz null | "desfazer" (proposta: janela de 10 min via RPC `void_execution`); execução anulada continua no histórico — **decisão pendente (DECISION-REGISTER D-12)** |
-| created_at | | |
+| id | uuid PK | |
+| user_id | uuid not null, FK `auth.users` on delete cascade | RLS `user_id = auth.uid()` |
+| scheduled_care_id | uuid **not null**, FK composta `(scheduled_care_id, user_id) → scheduled_cares (id, user_id)` on delete cascade | execução avulsa (`null`) **DEFER**; soltar o NOT NULL depois é aditivo |
+| care_type_code | text CHECK (hydration/nutrition/reconstruction) | o **fato histórico**: sobrevive a renomeações do catálogo da SPEC-007 |
+| client_execution_id | uuid not null | `UNIQUE (user_id, client_execution_id)` — idempotência (T19) |
+| executed_at | timestamptz not null default now() | instante do servidor; a janela de undo é medida a partir dele |
+| executed_on | date not null | dia civil da usuária, **calculado no servidor** a partir da tz IANA + validação de plausibilidade (T22) |
+| voided_at | timestamptz null | "desfazer" em **15 min** (D-69/D-12); a linha **permanece** no histórico, nunca é apagada |
+| created_at | timestamptz | |
+| ~~note~~ | **DEFER** | texto livre é PII e território de check-in (SPEC-006) |
 
-- **Invariante:** no máximo uma execução **não anulada** por `scheduled_care_id` (`UNIQUE` parcial `WHERE scheduled_care_id IS NOT NULL AND voided_at IS NULL`) — proposta: não permitir múltiplas execuções do mesmo agendamento (ad hoc cobre repetição).
-- Nunca UPDATE de fatos (`executed_at`, `care_type_code`, `scheduled_care_id`). Únicos campos mutáveis: `voided_at` (RPC, janela curta) e possivelmente `note` (decidir na SPEC). Nunca DELETE pela usuária.
+- **Invariante (D-69/D-35):** no máximo **uma execução efetiva** por `scheduled_care_id` — índice único **parcial** `WHERE voided_at IS NULL`. Uma execução anulada não ocupa a vaga, então desfazer libera o cuidado para ser registrado de novo.
+- **Imutabilidade:** `voided_at` é a **única** coluna mutável, e só pela RPC `void_execution`. Nunca UPDATE de `executed_at`, `executed_on`, `care_type_code` ou `scheduled_care_id`. Nunca DELETE pela usuária (sem grant).
+- **Escrita só server-side:** `authenticated` tem apenas SELECT próprio; toda transição passa por `complete_care` / `skip_care` / `reschedule_care` / `void_execution` (SECURITY DEFINER, allowlistadas).
 
 ### 3.8 `checkins`
 | Coluna | Tipo |
@@ -257,7 +260,7 @@ Ninguém faz UPDATE/DELETE (nem service role por policy de app; retenção via j
 ## 5. Invariantes que o banco protege (resumo)
 
 1. Um plano ativo por usuária (índice parcial único).
-2. Execução idempotente (`client_execution_id` único).
+2. Execução idempotente (`client_execution_id` único por usuária); **no máximo 1 execução efetiva por `scheduled_care`** (índice único parcial `WHERE voided_at IS NULL` — D-69/D-35); "concluído" e "atrasado" são **derivados**, não existem como coluna.
 3. Check-in 1:1 com execução.
 4. `hair_profiles` imutável (append-only; sem UPDATE/DELETE); snapshot atual = mais recente por `(created_at, id)` — sem numeração de versão (D-64).
 5. Enums fechados (CHECK).
@@ -268,6 +271,6 @@ Ninguém faz UPDATE/DELETE (nem service role por policy de app; retenção via j
 10. `audit_log` append-only.
 
 ## 6. Decisões em aberto (para SPECs)
-- Permitir "desfazer execução"? (proposta: sim, 10 min, via `voided_at` — ver DECISION-REGISTER D-12).
+- ~~Permitir "desfazer execução"?~~ — **DECIDIDA (D-69/D-12, SPEC-005): sim, janela de 15 minutos** via `voided_at` + RPC `void_execution`; a execução anulada permanece no histórico.
 - ~~Janela de geração de `scheduled_cares`~~ — **DECIDIDA (D-67, SPEC-004): 28 dias / 4 semanas**, gerada na criação do plano. Extensão por job/on-demand não existe no MVP.
 - Streaks: **DEFERRED (D-25)** — nenhuma tabela/campo de streak no MVP; se necessário, derivar de `care_executions`.

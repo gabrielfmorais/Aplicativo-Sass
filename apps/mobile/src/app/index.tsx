@@ -1,35 +1,63 @@
-import type { HairPlanPort, HairProfilePort, HairProfileSnapshot, LocalDate } from '@app/core';
+import type {
+  CareBoard,
+  CareTrackingPort,
+  HairPlanPort,
+  HairProfilePort,
+  HairProfileSnapshot,
+  Instant,
+  LocalDate,
+} from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/bootstrap/auth';
 import { AccountScreen } from '@/features/account/AccountScreen';
 import { SignInScreen } from '@/features/auth/SignInScreen';
+import { TodayScreen } from '@/features/care/TodayScreen';
 import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import { PlanScreen } from '@/features/plan/PlanScreen';
 
+type Loadable<T> = 'loading' | 'error' | T;
+
+function Retry({ text, onRetry }: { text: string; onRetry: () => void }) {
+  return (
+    <View style={styles.center}>
+      <Text accessibilityLiveRegion="polite">{text}</Text>
+      <Pressable style={styles.button} onPress={onRetry} accessibilityRole="button">
+        <Text>Tentar novamente</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 /**
- * Authenticated home: onboarding until a hair-profile snapshot exists (SPEC-002), then the plan —
- * preview + confirmation while there is no active plan, the active schedule afterwards (SPEC-004).
- * The account screen stays reachable from the plan.
+ * Authenticated home. Three gates, each answered by one read:
+ * no hair profile → onboarding (SPEC-002); no active plan → preview and confirmation (SPEC-004);
+ * active plan → the daily screen (SPEC-005). The account stays reachable from either plan screen.
  */
 function AuthenticatedApp({
   hairProfile,
   hairPlan,
+  careTracking,
   today,
+  now,
+  timeZone,
   newRequestId,
 }: {
   hairProfile: HairProfilePort;
   hairPlan: HairPlanPort;
+  careTracking: CareTrackingPort;
   today: () => LocalDate;
+  now: () => Instant;
+  timeZone: () => string;
   newRequestId: () => string;
 }) {
   const { auth, deletion } = useAuth();
-  // 'loading' → checking; 'error' → read failed (retry); null → no snapshot yet; snapshot → onboarded.
-  const [profile, setProfile] = useState<'loading' | 'error' | HairProfileSnapshot | null>('loading');
+  const [profile, setProfile] = useState<Loadable<HairProfileSnapshot | null>>('loading');
+  const [board, setBoard] = useState<Loadable<CareBoard | null>>('loading');
   const [showAccount, setShowAccount] = useState(false);
 
-  const load = useCallback(() => {
+  const loadProfile = useCallback(() => {
     setProfile('loading');
     let active = true;
     hairProfile
@@ -40,51 +68,84 @@ function AuthenticatedApp({
       active = false;
     };
   }, [hairProfile]);
-  useEffect(() => load(), [load]);
+  useEffect(() => loadProfile(), [loadProfile]);
+
+  const loadBoard = useCallback(() => {
+    setBoard('loading');
+    let active = true;
+    careTracking
+      .getBoard()
+      .then((b) => active && setBoard(b))
+      .catch(() => active && setBoard('error'));
+    return () => {
+      active = false;
+    };
+  }, [careTracking]);
+  // Only worth reading once there is a profile: without one there cannot be a plan.
+  useEffect(() => {
+    if (profile && profile !== 'loading' && profile !== 'error') return loadBoard();
+  }, [profile, loadBoard]);
 
   if (profile === 'loading') return null;
   if (profile === 'error') {
-    return (
-      <View style={styles.center}>
-        <Text accessibilityLiveRegion="polite">Não foi possível carregar seu perfil.</Text>
-        <Pressable style={styles.button} onPress={load} accessibilityRole="button">
-          <Text>Tentar novamente</Text>
-        </Pressable>
-      </View>
-    );
+    return <Retry text="Não foi possível carregar seu perfil." onRetry={loadProfile} />;
   }
   if (!profile) return <OnboardingScreen hairProfile={hairProfile} onSaved={setProfile} />;
+
   if (showAccount) {
     return (
       <View style={styles.stack}>
         <AccountScreen auth={auth} deletion={deletion} />
         <Pressable style={styles.button} onPress={() => setShowAccount(false)} accessibilityRole="button">
-          <Text>Voltar ao cronograma</Text>
+          <Text>Voltar aos cuidados</Text>
         </Pressable>
       </View>
     );
   }
+
+  if (board === 'loading') return null;
+  if (board === 'error') {
+    return <Retry text="Não foi possível carregar seus cuidados." onRetry={loadBoard} />;
+  }
+  if (!board) {
+    return (
+      <PlanScreen
+        profile={profile}
+        plans={hairPlan}
+        today={today()}
+        newRequestId={newRequestId}
+        onCreated={loadBoard}
+        onOpenAccount={() => setShowAccount(true)}
+      />
+    );
+  }
   return (
-    <PlanScreen
-      profile={profile}
-      plans={hairPlan}
+    <TodayScreen
+      board={board}
+      care={careTracking}
       today={today()}
-      newRequestId={newRequestId}
+      now={now}
+      timeZone={timeZone()}
+      newExecutionId={newRequestId}
+      onChanged={loadBoard}
       onOpenAccount={() => setShowAccount(true)}
     />
   );
 }
 
-/** Single route: authentication, then hair profile, then plan (SPEC-001/SPEC-002/SPEC-004). */
+/** Single route: authentication, then hair profile, then plan, then the daily loop. */
 export default function IndexRoute() {
-  const { state, auth, hairProfile, hairPlan, today, newRequestId } = useAuth();
+  const { state, auth, hairProfile, hairPlan, careTracking, today, now, timeZone, newRequestId } = useAuth();
   if (state === 'loading') return null;
   if (state.status !== 'authenticated') return <SignInScreen auth={auth} />;
   return (
     <AuthenticatedApp
       hairProfile={hairProfile}
       hairPlan={hairPlan}
+      careTracking={careTracking}
       today={today}
+      now={now}
+      timeZone={timeZone}
       newRequestId={newRequestId}
     />
   );

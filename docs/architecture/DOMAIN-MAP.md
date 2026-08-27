@@ -80,18 +80,20 @@ Legenda: seta cheia = dependência de dados/fluxo; pontilhada = consulta/cross-c
 - **Versionamento:** `packages/core/src/schedule/engine/v1/`; `CURRENT_SCHEDULE_VERSION` gravado em `hair_plans.schedule_algorithm_version`.
 - **Domain Events (conceituais):** `PlanGenerated`, `PlanSuperseded`.
 
-### 3.5 Care Tracking (Core)
+### 3.5 Care Tracking (Core — implementado na SPEC-005)
 - **Responsabilidade:** o que foi planejado vs. o que foi feito; check-ins; projeção de calendário e "Today".
 - **Entidades:** `ScheduledCare` (planejado, do agregado HairPlan), `CareExecution` (feito — raiz própria, append-only), `CheckIn` (1:1 opcional com execução).
 - **Regras centrais:**
-  - Executar é idempotente por `client_execution_id`.
+  - Executar é idempotente por `client_execution_id`; **0 ou 1 execução efetiva** por `ScheduledCare` (D-69/D-35), garantido por índice único parcial no banco.
+  - **Concluído é derivado** da existência de execução efetiva — não existe `status='completed'` (D-69). Completar **não** altera a linha planejada, então pular/reagendar checam também a ausência de execução efetiva.
+  - **Desfazer** (D-69/D-12): 15 minutos a partir de `executed_at`, medidos pelo relógio do servidor; a execução anulada permanece no histórico (`voided_at`) e o cuidado volta a ser acionável.
   - Reagendar preserva a `ScheduledCare` original (`status = rescheduled`, `rescheduled_to_id`) e cria uma nova (`origin = rescheduled`). **Fronteira:** Schedule *cria* cuidados (engine); Care Tracking *transita* status e cria linhas de reagendamento — o engine nunca é invocado para reagendar.
   - Pular: `status = skipped` + motivo opcional; não gera execução.
   - Execução sem agendamento (ad hoc) é permitida (`scheduled_care_id NULL`, `care_type` obrigatório).
   - "Atrasado" = planned_date < user_today e sem execução e status = planned. **Calculado**, não armazenado.
   - **Cuidado atrasado (decisão humana D-28):** o sistema **nunca** altera silenciosamente o cronograma. A UI mostra o estado ("Hidratação — atrasada há 1 dia") e pede decisão explícita: `[Fazer hoje]` (execução vinculada ao agendamento original, `executed_on` = hoje) · `[Reagendar]` (nova linha) · `[Pular]` (status skipped). Nenhum deslocamento automático do plano sem ação da usuária ou regra futura explicitamente aprovada.
-- **Application Services:** `getToday(userId, referenceDate)`, `completeCare`, `rescheduleCare`, `skipCare`, `submitCheckIn`.
-- **Projeção de calendário:** consulta read-only (`view` ou query) combinando planejado + executado por dia local.
+- **Application Services (implementados):** `buildTodayView(cares, executions, today)` puro em `packages/core/src/care-tracking/` (o "hoje" é input, ADR-008); transições pelas RPCs `complete_care`, `skip_care`, `reschedule_care`, `void_execution`. `submitCheckIn` continua na SPEC-006.
+- **Projeção de calendário:** derivada em memória por `buildTodayView` (sem view no banco). Grade mensal fica fora da SPEC-005.
 
 ### 3.6 Progress (Supporting)
 - **Responsabilidade:** adesão (executados / planejados), histórico, streaks (se aprovado), indicadores de check-in ao longo do tempo.
