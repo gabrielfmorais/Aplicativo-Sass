@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Status | v0.4 — 2026-08-26 — arquitetura aprovada; SPEC-000 implementada/merged; **SPEC-001 aprovada** (implementação não iniciada) |
+| Status | v0.5 — 2026-08-27 — arquitetura aprovada; SPEC-000 implementada/merged; **SPEC-001 implementada/merged** (PR #3, required CI verde); LEVEL 2 auto-merge ativo |
 | Uso | Fonte de verdade sobre o estado de cada decisão. Nenhum item muda de status sem registro humano nesta tabela. Agentes nunca resolvem itens `HUMAN DECISION` por conta própria. |
 
 Legenda de custo de mudança tardia: **L** (horas) · **M** (dias) · **H** (semanas ou migração de dados).
@@ -106,3 +106,4 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 | 2026-08-26 | v0.2: aprovação humana B1 (D-01…D-11, D-13…D-15); ADR-002 aprovada; D-21…D-28 decididas/adiadas conforme registro humano. Fase autorizada: SPEC-000. |
 | 2026-08-26 | v0.3: revisão da SPEC-000 (D-41…D-49); implementação concluída (D-33, D-40 resolvidos); close-out com CI verde; D-50 AC12 deferred. |
 | 2026-08-26 | v0.4: SPEC-001 aprovada (D-51…D-55); decisões de implementação rastreadas (D-56…D-61). Implementação de autenticação **não** iniciada. |
+| 2026-08-27 | v0.5: SPEC-001 implementada e mergeada em `main` (PR #3) via LEVEL 2 auto-merge; required CI verde (`ci`, `core-deno`, `supabase-test`; pgTAP 13/13). D-56 e D-59 decididos na implementação. Proteção da `main` no GitHub habilitada (required checks + PR + strict + enforce_admins; force-push/deleção bloqueados). |

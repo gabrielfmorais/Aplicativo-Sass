@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-001 |
-| Status | **Approved** (v0.3 aprovada por revisão humana de arquitetura, necessidade e segurança em 2026-08-26 — D-51; implementação ainda **não** iniciada) |
+| Status | **Implemented** — merged em `main` (PR #3, branch `feat/spec-001-auth`, 2026-08-27); required CI verde. v0.3 aprovada por revisão humana de arquitetura, necessidade e segurança em 2026-08-26 (D-51). Evidência de implementação em §25b |
 | Owner | @gabrielfmorais (humano) |
 | Bounded Context | Identity & Account (DOMAIN-MAP §3.1) |
 | Related ADRs | ADR-005 (Authentication Model — Accepted), ADR-004 (Supabase), ADR-001 (camadas), ADR-002 (Expo), ADR-010 (analytics) |
@@ -241,3 +241,4 @@ Dependências adicionadas (todas justificadas): `@supabase/supabase-js` (cliente
 | 2026-08-26 | v0.2 Revisão de necessidade (profiles/consents/audit_log deferidos; trigger e ensure_my_profile removidos; crypto própria removida; OTP reclassificado; ACs consolidados) | Claude |
 | 2026-08-26 | Status → **Approved** (revisão humana final; D-51). Decisões de implementação pendentes permanecem rastreadas em §26 e no DECISION-REGISTER | Humano / Claude |
 | 2026-08-26 | v0.3 Correções técnicas: RPCs de exclusão removidas (grants + RLS + constraints; sem UPDATE; cancelar = DELETE próprio; sem coluna de status); linking reformulado (provider-managed linking aceito × merge heurístico proibido); referência ao AC12 da Foundation corrigida (DEFERRED, não PASS); comportamento de sessão pós-pedido não fixado (OQ3); release requirement do Google Play registrado; expiração do access token = configuração do Supabase; BR9/AC11 restritos a logs/analytics/persistência controlados pela aplicação | Claude — aguardando aprovação humana |
+| 2026-08-27 | Implementação mergeada em `main` (PR #3, branch `feat/spec-001-auth`) via LEVEL 2 auto-merge; required CI verde (`ci`, `core-deno`, `supabase-test`; pgTAP SPEC-001 13/13). Status → **Implemented**. D-56 (OAuth browser + PKCE) e D-59 (`expo-secure-store` + chunking) decididos na implementação. AC2/AC5/AC13 permanecem deferred (provider-managed / E2E em staging), ver §25b | Claude |
