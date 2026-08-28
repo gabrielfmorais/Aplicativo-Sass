@@ -1,8 +1,9 @@
 import type { CareBoard, CareItem, CareTrackingPort, Instant, LocalDate } from '@app/core';
-import { buildTodayView, canUndo } from '@app/core';
+import { CARE_GUIDES, buildTodayView, canUndo } from '@app/core';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { CareGuidePanel } from '@/features/care/CareGuidePanel';
 import { CARE_TYPE_LABEL, formatPlannedDate } from '@/features/plan/copy';
 
 /**
@@ -38,7 +39,11 @@ function CareRow({
   onAct: (item: CareItem, action: Action) => void;
 }) {
   const [choosingDate, setChoosingDate] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const undoable = item.execution !== null && canUndo(item.execution, now);
+  // A care type the app has no guide for cannot happen today (the DB CHECK pins the set, and the
+  // guides are exhaustive by type). If it ever did, the row simply loses the button (SPEC-007 EC1).
+  const guide = CARE_GUIDES[item.careTypeCode];
 
   return (
     <View style={styles.row}>
@@ -97,7 +102,20 @@ function CareRow({
             >
               <Text>Pular</Text>
             </Pressable>
+            {guide ? (
+              // Never disabled by `busy`: reading how to do the care is not a write, so an action
+              // in flight must not block it (SPEC-007 FR6/EC3).
+              <Pressable
+                style={styles.action}
+                onPress={() => setShowGuide((v) => !v)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: showGuide }}
+              >
+                <Text>Como fazer</Text>
+              </Pressable>
+            ) : null}
           </View>
+          {showGuide && guide ? <CareGuidePanel guide={guide} /> : null}
           {choosingDate ? (
             <View style={styles.actions}>
               {RESCHEDULE_OPTIONS.map((option) => (

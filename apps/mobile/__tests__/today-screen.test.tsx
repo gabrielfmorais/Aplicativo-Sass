@@ -1,6 +1,6 @@
 import type { CareBoard, CareTrackingPort, Instant, LocalDate } from '@app/core';
-import { ConflictError, instantFromString } from '@app/core';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { CARE_GUIDES, ConflictError, instantFromString } from '@app/core';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { TodayScreen } from '@/features/care/TodayScreen';
 
@@ -252,5 +252,99 @@ describe('TodayScreen — empty states (AC15)', () => {
     await waitFor(() => screen.getByText('Seu cronograma chegou ao fim.'));
     screen.getByText('Histórico');
     screen.getByText('Pulado');
+  });
+});
+
+describe('TodayScreen — "Como fazer" (SPEC-007 §14)', () => {
+  const hydration = CARE_GUIDES.hydration;
+
+  it('offers the guide on every actionable care and shows it in full when opened (AC5)', async () => {
+    const screen = await renderScreen(makePort());
+    await waitFor(() => screen.getByText('Atrasados'));
+
+    // overdue + today + upcoming — all three are still actionable
+    expect(screen.getAllByText('Como fazer')).toHaveLength(3);
+
+    await fireEvent.press(screen.getAllByText('Como fazer')[0]!);
+    screen.getByText(`~${hydration.durationMin} min`);
+    screen.getByText(hydration.whatItIs);
+    for (const [index, step] of hydration.steps.entries()) {
+      screen.getByText(`${index + 1}. ${step}`);
+    }
+    screen.getByText('Erros comuns');
+    for (const mistake of hydration.commonMistakes) {
+      screen.getByText(`• ${mistake}`);
+    }
+  });
+
+  it('closes again on a second press (AC6)', async () => {
+    const screen = await renderScreen(makePort());
+    await waitFor(() => screen.getByText('Atrasados'));
+
+    await fireEvent.press(screen.getAllByText('Como fazer')[0]!);
+    screen.getByText(hydration.whatItIs);
+
+    await fireEvent.press(screen.getAllByText('Como fazer')[0]!);
+    expect(screen.queryByText(hydration.whatItIs)).toBeNull();
+  });
+
+  it('opens only the care that was pressed, not every row', async () => {
+    const screen = await renderScreen(makePort());
+    await waitFor(() => screen.getByText('Atrasados'));
+
+    await fireEvent.press(screen.getAllByText('Como fazer')[0]!);
+    // Both overdue and upcoming are hydration; only one panel may be open.
+    expect(screen.getAllByText(hydration.whatItIs)).toHaveLength(1);
+  });
+
+  it('never writes when the guide is opened (AC8)', async () => {
+    const care = makePort();
+    const onChanged = jest.fn();
+    const screen = await renderScreen(care, board(), onChanged);
+    await waitFor(() => screen.getByText('Atrasados'));
+
+    await fireEvent.press(screen.getAllByText('Como fazer')[0]!);
+
+    expect(care.complete).not.toHaveBeenCalled();
+    expect(care.skip).not.toHaveBeenCalled();
+    expect(care.reschedule).not.toHaveBeenCalled();
+    expect(care.undo).not.toHaveBeenCalled();
+    expect(onChanged).not.toHaveBeenCalled();
+  });
+
+  it('stays readable while a transition is in flight (AC9/EC3)', async () => {
+    let release: () => void = () => {};
+    const care = makePort({
+      complete: jest.fn(() => new Promise<void>((resolve) => (release = resolve))),
+    });
+    const screen = await renderScreen(care, board());
+    await waitFor(() => screen.getByText('Atrasados'));
+
+    await fireEvent.press(screen.getAllByText('Fiz hoje')[0]!); // row is now busy
+    await fireEvent.press(screen.getAllByText('Como fazer')[0]!);
+    screen.getByText(hydration.whatItIs);
+
+    // Settle the in-flight promise inside act, so the completion does not update state after the
+    // test ends and hide a real warning behind noise.
+    await act(async () => release());
+  });
+
+  it('does not offer the guide on a care that is already resolved (AC7)', async () => {
+    const screen = await renderScreen(
+      makePort(),
+      board({
+        cares: [
+          {
+            id: 'done-one',
+            careTypeCode: 'hydration',
+            plannedDate: '2026-09-02',
+            status: 'skipped',
+            rescheduledToId: null,
+          },
+        ],
+      }),
+    );
+    await waitFor(() => screen.getByText('Pulado'));
+    expect(screen.queryByText('Como fazer')).toBeNull();
   });
 });

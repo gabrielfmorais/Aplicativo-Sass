@@ -106,10 +106,13 @@ Legenda: seta cheia = dependência de dados/fluxo; pontilhada = consulta/cross-c
 - **MVP:** intents calculados em `core/notifications` (puro) a partir do plano + preferências; entrega via **notificações locais do SO** (adapter em infrastructure). Ver [ADR-009](../adr/ADR-009-notification-architecture.md).
 - **Invariantes:** limite de N notificações/dia por regra central; respeita opt-in e janela de horário; nada é enviado sem preferência explícita.
 
-### 3.8 Content (Supporting)
+### 3.8 Content (Supporting — implementado na SPEC-007)
 - **Responsabilidade:** conteúdo contextual por `care_type` (o que é, como fazer, erros comuns, duração).
-- **Entidades:** `CareType` (catálogo), `ContentArticle` (por care_type, status draft/published, versão).
-- **MVP:** seed versionado no repositório (`supabase/seed/`); leitura pública apenas de `published`. Preparado para CMS/admin.
+- **Entidades:** `CareGuide` — um por `CareTypeCode`, exaustivo por `Record<CareTypeCode, CareGuide>` (um care type novo quebra o build até ganhar guia). `CareType`/`ContentArticle` como tabelas **não existem** (D-71).
+- **Onde vive:** `packages/core/src/content/` (`domain/care-guide.ts`, `v1/guides.ts`), **no bundle** — não no banco. Disponível offline, sem loading, sem erro, sem retry, sem policy ou grant novos. Gatilho para migrar para tabela em SPEC-007 §8.2 / DATA-MODEL §3.9-3.10.
+- **Fronteira:** o conjunto de `CareTypeCode` pertence à Schedule (SPEC-004). Content **consome**, nunca estende. Conteúdo **não é regra executável**: nenhum guia influencia avaliação, cronograma, datas ou transições — trocar um texto nunca altera o plano de ninguém.
+- **Governança (D-26 / ADR-007 A1, aplicada ao texto por D-70):** todo guia declara `validationStatus` e `rationaleSource`. Conteúdo escrito pela engenharia nasce `candidate` — dev/internal beta liberados, **PUBLIC RELEASE bloqueado** até o sign-off de domínio (OQ-REL). O texto é procedimental e cosmético: sem marca, produto comercial, dosagem química, promessa de resultado ou linguagem de diagnóstico, e o tempo de pausa remete sempre à embalagem do produto da usuária (verificado por teste).
+- **Consumo:** `TodayScreen` mostra "Como fazer" nos cuidados acionáveis (SPEC-007 §14). Premium (`is_premium`) e CMS continuam fora — SPEC-010 e pós-MVP.
 
 ### 3.9 Subscription & Entitlements (Supporting — segurança crítica)
 - **Responsabilidade:** refletir estado de assinatura vindo do provider; derivar entitlements.
