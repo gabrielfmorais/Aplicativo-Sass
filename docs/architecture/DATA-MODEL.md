@@ -182,17 +182,21 @@ de um port sem alterar a tela.
 é `candidate` — dev/internal beta liberados, **PUBLIC RELEASE bloqueado** até o sign-off de domínio
 (OQ-REL), exatamente como as regras V1 dos engines.
 
-### 3.11 `notification_preferences`
-| Coluna | Tipo |
-|---|---|
-| user_id PK | |
-| enabled | bool default false (opt-in) |
-| reminder_time_local | time not null default '19:00' |
-| checkin_reminder_enabled | bool |
-| max_per_day | smallint (regra central; default 2) |
-| updated_at | |
+### 3.11 `notification_preferences` — Notifications (implementado na SPEC-008)
+| Coluna | Tipo | Notas |
+|---|---|---|
+| user_id | uuid **PK**, FK `auth.users` on delete cascade | uma linha por usuária; RLS `user_id = auth.uid()` |
+| enabled | boolean not null default **false** | opt-in: sem linha, ou linha nunca ligada, nada é agendado |
+| reminder_time_local | time not null default '19:00' | hora civil escolhida por ela |
+| checkin_reminder_enabled | boolean not null default false | |
+| updated_at | timestamptz | trigger `set_updated_at` |
+| ~~max_per_day~~ | **REMOVIDO** (necessity review SPEC-008 §8.2) | nenhuma UI altera o limite; a regra vive como constante `MAX_NOTIFICATIONS_PER_DAY = 2` no core. Vira coluna quando a usuária puder mudá-la |
 
-`notification_deliveries` (registro de entregas) fica **fora do MVP** enquanto o canal for local — o SO é a fila.
+- **Sem RPC:** diferente de plano, execução e check-in, esta linha **não protege invariante do servidor** — é a preferência da própria usuária sobre o próprio aparelho. Autorização é RLS + `with check`, como em `account_deletion_requests` (SPEC-001).
+- **Grants:** `authenticated` tem SELECT/INSERT/UPDATE da própria linha; **ninguém tem DELETE** — desligar é `enabled = false`, não apagar a linha. `anon` não tem nada.
+- **Sem token de push**, portanto **sem identificador de dispositivo** — uma das razões de D-22.
+
+`notification_deliveries` e `device_tokens` ficam **fora do MVP** enquanto o canal for local — o SO é a fila (ADR-009).
 
 ### 3.12 `subscriptions` — Subscription
 | Coluna | Tipo |

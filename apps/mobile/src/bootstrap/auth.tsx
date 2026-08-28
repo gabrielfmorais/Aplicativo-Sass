@@ -7,6 +7,8 @@ import type {
   HairProfilePort,
   Instant,
   LocalDate,
+  NotificationPreferencesPort,
+  NotificationSchedulerPort,
 } from '@app/core';
 import { UNAUTHENTICATED, cryptoIdGenerator, systemClock, toLocalDate } from '@app/core';
 import * as Linking from 'expo-linking';
@@ -20,6 +22,8 @@ import { createDeletionRequestAdapter } from '@/infrastructure/supabase/deletion
 import { createCareTrackingAdapter } from '@/infrastructure/supabase/care-tracking-adapter';
 import { createHairPlanAdapter } from '@/infrastructure/supabase/hair-plan-adapter';
 import { createHairProfileAdapter } from '@/infrastructure/supabase/hair-profile-adapter';
+import { createNotificationPreferencesAdapter } from '@/infrastructure/supabase/notification-preferences-adapter';
+import { createLocalNotificationAdapter } from '@/infrastructure/notifications/local-notification-adapter';
 import { discardSessionIfFreshInstall } from '@/infrastructure/supabase/fresh-install';
 
 type AuthContextValue = {
@@ -29,6 +33,8 @@ type AuthContextValue = {
   hairProfile: HairProfilePort;
   hairPlan: HairPlanPort;
   careTracking: CareTrackingPort;
+  notificationPreferences: NotificationPreferencesPort;
+  notificationScheduler: NotificationSchedulerPort;
   /** The user's civil day (ADR-008): the composition root owns the clock, screens never read it. */
   today: () => LocalDate;
   /** Current instant — used only to decide whether the undo window is still open (SPEC-005). */
@@ -64,6 +70,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [state],
   );
 
+  const notificationPreferences = useMemo(
+    () =>
+      createNotificationPreferencesAdapter(supabase, () => {
+        if (state === 'loading' || state.status !== 'authenticated') throw new Error('not authenticated');
+        return state.session.userId;
+      }),
+    [state],
+  );
+  const notificationScheduler = useMemo(() => createLocalNotificationAdapter(), []);
+
   const hairPlan = useMemo(() => createHairPlanAdapter(supabase), []);
   const careTracking = useMemo(() => createCareTrackingAdapter(supabase), []);
   const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -95,6 +111,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hairProfile,
         hairPlan,
         careTracking,
+        notificationPreferences,
+        notificationScheduler,
         today: () => toLocalDate(systemClock.now(), timeZone()),
         now: () => systemClock.now(),
         timeZone,

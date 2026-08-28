@@ -52,6 +52,14 @@ insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
 insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
   ('authenticated', 'checkins', 'SELECT', 'SPEC-006');
 
+-- SPEC-008 §10: notification_preferences — the user's own preference about her own device.
+-- It guards no server-side invariant, so there is no RPC: SELECT/INSERT/UPDATE of her own row,
+-- bounded by RLS and `with check`. No DELETE — turning reminders off is `enabled = false`.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'notification_preferences', 'SELECT', 'SPEC-008'),
+  ('authenticated', 'notification_preferences', 'INSERT', 'SPEC-008'),
+  ('authenticated', 'notification_preferences', 'UPDATE', 'SPEC-008');
+
 -- SPEC-005 §9/§10: the only write path for care transitions. EXECUTE is granted to `authenticated`
 -- (unlike create_plan_tx) because these take only an id that already belongs to the caller, an
 -- idempotency key and a timezone — the user comes from auth.uid(), never from a parameter, so there

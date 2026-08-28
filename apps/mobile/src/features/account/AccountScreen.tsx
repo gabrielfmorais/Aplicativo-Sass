@@ -1,12 +1,32 @@
-import type { AuthPort, DeletionRequestPort } from '@app/core';
+import type {
+  AuthPort,
+  DeletionRequestPort,
+  NotificationPreferences,
+  NotificationPreferencesPort,
+  NotificationSchedulerPort,
+} from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { NotificationSettings } from '@/features/account/NotificationSettings';
 
 /**
  * Authenticated home for SPEC-001: logout and the account-deletion request contract (FR5/FR6).
  * Product screens arrive with later SPECs. Session behaviour after a request is not decided (D-60).
  */
-export function AccountScreen({ auth, deletion }: { auth: AuthPort; deletion: DeletionRequestPort }) {
+export function AccountScreen({
+  auth,
+  deletion,
+  notificationPreferences,
+  notificationScheduler,
+  onNotificationPreferencesChanged,
+}: {
+  auth: AuthPort;
+  deletion: DeletionRequestPort;
+  notificationPreferences: NotificationPreferencesPort;
+  notificationScheduler: NotificationSchedulerPort;
+  onNotificationPreferencesChanged: (preferences: NotificationPreferences) => void;
+}) {
   const [requestedAt, setRequestedAt] = useState<string | null | 'loading'>('loading');
   const [message, setMessage] = useState<string | null>(null);
 
@@ -33,6 +53,13 @@ export function AccountScreen({ auth, deletion }: { auth: AuthPort; deletion: De
       <Text style={styles.title} accessibilityRole="header">
         Sua conta
       </Text>
+
+      <NotificationSettings
+        preferences={notificationPreferences}
+        scheduler={notificationScheduler}
+        onChanged={onNotificationPreferencesChanged}
+      />
+
       {requestedAt === 'loading' ? (
         <Text>Carregando…</Text>
       ) : requestedAt ? (

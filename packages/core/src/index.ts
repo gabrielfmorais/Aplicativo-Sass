@@ -11,3 +11,4 @@ export * from './diagnostic/index.ts';
 export * from './schedule/index.ts';
 export * from './care-tracking/index.ts';
 export * from './content/index.ts';
+export * from './notifications/index.ts';

@@ -101,11 +101,14 @@ Legenda: seta cheia = dependência de dados/fluxo; pontilhada = consulta/cross-c
 - **Implementação:** cálculos em `core/progress` a partir de dados de Care Tracking; nada persistido no MVP além do que já existe (evitar tabela de "stats" desnormalizada até haver necessidade).
 - **Entitlement:** insights avançados são premium — verificação central.
 
-### 3.7 Notifications (Supporting)
+### 3.7 Notifications (Supporting — implementado na SPEC-008)
 - **Responsabilidade:** decidir **o que** lembrar (intent) separado de **como** entregar (channel/delivery).
 - **Modelo:** `NotificationIntent` (tipo: `care_today`, `care_overdue`, `checkin_pending`, `reassessment_due`, `habit_recovery`; scheduled_for local) → `NotificationChannel` (`local`, futuro `push`, `email`) → `NotificationDelivery` (registro do que foi agendado/enviado).
 - **MVP:** intents calculados em `core/notifications` (puro) a partir do plano + preferências; entrega via **notificações locais do SO** (adapter em infrastructure). Ver [ADR-009](../adr/ADR-009-notification-architecture.md).
-- **Invariantes:** limite de N notificações/dia por regra central; respeita opt-in e janela de horário; nada é enviado sem preferência explícita.
+- **Implementado (SPEC-008):** `buildNotificationIntents({ view, preferences, today, nowLocalTime })` puro em `packages/core/src/notifications/` — recebe o `TodayView` (published language de Care Tracking) e devolve o conjunto completo de lembretes que deve existir agora. `LocalNotificationAdapter` sobre `expo-notifications` é o **único** arquivo que conhece o SO (D-22).
+- **Intents implementados:** `care_today`, `care_overdue`, `checkin_pending`. **`reassessment_due` é impossível hoje** (não existe reavaliação — SPEC-014) e **`habit_recovery` fica adiado** (dispara justamente quando ela não está usando o app, sem dado que justifique) — SPEC-008 §4.
+- **Invariantes:** opt-in duplo (preferência ligada **e** permissão do SO); no máximo **2 por dia** (constante no core, não coluna); horizonte de **14 dias**; nunca lembra de cuidado já concluído, pulado ou reagendado; nunca agenda no passado; texto de **catálogo fixo** parametrizado só por contagem — sem PII na tela de bloqueio.
+- **Reconciliação idempotente:** id determinístico `tipo:data`; cancela tudo e reagenda a cada mudança do board ou da preferência. Notificação **nunca** altera estado — D-28 continua valendo.
 
 ### 3.8 Content (Supporting — implementado na SPEC-007)
 - **Responsabilidade:** conteúdo contextual por `care_type` (o que é, como fazer, erros comuns, duração).

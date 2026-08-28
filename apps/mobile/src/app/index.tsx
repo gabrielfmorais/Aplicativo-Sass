@@ -6,7 +6,11 @@ import type {
   HairProfileSnapshot,
   Instant,
   LocalDate,
+  NotificationPreferences,
+  NotificationPreferencesPort,
+  NotificationSchedulerPort,
 } from '@app/core';
+import { DEFAULT_NOTIFICATION_PREFERENCES, buildNotificationIntents, buildTodayView } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -18,6 +22,10 @@ import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import { PlanScreen } from '@/features/plan/PlanScreen';
 
 type Loadable<T> = 'loading' | 'error' | T;
+
+/** The device's wall clock as `HH:MM`, so the pure builder can skip a slot that already passed. */
+const localTimeOf = (instant: Instant): string =>
+  new Date(instant).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
 
 function Retry({ text, onRetry }: { text: string; onRetry: () => void }) {
   return (
@@ -39,6 +47,8 @@ function AuthenticatedApp({
   hairProfile,
   hairPlan,
   careTracking,
+  notificationPreferences,
+  notificationScheduler,
   today,
   now,
   timeZone,
@@ -47,6 +57,8 @@ function AuthenticatedApp({
   hairProfile: HairProfilePort;
   hairPlan: HairPlanPort;
   careTracking: CareTrackingPort;
+  notificationPreferences: NotificationPreferencesPort;
+  notificationScheduler: NotificationSchedulerPort;
   today: () => LocalDate;
   now: () => Instant;
   timeZone: () => string;
@@ -56,6 +68,20 @@ function AuthenticatedApp({
   const [profile, setProfile] = useState<Loadable<HairProfileSnapshot | null>>('loading');
   const [board, setBoard] = useState<Loadable<CareBoard | null>>('loading');
   const [showAccount, setShowAccount] = useState(false);
+  const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
+
+  // Read once per session. A failure is treated as "off": not notifying is always safer than
+  // notifying from a preference we could not confirm (SPEC-008 §16, fail closed).
+  useEffect(() => {
+    let active = true;
+    notificationPreferences
+      .get()
+      .then((p) => active && setPrefs(p ?? DEFAULT_NOTIFICATION_PREFERENCES))
+      .catch(() => active && setPrefs(DEFAULT_NOTIFICATION_PREFERENCES));
+    return () => {
+      active = false;
+    };
+  }, [notificationPreferences]);
 
   const loadProfile = useCallback(() => {
     setProfile('loading');
@@ -86,6 +112,25 @@ function AuthenticatedApp({
     if (profile && profile !== 'loading' && profile !== 'error') return loadBoard();
   }, [profile, loadBoard]);
 
+  // FR8 — reconcile whenever the board or the preference changes, which is exactly when the right
+  // set of reminders can differ: a care completed, a plan regenerated, reminders turned off.
+  const board_ = board;
+  useEffect(() => {
+    if (board_ === 'loading' || board_ === 'error') return;
+    const intents = board_
+      ? buildNotificationIntents({
+          view: buildTodayView(board_.cares, board_.executions, today(), board_.checkIns),
+          preferences: prefs,
+          today: today(),
+          nowLocalTime: localTimeOf(now()),
+        })
+      : [];
+    void notificationScheduler.reconcile(intents).catch(() => {
+      // Scheduling is best effort: a failure here must not break the daily screen, and it must not
+      // be reported as success either — the preference stays exactly as the server has it.
+    });
+  }, [board_, prefs, notificationScheduler, today, now]);
+
   if (profile === 'loading') return null;
   if (profile === 'error') {
     return <Retry text="Não foi possível carregar seu perfil." onRetry={loadProfile} />;
@@ -95,7 +140,13 @@ function AuthenticatedApp({
   if (showAccount) {
     return (
       <View style={styles.stack}>
-        <AccountScreen auth={auth} deletion={deletion} />
+        <AccountScreen
+          auth={auth}
+          deletion={deletion}
+          notificationPreferences={notificationPreferences}
+          notificationScheduler={notificationScheduler}
+          onNotificationPreferencesChanged={setPrefs}
+        />
         <Pressable style={styles.button} onPress={() => setShowAccount(false)} accessibilityRole="button">
           <Text>Voltar aos cuidados</Text>
         </Pressable>
@@ -135,7 +186,19 @@ function AuthenticatedApp({
 
 /** Single route: authentication, then hair profile, then plan, then the daily loop. */
 export default function IndexRoute() {
-  const { state, auth, hairProfile, hairPlan, careTracking, today, now, timeZone, newRequestId } = useAuth();
+  const {
+    state,
+    auth,
+    hairProfile,
+    hairPlan,
+    careTracking,
+    notificationPreferences,
+    notificationScheduler,
+    today,
+    now,
+    timeZone,
+    newRequestId,
+  } = useAuth();
   if (state === 'loading') return null;
   if (state.status !== 'authenticated') return <SignInScreen auth={auth} />;
   return (
@@ -143,6 +206,8 @@ export default function IndexRoute() {
       hairProfile={hairProfile}
       hairPlan={hairPlan}
       careTracking={careTracking}
+      notificationPreferences={notificationPreferences}
+      notificationScheduler={notificationScheduler}
       today={today}
       now={now}
       timeZone={timeZone}
