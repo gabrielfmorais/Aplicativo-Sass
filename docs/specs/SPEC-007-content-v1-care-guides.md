@@ -97,6 +97,7 @@ Explicitamente **fora**, sem exceção nesta fatia:
 | --- | --- |
 | BR1 | **Conteúdo não é regra de domínio executável.** Nenhum guia influencia assessment, cronograma, datas ou transições. Alterar um texto **nunca** altera o plano de ninguém. |
 | BR2 | **D-26 aplica-se ao texto.** Conteúdo instrucional capilar escrito pela engenharia nasce `candidate` com `rationaleSource` = "hipótese de engenharia — requer revisão especializada". Só `validated` pode compor um PUBLIC RELEASE. |
+| BR2b | **O gate depende do conteúdo, não de quem escreveu** (ratificação humana de D-70, 2026-08-28). (A) Copy puramente editorial/UX, sem nova orientação capilar, segue o processo editorial normal. (B) Texto que carrega **orientação ou regra capilar substantiva** permanece sujeito a D-26 e ao sign-off do revisor de domínio — **inclusive quando fornecido pelo owner humano**. Nenhuma origem de texto enfraquece OQ-REL. |
 | BR3 | O conteúdo é **descritivo, nunca prescritivo-clínico**: sem marca, sem produto, sem dosagem química, sem promessa de resultado, sem linguagem de diagnóstico ou tratamento médico (mesma restrição de D-26 já aplicada ao copy da avaliação). |
 | BR4 | **Uma fonte de verdade** (D-69): `CARE_TYPE_LABEL` (UI, rótulo do código do engine) e `CareGuide` (conteúdo do contexto Content) não se duplicam — o rótulo continua onde está, o guia não o repete. |
 | BR5 | O conjunto de `CareTypeCode` é propriedade da SPEC-004. Esta SPEC **consome**, nunca estende. Um novo care type quebra o build até ganhar guia — o que é o comportamento desejado. |
@@ -324,7 +325,7 @@ Reverter o merge. Não há estado persistido, nada a desfazer no banco, nenhum c
 
 | ID | Questão | Resolução |
 | --- | --- | --- |
-| ~~OQ-1~~ | Quem escreve o conteúdo V1? D-26 é explícito: engenharia projeta o mecanismo e **nunca inventa regra capilar de produção**. | **RESOLVIDA — D-70** (agente, §0.2). Aplica-se o precedente **D-67** ao texto: a engenharia redige o V1 como `validationStatus: 'candidate'` com `rationaleSource` declarando "hipótese de engenharia — requer revisão especializada", liberado para **dev/internal beta**, e o conteúdo **entra em OQ-REL** — o mesmo sign-off de domínio que já bloqueia o PUBLIC RELEASE das regras V1. **Nenhum gate novo; o gate de PUBLIC RELEASE permanece inalterado.** O conteúdo é procedimental e cosmético e o tempo de pausa **sempre remete à embalagem do produto da usuária**, nunca a um número inventado (BR3, AC4). Se você fornecer os textos, eles nascem `validated` e substituem estes. |
+| ~~OQ-1~~ | Quem escreve o conteúdo V1? D-26 é explícito: engenharia projeta o mecanismo e **nunca inventa regra capilar de produção**. | **RESOLVIDA — D-70** (agente, §0.2). Aplica-se o precedente **D-67** ao texto: a engenharia redige o V1 como `validationStatus: 'candidate'` com `rationaleSource` declarando "hipótese de engenharia — requer revisão especializada", liberado para **dev/internal beta**, e o conteúdo **entra em OQ-REL** — o mesmo sign-off de domínio que já bloqueia o PUBLIC RELEASE das regras V1. **Nenhum gate novo; o gate de PUBLIC RELEASE permanece inalterado.** O conteúdo é procedimental e cosmético e o tempo de pausa **sempre remete à embalagem do produto da usuária**, nunca a um número inventado (BR3, AC4). **Quem escreveu o texto não altera o gate** — ver BR2b. |
 
 ### IMPORTANT
 
