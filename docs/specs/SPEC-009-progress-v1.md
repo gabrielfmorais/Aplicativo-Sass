@@ -53,7 +53,7 @@ Tudo que esta fatia mostra precisa ser **aritmética direta sobre fato registrad
 | Gráficos, biblioteca de charts | Três fatos em texto não precisam de eixo; uma dependência de charts para isso é infraestrutura de BI numa tela de resumo | quando houver série temporal que exija forma visual |
 | Streaks, badges, ranking, gamificação | **D-25** (DEFER) e §10 do pedido humano | se e quando D-25 for reaberta |
 | Tabela de estatísticas / view / materialized view | DOMAIN-MAP §3.6: nada persistido. Seria segunda fonte de verdade para um fato já derivável (D-69) | quando derivar ficar caro de verdade |
-| Progresso através de planos superseded | Hoje nenhum usuário tem plano superseded; e cruzar planos exige leitura nova. O recorte é dito na tela (G4), então o número não mente | §8.2, gatilho nomeado |
+| ~~Progresso através de planos superseded~~ | **RESOLVIDO na SPEC-014**: reavaliação passou a criar planos superseded — o gatilho documentado disparou —, então o resumo ganhou o total vitalício de execuções efetivas | SPEC-014 FR7 |
 | Insights avançados | São premium (DOMAIN-MAP §3.6) | SPEC-010 |
 | Analytics | Precedente D-65 | SPEC-011 |
 | Tela própria / rota nova | Ela já está na Hoje todo dia; tirá-la de lá para ver um resumo de três linhas reduz a chance de ver | se o resumo crescer |
@@ -249,7 +249,7 @@ Reverter o merge. Nada persistido, nada a desfazer.
 | ID | Questão | Premissa |
 | --- | --- | --- |
 | OQ-1 | Sem tendência/comparação entre períodos | §4: com ≤ 28 dias e poucos check-ins a diferença é ruído. Reabrir com dado de beta |
-| OQ-2 | Recorte no plano ativo, não vitalício | §8.2: ninguém tem plano superseded ainda; o recorte é dito na tela, então o número não mente. Gatilho nomeado |
+| ~~OQ-2~~ | Recorte no plano ativo, não vitalício | **RESOLVIDA — SPEC-014.** O gatilho ("existir plano superseded") disparou junto com a reavaliação, e o total vitalício entrou na mesma fatia que criou o problema |
 | OQ-3 | `MIN_CHECKINS_FOR_AVERAGE = 3` | Guarda de exibição contra ler uma resposta como padrão — **não** é afirmação estatística, e está documentada como tal |
 
 ## 24. Change Log

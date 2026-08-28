@@ -35,6 +35,7 @@ const board = (over: Partial<CareBoard> = {}): CareBoard => ({
   ],
   executions: [],
   checkIns: [],
+  lifetimeDoneCount: 0,
   ...over,
 });
 

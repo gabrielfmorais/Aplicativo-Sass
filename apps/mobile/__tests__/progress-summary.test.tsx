@@ -10,6 +10,7 @@ const progress = (over: Partial<Progress> = {}): Progress => ({
   overdue: 0,
   checkInCount: 0,
   averageFeel: null,
+  lifetimeDone: 0,
   ...over,
 });
 
@@ -88,6 +89,9 @@ describe('never claims more than the data supports (AC9)', () => {
       progress({ elapsed: 5, done: 3, skipped: 1, overdue: 1 }),
       progress({ elapsed: 5, done: 5, checkInCount: 5, averageFeel: 4.6 }),
       progress({ elapsed: 5, done: 0, skipped: 5, checkInCount: 1 }),
+      // The lifetime line (SPEC-014) renders only when it exceeds the plan total, so without this
+      // state the barrier would never see it — a guard that skips the newest text is not a guard.
+      progress({ elapsed: 2, done: 1, lifetimeDone: 14, checkInCount: 3, averageFeel: 4.5 }),
     ];
     for (const state of states) {
       expect(everyText(await renderSummary(state))).not.toMatch(pattern);

@@ -59,13 +59,19 @@ export function PlanScreen({
   newRequestId,
   onCreated,
   onOpenAccount,
+  onCancel,
 }: {
   profile: HairProfileSnapshot;
   plans: HairPlanPort;
   today: LocalDate;
   newRequestId: () => string;
   onCreated: () => void;
-  onOpenAccount: () => void;
+  onOpenAccount?: () => void;
+  /**
+   * Present only when this preview is replacing an active plan (SPEC-014). Its presence is what
+   * makes the screen say so and offer a way out — the same screen, told what it is doing.
+   */
+  onCancel?: () => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -106,13 +112,21 @@ export function PlanScreen({
         <Schedule items={items} />
       </View>
 
+      {onCancel ? (
+        <Text style={styles.replaceWarning}>
+          Confirmar substitui seu cronograma atual. Seu histórico continua salvo.
+        </Text>
+      ) : null}
+
       <Pressable
         style={[styles.primary, submitting && styles.disabled]}
         disabled={submitting}
         onPress={confirm}
         accessibilityRole="button"
       >
-        <Text style={styles.primaryText}>{submitting ? 'Criando…' : 'Começar meu cronograma'}</Text>
+        <Text style={styles.primaryText}>
+          {submitting ? 'Criando…' : onCancel ? 'Confirmar novo cronograma' : 'Começar meu cronograma'}
+        </Text>
       </Pressable>
 
       {message ? (
@@ -121,15 +135,27 @@ export function PlanScreen({
         </Text>
       ) : null}
 
-      <Pressable style={styles.secondary} onPress={onOpenAccount} accessibilityRole="button">
-        <Text>Sua conta</Text>
-      </Pressable>
+      {onCancel ? (
+        <Pressable
+          style={styles.secondary}
+          disabled={submitting}
+          onPress={onCancel}
+          accessibilityRole="button"
+        >
+          <Text>Cancelar</Text>
+        </Pressable>
+      ) : onOpenAccount ? (
+        <Pressable style={styles.secondary} onPress={onOpenAccount} accessibilityRole="button">
+          <Text>Sua conta</Text>
+        </Pressable>
+      ) : null}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { padding: 24, gap: 20 },
+  replaceWarning: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12 },
   title: { fontSize: 24, fontWeight: '600' },
   block: { gap: 6 },

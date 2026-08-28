@@ -40,6 +40,9 @@ const makeClient = (
   executions: Result,
   rpcError: unknown = null,
   checkIns: Result = { data: [], error: null },
+  // The lifetime count (SPEC-014) is asked for on care_executions too, but with head:true — it
+  // comes back as a count and no rows, so the double answers it on its own terminator.
+  lifetime: { count: number | null; error: unknown } = { count: 0, error: null },
 ) => {
   const rpc = jest.fn(async (_fn: string, _args: Record<string, unknown>) => ({
     data: null,
@@ -50,6 +53,7 @@ const makeClient = (
       select: () => chain,
       eq: () => chain,
       in: () => Promise.resolve(result),
+      is: () => Promise.resolve(lifetime),
       order: () => chain,
       maybeSingle: async () => result,
       then: (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve),
@@ -72,7 +76,10 @@ const ok = (data: unknown): Result => ({ data, error: null });
 
 describe('care tracking adapter — reads (SPEC-005 §9)', () => {
   it('builds the board from the active plan, its cares and their executions', async () => {
-    const { client } = makeClient(ok(planRow), ok(careRows), ok(executionRows), null, ok(checkInRows));
+    const { client } = makeClient(ok(planRow), ok(careRows), ok(executionRows), null, ok(checkInRows), {
+      count: 7,
+      error: null,
+    });
     const boardResult = await createCareTrackingAdapter(client).getBoard();
     expect(boardResult).toEqual({
       planId: 'plan-1',
@@ -103,6 +110,7 @@ describe('care tracking adapter — reads (SPEC-005 §9)', () => {
         },
       ],
       checkIns: [{ id: 'ck1', careExecutionId: 'e1', overallFeel: 4 }],
+      lifetimeDoneCount: 7,
     });
   });
 
@@ -115,6 +123,22 @@ describe('care tracking adapter — reads (SPEC-005 §9)', () => {
     const { client } = makeClient(ok(planRow), ok([]), ok([]));
     const boardResult = await createCareTrackingAdapter(client).getBoard();
     expect(boardResult?.executions).toEqual([]);
+  });
+
+  /** SPEC-014: after a reassessment the plan is new but her history is not. */
+  it('counts effective executions across every plan, not just the active one', async () => {
+    const { client } = makeClient(ok(planRow), ok([]), ok([]), null, ok([]), { count: 12, error: null });
+    expect((await createCareTrackingAdapter(client).getBoard())?.lifetimeDoneCount).toBe(12);
+  });
+
+  it('surfaces a failed lifetime count instead of silently reporting zero', async () => {
+    const { client } = makeClient(ok(planRow), ok([]), ok([]), null, ok([]), {
+      count: null,
+      error: { message: 'boom' },
+    });
+    await expect(createCareTrackingAdapter(client).getBoard()).rejects.toMatchObject({
+      code: 'care.board_read_failed',
+    });
   });
 
   it('surfaces a read failure instead of pretending the board is empty', async () => {

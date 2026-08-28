@@ -52,4 +52,4 @@ Idea → Requirement → (ADR se decisão arquitetural) → SPEC → Implementat
 | SPEC-011 | Analytics provider & consent | Analytics | 10 | Reservado |
 | SPEC-012 | Observability (crash, logs) | — | 10 | Reservado |
 | SPEC-013 | Release readiness (stores, privacy labels, LGPD) | — | 10 | Reservado |
-| SPEC-014 | Reassessment (novo diagnóstico → novo plano) | Diagnostic/Schedule | 8 | Reservado |
+| [SPEC-014](SPEC-014-reassessment.md) | Reavaliação: o cabelo mudou, o cronograma acompanha | Diagnostic/Schedule | 8 | **IMPLEMENTED** (v0.2, 2026-08-28; aprovada por D-77) — reusa onboarding + preview; supersede só na confirmação; total vitalício preserva o histórico |

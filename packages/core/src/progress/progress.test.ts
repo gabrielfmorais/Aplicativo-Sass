@@ -21,8 +21,12 @@ const execution = (
   ...over,
 });
 
-const progressOf = (cares: ScheduledCare[], executions: CareExecution[] = [], checkIns: CheckIn[] = []) =>
-  buildProgress(buildTodayView(cares, executions, TODAY, checkIns));
+const progressOf = (
+  cares: ScheduledCare[],
+  executions: CareExecution[] = [],
+  checkIns: CheckIn[] = [],
+  lifetimeDone = 0,
+) => buildProgress(buildTodayView(cares, executions, TODAY, checkIns), lifetimeDone);
 
 describe('what counts as elapsed (BR1/AC1)', () => {
   it('counts done, skipped and overdue, and nothing else', () => {
@@ -122,6 +126,7 @@ describe('honest at the extremes (EC1/EC7/EC9)', () => {
       overdue: 0,
       checkInCount: 0,
       averageFeel: null,
+      lifetimeDone: 0,
     });
   });
 
@@ -149,5 +154,26 @@ describe('honest at the extremes (EC1/EC7/EC9)', () => {
     const p = progressOf([]);
     expect(p.elapsed).toBe(0);
     expect(p.averageFeel).toBeNull();
+  });
+});
+
+/**
+ * SPEC-014 — the lifetime total crosses plans, so a reassessment does not read as a fresh start.
+ * It is deliberately independent of the view: the board only ever holds the active plan.
+ */
+describe('lifetime total (SPEC-014 AC7/BR5)', () => {
+  it('is carried through untouched by the plan-scoped counts', () => {
+    const p = progressOf([care({ id: 'a', plannedDate: '2026-09-11' })], [], [], 12);
+    expect(p).toMatchObject({ elapsed: 0, done: 0, lifetimeDone: 12 });
+  });
+
+  it('can exceed what this plan knows about', () => {
+    const p = progressOf(
+      [care({ id: 'a', plannedDate: '2026-09-09' })],
+      [execution({ id: 'e1', scheduledCareId: 'a' })],
+      [],
+      12,
+    );
+    expect(p).toMatchObject({ done: 1, lifetimeDone: 12 });
   });
 });

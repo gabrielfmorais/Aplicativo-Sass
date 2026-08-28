@@ -20,12 +20,15 @@ export function AccountScreen({
   notificationPreferences,
   notificationScheduler,
   onNotificationPreferencesChanged,
+  onReassess,
 }: {
   auth: AuthPort;
   deletion: DeletionRequestPort;
   notificationPreferences: NotificationPreferencesPort;
   notificationScheduler: NotificationSchedulerPort;
   onNotificationPreferencesChanged: (preferences: NotificationPreferences) => void;
+  /** Absent while she has no active plan: there would be nothing to replace (SPEC-014). */
+  onReassess?: () => void;
 }) {
   const [requestedAt, setRequestedAt] = useState<string | null | 'loading'>('loading');
   const [message, setMessage] = useState<string | null>(null);
@@ -59,6 +62,21 @@ export function AccountScreen({
         scheduler={notificationScheduler}
         onChanged={onNotificationPreferencesChanged}
       />
+
+      {onReassess ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle} accessibilityRole="header">
+            Reavaliar meu cabelo
+          </Text>
+          <Text style={styles.sectionBody}>
+            Responda as perguntas de novo para receber um cronograma novo. O cronograma atual será
+            substituído; o que você já registrou continua salvo.
+          </Text>
+          <Pressable style={styles.button} onPress={onReassess} accessibilityRole="button">
+            <Text>Reavaliar</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {requestedAt === 'loading' ? (
         <Text>Carregando…</Text>
@@ -101,4 +119,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 24, gap: 12 },
   title: { fontSize: 24, fontWeight: '600' },
   button: { padding: 14, borderWidth: 1, borderRadius: 8, alignItems: 'center', minHeight: 48 },
+  section: { gap: 8 },
+  sectionTitle: { fontSize: 16, fontWeight: '600' },
+  sectionBody: { fontSize: 14, lineHeight: 20 },
 });
