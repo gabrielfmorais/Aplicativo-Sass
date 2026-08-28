@@ -3,13 +3,13 @@
 | Campo | Valor |
 | --- | --- |
 | ID | SPEC-007 |
-| Status | **Draft** (v0.1, 2026-08-28) — aguardando aprovação humana |
+| Status | **Approved** (v0.2, 2026-08-28 — **D-72**, sob `CLAUDE.md` §0.2). Implementação autorizada (LEVEL 2). |
 | Owner | @gabrielfmorais (humano) |
 | Bounded Context | Content (Supporting) — DOMAIN-MAP §3.8 |
 | Related ADRs | ADR-001 (camadas) · ADR-006 (fronteiras) · ADR-007 **A1** (governança de conteúdo de domínio — D-26/D-67) · ADR-004 (por que **não** há tabela nesta fatia, §8) |
 | Related SPECs | SPEC-004 (define `CareTypeCode`) · SPEC-005 (entrega a tela Hoje onde o conteúdo aparece) · SPEC-006 (Check-ins) · SPEC-009 (Progress) · SPEC-010 (`premium_content`) · SPEC-011 (analytics) |
 | Decisões vinculantes | **D-26** (engenharia nunca inventa regra/conteúdo capilar de produção) · **D-67** (precedente `candidate`: implementável em dev/internal beta, PUBLIC RELEASE exige `validated`) · **D-69** (não criar segunda fonte de verdade) · D-47/D-48 (regra de necessidade) · D-25 (sem gamificação) |
-| Decisões a resolver nesta SPEC | **OQ-1 (BLOCKING)** — autoria do conteúdo V1 |
+| Decisões resolvidas nesta SPEC | **D-70** (autoria: conteúdo V1 nasce `candidate`, aplicando o precedente D-67, e entra em OQ-REL) · **D-71** (conteúdo no bundle, sem tabelas, com gatilho nomeado) · **D-72** (SPEC approved) — todas sob §0.2, registradas em DECISION-REGISTER **B6** |
 | Fase do roadmap | 5 — Care Tracking + Content v1 (fecha a Fase 5; SPEC-005 entregou a outra metade) |
 | Labels | `ui`, `content` — **sem** `db`, **sem** `security` (nenhuma tabela, policy, grant ou RPC nova) |
 | Criado / Atualizado | 2026-08-28 / 2026-08-28 |
@@ -320,15 +320,17 @@ Reverter o merge. Não há estado persistido, nada a desfazer no banco, nenhum c
 
 ### BLOCKING
 
-| ID | Questão | Recomendação objetiva |
+**Nenhuma em aberto.**
+
+| ID | Questão | Resolução |
 | --- | --- | --- |
-| **OQ-1** | **Quem escreve o conteúdo V1?** D-26 é explícito: engenharia projeta o mecanismo e **nunca inventa regra capilar de produção**. "Como fazer uma reconstrução" é conteúdo capilar instrucional — é exatamente o material que D-26 protege, e mais direto ao usuário que as regras do engine, porque vira ação no cabelo dela. | **Aplicar o precedente D-67 ao texto**: a engenharia redige o V1 como `validationStatus: 'candidate'` com `rationaleSource: 'hipótese de engenharia — requer revisão especializada'`, liberado para **dev/internal beta**, e o conteúdo **entra em OQ-REL** — o mesmo sign-off de domínio que já bloqueia o PUBLIC RELEASE das regras V1. Um único revisor, um único passe, um único gate (nenhum gate novo é criado). **Alternativa:** você fornece os textos e eles nascem `validated`. |
+| ~~OQ-1~~ | Quem escreve o conteúdo V1? D-26 é explícito: engenharia projeta o mecanismo e **nunca inventa regra capilar de produção**. | **RESOLVIDA — D-70** (agente, §0.2). Aplica-se o precedente **D-67** ao texto: a engenharia redige o V1 como `validationStatus: 'candidate'` com `rationaleSource` declarando "hipótese de engenharia — requer revisão especializada", liberado para **dev/internal beta**, e o conteúdo **entra em OQ-REL** — o mesmo sign-off de domínio que já bloqueia o PUBLIC RELEASE das regras V1. **Nenhum gate novo; o gate de PUBLIC RELEASE permanece inalterado.** O conteúdo é procedimental e cosmético e o tempo de pausa **sempre remete à embalagem do produto da usuária**, nunca a um número inventado (BR3, AC4). Se você fornecer os textos, eles nascem `validated` e substituem estes. |
 
 ### IMPORTANT
 
-| ID | Questão | Premissa adotada enquanto não há decisão |
+| ID | Questão | Resolução / premissa |
 | --- | --- | --- |
-| OQ-2 | Conteúdo no bundle em vez das tabelas `care_types`/`content_articles` previstas em DATA-MODEL §3.9/§3.10 | Adotada a necessity review de §8.2, com precedente direto na SPEC-004 (`diagnostic_results` removido) e **gatilho nomeado** para criar as tabelas. Reversão é aditiva e barata. Confirmado pela aprovação desta SPEC. |
+| ~~OQ-2~~ | Conteúdo no bundle em vez das tabelas `care_types`/`content_articles` previstas em DATA-MODEL §3.9/§3.10 | **RESOLVIDA — D-71** (agente, §0.2). Adotada a necessity review de §8.2, com precedente direto na SPEC-004 (`diagnostic_results` removido) e **gatilho nomeado** para criar as tabelas. Reversão é aditiva e barata. |
 | OQ-3 | "O porquê" na tela Hoje (PRODUCT-BRIEF §9.5) | DEFER-3 (§8.3): a evidência não é persistida e re-derivá-la pode contradizer a versão do engine que gerou o plano. A evidência continua sendo mostrada na confirmação do plano. |
 
 ### CAN DEFER
@@ -344,3 +346,4 @@ Reverter o merge. Não há estado persistido, nada a desfazer no banco, nenhum c
 | Versão | Data | Mudança |
 | --- | --- | --- |
 | v0.1 | 2026-08-28 | Draft criado via `spec-create` após a SPEC-005 ser mergeada. Necessity review aplicada: sem tabelas, sem RPC, sem dependência, sem analytics. 1 questão BLOCKING (OQ-1, autoria do conteúdo sob D-26). |
+| v0.2 | 2026-08-28 | **APPROVED (D-72)** sob `CLAUDE.md` §0.2. OQ-1 resolvida por **D-70** (conteúdo `candidate`, precedente D-67, entra em OQ-REL) e OQ-2 por **D-71** (bundle, sem tabelas, gatilho nomeado). Escopo, non-goals, data model, segurança e AC **inalterados** em relação ao Draft. Implementação autorizada (LEVEL 2). |

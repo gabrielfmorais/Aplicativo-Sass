@@ -45,7 +45,7 @@ Idea → Requirement → (ADR se decisão arquitetural) → SPEC → Implementat
 | [SPEC-004](SPEC-004-schedule-engine-generate-plan.md) | Schedule Engine v1 + generate-plan (inclui Assessment — D-66) | Schedule | 4 | **IMPLEMENTED (v0.6, 2026-08-27; aprovada por D-68) — engines v1 + generate-plan + RLS/pgTAP; PUBLIC RELEASE exige regras `validated` (D-26/OQ-REL)** |
 | [SPEC-005](SPEC-005-care-tracking-today.md) | Care Tracking: Hoje, próximos cuidados e transições (concluir/pular/reagendar) | Care Tracking | 5 | **IMPLEMENTED (v0.3, 2026-08-27; aprovada por D-69) — Hoje/atrasado/próximos + concluir, pular, reagendar, desfazer (15 min); RLS/pgTAP verdes** |
 | SPEC-006 | Check-ins | Care Tracking | 6 | Reservado |
-| [SPEC-007](SPEC-007-content-v1-care-guides.md) | Content v1: como fazer cada cuidado (guias por care type na tela Hoje) | Content | 5 | **Draft** (v0.1, 2026-08-28) — aguardando aprovação humana; 1 questão BLOCKING (OQ-1: autoria do conteúdo sob D-26) |
+| [SPEC-007](SPEC-007-content-v1-care-guides.md) | Content v1: como fazer cada cuidado (guias por care type na tela Hoje) | Content | 5 | **Approved** (v0.2, 2026-08-28 — D-72, sob CLAUDE.md §0.2); OQ-1/OQ-2 resolvidas por D-70/D-71. Implementação autorizada (LEVEL 2) |
 | SPEC-008 | Notifications (local) | Notifications | 7 | Reservado |
 | SPEC-009 | Progress v1 | Progress | 8 | Reservado |
 | SPEC-010 | Subscription & Entitlements | Subscription | 9 | Reservado |
