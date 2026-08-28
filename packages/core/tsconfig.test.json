@@ -1,13 +1,21 @@
 {
+  // Type-checks the core's own tests, which `tsconfig.json` deliberately excludes.
+  //
+  // Why a second config instead of relaxing the first: the build sets `"types": []` on purpose, so
+  // the pure domain package compiles against no ambient types at all. Injecting `vitest/globals`
+  // there would weaken that boundary for the shipped declarations. This config borrows the same
+  // strictness, adds only the test globals, and emits nothing.
+  //
+  // Found by the SPEC-014 audit: a `buildProgress` call with the wrong arity passed typecheck and
+  // the test suite, quietly asserting on `undefined`.
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "composite": false,
-    "rootDir": ".",
-    "noEmit": true,
-    "emitDeclarationOnly": false,
     "declaration": false,
+    "emitDeclarationOnly": false,
+    "noEmit": true,
     "types": ["vitest/globals"]
   },
-  "include": ["src/**/*.ts", "vitest.config.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": []
 }
