@@ -46,7 +46,7 @@ Idea → Requirement → (ADR se decisão arquitetural) → SPEC → Implementat
 | [SPEC-005](SPEC-005-care-tracking-today.md) | Care Tracking: Hoje, próximos cuidados e transições (concluir/pular/reagendar) | Care Tracking | 5 | **IMPLEMENTED (v0.3, 2026-08-27; aprovada por D-69) — Hoje/atrasado/próximos + concluir, pular, reagendar, desfazer (15 min); RLS/pgTAP verdes** |
 | [SPEC-006](SPEC-006-checkins.md) | Check-ins: como ficou o cabelo depois do cuidado | Care Tracking | 6 | **IMPLEMENTED** (v0.2, 2026-08-28; aprovada por D-73) — uma pergunta 1..5 ancorada na execução; RLS/pgTAP verdes |
 | [SPEC-007](SPEC-007-content-v1-care-guides.md) | Content v1: como fazer cada cuidado (guias por care type na tela Hoje) | Content | 5 | **IMPLEMENTED** (v0.3, 2026-08-28; aprovada por D-72) — guias `candidate` por care type na tela Hoje; sem tabela (D-71); PUBLIC RELEASE exige conteúdo `validated` (D-26/OQ-REL) |
-| SPEC-008 | Notifications (local) | Notifications | 7 | Reservado |
+| [SPEC-008](SPEC-008-notifications.md) | Notifications: lembrar na hora certa (canal local) | Notifications | 7 | **IMPLEMENTED** (v0.2, 2026-08-28; aprovada por D-74) — 3 intents puros, opt-in duplo, ≤2/dia, 14 dias; RLS/pgTAP verdes |
 | SPEC-009 | Progress v1 | Progress | 8 | Reservado |
 | SPEC-010 | Subscription & Entitlements | Subscription | 9 | Reservado |
 | SPEC-011 | Analytics provider & consent | Analytics | 10 | Reservado |
