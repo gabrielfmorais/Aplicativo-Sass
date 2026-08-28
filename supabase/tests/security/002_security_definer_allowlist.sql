@@ -1,12 +1,20 @@
 -- Guardrail: no SECURITY DEFINER function in public outside the allowlist (SECURITY-BASELINE S5).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(2);
+select plan(3);
 
 select is(
   (select count(*)::int from tests.unapproved_security_definer_functions()),
   0,
   'no unapproved SECURITY DEFINER functions in public'
+);
+
+-- Being allow-listed proves the function was reviewed, not that it is safe to run: an unpinned
+-- search_path lets the caller decide what a DEFINER function executes (SECURITY-BASELINE S5).
+select is(
+  (select count(*)::int from tests.unpinned_security_definer_functions()),
+  0,
+  'every SECURITY DEFINER function in public pins its search_path'
 );
 
 -- set_updated_at() must remain SECURITY INVOKER.

@@ -7,7 +7,7 @@
 -- grants, then injects exactly one explicit violation and asserts it by value.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(10);
+select plan(14);
 
 -- STEP A — initial baseline: nothing unapproved anywhere in public before the fixture exists.
 select is(
@@ -92,6 +92,42 @@ select is(
   (select count(*)::int from tests.unapproved_security_definer_functions() where function_signature = 'public.__fixture_definer()'),
   0,
   'positive: allow-listed SECURITY DEFINER function passes'
+);
+
+-- SECURITY DEFINER property 3: a DEFINER function with no pinned search_path is detected.
+-- Note it is allow-listed below only for the *allowlist* check; the pin check is independent, which
+-- is the whole point — review and safety are two different guarantees.
+create function public.__fixture_unpinned() returns int language sql security definer as 'select 1';
+select is(
+  (select count(*)::int from tests.unpinned_security_definer_functions()
+    where function_signature = 'public.__fixture_unpinned()'),
+  1,
+  'negative fixture: a DEFINER function without a pinned search_path is detected'
+);
+select results_eq(
+  $q$ select reason from tests.unpinned_security_definer_functions()
+       where function_signature = 'public.__fixture_unpinned()' $q$,
+  $v$ values ('search_path is not pinned'::text) $v$,
+  'negative fixture: the finding says the search_path is not pinned'
+);
+
+-- SECURITY DEFINER property 4: pinning it clears the finding.
+alter function public.__fixture_unpinned() set search_path = '';
+select is(
+  (select count(*)::int from tests.unpinned_security_definer_functions()
+    where function_signature = 'public.__fixture_unpinned()'),
+  0,
+  'positive: a pinned search_path passes'
+);
+
+-- SECURITY DEFINER property 5: a pin is not enough if it resolves through a caller-controlled
+-- schema — "$user" is a pin on paper and a hijack in practice.
+alter function public.__fixture_unpinned() set search_path = "$user", public;
+select is(
+  (select count(*)::int from tests.unpinned_security_definer_functions()
+    where function_signature = 'public.__fixture_unpinned()'),
+  1,
+  'negative fixture: a search_path resolving through "$user" is still a finding'
 );
 
 select * from finish();

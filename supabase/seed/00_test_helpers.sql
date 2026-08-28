@@ -50,6 +50,43 @@ as $$
   order by 1;
 $$;
 
+-- SECURITY DEFINER functions in public whose search_path is not pinned safely.
+--
+-- The allowlist above proves a DEFINER function was *reviewed*; it does not prove it is *safe to
+-- run*. Without a pinned search_path, unqualified names inside the function resolve through the
+-- CALLER's search_path — so anyone who can create an object in a schema that lands earlier in that
+-- path decides what the function actually executes, with the owner's privileges (SECURITY-BASELINE
+-- S5). `"$user"` is the same hazard spelled differently: it resolves to a schema whose name the
+-- caller controls. Both are reported here so an allow-listed function cannot ship unpinned.
+create or replace function tests.unpinned_security_definer_functions()
+returns table(function_signature text, reason text)
+language sql
+stable
+set search_path = ''
+as $$
+  select
+    (n.nspname || '.' || p.proname || '(' || pg_catalog.pg_get_function_identity_arguments(p.oid) || ')')::text,
+    (case
+       when p.proconfig is null
+         or not exists (select 1 from pg_catalog.unnest(p.proconfig) c where c like 'search_path=%')
+         then 'search_path is not pinned'
+       else 'search_path resolves through "$user"'
+     end)::text
+  from pg_catalog.pg_proc p
+  join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public'
+    and p.prosecdef = true
+    and (
+      p.proconfig is null
+      or not exists (select 1 from pg_catalog.unnest(p.proconfig) c where c like 'search_path=%')
+      or exists (
+        select 1 from pg_catalog.unnest(p.proconfig) c
+        where c like 'search_path=%' and c like '%$user%'
+      )
+    )
+  order by 1;
+$$;
+
 -- Relation privileges (tables, partitioned tables, views, materialized views in public) held by
 -- anon/authenticated that are not in the allowlist.
 --
