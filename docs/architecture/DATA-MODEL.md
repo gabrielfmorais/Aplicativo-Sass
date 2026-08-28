@@ -154,31 +154,26 @@ Removida do modelo: no MVP a avaliação só existe para gerar um plano, nenhuma
 | note | text null (≤ 280) |
 | created_at | |
 
-### 3.9 `care_types` — catálogo (público)
-| Coluna | Tipo |
-|---|---|
-| code | text PK (`hydration`, `nutrition`, `reconstruction`, …) |
-| name, short_description | text |
-| default_duration_min | int |
-| sort_order | int |
-| is_active | bool |
+### 3.9 `care_types` / 3.10 `content_articles` — **NÃO EXISTEM** (necessity review SPEC-007 §8.2, D-71)
 
-Seed versionado. Leitura pública; escrita apenas por migration/seed/admin.
+A SPEC-007 (Content v1) foi implementada **sem tabela**. O conteúdo — o que cada cuidado faz, os
+passos, a duração aproximada e os erros comuns — vive no bundle, em
+`packages/core/src/content/`, tipado por `CareGuide` e exaustivo por `Record<CareTypeCode, CareGuide>`.
 
-### 3.10 `content_articles` — Content
-| Coluna | Tipo |
-|---|---|
-| id | |
-| care_type_code | FK null |
-| slug | text UNIQUE |
-| title, body_md | text |
-| status | text CHECK (draft/published/archived) |
-| published_at | timestamptz null |
-| is_premium | bool default false |
-| version | int |
-| created_at / updated_at | |
+Motivo (mesma regra que removeu `diagnostic_results` em §3.4): nenhum fluxo atual consome conteúdo
+editável em runtime — não há CMS nem admin (ADR-003, pós-MVP), premium é Fase 9 (SPEC-010), não há
+fluxo editorial, e a FK `scheduled_cares.care_type_code → care_types.code` não acrescenta invariante
+sobre o `CHECK` que já existe. Uma leitura de rede **criaria** loading, erro, retry e falha offline
+numa tela que hoje não tem nenhum desses estados.
 
-Leitura: `status='published'` para todos autenticados; `is_premium` requer entitlement (RLS chama `has_entitlement('premium_content')`).
+**Gatilho para criar as tabelas** — o primeiro que ocorrer: (1) conteúdo precisar mudar sem release
+do app; (2) gating premium entrar em escopo; (3) existir editor/admin de conteúdo; (4) segundo
+idioma. A migração é **aditiva**: `CareGuide` já é o formato de leitura, então a tabela entra atrás
+de um port sem alterar a tela.
+
+**Governança (D-26/D-70):** cada guia declara `validationStatus` e `rationaleSource`. O conteúdo V1
+é `candidate` — dev/internal beta liberados, **PUBLIC RELEASE bloqueado** até o sign-off de domínio
+(OQ-REL), exatamente como as regras V1 dos engines.
 
 ### 3.11 `notification_preferences`
 | Coluna | Tipo |

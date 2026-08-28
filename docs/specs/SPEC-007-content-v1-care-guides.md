@@ -3,7 +3,7 @@
 | Campo | Valor |
 | --- | --- |
 | ID | SPEC-007 |
-| Status | **Approved** (v0.2, 2026-08-28 — **D-72**, sob `CLAUDE.md` §0.2). Implementação autorizada (LEVEL 2). |
+| Status | **Implemented** (v0.3, 2026-08-28 — aprovada por **D-72**, sob `CLAUDE.md` §0.2). Evidência em §25. |
 | Owner | @gabrielfmorais (humano) |
 | Bounded Context | Content (Supporting) — DOMAIN-MAP §3.8 |
 | Related ADRs | ADR-001 (camadas) · ADR-006 (fronteiras) · ADR-007 **A1** (governança de conteúdo de domínio — D-26/D-67) · ADR-004 (por que **não** há tabela nesta fatia, §8) |
@@ -347,3 +347,60 @@ Reverter o merge. Não há estado persistido, nada a desfazer no banco, nenhum c
 | --- | --- | --- |
 | v0.1 | 2026-08-28 | Draft criado via `spec-create` após a SPEC-005 ser mergeada. Necessity review aplicada: sem tabelas, sem RPC, sem dependência, sem analytics. 1 questão BLOCKING (OQ-1, autoria do conteúdo sob D-26). |
 | v0.2 | 2026-08-28 | **APPROVED (D-72)** sob `CLAUDE.md` §0.2. OQ-1 resolvida por **D-70** (conteúdo `candidate`, precedente D-67, entra em OQ-REL) e OQ-2 por **D-71** (bundle, sem tabelas, gatilho nomeado). Escopo, non-goals, data model, segurança e AC **inalterados** em relação ao Draft. Implementação autorizada (LEVEL 2). |
+| v0.3 | 2026-08-28 | **IMPLEMENTED.** Evidência em §25. |
+
+## 25. Implementation evidence
+
+### 25.1 Arquivos
+
+| Arquivo | Papel |
+| --- | --- |
+| `packages/core/src/content/domain/care-guide.ts` | `CareGuideSchema` (zod) + `CareGuide` / `CareGuides` (`Record<CareTypeCode, CareGuide>`) |
+| `packages/core/src/content/v1/guides.ts` | Os 3 guias pt-BR, `validationStatus: 'candidate'` |
+| `packages/core/src/content/index.ts` | Superfície pública: `CARE_GUIDES`, `CareGuideSchema`, tipos |
+| `packages/core/src/index.ts` | `export * from './content/index.ts'` |
+| `packages/core/src/content/content.test.ts` | Schema, exaustividade, governança e BR3 (21 testes) |
+| `apps/mobile/src/features/care/CareGuidePanel.tsx` | Painel de apresentação pura |
+| `apps/mobile/src/features/care/TodayScreen.tsx` | Toggle "Como fazer" nos cuidados acionáveis |
+| `apps/mobile/__tests__/today-screen.test.tsx` | +6 testes RNTL (AC5-AC9) |
+
+**Zero** alteração em `supabase/**`, `pnpm-lock.yaml` ou `.github/**` (AC11).
+
+### 25.2 Acceptance criteria
+
+| AC | Evidência |
+| --- | --- |
+| AC1 | `Record<CareTypeCode, CareGuide>`; teste compara `Object.keys(CARE_GUIDES)` com `CARE_TYPE_CODES` |
+| AC2 | `CareGuideSchema` aceita os 3 guias; rejeita `steps` fora de 3-6, `commonMistakes` fora de 2-3, duração ≤ 0, care type desconhecido e campo extra (`.strict()`) |
+| AC3 | Todo guia é `candidate`/`validated`; guia `candidate` declara "hipótese de engenharia" |
+| AC4 | 6 padrões proibidos (diagnóstico, médico, cura/remédio, promessa, marca, dosagem) + **cada padrão tem uma amostra que precisa casar**, para que a asserção não passe silenciosamente; e todo tempo de pausa remete à embalagem, nunca a um número |
+| AC5-AC7 | RNTL: 3 controles "Como fazer" nos acionáveis; painel completo ao abrir; fecha no segundo toque; ausente em cuidado resolvido |
+| AC8 | Abrir o guia não chama `complete`/`skip`/`reschedule`/`undo` nem `onChanged` |
+| AC9 | Guia abre e permanece legível com `busyId` ativo |
+| AC10 | `pnpm dep-cruise` — 101 módulos, **0 violações**; `pnpm check:boundaries` — 8/8 |
+| AC11 | `git diff --stat` não toca `supabase/` nem `pnpm-lock.yaml` |
+| AC12 | pgTAP inalterada — 115 asserções, 8 arquivos |
+| AC13 | `pnpm verify` **exit 0** |
+| AC14 | DATA-MODEL §3.9-3.10, DOMAIN-MAP §3.8, `content/README.md`, índice de SPECs sincronizados |
+
+### 25.3 Validação executada
+
+- `pnpm verify` → **exit 0** (node pin · format · lint · typecheck · dep-cruise 101 módulos 0 violações · core 11 arquivos/101 testes · mobile 9 suítes/51 testes · boundaries 8/8 · docs-links 38/38 · security-exceptions 2 válidas)
+- `pnpm --filter mobile run export:check` → bundle Android exportado
+- `supabase test db` **não executado localmente** (sem Docker/Supabase CLI neste ambiente); nenhuma SQL foi alterada, e o workflow `supabase-test` continua sendo o gate autoritativo
+
+### 25.4 Auditoria `improve`
+
+Um passe, três achados corrigidos, nenhum BLOCKER. Ver §25.5.
+
+### 25.5 Achados da auditoria
+
+| Severidade | Achado | Correção |
+| --- | --- | --- |
+| IMPORTANT | Duas alternativas do teste AC4 (`®`/`™` e `%`) estavam atrás de `\b`. Como são caracteres não-word, **nunca casariam**: o teste passaria mesmo com "use o Produto®" ou "garante 100%" no conteúdo — falsa garantia justamente na verificação que protege o revisor de domínio. | Âncoras corrigidas **e** cada padrão ganhou uma amostra que precisa casar, para que a regressão falhe alto |
+| IMPORTANT | AC14 não estava atendida: DATA-MODEL §3.9/§3.10 e DOMAIN-MAP §3.8 ainda descreviam as tabelas como se fossem existir | Ambos sincronizados com D-71, incluindo o gatilho nomeado |
+| IMPORTANT | Faltava a seção de evidência (§25), presente em SPEC-004/005 | Esta seção |
+| OPTIONAL | `CareGuidePanel` usa o próprio texto como `key`. Passos duplicados gerariam colisão de key. Painel é estático e sem estado, então a reconciliação errada seria inofensiva. | Não alterado |
+| OPTIONAL | Avisos `act()` pré-existentes em `plan-screen.test.tsx` (SPEC-004) e no teste AC14 da SPEC-005 | Fora do escopo desta SPEC; o teste novo desta fatia não gera aviso |
+
+**Verificado durante a auditoria:** o adaptador faz `r.care_type_code as ScheduledCare['careTypeCode']` — um cast sem validação. Logo o guard de EC1 (`guide ? … : null`) é uma proteção **real** em runtime, não código morto: um código desconhecido vindo do servidor faz a linha perder o botão em vez de quebrar a tela.
