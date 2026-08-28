@@ -68,6 +68,12 @@ function AuthenticatedApp({
   const [profile, setProfile] = useState<Loadable<HairProfileSnapshot | null>>('loading');
   const [board, setBoard] = useState<Loadable<CareBoard | null>>('loading');
   const [showAccount, setShowAccount] = useState(false);
+  /**
+   * SPEC-014 — reassessment reuses the screens that already exist, so it is a mode rather than a
+   * route: 'profile' asks the same questions again, 'preview' shows what she would get. Nothing is
+   * replaced until she confirms, so leaving at either step leaves the active plan untouched (G3).
+   */
+  const [reassessing, setReassessing] = useState<null | 'profile' | 'preview'>(null);
   const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
 
   // Read once per session. A failure is treated as "off": not notifying is always safer than
@@ -137,6 +143,33 @@ function AuthenticatedApp({
   }
   if (!profile) return <OnboardingScreen hairProfile={hairProfile} onSaved={setProfile} />;
 
+  if (reassessing === 'profile') {
+    return (
+      <OnboardingScreen
+        hairProfile={hairProfile}
+        onSaved={(snapshot) => {
+          setProfile(snapshot);
+          setReassessing('preview');
+        }}
+      />
+    );
+  }
+  if (reassessing === 'preview') {
+    return (
+      <PlanScreen
+        profile={profile}
+        plans={hairPlan}
+        today={today()}
+        newRequestId={newRequestId}
+        onCreated={() => {
+          setReassessing(null);
+          loadBoard();
+        }}
+        onCancel={() => setReassessing(null)}
+      />
+    );
+  }
+
   if (showAccount) {
     return (
       <View style={styles.stack}>
@@ -146,6 +179,14 @@ function AuthenticatedApp({
           notificationPreferences={notificationPreferences}
           notificationScheduler={notificationScheduler}
           onNotificationPreferencesChanged={setPrefs}
+          {...(board && board !== 'loading' && board !== 'error'
+            ? {
+                onReassess: () => {
+                  setShowAccount(false);
+                  setReassessing('profile');
+                },
+              }
+            : {})}
         />
         <Pressable style={styles.button} onPress={() => setShowAccount(false)} accessibilityRole="button">
           <Text>Voltar aos cuidados</Text>

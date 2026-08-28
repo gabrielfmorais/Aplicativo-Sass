@@ -17,6 +17,13 @@ export type Progress = {
   readonly skipped: number;
   readonly overdue: number;
   readonly checkInCount: number;
+  /**
+   * Effective executions across every plan, superseded ones included (SPEC-014 BR5).
+   *
+   * Without this, the first reassessment would make everything she had done disappear from view:
+   * the board only reads the active plan, so a brand-new plan reads as a brand-new user.
+   */
+  readonly lifetimeDone: number;
   /** Mean of her own answers, one decimal. `null` below the minimum (FR4). */
   readonly averageFeel: number | null;
 };
@@ -32,7 +39,7 @@ export type Progress = {
  * Everything below is a count or an arithmetic mean of something she recorded herself. Nothing is
  * inferred, projected or compared across periods (BR5).
  */
-export const buildProgress = (view: TodayView): Progress => {
+export const buildProgress = (view: TodayView, lifetimeDone: number): Progress => {
   const all: readonly CareItem[] = [...view.overdue, ...view.today, ...view.upcoming, ...view.history];
 
   let done = 0;
@@ -74,5 +81,6 @@ export const buildProgress = (view: TodayView): Progress => {
     overdue,
     checkInCount: feels.length,
     averageFeel,
+    lifetimeDone,
   };
 };

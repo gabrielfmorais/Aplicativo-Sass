@@ -247,7 +247,7 @@ export function TodayScreen({
     () => buildTodayView(board.cares, board.executions, today, board.checkIns),
     [board, today],
   );
-  const progress = useMemo(() => buildProgress(view), [view]);
+  const progress = useMemo(() => buildProgress(view, board.lifetimeDoneCount), [view, board]);
   const renderedNow = now();
 
   const act = (item: CareItem, action: Action) => {

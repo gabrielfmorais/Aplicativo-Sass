@@ -10,7 +10,7 @@ import { StyleSheet, Text, View } from 'react-native';
  * answer, so observed and inferred never blur (BR6/BR7).
  */
 export function ProgressSummary({ progress }: { progress: Progress }) {
-  const { elapsed, done, skipped, checkInCount, averageFeel } = progress;
+  const { elapsed, done, skipped, checkInCount, averageFeel, lifetimeDone } = progress;
 
   return (
     <View style={styles.section}>
@@ -32,6 +32,12 @@ export function ProgressSummary({ progress }: { progress: Progress }) {
           ) : null}
         </>
       )}
+
+      {/* Only when it says something the line above did not: after a reassessment the plan-scoped
+          number restarts, and this is what keeps her earlier work visible (SPEC-014 FR7/EC6). */}
+      {lifetimeDone > done ? (
+        <Text style={styles.line}>{`Desde o início, você concluiu ${lifetimeDone} cuidados.`}</Text>
+      ) : null}
 
       {checkInCount > 0 ? (
         <Text style={styles.line}>

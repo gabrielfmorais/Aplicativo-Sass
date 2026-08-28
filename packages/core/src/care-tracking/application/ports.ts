@@ -9,6 +9,11 @@ export type CareBoard = {
   readonly executions: readonly CareExecution[];
   /** Check-ins for those executions (SPEC-006); empty until the user answers one. */
   readonly checkIns: readonly CheckIn[];
+  /**
+   * Effective executions across ALL her plans, superseded included (SPEC-014). Counted rather than
+   * fetched: the summary needs the number, never the rows.
+   */
+  readonly lifetimeDoneCount: number;
 };
 
 /**

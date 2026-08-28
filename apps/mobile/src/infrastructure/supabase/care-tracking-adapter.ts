@@ -120,7 +120,22 @@ export const createCareTrackingAdapter = (client: SupabaseClient): CareTrackingP
         checkIns = (checkInRows ?? []).map((r) => toCheckIn(r as CheckInRow));
       }
 
-      return { planId: plan.id, startsOn: plan.starts_on, cares, executions, checkIns };
+      // Across every plan, not just this one (SPEC-014): `head: true` asks for the count and no
+      // rows, so this stays one cheap round trip regardless of how long she has been using the app.
+      const { count, error: countError } = await client
+        .from('care_executions')
+        .select('id', { count: 'exact', head: true })
+        .is('voided_at', null);
+      if (countError) throw fail('care.board_read_failed', countError);
+
+      return {
+        planId: plan.id,
+        startsOn: plan.starts_on,
+        cares,
+        executions,
+        checkIns,
+        lifetimeDoneCount: count ?? 0,
+      };
     },
 
     complete: ({ scheduledCareId, clientExecutionId, timeZone }) =>

@@ -65,7 +65,7 @@ Legenda: seta cheia = dependência de dados/fluxo; pontilhada = consulta/cross-c
 - **Invariantes:** snapshots imutáveis (sem UPDATE/DELETE); enums fechados validados no banco (`CHECK`) e em zod; `unknown`/`varies` permitidos onde aprovado (P02: não forçar respostas).
 - **Ownership:** usuária.
 
-### 3.3 Diagnostic / Assessment (Core — regras; implementado na SPEC-004)
+### 3.3 Diagnostic / Assessment (Core — regras; implementado na SPEC-004, reavaliação na SPEC-014)
 - **Responsabilidade:** `HairProfileSnapshot` → `AssessmentOutput`. Termo de produto: **"avaliação capilar"** (cosmética), nunca diagnóstico médico (D-26).
 - **Domain Service:** `assess(snapshot): AssessmentOutput` — **puro, determinístico, sem I/O**.
 - **Saída (implementada):** `{ emphasis: hydration|nutrition|balanced, includeReconstruction: boolean, evidenceCodes: string[] }`. Só **inferências**: dado observado o Schedule lê do snapshot. **Sem** níveis, score, porcentagem ou `confidence` (falsa precisão proibida — D-66).
@@ -101,7 +101,7 @@ Legenda: seta cheia = dependência de dados/fluxo; pontilhada = consulta/cross-c
 - **Implementação:** `buildProgress(view)` puro em `packages/core/src/progress/`, derivado do **mesmo `TodayView`** que a tela usa — **nada persistido** (sem tabela, view, agregado ou cache), como já previa este documento.
 - **Por que o read model e não linhas cruas:** desfecho, "reagendado não conta" e "execução anulada leva o check-in junto" já foram decididos em Care Tracking; recalcular criaria segunda fonte de verdade (D-69).
 - **Invariantes:** cuidado futuro nunca conta como falha; reagendado nunca conta (a linha substituta conta); execução anulada devolve o cuidado a não concluído e remove o check-in dela; **nenhum número inferido** (D-26) — sem score, porcentagem, tendência ou claim causal; média de check-in é **auto-relato**, retida abaixo de 3 respostas; divisão por zero impossível por construção.
-- **Recorte:** plano ativo, dito na tela ("Neste plano"). Cruzar planos superseded é DEFER com gatilho nomeado (SPEC-009 §8.2).
+- **Recorte:** plano ativo, dito na tela ("Neste plano"), **mais o total vitalício** de execuções efetivas atravessando planos superseded (SPEC-014) — mostrado só quando é maior que o do plano atual, para não repetir número. Sem ele, a primeira reavaliação faria tudo que ela fez sumir de vista.
 - **Streaks:** continuam DEFER (D-25). **Entitlement:** insights avançados são premium — SPEC-010.
 
 ### 3.7 Notifications (Supporting — implementado na SPEC-008)
