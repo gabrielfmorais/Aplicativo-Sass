@@ -68,9 +68,9 @@ Tela Hoje · calendário (planejado vs executado) · `complete_care` idempotente
 Intents puros · preferências · permissão · canal local · reconciliação · deep links validados.
 **Saída:** H3 mensurável (ON vs OFF). **Entregue:** SPEC-008 (PR #24) — canal local, opt-in duplo, 3 intents puros (`care_today`, `care_overdue`, `checkin_pending`), ≤2/dia, horizonte de 14 dias, reconciliação idempotente, texto sem PII. **Adiado:** `reassessment_due` (depende da SPEC-014), `habit_recovery` (sem dado que justifique), push remoto, deep link parametrizado. **Próxima fatia: F8 — SPEC-009 (Progress) + SPEC-014 (Reassessment)**, agora com check-ins e execuções acumulando dados.
 
-### Fase 8 — Progress v1 + Reassessment (SPEC-009, SPEC-014) · ~1–2 semanas
+### Fase 8 — Progress v1 + Reassessment (SPEC-009, SPEC-014) · ~1–2 semanas — **PARCIAL: SPEC-009 concluída (2026-08-28); falta SPEC-014**
 Adesão, histórico, streak (se aprovado) · reavaliar → novo diagnóstico → novo plano (supersede).
-**Saída:** loop mensal.
+**Saída:** loop mensal. **Entregue:** SPEC-009 (PR #26) — resumo do plano com três fatos derivados (concluídos/decididos, pulados, avaliação auto-relatada), **zero persistência**, sem score, porcentagem, tendência, gráfico ou streak (D-25). **Falta:** SPEC-014 (reavaliação → novo diagnóstico → novo plano com supersede), que também destrava o intent `reassessment_due` da SPEC-008. **Atenção:** SPEC-014 mexe em supersessão de plano e nas regras V1 `candidate` — território do gate de PUBLIC RELEASE (D-26/OQ-REL).
 
 ### Fase 9 — Subscription & Entitlements (SPEC-010) · ~2 semanas
 Provider (RevenueCat candidato) · webhook · `subscriptions` · `has_entitlement` · paywall · 1–2 features premium (insights avançados, customização) · sandbox testing.
