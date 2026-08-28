@@ -64,9 +64,9 @@ Tela Hoje · calendário (planejado vs executado) · `complete_care` idempotente
 `submit_checkin` · UI de 3–4 toques · evento.
 **Saída:** H4 mensurável. **Entregue:** SPEC-006 (PR #21) — uma pergunta ("Como ficou?", 1..5) ancorada na execução efetiva, idempotente, append-only, com retorno imediato na Hoje. **Adiado:** as outras 4 dimensões e a nota livre (necessity review D-73 — entram na SPEC-009 como colunas anuláveis, sem migração de dados). Próxima fatia disponível: F7 (SPEC-008 Notifications) — **exige aprovação humana da dependência `expo-notifications`** (CLAUDE.md §4).
 
-### Fase 7 — Notifications (SPEC-008) · ~1 semana
+### Fase 7 — Notifications (SPEC-008) · ~1 semana — **CONCLUÍDA (2026-08-28)**
 Intents puros · preferências · permissão · canal local · reconciliação · deep links validados.
-**Saída:** H3 mensurável (ON vs OFF).
+**Saída:** H3 mensurável (ON vs OFF). **Entregue:** SPEC-008 (PR #24) — canal local, opt-in duplo, 3 intents puros (`care_today`, `care_overdue`, `checkin_pending`), ≤2/dia, horizonte de 14 dias, reconciliação idempotente, texto sem PII. **Adiado:** `reassessment_due` (depende da SPEC-014), `habit_recovery` (sem dado que justifique), push remoto, deep link parametrizado. **Próxima fatia: F8 — SPEC-009 (Progress) + SPEC-014 (Reassessment)**, agora com check-ins e execuções acumulando dados.
 
 ### Fase 8 — Progress v1 + Reassessment (SPEC-009, SPEC-014) · ~1–2 semanas
 Adesão, histórico, streak (se aprovado) · reavaliar → novo diagnóstico → novo plano (supersede).
