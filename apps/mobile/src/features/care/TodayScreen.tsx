@@ -1,9 +1,10 @@
 import type { CareBoard, CareItem, CareTrackingPort, Instant, LocalDate } from '@app/core';
-import { CARE_GUIDES, CHECKIN_SCALE, buildTodayView, canCheckIn, canUndo } from '@app/core';
+import { CARE_GUIDES, CHECKIN_SCALE, buildProgress, buildTodayView, canCheckIn, canUndo } from '@app/core';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { CareGuidePanel } from '@/features/care/CareGuidePanel';
+import { ProgressSummary } from '@/features/care/ProgressSummary';
 import { CARE_TYPE_LABEL, formatPlannedDate } from '@/features/plan/copy';
 
 /**
@@ -246,6 +247,7 @@ export function TodayScreen({
     () => buildTodayView(board.cares, board.executions, today, board.checkIns),
     [board, today],
   );
+  const progress = useMemo(() => buildProgress(view), [view]);
   const renderedNow = now();
 
   const act = (item: CareItem, action: Action) => {
@@ -336,6 +338,10 @@ export function TodayScreen({
         busyId={busyId}
         onAct={act}
       />
+      {/* After the actionable sections and before the detail: she settles the day first, then
+          sees the accumulated summary, which reads naturally as a preface to the history. */}
+      <ProgressSummary progress={progress} />
+
       <Section
         title="Histórico"
         items={view.history}

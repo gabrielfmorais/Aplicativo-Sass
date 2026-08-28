@@ -12,3 +12,4 @@ export * from './schedule/index.ts';
 export * from './care-tracking/index.ts';
 export * from './content/index.ts';
 export * from './notifications/index.ts';
+export * from './progress/index.ts';

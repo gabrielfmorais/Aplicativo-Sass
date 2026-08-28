@@ -96,10 +96,13 @@ Legenda: seta cheia = dependência de dados/fluxo; pontilhada = consulta/cross-c
 - **Application Services (implementados):** `buildTodayView(cares, executions, today, checkIns)` puro em `packages/core/src/care-tracking/` (o "hoje" é input, ADR-008); `canCheckIn(item)`; transições pelas RPCs `complete_care`, `skip_care`, `reschedule_care`, `void_execution`, `submit_checkin`.
 - **Projeção de calendário:** derivada em memória por `buildTodayView` (sem view no banco). Grade mensal fica fora da SPEC-005.
 
-### 3.6 Progress (Supporting)
-- **Responsabilidade:** adesão (executados / planejados), histórico, streaks (se aprovado), indicadores de check-in ao longo do tempo.
-- **Implementação:** cálculos em `core/progress` a partir de dados de Care Tracking; nada persistido no MVP além do que já existe (evitar tabela de "stats" desnormalizada até haver necessidade).
-- **Entitlement:** insights avançados são premium — verificação central.
+### 3.6 Progress (Supporting — implementado na SPEC-009)
+- **Responsabilidade:** transformar fatos já registrados num resumo compreensível. Adesão ao plano ativo, pulados e como ela avaliou os cuidados.
+- **Implementação:** `buildProgress(view)` puro em `packages/core/src/progress/`, derivado do **mesmo `TodayView`** que a tela usa — **nada persistido** (sem tabela, view, agregado ou cache), como já previa este documento.
+- **Por que o read model e não linhas cruas:** desfecho, "reagendado não conta" e "execução anulada leva o check-in junto" já foram decididos em Care Tracking; recalcular criaria segunda fonte de verdade (D-69).
+- **Invariantes:** cuidado futuro nunca conta como falha; reagendado nunca conta (a linha substituta conta); execução anulada devolve o cuidado a não concluído e remove o check-in dela; **nenhum número inferido** (D-26) — sem score, porcentagem, tendência ou claim causal; média de check-in é **auto-relato**, retida abaixo de 3 respostas; divisão por zero impossível por construção.
+- **Recorte:** plano ativo, dito na tela ("Neste plano"). Cruzar planos superseded é DEFER com gatilho nomeado (SPEC-009 §8.2).
+- **Streaks:** continuam DEFER (D-25). **Entitlement:** insights avançados são premium — SPEC-010.
 
 ### 3.7 Notifications (Supporting — implementado na SPEC-008)
 - **Responsabilidade:** decidir **o que** lembrar (intent) separado de **como** entregar (channel/delivery).
