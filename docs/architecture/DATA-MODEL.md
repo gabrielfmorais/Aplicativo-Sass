@@ -145,14 +145,21 @@ Removida do modelo: no MVP a avaliação só existe para gerar um plano, nenhuma
 - **Imutabilidade:** `voided_at` é a **única** coluna mutável, e só pela RPC `void_execution`. Nunca UPDATE de `executed_at`, `executed_on`, `care_type_code` ou `scheduled_care_id`. Nunca DELETE pela usuária (sem grant).
 - **Escrita só server-side:** `authenticated` tem apenas SELECT próprio; toda transição passa por `complete_care` / `skip_care` / `reschedule_care` / `void_execution` (SECURITY DEFINER, allowlistadas).
 
-### 3.8 `checkins`
-| Coluna | Tipo |
-|---|---|
-| id, user_id | |
-| care_execution_id | FK **UNIQUE** (1:1) |
-| hydration_feel, softness, definition, dryness | smallint CHECK 1..5, null permitido |
-| note | text null (≤ 280) |
-| created_at | |
+### 3.8 `checkins` — Care Tracking (implementado na SPEC-006)
+| Coluna | Tipo | Notas |
+|---|---|---|
+| id | uuid PK | |
+| user_id | uuid not null, FK `auth.users` on delete cascade | RLS `user_id = auth.uid()` |
+| care_execution_id | uuid not null, FK composta `(care_execution_id, user_id) → care_executions (id, user_id)` on delete cascade; **UNIQUE** | 1:1 com a execução — o banco impede o `user_id` divergir do dono (BR1/BR6) |
+| overall_feel | smallint not null CHECK between 1 and 5 | a única pergunta: "Como ficou?" |
+| client_checkin_id | uuid not null | `UNIQUE (user_id, client_checkin_id)` — idempotência (FR6) |
+| created_at | timestamptz | |
+| ~~hydration_feel, softness, definition, dryness~~ | **DEFER** | existiam para alimentar o Progress (Fase 8), que não existe. Colunas anuláveis são **aditivas** — a SPEC-009 acrescenta as que precisar |
+| ~~note~~ | **DEFER** | texto livre é PII sem consumidor (mesmo motivo que adiou `care_executions.note`) |
+
+- **Âncora:** o check-in pertence a uma **execução**, nunca a um `scheduled_care` nem a um dia. É isso que faz o undo (D-12) se comportar: anular a execução deixa o check-in preso à linha anulada — histórico, não fraude — e a execução substituta nasce sem check-in.
+- **Append-only:** sem UPDATE, sem DELETE, sem grant. Editar/apagar check-in é DEFER (SPEC-006 §8.3).
+- **Escrita só server-side:** `authenticated` tem apenas SELECT próprio; a única escrita é a RPC `submit_checkin` (SECURITY DEFINER, allowlistada), que recusa execução anulada, execução alheia (`P0002`, indistinguível de inexistente) e `overall_feel` fora de 1..5.
 
 ### 3.9 `care_types` / 3.10 `content_articles` — **NÃO EXISTEM** (necessity review SPEC-007 §8.2, D-71)
 

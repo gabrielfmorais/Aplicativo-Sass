@@ -34,12 +34,14 @@ const board = (over: Partial<CareBoard> = {}): CareBoard => ({
     },
   ],
   executions: [],
+  checkIns: [],
   ...over,
 });
 
 const makePort = (overrides: Partial<CareTrackingPort> = {}): jest.Mocked<CareTrackingPort> =>
   ({
     getBoard: jest.fn(async () => null),
+    submitCheckIn: jest.fn(async () => undefined),
     complete: jest.fn(async () => undefined),
     skip: jest.fn(async () => undefined),
     reschedule: jest.fn(async () => undefined),
@@ -346,5 +348,97 @@ describe('TodayScreen — "Como fazer" (SPEC-007 §14)', () => {
     );
     await waitFor(() => screen.getByText('Pulado'));
     expect(screen.queryByText('Como fazer')).toBeNull();
+  });
+});
+
+describe('TodayScreen — check-in (SPEC-006 §14)', () => {
+  const doneBoard = (checkIns: CareBoard['checkIns'] = []) =>
+    board({
+      executions: [
+        {
+          id: 'e1',
+          scheduledCareId: 'now',
+          executedAt: '2026-09-10T11:55:00.000Z',
+          executedOn: '2026-09-10',
+          voidedAt: null,
+        },
+      ],
+      checkIns,
+    });
+
+  it('asks how it went on a completed care and submits the rating (AC12)', async () => {
+    const care = makePort();
+    const onChanged = jest.fn();
+    const screen = await renderScreen(care, doneBoard(), onChanged);
+    await waitFor(() => screen.getByText('Como ficou?'));
+
+    await fireEvent.press(screen.getByLabelText('4 de 5'));
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+    expect(care.submitCheckIn).toHaveBeenCalledWith({
+      careExecutionId: 'e1',
+      overallFeel: 4,
+      clientCheckinId: 'exec-1',
+    });
+  });
+
+  it('shows the answer back and stops asking once it exists (AC12)', async () => {
+    const screen = await renderScreen(
+      makePort(),
+      doneBoard([{ id: 'ck1', careExecutionId: 'e1', overallFeel: 3 }]),
+    );
+    await waitFor(() => screen.getByText('Você marcou: 3/5'));
+    expect(screen.queryByText('Como ficou?')).toBeNull();
+  });
+
+  it('never asks on a care that is not done (AC13)', async () => {
+    const screen = await renderScreen(makePort());
+    await waitFor(() => screen.getByText('Atrasados'));
+    expect(screen.queryByText('Como ficou?')).toBeNull();
+  });
+
+  it('reuses the same idempotency key when a failed check-in is retried (AC14)', async () => {
+    const submitCheckIn = jest
+      .fn<Promise<void>, [{ clientCheckinId: string }]>()
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce(undefined);
+    let issued = 0;
+    const screen = await renderScreen(
+      makePort({ submitCheckIn } as Partial<CareTrackingPort>),
+      doneBoard(),
+      jest.fn(),
+      () => NOW,
+      () => `exec-${++issued}`,
+    );
+    await waitFor(() => screen.getByText('Como ficou?'));
+
+    await fireEvent.press(screen.getByLabelText('5 de 5'));
+    await waitFor(() => screen.getByText('Não foi possível registrar. Tente novamente.'));
+    await fireEvent.press(screen.getByLabelText('5 de 5'));
+    await waitFor(() => expect(submitCheckIn).toHaveBeenCalledTimes(2));
+
+    expect(submitCheckIn.mock.calls.map((c) => c[0].clientCheckinId)).toEqual(['exec-1', 'exec-1']);
+  });
+
+  it('reloads instead of arguing when the server refuses the check-in', async () => {
+    const submitCheckIn = jest.fn(async () => {
+      throw new ConflictError('care.checkin_failed', 'already has a check-in');
+    });
+    const onChanged = jest.fn();
+    const screen = await renderScreen(
+      makePort({ submitCheckIn } as Partial<CareTrackingPort>),
+      doneBoard(),
+      onChanged,
+    );
+    await waitFor(() => screen.getByText('Como ficou?'));
+
+    await fireEvent.press(screen.getByLabelText('2 de 5'));
+    await waitFor(() => screen.getByText('Esse cuidado mudou. Atualizamos a tela.'));
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it('leaves undo available alongside the check-in', async () => {
+    const screen = await renderScreen(makePort(), doneBoard());
+    await waitFor(() => screen.getByText('Como ficou?'));
+    screen.getByText('Desfazer');
   });
 });

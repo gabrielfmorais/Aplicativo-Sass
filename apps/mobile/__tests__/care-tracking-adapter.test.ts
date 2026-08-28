@@ -20,6 +20,7 @@ const careRows = [
     rescheduled_to_id: 'c3',
   },
 ];
+const checkInRows = [{ id: 'ck1', care_execution_id: 'e1', overall_feel: 4 }];
 const executionRows = [
   {
     id: 'e1',
@@ -33,7 +34,13 @@ const executionRows = [
 type Result = { data: unknown; error: unknown };
 
 /** Minimal PostgREST chain double covering `.select().eq()[.order()|.in()|.maybeSingle()]`. */
-const makeClient = (plan: Result, cares: Result, executions: Result, rpcError: unknown = null) => {
+const makeClient = (
+  plan: Result,
+  cares: Result,
+  executions: Result,
+  rpcError: unknown = null,
+  checkIns: Result = { data: [], error: null },
+) => {
   const rpc = jest.fn(async (_fn: string, _args: Record<string, unknown>) => ({
     data: null,
     error: rpcError,
@@ -54,7 +61,9 @@ const makeClient = (plan: Result, cares: Result, executions: Result, rpcError: u
       ? thenable(plan)
       : table === 'scheduled_cares'
         ? thenable(cares)
-        : thenable(executions),
+        : table === 'care_executions'
+          ? thenable(executions)
+          : thenable(checkIns),
   );
   return { client: { from, rpc } as unknown as SupabaseClient, rpc };
 };
@@ -63,7 +72,7 @@ const ok = (data: unknown): Result => ({ data, error: null });
 
 describe('care tracking adapter — reads (SPEC-005 §9)', () => {
   it('builds the board from the active plan, its cares and their executions', async () => {
-    const { client } = makeClient(ok(planRow), ok(careRows), ok(executionRows));
+    const { client } = makeClient(ok(planRow), ok(careRows), ok(executionRows), null, ok(checkInRows));
     const boardResult = await createCareTrackingAdapter(client).getBoard();
     expect(boardResult).toEqual({
       planId: 'plan-1',
@@ -93,6 +102,7 @@ describe('care tracking adapter — reads (SPEC-005 §9)', () => {
           voidedAt: null,
         },
       ],
+      checkIns: [{ id: 'ck1', careExecutionId: 'e1', overallFeel: 4 }],
     });
   });
 

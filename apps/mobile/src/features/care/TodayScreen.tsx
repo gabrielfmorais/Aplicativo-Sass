@@ -1,5 +1,5 @@
 import type { CareBoard, CareItem, CareTrackingPort, Instant, LocalDate } from '@app/core';
-import { CARE_GUIDES, buildTodayView, canUndo } from '@app/core';
+import { CARE_GUIDES, CHECKIN_SCALE, buildTodayView, canCheckIn, canUndo } from '@app/core';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -23,7 +23,10 @@ const addDaysIso = (date: string, days: number): string => {
   return `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())}`;
 };
 
-type Action = { kind: 'complete' | 'skip' | 'undo' } | { kind: 'reschedule'; days: number };
+type Action =
+  | { kind: 'complete' | 'skip' | 'undo' }
+  | { kind: 'reschedule'; days: number }
+  | { kind: 'checkin'; feel: number };
 
 function CareRow({
   item,
@@ -58,19 +61,45 @@ function CareRow({
       </View>
 
       {item.outcome === 'done' ? (
-        <View style={styles.actions}>
-          <Text style={styles.doneMark}>Feito</Text>
-          {undoable ? (
-            <Pressable
-              style={styles.action}
-              disabled={busy}
-              onPress={() => onAct(item, { kind: 'undo' })}
-              accessibilityRole="button"
-            >
-              <Text>Desfazer</Text>
-            </Pressable>
+        <>
+          <View style={styles.actions}>
+            <Text style={styles.doneMark}>Feito</Text>
+            {undoable ? (
+              <Pressable
+                style={styles.action}
+                disabled={busy}
+                onPress={() => onAct(item, { kind: 'undo' })}
+                accessibilityRole="button"
+              >
+                <Text>Desfazer</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {item.checkIn ? (
+            <Text style={styles.resolved}>{`Você marcou: ${item.checkIn.overallFeel}/5`}</Text>
+          ) : canCheckIn(item) ? (
+            // SPEC-006 §14 — one question, one tap, on the care she just finished. No navigation:
+            // taking her off this screen is the friction G1 exists to remove.
+            <View style={styles.checkin}>
+              <Text style={styles.checkinTitle}>Como ficou?</Text>
+              <View style={styles.actions}>
+                {CHECKIN_SCALE.map((feel) => (
+                  <Pressable
+                    key={feel}
+                    style={[styles.action, busy && styles.disabled]}
+                    disabled={busy}
+                    onPress={() => onAct(item, { kind: 'checkin', feel })}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${feel} de 5`}
+                  >
+                    <Text>{feel}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={styles.scaleHint}>1 = nada bom · 5 = muito bom</Text>
+            </View>
           ) : null}
-        </View>
+        </>
       ) : item.outcome === 'skipped' ? (
         <Text style={styles.resolved}>Pulado</Text>
       ) : item.outcome === 'rescheduled' ? (
@@ -213,7 +242,10 @@ export function TodayScreen({
   // produce a second execution (AC14). Cleared once the care is recorded.
   const [keys] = useState(() => new Map<string, string>());
 
-  const view = useMemo(() => buildTodayView(board.cares, board.executions, today), [board, today]);
+  const view = useMemo(
+    () => buildTodayView(board.cares, board.executions, today, board.checkIns),
+    [board, today],
+  );
   const renderedNow = now();
 
   const act = (item: CareItem, action: Action) => {
@@ -240,6 +272,20 @@ export function TodayScreen({
           });
         case 'undo':
           return item.execution ? care.undo(item.execution.id) : Promise.resolve();
+        case 'checkin': {
+          if (!item.execution) return Promise.resolve();
+          // Same per-intent key discipline as completing: a retry after a lost response must not
+          // produce a second check-in (SPEC-006 FR6/AC14).
+          const key = keys.get(`ck:${item.id}`) ?? newExecutionId();
+          keys.set(`ck:${item.id}`, key);
+          return care
+            .submitCheckIn({
+              careExecutionId: item.execution.id,
+              overallFeel: action.feel,
+              clientCheckinId: key,
+            })
+            .then(() => keys.delete(`ck:${item.id}`));
+        }
       }
     };
 
@@ -334,6 +380,9 @@ const styles = StyleSheet.create({
   primaryText: { color: '#fff', fontWeight: '600' },
   disabled: { opacity: 0.4 },
   doneMark: { fontSize: 14, fontWeight: '600' },
+  checkin: { gap: 6, paddingTop: 4 },
+  checkinTitle: { fontSize: 14, fontWeight: '600' },
+  scaleHint: { fontSize: 12, opacity: 0.7 },
   resolved: { fontSize: 14, opacity: 0.7 },
   empty: { fontSize: 14, opacity: 0.7 },
   message: { color: '#b00020' },

@@ -2,6 +2,7 @@ import type {
   CareBoard,
   CareExecution,
   CareTrackingPort,
+  CheckIn,
   ScheduledCare,
   ScheduledCareStatus,
 } from '@app/core';
@@ -11,6 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 const PLAN_COLUMNS = 'id, starts_on';
 const CARE_COLUMNS = 'id, care_type_code, planned_date, status, rescheduled_to_id';
 const EXECUTION_COLUMNS = 'id, scheduled_care_id, executed_at, executed_on, voided_at';
+const CHECKIN_COLUMNS = 'id, care_execution_id, overall_feel';
 
 /**
  * A transition the server refused because the care is no longer in the state the screen assumed:
@@ -38,6 +40,7 @@ type ExecutionRow = {
   executed_on: string;
   voided_at: string | null;
 };
+type CheckInRow = { id: string; care_execution_id: string; overall_feel: number };
 
 const toCare = (r: CareRow): ScheduledCare => ({
   id: r.id,
@@ -45,6 +48,12 @@ const toCare = (r: CareRow): ScheduledCare => ({
   plannedDate: r.planned_date,
   status: r.status as ScheduledCareStatus,
   rescheduledToId: r.rescheduled_to_id,
+});
+
+const toCheckIn = (r: CheckInRow): CheckIn => ({
+  id: r.id,
+  careExecutionId: r.care_execution_id,
+  overallFeel: r.overall_feel,
 });
 
 const toExecution = (r: ExecutionRow): CareExecution => ({
@@ -98,7 +107,20 @@ export const createCareTrackingAdapter = (client: SupabaseClient): CareTrackingP
         executions = (executionRows ?? []).map((r) => toExecution(r as ExecutionRow));
       }
 
-      return { planId: plan.id, startsOn: plan.starts_on, cares, executions };
+      // Bounded by this board's executions, for the same reason the executions are bounded by the
+      // plan's cares: a check-in from a superseded plan is not this board's.
+      const executionIds = executions.map((e) => e.id);
+      let checkIns: CheckIn[] = [];
+      if (executionIds.length > 0) {
+        const { data: checkInRows, error: checkInsError } = await client
+          .from('checkins')
+          .select(CHECKIN_COLUMNS)
+          .in('care_execution_id', executionIds);
+        if (checkInsError) throw fail('care.board_read_failed', checkInsError);
+        checkIns = (checkInRows ?? []).map((r) => toCheckIn(r as CheckInRow));
+      }
+
+      return { planId: plan.id, startsOn: plan.starts_on, cares, executions, checkIns };
     },
 
     complete: ({ scheduledCareId, clientExecutionId, timeZone }) =>
@@ -123,5 +145,16 @@ export const createCareTrackingAdapter = (client: SupabaseClient): CareTrackingP
       ),
 
     undo: (executionId) => call('void_execution', { p_execution_id: executionId }, 'care.undo_failed'),
+
+    submitCheckIn: ({ careExecutionId, overallFeel, clientCheckinId }) =>
+      call(
+        'submit_checkin',
+        {
+          p_care_execution_id: careExecutionId,
+          p_overall_feel: overallFeel,
+          p_client_checkin_id: clientCheckinId,
+        },
+        'care.checkin_failed',
+      ),
   };
 };
