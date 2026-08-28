@@ -56,9 +56,9 @@ Regras v1 com especialista capilar · `runDiagnostic`/assessment puro · reason 
 4b: Edge Function `generate-plan` + RPC `create_plan_tx` + tabelas `diagnostic_results`, `hair_plans`, `scheduled_cares` + RLS + rate limit + preview no cliente + tela "Este é o seu cronograma".
 **Saída:** H1 mensurável (onboarding → plano).
 
-### Fase 5 — Care Tracking + Content v1 (SPEC-005, SPEC-007) · ~2 semanas
+### Fase 5 — Care Tracking + Content v1 (SPEC-005, SPEC-007) · ~2 semanas — **CONCLUÍDA (2026-08-28)**
 Tela Hoje · calendário (planejado vs executado) · `complete_care` idempotente · reagendar/pular · desfazer · conteúdo contextual por care_type (seed) · eventos.
-**Saída:** loop diário completo; H2 mensurável.
+**Saída:** loop diário completo; H2 mensurável. **Entregue:** SPEC-005 (PR #14) — Hoje/atrasado/próximos/histórico, concluir/pular/reagendar/desfazer; SPEC-007 (PR #19) — "Como fazer" por care type. **Calendário mensal e execução avulsa continuam adiados** (sem consumidor). Próximas fatias disponíveis: F6 (SPEC-006 Check-ins) e F7 (SPEC-008 Notifications) — o grafo §1 mostra as duas dependendo só de F5.
 
 ### Fase 6 — Check-ins (SPEC-006) · ~1 semana
 `submit_checkin` · UI de 3–4 toques · evento.
