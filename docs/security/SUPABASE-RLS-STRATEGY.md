@@ -107,7 +107,8 @@ Ferramenta: **pgTAP** via `supabase test db` (arquivos em `supabase/tests/*.sql`
 ## 7. Verificações automáticas em CI (fase Foundation)
 
 - Query que falha se alguma tabela em `public` tiver `relrowsecurity = false` ou `relforcerowsecurity = false`.
-- Query que lista funções `SECURITY DEFINER` e compara com allowlist versionada (`supabase/security/definer-allowlist.txt`).
+- Query que lista funções `SECURITY DEFINER` e compara com allowlist versionada (`supabase/security/allowlists.sql`) — `tests.unapproved_security_definer_functions()`.
+- Query que falha se alguma função `SECURITY DEFINER` em `public` **não fixar o `search_path`**, ou fixá-lo de um jeito que resolve por `"$user"` — `tests.unpinned_security_definer_functions()`. Estar na allowlist prova que a função foi **revisada**, nunca que é **segura de executar**: sem pin, nomes não qualificados resolvem pelo `search_path` de quem chama, então quem consegue criar um objeto num schema anterior no caminho decide o que a função executa, com os privilégios do dono. Provado pelo fixture negativo (`004`), não apenas afirmado.
 - Query que falha se `anon`/`authenticated` tiverem grants em tabelas não listadas em allowlist de grants.
 - Supabase Advisors (`get_advisors security`) executados em staging e tratados antes do release.
 
