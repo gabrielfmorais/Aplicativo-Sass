@@ -27,8 +27,8 @@ flowchart LR
 ```
 
 ## 2. Papéis
-- **Humano (owner):** aprova SPEC/ADR, revisa PR, autoriza migrations prod, aprova dependências/MCPs.
-- **Agente (Claude Code):** propõe SPEC, implementa dentro do escopo, roda testes, prepara PR, reporta riscos. Nunca faz merge, deploy ou migration prod.
+- **Humano (owner):** decide o que é **material ou irreversível** — proposta de valor, sign-off de domínio capilar, legal/policy, produção, custo real, credencial externa, dependências/MCPs, migrations prod.
+- **Agente (Claude Code):** **ownership técnico** (CLAUDE.md §0.2). Propõe SPEC, decide o técnico reversível sozinho, implementa, testa, audita com `improve`, prepara e cuida da PR até CI verde, habilita auto-merge. Nunca faz merge por conta própria (quem mergeia é o GitHub, após as proteções), nem deploy, nem migration prod.
   **PR ownership:** an implementation task owns its PR until every required CI check is green. CI failures caused by the current work must be investigated (full logs, root cause, local reproduction when useful), fixed with the smallest correct change, committed, pushed and revalidated autonomously — never by weakening RLS/guardrails, skipping or removing tests. Human intervention is required only for an actual human gate (CLAUDE.md §0.1).
 
 ## 3. Branches e commits
