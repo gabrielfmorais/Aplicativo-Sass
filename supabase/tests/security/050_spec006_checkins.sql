@@ -148,7 +148,10 @@ select throws_ok(
 select tests.as_user('00000000-0000-4000-8000-0000000000b6');
 select is((select count(*)::int from public.checkins), 0, 'B cannot read A''s check-in (AC2)');
 select tests.as_anon();
-select is((select count(*)::int from public.checkins), 0, 'anon reads nothing');
+-- anon holds no grant at all on checkins, so it is refused at the privilege level and never even
+-- reaches RLS — a stronger guarantee than "returns no rows" (same shape as 010/020 for anon).
+select throws_ok($$select count(*) from public.checkins$$, '42501',
+                 null, 'anon cannot read checkins at all');
 
 -- ------------------------------------------------------------------- voided execution (AC7/BR2)
 select tests.as_user('00000000-0000-4000-8000-0000000000b6');
