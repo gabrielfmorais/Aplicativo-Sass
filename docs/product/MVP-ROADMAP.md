@@ -60,9 +60,9 @@ Regras v1 com especialista capilar · `runDiagnostic`/assessment puro · reason 
 Tela Hoje · calendário (planejado vs executado) · `complete_care` idempotente · reagendar/pular · desfazer · conteúdo contextual por care_type (seed) · eventos.
 **Saída:** loop diário completo; H2 mensurável. **Entregue:** SPEC-005 (PR #14) — Hoje/atrasado/próximos/histórico, concluir/pular/reagendar/desfazer; SPEC-007 (PR #19) — "Como fazer" por care type. **Calendário mensal e execução avulsa continuam adiados** (sem consumidor). Próximas fatias disponíveis: F6 (SPEC-006 Check-ins) e F7 (SPEC-008 Notifications) — o grafo §1 mostra as duas dependendo só de F5.
 
-### Fase 6 — Check-ins (SPEC-006) · ~1 semana
+### Fase 6 — Check-ins (SPEC-006) · ~1 semana — **CONCLUÍDA (2026-08-28)**
 `submit_checkin` · UI de 3–4 toques · evento.
-**Saída:** H4 mensurável.
+**Saída:** H4 mensurável. **Entregue:** SPEC-006 (PR #21) — uma pergunta ("Como ficou?", 1..5) ancorada na execução efetiva, idempotente, append-only, com retorno imediato na Hoje. **Adiado:** as outras 4 dimensões e a nota livre (necessity review D-73 — entram na SPEC-009 como colunas anuláveis, sem migração de dados). Próxima fatia disponível: F7 (SPEC-008 Notifications) — **exige aprovação humana da dependência `expo-notifications`** (CLAUDE.md §4).
 
 ### Fase 7 — Notifications (SPEC-008) · ~1 semana
 Intents puros · preferências · permissão · canal local · reconciliação · deep links validados.
