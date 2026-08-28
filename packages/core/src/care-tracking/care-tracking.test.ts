@@ -4,9 +4,12 @@ import {
   RESCHEDULE_HORIZON_DAYS,
   UNDO_WINDOW_MINUTES,
   buildTodayView,
+  CHECKIN_SCALE,
+  canCheckIn,
   canUndo,
   rescheduleRange,
   type CareExecution,
+  type CheckIn,
 } from './index.ts';
 
 const TODAY = localDateFromString('2026-09-10');
@@ -178,5 +181,64 @@ describe('reschedule range (BR8)', () => {
   it('spans from today to today + the approved plan window', () => {
     expect(rescheduleRange(TODAY)).toEqual({ from: '2026-09-10', to: '2026-10-08' });
     expect(RESCHEDULE_HORIZON_DAYS).toBe(28);
+  });
+});
+
+describe('check-ins (SPEC-006 AC11)', () => {
+  const c = care({ id: 'c1', plannedDate: '2026-09-10' });
+  const done = execution({ id: 'e1', scheduledCareId: 'c1' });
+  const checkIn: CheckIn = { id: 'ck1', careExecutionId: 'e1', overallFeel: 4 };
+
+  const itemFor = (executions: CareExecution[], checkIns: CheckIn[]) =>
+    buildTodayView([c], executions, TODAY, checkIns).today[0]!;
+
+  it('attaches the check-in to the care whose execution it belongs to', () => {
+    expect(itemFor([done], [checkIn]).checkIn).toEqual(checkIn);
+  });
+
+  it('leaves a done care without a check-in when none was made', () => {
+    const item = itemFor([done], []);
+    expect(item.checkIn).toBeNull();
+    expect(canCheckIn(item)).toBe(true);
+  });
+
+  it('never attaches a check-in belonging to another execution', () => {
+    expect(itemFor([done], [{ ...checkIn, careExecutionId: 'other' }]).checkIn).toBeNull();
+  });
+
+  /**
+   * BR3: undoing an execution leaves its check-in on the voided row. The care becomes actionable
+   * again and must not inherit the answer that described the execution the user threw away.
+   */
+  it('does not carry a check-in over when its execution was voided', () => {
+    const voided = execution({ id: 'e1', scheduledCareId: 'c1', voidedAt: '2026-09-10T12:05:00.000Z' });
+    const item = itemFor([voided], [checkIn]);
+    expect(item.outcome).toBe('planned');
+    expect(item.checkIn).toBeNull();
+    expect(canCheckIn(item)).toBe(false);
+  });
+
+  it('offers no check-in on a care that is not done', () => {
+    const planned = buildTodayView([c], [], TODAY, []).today[0]!;
+    expect(canCheckIn(planned)).toBe(false);
+    const skipped = buildTodayView(
+      [care({ id: 'c2', plannedDate: '2026-09-09', status: 'skipped' })],
+      [],
+      TODAY,
+      [],
+    ).history[0]!;
+    expect(canCheckIn(skipped)).toBe(false);
+  });
+
+  it('offers no second check-in once one exists', () => {
+    expect(canCheckIn(itemFor([done], [checkIn]))).toBe(false);
+  });
+
+  it('offers the approved 1..5 scale', () => {
+    expect(CHECKIN_SCALE).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('keeps the board readable when check-ins are omitted entirely', () => {
+    expect(buildTodayView([c], [done], TODAY).today[0]!.checkIn).toBeNull();
   });
 });

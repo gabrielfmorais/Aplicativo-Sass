@@ -47,6 +47,11 @@ insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
 insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
   ('authenticated', 'care_executions', 'SELECT', 'SPEC-005');
 
+-- SPEC-006 §10: checkins — authenticated may only SELECT its own rows.
+-- The only write path is submit_checkin; append-only, so no UPDATE/DELETE for anyone.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'checkins', 'SELECT', 'SPEC-006');
+
 -- SPEC-005 §9/§10: the only write path for care transitions. EXECUTE is granted to `authenticated`
 -- (unlike create_plan_tx) because these take only an id that already belongs to the caller, an
 -- idempotency key and a timezone — the user comes from auth.uid(), never from a parameter, so there
@@ -72,6 +77,16 @@ insert into tests.security_definer_allowlist (function_signature, spec, justific
     'public.void_execution(p_execution_id uuid)',
     'SPEC-005',
     'Undo of an accidental execution within 15 minutes (D-69/D-12). Sets voided_at on care_executions, which no client may update; the row is kept, never deleted. The window is measured by the server clock, so the client cannot extend it; ownership re-verified against auth.uid().'
+  );
+
+-- SPEC-006 §9.1: the only write path into checkins. EXECUTE is granted to `authenticated` for the
+-- same reason as the SPEC-005 RPCs: the parameters are an execution id that already belongs to the
+-- caller, a 1..5 rating and an idempotency key — the user comes from auth.uid(), never a parameter.
+insert into tests.security_definer_allowlist (function_signature, spec, justification) values
+  (
+    'public.submit_checkin(p_care_execution_id uuid, p_overall_feel smallint, p_client_checkin_id uuid)',
+    'SPEC-006',
+    'Records how a care went. Writes checkins, which no client may write. Idempotent by (user_id, client_checkin_id) so a retry cannot create a second check-in; one check-in per execution enforced by a unique constraint and re-checked under FOR UPDATE; refuses a voided execution; overall_feel validated in the function and by a CHECK; ownership re-verified against auth.uid(), and a foreign execution is indistinguishable from a missing one.'
   );
 
 -- SPEC-004 §12b/§14: the single server-enforced write path into the plan tables.

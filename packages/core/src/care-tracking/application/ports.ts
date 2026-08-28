@@ -1,5 +1,5 @@
 import type { ScheduledCare } from '../../schedule/index.ts';
-import type { CareExecution } from '../domain/care-tracking.ts';
+import type { CareExecution, CheckIn } from '../domain/care-tracking.ts';
 
 /** Everything the daily screen needs, in one read: the active plan, its cares and their executions. */
 export type CareBoard = {
@@ -7,6 +7,8 @@ export type CareBoard = {
   readonly startsOn: string;
   readonly cares: readonly ScheduledCare[];
   readonly executions: readonly CareExecution[];
+  /** Check-ins for those executions (SPEC-006); empty until the user answers one. */
+  readonly checkIns: readonly CheckIn[];
 };
 
 /**
@@ -28,4 +30,13 @@ export interface CareTrackingPort {
   reschedule(input: { scheduledCareId: string; newDate: string; timeZone: string }): Promise<void>;
   /** Undoes an accidental execution inside the approved window (D-69/D-12). */
   undo(executionId: string): Promise<void>;
+  /**
+   * Records how the care went (SPEC-006). Idempotent by `clientCheckinId`, and refused by the
+   * server if the execution was undone or already has a check-in.
+   */
+  submitCheckIn(input: {
+    careExecutionId: string;
+    overallFeel: number;
+    clientCheckinId: string;
+  }): Promise<void>;
 }

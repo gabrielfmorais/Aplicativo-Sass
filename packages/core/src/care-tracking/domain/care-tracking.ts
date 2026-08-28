@@ -21,6 +21,20 @@ export type CareExecution = {
   readonly voidedAt: string | null;
 };
 
+/**
+ * How the care went, as the user reported it (SPEC-006). Anchored to one execution, never to a
+ * scheduled care or a day: undoing an execution leaves its check-in on the voided row (BR3).
+ */
+export type CheckIn = {
+  readonly id: string;
+  readonly careExecutionId: string;
+  /** 1..5, required. There is no empty check-in — without an answer there is no row (BR4). */
+  readonly overallFeel: number;
+};
+
+/** The options offered for "Como ficou?" — the scale already approved in DATA-MODEL §3.8. */
+export const CHECKIN_SCALE = [1, 2, 3, 4, 5] as const;
+
 /** Undo window approved by D-69 (D-12): 15 minutes from `executedAt`. */
 export const UNDO_WINDOW_MINUTES = 15;
 
@@ -40,6 +54,8 @@ export type CareItem = {
   readonly outcome: CareOutcome;
   /** The effective execution, when the care is done. */
   readonly execution: CareExecution | null;
+  /** The check-in for that execution, when there is one (SPEC-006). */
+  readonly checkIn: CheckIn | null;
   /** Whole days between the planned day and today; 0 unless overdue. */
   readonly daysLate: number;
 };
@@ -78,11 +94,16 @@ export const buildTodayView = (
   cares: readonly ScheduledCare[],
   executions: readonly CareExecution[],
   today: LocalDate,
+  checkIns: readonly CheckIn[] = [],
 ): TodayView => {
   const effectiveByCare = new Map<string, CareExecution>();
   for (const execution of executions) {
     if (isEffective(execution)) effectiveByCare.set(execution.scheduledCareId, execution);
   }
+  // Keyed by execution, so a check-in made before an undo stays with the execution it describes
+  // and never reappears on the replacement (BR3).
+  const checkInByExecution = new Map<string, CheckIn>();
+  for (const checkIn of checkIns) checkInByExecution.set(checkIn.careExecutionId, checkIn);
 
   const overdue: CareItem[] = [];
   const todayItems: CareItem[] = [];
@@ -98,6 +119,7 @@ export const buildTodayView = (
       plannedDate: care.plannedDate,
       outcome,
       execution,
+      checkIn: execution ? (checkInByExecution.get(execution.id) ?? null) : null,
       daysLate: outcome === 'overdue' ? diffDays(care.plannedDate as LocalDate, today) : 0,
     };
 
@@ -135,3 +157,10 @@ export const rescheduleRange = (today: LocalDate): { readonly from: LocalDate; r
   from: today,
   to: addDays(today, RESCHEDULE_HORIZON_DAYS),
 });
+
+/**
+ * A check-in is offered exactly once, on a care that is done and has none yet (FR1/FR3).
+ * Skipping it is free: nothing in the daily loop depends on it (G6).
+ */
+export const canCheckIn = (item: CareItem): boolean =>
+  item.outcome === 'done' && item.execution !== null && item.checkIn === null;

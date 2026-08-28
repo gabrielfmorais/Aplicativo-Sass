@@ -92,7 +92,8 @@ Legenda: seta cheia = dependência de dados/fluxo; pontilhada = consulta/cross-c
   - Execução sem agendamento (ad hoc) é permitida (`scheduled_care_id NULL`, `care_type` obrigatório).
   - "Atrasado" = planned_date < user_today e sem execução e status = planned. **Calculado**, não armazenado.
   - **Cuidado atrasado (decisão humana D-28):** o sistema **nunca** altera silenciosamente o cronograma. A UI mostra o estado ("Hidratação — atrasada há 1 dia") e pede decisão explícita: `[Fazer hoje]` (execução vinculada ao agendamento original, `executed_on` = hoje) · `[Reagendar]` (nova linha) · `[Pular]` (status skipped). Nenhum deslocamento automático do plano sem ação da usuária ou regra futura explicitamente aprovada.
-- **Application Services (implementados):** `buildTodayView(cares, executions, today)` puro em `packages/core/src/care-tracking/` (o "hoje" é input, ADR-008); transições pelas RPCs `complete_care`, `skip_care`, `reschedule_care`, `void_execution`. `submitCheckIn` continua na SPEC-006.
+- **Check-in (SPEC-006):** `CheckIn` é 1:1 com uma `CareExecution` **efetiva** — uma pergunta ("Como ficou?", 1..5), obrigatória, sem texto livre. Ancorado à execução e não ao cuidado planejado: desfazer deixa o check-in na execução anulada e a substituta nasce sem um. Append-only; escrita só pela RPC `submit_checkin`.
+- **Application Services (implementados):** `buildTodayView(cares, executions, today, checkIns)` puro em `packages/core/src/care-tracking/` (o "hoje" é input, ADR-008); `canCheckIn(item)`; transições pelas RPCs `complete_care`, `skip_care`, `reschedule_care`, `void_execution`, `submit_checkin`.
 - **Projeção de calendário:** derivada em memória por `buildTodayView` (sem view no banco). Grade mensal fica fora da SPEC-005.
 
 ### 3.6 Progress (Supporting)
