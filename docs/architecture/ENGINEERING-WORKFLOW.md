@@ -17,7 +17,8 @@ flowchart LR
     S --> B[Branch feature/*]
     B --> IM[Implementation<br/>menor mudança segura]
     IM --> T[Tests<br/>unit · integration · RLS]
-    T --> PR[Pull Request<br/>template]
+    T --> AU[Improve audit<br/>corrige BLOCKER/IMPORTANT]
+    AU --> PR[Pull Request<br/>template]
     PR --> RV[Review humana<br/>+ CI verde]
     RV --> M[Merge em main<br/>squash]
     M --> ST[Deploy automático staging<br/>migrations + functions]
@@ -95,3 +96,5 @@ CI verde · staging smoke · migrations prod aplicadas · advisors Supabase limp
 
 ## 11. Definition of Ready / Done
 Ver [docs/specs/README.md](../specs/README.md).
+
+A **Definition of Done inclui a auditoria `improve`** (`.claude/skills/improve/SKILL.md`, CLAUDE.md §0.1): implementação relevante só é DONE com a auditoria executada e sem BLOCKER/IMPORTANT em aberto. **CI verde sozinho não é DONE.** OPTIONAL é registrado e não bloqueia o merge.

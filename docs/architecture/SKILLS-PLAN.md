@@ -36,6 +36,13 @@ Skills vivem em `.claude/skills/<nome>/SKILL.md` (criadas na fase Foundation, **
 - **Outputs:** lista de violações + arquivos fora de escopo.
 - **Guardrails:** read-only; não commita.
 
+### 6. `/improve [SPEC-NNN | --full]`
+- **Responsabilidade:** auditoria técnica sênior do trabalho **já feito** — bugs, regressões, violação de SPEC, autorização/RLS, trust boundaries, integridade, race conditions, idempotência/double-submit, retries perigosos, estados impossíveis, perda de histórico, drift cliente/servidor, estados de tela (loading/vazio/erro/retry/reopen), código morto, duplicação, overengineering, performance e testes críticos ausentes.
+- **Outputs:** achados classificados **BLOCKER / IMPORTANT / OPTIONAL**, cada um com cenário de falha concreto; correções aplicadas; veredito `READY FOR AUTO-MERGE / FIX FIRST / NEEDS HUMAN DECISION`.
+- **Obrigatória** para: SPEC, banco/migration, RLS/segurança, RPC, Edge Function, auth, concorrência/idempotência, mudança cross-module, refactor estrutural, feature user-facing relevante, preparação para beta/release. **CI verde sozinho não é DONE** (CLAUDE.md §0.1).
+- **Guardrails:** **única skill que edita** — e só arquivos já no diff da branch, testes das correções e a seção de evidência da SPEC. Corrige BLOCKER/IMPORTANT no escopo aprovado; **nunca** altera OPTIONAL; nunca enfraquece teste/constraint/policy para passar; nunca faz migration, deploy, install ou merge. Human gates e YAGNI (D-47/D-48) continuam valendo — achado não é obrigação de mudar.
+- Delega a `/pre-commit-review`, `/rls-review` e `/migration-review` em vez de repetir os checks deles.
+
 ## Skills adiadas (criar quando houver necessidade real)
 | Skill | Quando |
 |---|---|
@@ -46,6 +53,6 @@ Skills vivem em `.claude/skills/<nome>/SKILL.md` (criadas na fase Foundation, **
 | `/engine-version-bump` | Quando existir v2 de algum engine |
 
 ## Regras gerais
-- Skills read-only por padrão; skills que editam arquivos declaram exatamente quais.
+- Skills read-only por padrão; skills que editam arquivos declaram exatamente quais (hoje: só `/improve`).
 - Skill nunca executa migration, deploy, instalação de dependência ou push.
 - Skill que falha em obter contexto (SPEC ausente) para e reporta em vez de assumir.
