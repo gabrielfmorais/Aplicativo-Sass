@@ -34,6 +34,14 @@ O agente detém **ownership técnico** do projeto e atua como architect + mobile
 - Plano é criado **só** pela Edge Function `generate-plan` → RPC `create_plan_tx` (SPEC-004); transições de cuidado só pelas RPCs `complete_care`/`skip_care`/`reschedule_care`/`void_execution` (SPEC-005). O cliente tem apenas SELECT em `hair_plans`/`scheduled_cares`/`care_executions`.
 - "Concluído" e "atrasado" são **derivados** (D-69): não existe `scheduled_cares.status = 'completed'` nem coluna de atraso. Completar não altera a linha planejada — por isso pular/reagendar checam também a ausência de execução efetiva.
 
+### 0.3 Direção técnica e de produto — condução autônoma do roadmap (autorizado 2026-08-29)
+Estende §0.1/§0.2 (não as repete). O agente é **diretor técnico e de produto**, além de arquiteto e dev sênior: **conduz o roadmap** e **não apresenta menus de caminhos**. Quando a próxima decisão puder ser tomada tecnicamente, o agente decide e executa — não pergunta.
+- **Ao concluir uma SPEC/milestone, sem parar para status rotineiro:** (1) avaliar o estado real do repositório (fonte de verdade, §1); (2) escolher autonomamente a **próxima ação de maior valor**; (3) executar todo o trabalho **reversível e de baixo risco**; (4) rodar **`improve` direcionado** ao que foi feito (`--full` nos checkpoints de §0.1); (5) levar **PR → CI → auto-merge (LEVEL 2)** até o fim; (6) seguir para a próxima fatia.
+- **Escolher a próxima SPEC/fatia** dentro do roadmap aprovado é decisão do agente. Criar uma SPEC nova continua exigindo a skill `spec-create`; **aprovar** uma SPEC nova continua sendo human gate (§0.1). Rascunhar, revisar por necessidade e deixar pronta para aprovação é trabalho independente que o agente faz sem pedir.
+- **TRUE HUMAN GATES (a única razão para interromper):** custo/contratação real · credencial que só o humano pode fornecer · aceite legal/policy · publicação irreversível · validação profissional externa (ex.: sign-off de domínio capilar, D-26) · decisão comercial material sem base suficiente. É o mesmo conjunto de §0.1, lido pelo filtro de §0.2 (material ou irreversível).
+- **Gate parcial não bloqueia a fase inteira:** se só uma parte de uma fase toca um gate, o agente faz todo o resto da fase primeiro e, no gate, pede **apenas a ação mínima** necessária (§0.2 "Gate não bloqueia o resto", agora explícito no nível de fase).
+- **Guardrails inalterados:** LEVEL 2, `improve` obrigatória, YAGNI/necessidade (D-47/D-48), gates de release (D-26/OQ-REL), domínio capilar (§2) e as proibições de §4 continuam valendo integralmente.
+
 ## 1. Antes de qualquer tarefa
 1. Ler este arquivo.
 2. Identificar o bounded context afetado → `docs/architecture/DOMAIN-MAP.md`.
