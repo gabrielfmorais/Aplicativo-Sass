@@ -3,6 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Status | v0.22 — 2026-08-28 — SPEC-000/001/002/004/**005/006/007/008/009/014** implementadas/merged; **Fases 5–8 fechadas**; **D-74 ratificada**; **D-73 ratificada**; SPEC-003 folded (D-66); D-70/D-71/D-72 **ratificadas por decisão humana** (D-70 com correção: o gate depende do conteúdo, não do autor). Regras capilares V1 continuam `candidate` (D-67): **PUBLIC RELEASE bloqueado** até o domain sign-off (`candidate → validated`, D-26/OQ-REL). LEVEL 2 ativo; **§0.2 Master Autonomous Engineering Mode** ativo |
+| — | v0.23 — 2026-08-29 — **SPEC-010 aprovada em duas partes por decisão humana (D-78/D-79)**: infraestrutura (core + banco + Edge) autorizada; paywall/SDK e primeira capacidade premium seguem bloqueados por OQ1/OQ2/OQ3 |
 | Uso | Fonte de verdade sobre o estado de cada decisão. Nenhum item muda de status sem registro nesta tabela. Agentes nunca resolvem itens `HUMAN DECISION` por conta própria; sob `CLAUDE.md` §0.2 podem decidir o que é **pequeno, reversível e de baixo risco**, registrando o item como `DECIDED (agente, §0.2)` para ratificação humana (bloco B6). Ratificado vira `RATIFIED (humano, data)`. |
 
 Legenda de custo de mudança tardia: **L** (horas) · **M** (dias) · **H** (semanas ou migração de dados).
@@ -134,6 +135,15 @@ Status: `APPROVED` · `DECIDED` (decisão humana com conteúdo específico) · `
 | ID | Decisão | Conteúdo decidido | Efeito | Status |
 |---|---|---|---|---|
 | D-77 | SPEC-014 | **APPROVED** (v0.1). Reavaliar é **fluxo de cliente**: a máquina de servidor já existia (`hair_profiles` append-only por D-64; `create_plan_tx` já faz supersede atômico; `generate-plan` já lê o snapshot mais recente). **Supersede só na confirmação** — salvar respostas novas não derruba o cronograma atual, então desistir no meio deixa tudo intacto; um snapshot sem plano é histórico legítimo (D-64), não lixo. **Zero migration, zero RPC, zero tela nova** (reusa `OnboardingScreen` e `PlanScreen`). Resolve o **OQ-2 da SPEC-009**: o total vitalício de execuções efetivas passa a aparecer quando supera o do plano atual, porque sem ele a primeira reavaliação faria o trabalho dela sumir de vista. **Fora:** nova versão de engine, `reassessment_due`, navegar planos passados, comparar avaliações ("o que mudou" seria inferência — D-26), cooldown. | SPEC-014 → Approved; SPEC-009 OQ-2 resolvida; DOMAIN-MAP §3.3/§3.6 | **DECIDED (agente, §0.2)** |
+
+## B11. DECIDED — SPEC-010 Subscription & Entitlements, Parte 1 (2026-08-29)
+
+> **Decisão humana** (2026-08-29): "aprovado parte 1". A SPEC-010 foi aprovada **em duas partes**, conforme a recomendação da revisão `spec-review`. A Parte 1 não depende de nenhuma das OQ BLOCKING, não gasta dinheiro e não exige credencial externa.
+
+| ID | Decisão | Conteúdo decidido | Efeito | Status |
+|---|---|---|---|---|
+| D-78 | SPEC-010 — Parte 1 (infraestrutura) | **APPROVED** (v0.2), escopo **PR-A (core) + PR-B (banco) + PR-C (Edge)**: `EntitlementService` + `catalog.ts` puros; tabelas `subscriptions` (1:1, SELECT own, escrita de cliente negada por privilégio) e `billing_events` (idempotência por `event_id`, sem payload cru); RPC `apply_billing_event` (DEFINER, EXECUTE só `service_role`, allowlistada, `search_path` pinado — padrão `create_plan_tx`); `has_entitlement`/`get_my_entitlements` (STABLE, INVOKER); Edge `billing-webhook` (HMAC + zod + uma chamada à RPC), testada com fixtures genéricas e **sem deploy**. Amenda a ADR-011 (`billing_events` no lugar de `audit_log`, que não existe) e o catálogo da ADR-010 (`paywall_dismissed`, `subscription_restored`). Implementação autorizada (LEVEL 2). | SPEC-010 → Approved (Parte 1); ADR-011/ADR-010 amendadas; DATA-MODEL §3.12 | **DECIDED (humano, 2026-08-29)** |
+| D-79 | SPEC-010 — Parte 2 (app) | **NÃO aprovada.** PR-D (paywall + SDK do provider) e PR-E (primeira capacidade premium) seguem bloqueadas por **OQ1** (provider + custo), **OQ2** (preço/período/trial) e **OQ3** (qual capacidade premium vem primeiro) — TRUE HUMAN GATES. Nenhuma dependência nova é instalada e nenhuma credencial é pedida enquanto isso. | SPEC-010 §20 PR-D/PR-E; OQ1/OQ2/OQ3 abertas | **OPEN** |
 
 ## C. DEFERRED / OPEN (não decidir agora)
 
