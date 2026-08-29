@@ -3,13 +3,13 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-010 |
-| Status | **Draft** (aguardando aprovação humana + resolução das OQ BLOCKING) |
+| Status | **Approved — Parte 1** (infraestrutura: PR-A core, PR-B banco, PR-C Edge — decisão humana D-78, 2026-08-29). **Parte 2** (PR-D paywall/SDK, PR-E capacidade premium) permanece **não aprovada**, bloqueada por OQ1/OQ2/OQ3 (D-79). |
 | Owner | (humano) — projetopaporeto.erp@gmail.com |
 | Bounded Context | Subscription & Entitlements (DOMAIN-MAP §3.9) |
 | Related ADRs | ADR-011 (Subscription & Entitlements), ADR-004 (Supabase), ADR-010 (Analytics), ADR-001 (Arquitetura) |
 | Related SPECs | SPEC-000 (foundation: `has_entitlement` reservado), SPEC-001 (auth), SPEC-009 (Progress — candidato a insights premium) |
 | Fase do roadmap | 9 |
-| Criado / Atualizado | 2026-08-29 / 2026-08-29 |
+| Criado / Atualizado | 2026-08-29 / 2026-08-29 (v0.2, aprovação parcial) |
 
 > **Nota de escopo (necessidade / §0.2):** esta SPEC entrega a **infraestrutura** Billing → Subscription → Entitlement e o **paywall**, que são provider-agnósticos, seguros e testáveis. Três decisões são **TRUE HUMAN GATES** e ficam como OQ **BLOCKING**: (a) escolha do provider + custo, (b) preços/plano, (c) qual capacidade premium é liberada primeiro.
 >
