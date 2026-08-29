@@ -151,6 +151,7 @@ function AuthenticatedApp({
           setProfile(snapshot);
           setReassessing('preview');
         }}
+        onCancel={() => setReassessing(null)}
       />
     );
   }

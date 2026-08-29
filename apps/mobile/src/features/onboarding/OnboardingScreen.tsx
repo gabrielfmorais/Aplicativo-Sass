@@ -110,13 +110,19 @@ function Question<T extends string>({
  * Minimal, mobile-first onboarding for SPEC-002: collects the 8 approved inputs (§6) and saves an
  * immutable snapshot. No diagnosis (D-26). Onboarding completion is derived from the snapshot's
  * existence (no onboarding_status). Prevents accidental double-submit via the submitting state.
+ *
+ * `onCancel` is optional: absent for first onboarding (there is nowhere to go back to), present for
+ * SPEC-014 reassessment so the questions step can be abandoned at any point (AC6) without a device
+ * back button, leaving the active plan untouched.
  */
 export function OnboardingScreen({
   hairProfile,
   onSaved,
+  onCancel,
 }: {
   hairProfile: HairProfilePort;
   onSaved: (snapshot: HairProfileSnapshot) => void;
+  onCancel?: () => void;
 }) {
   const [hairPattern, setHairPattern] = useState<HairProfileInput['hairPattern']>();
   const [strandThickness, setStrandThickness] = useState<HairProfileInput['strandThickness']>();
@@ -187,6 +193,12 @@ export function OnboardingScreen({
         Sobre o seu cabelo
       </Text>
       <Text style={styles.subtitle}>Algumas perguntas rápidas para personalizar seus cuidados.</Text>
+
+      {onCancel ? (
+        <Pressable style={styles.cancel} onPress={onCancel} disabled={submitting} accessibilityRole="button">
+          <Text>Cancelar</Text>
+        </Pressable>
+      ) : null}
 
       <Question
         title="Qual é o seu tipo de curvatura?"
@@ -285,5 +297,12 @@ const styles = StyleSheet.create({
   },
   saveDisabled: { opacity: 0.4 },
   saveText: { color: '#fff', fontWeight: '600' },
+  cancel: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   message: { color: '#b00020' },
 });

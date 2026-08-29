@@ -2,10 +2,10 @@
 
 | Campo | Valor |
 |---|---|
-| Status | Draft v0.1 — **conceitual; nenhuma migration criada** |
+| Status | v0.2 — parcialmente implementado: SPEC-000/001/002/004/005/006/008 já têm migration em `supabase/migrations/`; o restante permanece conceitual |
 | Relacionados | [DOMAIN-MAP](DOMAIN-MAP.md) · [SUPABASE-RLS-STRATEGY](../security/SUPABASE-RLS-STRATEGY.md) · [ADR-008 Time](../adr/ADR-008-time-and-dates.md) |
 
-> Nomes de tabelas/colunas abaixo são **propostas** para dar precisão ao raciocínio. Só viram schema real via SPEC + migration revisada. Nada aqui autoriza um agente a criar tabelas.
+> Cada tabela abaixo é marcada como **implementada** (com a SPEC/migration) ou **proposta** (ainda conceitual). Uma tabela proposta só vira schema real via SPEC + migration revisada; nada aqui autoriza um agente a criar tabelas por conta própria.
 
 ---
 
