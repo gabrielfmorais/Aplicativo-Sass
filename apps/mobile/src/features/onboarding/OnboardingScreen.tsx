@@ -195,12 +195,7 @@ export function OnboardingScreen({
       <Text style={styles.subtitle}>Algumas perguntas rápidas para personalizar seus cuidados.</Text>
 
       {onCancel ? (
-        <Pressable
-          style={styles.cancel}
-          onPress={onCancel}
-          disabled={submitting}
-          accessibilityRole="button"
-        >
+        <Pressable style={styles.cancel} onPress={onCancel} disabled={submitting} accessibilityRole="button">
           <Text>Cancelar</Text>
         </Pressable>
       ) : null}
