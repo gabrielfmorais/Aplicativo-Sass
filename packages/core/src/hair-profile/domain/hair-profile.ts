@@ -112,9 +112,13 @@ export const hairProfileFromRow = (row: unknown): HairProfileSnapshot => {
     strandThickness: r.strand_thickness,
     scalpTendency: r.scalp_tendency,
     washFrequency: r.wash_frequency,
-    chemicalTreatments: r.chemical_treatments,
+    // These two are sets by domain definition (the input schema forbids duplicates), but the DB CHECKs
+    // only enforce subset+cardinality — a tampered client could store duplicates. Normalise on read so
+    // the engine input can never be double-weighted (defence at the single boundary both the app and the
+    // generate-plan Edge Function read through).
+    chemicalTreatments: [...new Set(r.chemical_treatments)],
     heatUsage: r.heat_usage,
-    currentConcerns: r.current_concerns,
+    currentConcerns: [...new Set(r.current_concerns)],
     primaryGoal: r.primary_goal,
   };
 };
