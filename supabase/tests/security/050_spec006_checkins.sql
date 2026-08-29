@@ -67,8 +67,9 @@ select is((select count(*)::int from tests.unapproved_security_definer_functions
 select ok((select p.prosecdef from pg_proc p join pg_namespace n on n.oid = p.pronamespace
             where n.nspname = 'public' and p.proname = 'submit_checkin'),
           'submit_checkin is SECURITY DEFINER');
--- tests.unapproved_security_definer_functions() checks the allowlist but NOT the search_path pin,
--- so this assertion is the only thing proving it for this function (SECURITY-BASELINE S5).
+-- The repo-wide guardrail (tests.unpinned_security_definer_functions, 002) already fails on any
+-- unpinned DEFINER function; this assertion additionally pins down *which* schema list is expected
+-- for submit_checkin (SECURITY-BASELINE S5).
 select ok((select array_to_string(p.proconfig, ' ') like 'search_path=%pg_temp%'
              from pg_proc p join pg_namespace n on n.oid = p.pronamespace
             where n.nspname = 'public' and p.proname = 'submit_checkin'),
