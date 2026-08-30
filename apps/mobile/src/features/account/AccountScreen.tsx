@@ -1,6 +1,7 @@
 import type {
   AuthPort,
   DeletionRequestPort,
+  EntitlementsPort,
   NotificationPreferences,
   NotificationPreferencesPort,
   NotificationSchedulerPort,
@@ -9,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { NotificationSettings } from '@/features/account/NotificationSettings';
+import { SubscriptionSection } from '@/features/account/SubscriptionSection';
 
 /**
  * Authenticated home for SPEC-001: logout and the account-deletion request contract (FR5/FR6).
@@ -17,6 +19,7 @@ import { NotificationSettings } from '@/features/account/NotificationSettings';
 export function AccountScreen({
   auth,
   deletion,
+  entitlements,
   notificationPreferences,
   notificationScheduler,
   onNotificationPreferencesChanged,
@@ -24,6 +27,7 @@ export function AccountScreen({
 }: {
   auth: AuthPort;
   deletion: DeletionRequestPort;
+  entitlements: EntitlementsPort;
   notificationPreferences: NotificationPreferencesPort;
   notificationScheduler: NotificationSchedulerPort;
   onNotificationPreferencesChanged: (preferences: NotificationPreferences) => void;
@@ -56,6 +60,8 @@ export function AccountScreen({
       <Text style={styles.title} accessibilityRole="header">
         Sua conta
       </Text>
+
+      <SubscriptionSection entitlements={entitlements} />
 
       <NotificationSettings
         preferences={notificationPreferences}

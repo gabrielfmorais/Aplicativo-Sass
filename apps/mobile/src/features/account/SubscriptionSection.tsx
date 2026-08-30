@@ -1,0 +1,76 @@
+import type { EntitlementsPort } from '@app/core';
+import { EntitlementService } from '@app/core';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+/**
+ * SPEC-010 G3 — the account's subscription status, read from server truth.
+ *
+ * This slice ships the provider-agnostic read path only: the paywall purchase flow (RevenueCat native
+ * SDK) and the funnel are deferred with the development build and the store products. So there is no
+ * "subscribe" button here yet — showing one that cannot complete would be dishonest. What she gets is
+ * an accurate free/premium status and what premium will unlock (OQ3: plan customisation).
+ *
+ * Every read is fail closed: unknown / error / loading resolves to FREE, never premium — an error must
+ * not imply access (§16). The check goes through EntitlementService, never a bare status comparison
+ * (ADR-011 / CLAUDE.md §2).
+ */
+export function SubscriptionSection({ entitlements }: { entitlements: EntitlementsPort }) {
+  const [granted, setGranted] = useState<readonly string[] | 'loading' | 'error'>('loading');
+
+  const load = useCallback(() => {
+    setGranted('loading');
+    let active = true;
+    entitlements
+      .get()
+      .then((codes) => active && setGranted(codes))
+      .catch(() => active && setGranted('error'));
+    return () => {
+      active = false;
+    };
+  }, [entitlements]);
+  useEffect(() => load(), [load]);
+
+  if (granted === 'loading') return <Text>Carregando sua assinatura…</Text>;
+
+  // A failed read is treated as free (fail closed), but we still offer a retry so a transient network
+  // error is not mistaken for a permanent downgrade.
+  if (granted === 'error') {
+    return (
+      <View style={styles.section}>
+        <Text style={styles.title} accessibilityRole="header">
+          Assinatura
+        </Text>
+        <Text accessibilityLiveRegion="polite">
+          Não foi possível confirmar sua assinatura. Enquanto isso, o acesso é o do plano gratuito.
+        </Text>
+        <Pressable style={styles.button} onPress={load} accessibilityRole="button">
+          <Text>Tentar novamente</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  const canCustomize = EntitlementService.can('plan_customization', granted);
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.title} accessibilityRole="header">
+        Assinatura
+      </Text>
+      <Text accessibilityLiveRegion="polite">{canCustomize ? 'Premium ativo' : 'Plano atual: Gratuito'}</Text>
+      <Text style={styles.body}>
+        {canCustomize
+          ? 'Você tem acesso à personalização do seu cronograma.'
+          : 'Em breve: personalize seu cronograma de cuidados com o premium.'}
+      </Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  section: { gap: 8 },
+  title: { fontSize: 16, fontWeight: '600' },
+  body: { fontSize: 14, lineHeight: 20 },
+  button: { padding: 14, borderWidth: 1, borderRadius: 8, alignItems: 'center', minHeight: 48 },
+});
