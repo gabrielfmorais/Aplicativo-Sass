@@ -3,6 +3,7 @@ import type {
   AuthState,
   CareTrackingPort,
   DeletionRequestPort,
+  EntitlementsPort,
   HairPlanPort,
   HairProfilePort,
   Instant,
@@ -20,6 +21,7 @@ import { createSupabaseAuthAdapter } from '@/infrastructure/supabase/auth-adapte
 import { supabase } from '@/infrastructure/supabase/client';
 import { createDeletionRequestAdapter } from '@/infrastructure/supabase/deletion-request-adapter';
 import { createCareTrackingAdapter } from '@/infrastructure/supabase/care-tracking-adapter';
+import { createEntitlementsAdapter } from '@/infrastructure/supabase/entitlements-adapter';
 import { createHairPlanAdapter } from '@/infrastructure/supabase/hair-plan-adapter';
 import { createHairProfileAdapter } from '@/infrastructure/supabase/hair-profile-adapter';
 import { createNotificationPreferencesAdapter } from '@/infrastructure/supabase/notification-preferences-adapter';
@@ -33,6 +35,7 @@ type AuthContextValue = {
   hairProfile: HairProfilePort;
   hairPlan: HairPlanPort;
   careTracking: CareTrackingPort;
+  entitlements: EntitlementsPort;
   notificationPreferences: NotificationPreferencesPort;
   notificationScheduler: NotificationSchedulerPort;
   /** The user's civil day (ADR-008): the composition root owns the clock, screens never read it. */
@@ -82,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hairPlan = useMemo(() => createHairPlanAdapter(supabase), []);
   const careTracking = useMemo(() => createCareTrackingAdapter(supabase), []);
+  const entitlements = useMemo(() => createEntitlementsAdapter(supabase), []);
   const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   useEffect(() => {
@@ -111,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hairProfile,
         hairPlan,
         careTracking,
+        entitlements,
         notificationPreferences,
         notificationScheduler,
         today: () => toLocalDate(systemClock.now(), timeZone()),

@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-010 |
-| Status | **Approved — Parte 1** (infraestrutura: PR-A core, PR-B banco, PR-C Edge — decisão humana D-78, 2026-08-29). **Parte 2** (PR-D paywall/SDK, PR-E capacidade premium) permanece **não aprovada**, bloqueada por OQ1/OQ2/OQ3 (D-79). |
+| Status | **Parte 1 IMPLEMENTADA/merged** (PR-A #35, PR-B #36, PR-C #37 — D-78, 2026-08-30). **Parte 2 APROVADA** (decisão humana, 2026-08-30): **OQ1 = RevenueCat**, **OQ3 = `plan_customization`**, **OQ2 = preço definido depois** (vem da loja em runtime). Em construção: a camada **provider-agnóstica** de PR-D (leitura de entitlements, `PurchasesPort`, paywall + funil, verificável por RNTL) segue já; o **adapter nativo RevenueCat (`react-native-purchases`)** e o **IAP real** ficam **DEFERRED** com o development build (constraint do dono) + conta/produtos RevenueCat (credencial). |
 | Owner | (humano) — projetopaporeto.erp@gmail.com |
 | Bounded Context | Subscription & Entitlements (DOMAIN-MAP §3.9) |
 | Related ADRs | ADR-011 (Subscription & Entitlements), ADR-004 (Supabase), ADR-010 (Analytics), ADR-001 (Arquitetura) |
@@ -210,9 +210,9 @@ Migrations novas e aditivas (forward-only), na ordem: `subscriptions`, depois `b
 - App: feature flag do paywall (ocultar) reverte a exposição sem redeploy de backend.
 
 ## 23. Open Questions
-- **OQ1 — Provider + custo (BLOCKING / TRUE HUMAN GATE).** Qual provider (RevenueCat candidato) e a que custo. *Assunção enquanto aberta:* arquitetura provider-agnóstica; PRs A/B/C não dependem da resposta.
-- **OQ2 — Preço e plano (BLOCKING / TRUE HUMAN GATE).** Valor, moeda, período (mensal/anual), duração do trial. Decisão comercial. *Assunção:* preço/período vêm da loja em runtime; nada hard-coded.
-- **OQ3 — Primeira capacidade premium (BLOCKING / decisão de produto material).** Qual das três (`advanced_insights` sobre SPEC-009 / `plan_customization` / `premium_content`) é liberada primeiro, e seu escopo mínimo. *Assunção de engenharia (não decisão):* `plan_customization` tende a ter menor risco de domínio (não inventa ciência capilar); confirmar com o dono. Feature premium substantiva pode virar SPEC própria (NG7).
+- **OQ1 — Provider + custo — RESOLVIDA (humano, 2026-08-30): RevenueCat.** Abstrai App Store/Play, webhooks e sandbox (ADR-011). Autoriza a dependência `react-native-purchases` (§4) quando o development build for retomado. Custo do provider aceito pelo dono.
+- **OQ2 — Preço e plano — DIFERIDA (humano, 2026-08-30): "decide preço depois".** Valor/moeda/período/trial serão definidos na loja mais tarde; o código lê preço/período da loja em runtime (nada hard-coded), então nada aqui depende do número. Configurar os produtos IAP continua sendo credencial externa (App Store Connect / Google Play).
+- **OQ3 — Primeira capacidade premium — RESOLVIDA (humano, 2026-08-30): `plan_customization`.** Menor risco de domínio (não inventa ciência capilar — não toca o gate D-26). A **funcionalidade** de customização de plano é substantiva e vira **SPEC própria** (NG7); esta SPEC entrega o gate server-side reutilizável (`has_entitlement('plan_customization')`) e o paywall que o expõe.
 - **OQ4 — Grace period (IMPORTANT).** Usar o `grace` nativo do provider (billing retry) como acesso concedido. *Assunção:* sim, `grace` concede acesso (BR3).
 - **OQ5 — Reconciliação (CAN DEFER).** Cron diário com a API do provider. *Assunção:* fora do MVP (NG1); webhook + refresh bastam.
 - **OQ6 — Conteúdo/insights premium e o gate de domínio (IMPORTANT).** Se OQ3 = `advanced_insights`/`premium_content`, qualquer orientação capilar substantiva cai no gate D-26/D-70 (`candidate → validated`) antes do PUBLIC RELEASE. *Assunção:* preferir uma primeira capacidade **sem** nova regra capilar para não acoplar dois gates.

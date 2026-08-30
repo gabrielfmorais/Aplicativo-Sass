@@ -1,6 +1,7 @@
 import type {
   AuthPort,
   DeletionRequestPort,
+  EntitlementsPort,
   HairPlanPort,
   HairProfileSnapshot,
   LocalDate,
@@ -35,6 +36,7 @@ const accountPorts = () => ({
     request: jest.fn(async () => undefined),
     cancel: jest.fn(async () => undefined),
   } as unknown as DeletionRequestPort,
+  entitlements: { get: jest.fn(async () => []) } as unknown as EntitlementsPort,
   notificationPreferences: {
     get: jest.fn(async () => DEFAULT_NOTIFICATION_PREFERENCES),
     save: jest.fn(async () => undefined),

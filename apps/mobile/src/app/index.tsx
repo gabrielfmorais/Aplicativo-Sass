@@ -64,7 +64,7 @@ function AuthenticatedApp({
   timeZone: () => string;
   newRequestId: () => string;
 }) {
-  const { auth, deletion } = useAuth();
+  const { auth, deletion, entitlements } = useAuth();
   const [profile, setProfile] = useState<Loadable<HairProfileSnapshot | null>>('loading');
   const [board, setBoard] = useState<Loadable<CareBoard | null>>('loading');
   const [showAccount, setShowAccount] = useState(false);
@@ -177,6 +177,7 @@ function AuthenticatedApp({
         <AccountScreen
           auth={auth}
           deletion={deletion}
+          entitlements={entitlements}
           notificationPreferences={notificationPreferences}
           notificationScheduler={notificationScheduler}
           onNotificationPreferencesChanged={setPrefs}
