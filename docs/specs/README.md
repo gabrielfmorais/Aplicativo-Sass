@@ -53,3 +53,4 @@ Idea → Requirement → (ADR se decisão arquitetural) → SPEC → Implementat
 | SPEC-012 | Observability (crash, logs) | — | 10 | Reservado |
 | SPEC-013 | Release readiness (stores, privacy labels, LGPD) | — | 10 | Reservado |
 | [SPEC-014](SPEC-014-reassessment.md) | Reavaliação: o cabelo mudou, o cronograma acompanha | Diagnostic/Schedule | 8 | **IMPLEMENTED** (v0.2, 2026-08-28; aprovada por D-77) — reusa onboarding + preview; supersede só na confirmação; total vitalício preserva o histórico |
+| [SPEC-015](SPEC-015-plan-customization.md) | Plan Customization (primeira capacidade premium) | Schedule/Planning (gated por Subscription) | 9 | **Draft** — consome o gate `has_entitlement('plan_customization')` (SPEC-010/D-79). Escopo de produto (OQ1) e arquitetura de aplicação (OQ2, possível ADR) em aberto; domínio (D-26) e imutabilidade do plano preservados. Requer label `security` |
