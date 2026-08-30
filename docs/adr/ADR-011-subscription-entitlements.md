@@ -2,6 +2,8 @@
 
 **Status:** **Accepted — forma** (D-09, 2026-08-26). **Provider: DEFERRED** (D-24) — RevenueCat permanece apenas candidato; nenhuma menção a provider nesta ADR é decisão. · **Data:** 2026-08-26
 
+> **Amenda (D-78, 2026-08-30 — SPEC-010 Parte 1 implementada):** dois pontos abaixo foram substituídos na implementação. (1) O webhook **não grava `audit_log`** (tabela genérica nunca construída): usa **`billing_events`** (append-only, idempotência por `event_id` PK), que cobre a mesma necessidade com uma constraint em vez de convenção; `audit_log` volta quando houver ≥2 produtores (DATA-MODEL §3.14). (2) A verificação server-side de recurso premium **não usa `content_articles`** (tabela inexistente — D-71); a primeira capacidade premium e seu gate server-side ficam na Parte 2 (PR-E, bloqueada por OQ3). O restante da ADR (três camadas, entitlement por capacidade, verdade no servidor, free por padrão) foi implementado como descrito.
+
 ## Context
 Monetização Free/Trial/Premium via lojas (IAP obrigatório para conteúdo digital). Precisamos que a permissão premium seja decidida no servidor, que a lógica de provider não vaze para o domínio, e que checagens não se espalhem (`if plan === 'premium'`).
 

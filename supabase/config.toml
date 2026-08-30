@@ -373,6 +373,17 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+# SPEC-010: the billing webhook is a PUBLIC endpoint the provider calls with no Supabase JWT — it
+# authenticates the provider by HMAC inside the function (SECURITY-BASELINE §5, T18). Without this the
+# gateway default (verify_jwt = true) rejects every provider POST before the function runs. The signing
+# secret is injected as function env at deploy (Fase 10, HUMAN GATE), never committed.
+[functions.billing-webhook]
+verify_jwt = false
+
+# generate-plan re-verifies the caller's JWT itself (index.ts); pinned here to document intent.
+[functions.generate-plan]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

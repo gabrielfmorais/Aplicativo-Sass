@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Status | v0.2 — parcialmente implementado: SPEC-000/001/002/004/005/006/008 já têm migration em `supabase/migrations/`; o restante permanece conceitual |
+| Status | v0.3 — parcialmente implementado: SPEC-000/001/002/004/005/006/008/**010** já têm migration em `supabase/migrations/` (SPEC-010 Parte 1: `subscriptions`, `billing_events`, RPCs — §3.12/§3.12b); o restante permanece conceitual. `audit_log` **nunca foi construído** (substituído por `billing_events`, D-78) — ver §3.14/§5 |
 | Relacionados | [DOMAIN-MAP](DOMAIN-MAP.md) · [SUPABASE-RLS-STRATEGY](../security/SUPABASE-RLS-STRATEGY.md) · [ADR-008 Time](../adr/ADR-008-time-and-dates.md) |
 
 > Cada tabela abaixo é marcada como **implementada** (com a SPEC/migration) ou **proposta** (ainda conceitual). Uma tabela proposta só vira schema real via SPEC + migration revisada; nada aqui autoriza um agente a criar tabelas por conta própria.
@@ -212,8 +212,8 @@ Estado corrente da assinatura (SPEC-010 PR-B, implementada — migration `202609
 | updated_at | timestamptz (trigger `set_updated_at`) |
 
 - Escrita **exclusivamente** pela RPC `apply_billing_event` (SECURITY DEFINER, EXECUTE só `service_role`, allowlistada — padrão `create_plan_tx`). Usuária: **apenas SELECT** da própria linha; nenhum grant de INSERT/UPDATE/DELETE (escrita de cliente negada por privilégio, 42501).
-- Entitlements derivados por função `get_my_entitlements()` / `has_entitlement(code)` (STABLE, INVOKER) — sem tabela no MVP (NG6).
-- **Divergências deliberadas do desenho antigo (SPEC-010 §8, a SPEC é a versão nova):** 1:1 em vez de 1:N; sem `id` sintético e sem `provider_subscription_id` (correlação pelo `app_user_id = auth.users.id`); sem `raw_last_event` (payload cru = superfície de PII/segredo sem uso; substituído por `payload_hash` em `billing_events`); sem `trial_ends_at`/`cancelled_at` (acesso decidido por `status` + `current_period_ends_at`); idempotência sai da linha de estado e vira a PK de `billing_events`.
+- Entitlements derivados por função `get_my_entitlements()` / `has_entitlement(code)` (STABLE, INVOKER) — sem tabela no MVP (NG6). **O acesso é decidido por `status ∈ {trial,active,grace}`** (SPEC-010 §9/BR3, autoritativo). `current_period_ends_at` é armazenado para telemetria/suporte e como **backstop opcional da Parte 2** (`... and current_period_ends_at > now()` contra um webhook `expiration` perdido, já que a reconciliação é NG1) — deliberadamente fora da Parte 1, pois a semântica do `grace` depende do provider (OQ4).
+- **Divergências deliberadas do desenho antigo (SPEC-010 §8, a SPEC é a versão nova):** 1:1 em vez de 1:N; sem `id` sintético e sem `provider_subscription_id` (correlação pelo `app_user_id = auth.users.id`); sem `raw_last_event` (payload cru = superfície de PII/segredo sem uso; substituído por `payload_hash` em `billing_events`); sem `trial_ends_at`/`cancelled_at` (o acesso é decidido por `status`; ver a nota acima sobre `current_period_ends_at`); idempotência sai da linha de estado e vira a PK de `billing_events`.
 
 ### 3.12b `billing_events` — Webhook audit / idempotency (SPEC-010)
 Append-only. Substitui `audit_log` (nunca construído) para este único produtor — amenda a ADR-011 (D-78). Sem PII nem segredos (§12).
@@ -239,7 +239,9 @@ Append-only. Substitui `audit_log` (nunca construído) para este único produtor
 
 Só escrita por migration (SQL revisado em PR). Custom claim `app_role` sincronizado por Auth Hook. Ver SECURITY-BASELINE.
 
-### 3.14 `audit_log` (append-only)
+### 3.14 `audit_log` (append-only) — **NÃO CONSTRUÍDO (adiado)**
+> **D-78:** `audit_log` nunca foi construído. A SPEC-010 precisava só de auditoria do webhook de billing e a resolveu com **`billing_events`** (§3.12b), append-only e com idempotência por constraint. A tabela genérica `audit_log` volta ao roadmap quando houver **≥2 produtores** de auditoria (regra de necessidade, §0.2). O desenho conceitual abaixo permanece como referência para esse momento.
+
 | Coluna | Tipo |
 |---|---|
 | id | bigint identity |
@@ -289,7 +291,7 @@ Ninguém faz UPDATE/DELETE (nem service role por policy de app; retenção via j
 7. Toda linha de usuária tem `user_id` NOT NULL com FK cascade.
 8. `algorithm_version` NOT NULL onde aplicável.
 9. Assinaturas só mudam via servidor (ausência de policy de escrita para `authenticated`).
-10. `audit_log` append-only.
+10. `billing_events` append-only e idempotente por `event_id` (PK); escrita só pela DEFINER `apply_billing_event` (SPEC-010). *(A `audit_log` genérica não existe — D-78, §3.14.)*
 
 ## 6. Decisões em aberto (para SPECs)
 - ~~Permitir "desfazer execução"?~~ — **DECIDIDA (D-69/D-12, SPEC-005): sim, janela de 15 minutos** via `voided_at` + RPC `void_execution`; a execução anulada permanece no histórico.
