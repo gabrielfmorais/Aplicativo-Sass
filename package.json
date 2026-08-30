@@ -19,7 +19,8 @@
     "dep-cruise": "node scripts/dep-cruise.mjs",
     "test": "pnpm -r --if-present test",
     "test:core": "pnpm --filter @app/core test",
-    "verify": "pnpm check:node && pnpm format:check && pnpm lint && pnpm typecheck && pnpm dep-cruise && pnpm test && pnpm check:boundaries && pnpm check:docs-links && pnpm check:security-exceptions",
+    "check:entitlement-parity": "node scripts/check-entitlement-catalog-parity.mjs",
+    "verify": "pnpm check:node && pnpm format:check && pnpm lint && pnpm typecheck && pnpm dep-cruise && pnpm test && pnpm check:boundaries && pnpm check:docs-links && pnpm check:security-exceptions && pnpm check:entitlement-parity",
     "check:security-exceptions": "node scripts/check-security-exceptions.mjs"
   },
   "devDependencies": {
