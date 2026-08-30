@@ -60,6 +60,12 @@ insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
   ('authenticated', 'notification_preferences', 'INSERT', 'SPEC-008'),
   ('authenticated', 'notification_preferences', 'UPDATE', 'SPEC-008');
 
+-- SPEC-010 §10: subscriptions — authenticated may only SELECT its own row.
+-- Every write goes through apply_billing_event (service_role only); billing_events has no client
+-- grant at all; anon has nothing. has_entitlement/get_my_entitlements are INVOKER (not DEFINER).
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'subscriptions', 'SELECT', 'SPEC-010');
+
 -- SPEC-005 §9/§10: the only write path for care transitions. EXECUTE is granted to `authenticated`
 -- (unlike create_plan_tx) because these take only an id that already belongs to the caller, an
 -- idempotency key and a timezone — the user comes from auth.uid(), never from a parameter, so there
@@ -103,4 +109,16 @@ insert into tests.security_definer_allowlist (function_signature, spec, justific
     'public.create_plan_tx(p_user_id uuid, p_hair_profile_id uuid, p_starts_on date, p_assessment_algorithm_version text, p_schedule_algorithm_version text, p_client_request_id uuid, p_cares jsonb)',
     'SPEC-004',
     'Only write path into hair_plans/scheduled_cares. Clients hold no INSERT/UPDATE privilege, so plan creation cannot be forged by a tampered client (G2/P10). Needs DEFINER to write tables no caller may write, and to keep supersede+insert+cares atomic with a per-user advisory lock. EXECUTE granted to service_role only; the generate-plan Edge Function verifies the JWT and passes the resolved user id; auth.uid() is validated when present; search_path is pinned; profile ownership is re-checked server-side.'
+  );
+
+-- SPEC-010 §9/§10: the only write path into subscriptions/billing_events. EXECUTE is granted to
+-- service_role only (like create_plan_tx, unlike the SPEC-005 RPCs): the trusted caller is the
+-- billing-webhook Edge Function, which authenticates the provider by HMAC and passes the resolved
+-- app_user_id. has_entitlement/get_my_entitlements are SECURITY INVOKER, so they are not DEFINER
+-- functions and need no entry here.
+insert into tests.security_definer_allowlist (function_signature, spec, justification) values
+  (
+    'public.apply_billing_event(p_event_id text, p_user_id uuid, p_type text, p_occurred_at timestamp with time zone, p_provider text, p_status text, p_product_code text, p_current_period_ends_at timestamp with time zone, p_payload_hash text)',
+    'SPEC-010',
+    'Only write path into subscriptions/billing_events. Clients hold no INSERT/UPDATE privilege on either, so a subscription (T04) or a webhook effect (T18) cannot be forged by a tampered client. Idempotent by billing_events.event_id (PK) so a redelivered event is a no-op; a strictly newer provider event blocks a stale one so state never regresses (EC3); an event with no mapped user is audited but applied to no one (EC4). EXECUTE granted to service_role only; the billing-webhook Edge Function authenticates the provider by HMAC; search_path is pinned.'
   );

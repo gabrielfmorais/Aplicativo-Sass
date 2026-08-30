@@ -37,7 +37,8 @@ erDiagram
     profiles ||--o{ diagnostic_results : has
     profiles ||--o{ care_executions : has
     profiles ||--o| notification_preferences : has
-    profiles ||--o{ subscriptions : has
+    auth_users ||--o| subscriptions : "1:1 (SPEC-010; um plano — NG2)"
+    auth_users ||--o{ billing_events : "webhook audit (SPEC-010)"
     profiles ||--o| account_deletion_requests : has
     hair_profiles ||--o{ hair_plans : "generates (SPEC-004; sem diagnostic_results — D-66/§9)"
     hair_plans ||--o{ scheduled_cares : contains
@@ -199,20 +200,34 @@ de um port sem alterar a tela.
 `notification_deliveries` e `device_tokens` ficam **fora do MVP** enquanto o canal for local — o SO é a fila (ADR-009).
 
 ### 3.12 `subscriptions` — Subscription
+Estado corrente da assinatura (SPEC-010 PR-B, implementada — migration `20260902000000_subscriptions.sql`). **1:1** por usuária (um plano no MVP — NG2), então `user_id` é a chave natural.
+
 | Coluna | Tipo |
 |---|---|
-| id, user_id | |
-| provider | text CHECK (revenuecat/apple/google/manual) |
-| provider_subscription_id | text; UNIQUE (provider, provider_subscription_id) |
-| product_code | text |
-| status | text CHECK (trial/active/grace/expired/cancelled/refunded) |
-| trial_ends_at, current_period_ends_at, cancelled_at | timestamptz |
-| last_event_id | text (idempotência de webhook) |
-| raw_last_event | jsonb (sem PII; para debug) |
-| created_at / updated_at | |
+| user_id | uuid PK → auth.users(id) ON DELETE CASCADE |
+| status | text NOT NULL CHECK (trial/active/grace/expired/cancelled/refunded) |
+| product_code | text NOT NULL |
+| current_period_ends_at | timestamptz (nullable) |
+| provider | text NOT NULL CHECK (revenuecat/apple/google/manual) |
+| updated_at | timestamptz (trigger `set_updated_at`) |
 
-- Escrita **exclusivamente** por Edge Function (service role). Usuária: SELECT próprio. Nunca INSERT/UPDATE via client.
-- Entitlements derivados por função `get_my_entitlements()` / `has_entitlement(code)` — sem tabela no MVP.
+- Escrita **exclusivamente** pela RPC `apply_billing_event` (SECURITY DEFINER, EXECUTE só `service_role`, allowlistada — padrão `create_plan_tx`). Usuária: **apenas SELECT** da própria linha; nenhum grant de INSERT/UPDATE/DELETE (escrita de cliente negada por privilégio, 42501).
+- Entitlements derivados por função `get_my_entitlements()` / `has_entitlement(code)` (STABLE, INVOKER) — sem tabela no MVP (NG6).
+- **Divergências deliberadas do desenho antigo (SPEC-010 §8, a SPEC é a versão nova):** 1:1 em vez de 1:N; sem `id` sintético e sem `provider_subscription_id` (correlação pelo `app_user_id = auth.users.id`); sem `raw_last_event` (payload cru = superfície de PII/segredo sem uso; substituído por `payload_hash` em `billing_events`); sem `trial_ends_at`/`cancelled_at` (acesso decidido por `status` + `current_period_ends_at`); idempotência sai da linha de estado e vira a PK de `billing_events`.
+
+### 3.12b `billing_events` — Webhook audit / idempotency (SPEC-010)
+Append-only. Substitui `audit_log` (nunca construído) para este único produtor — amenda a ADR-011 (D-78). Sem PII nem segredos (§12).
+
+| Coluna | Tipo |
+|---|---|
+| event_id | text PK — id do evento do provider; o INSERT `on conflict do nothing` é o guard de idempotência (FR8) |
+| user_id | uuid → auth.users(id) ON DELETE SET NULL (nullable: evento não mapeado a uma usuária — EC4) |
+| type | text NOT NULL |
+| occurred_at | timestamptz NOT NULL — relógio do **provider**, chave de ordenação que descarta evento fora de ordem (EC3) |
+| received_at | timestamptz NOT NULL default now() |
+| payload_hash | text (sem payload cru) |
+
+- Tabela de servidor: RLS ON+FORCE, **nenhum** grant a `anon`/`authenticated`; escrita só pela DEFINER `apply_billing_event`. Índice `(user_id, occurred_at)` para o guard de ordenação.
 
 ### 3.13 `admin_users`
 | Coluna | Tipo |
