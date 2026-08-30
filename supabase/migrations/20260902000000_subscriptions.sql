@@ -122,6 +122,15 @@ begin
     raise exception 'apply_billing_event: event_id and occurred_at are required' using errcode = '22023';
   end if;
 
+  -- A user_id we do not recognise — one that never existed, or a user who has since deleted her
+  -- account (on delete cascade removed her subscription) — is treated as unmapped (EC4): the event is
+  -- still audited, with a null user_id, and applied to no one. Without this, a well-formed id for a
+  -- gone user would hit billing_events' FK, abort the transaction (losing the audit row) and make the
+  -- provider redeliver the same event forever on the 5xx.
+  if p_user_id is not null and not exists (select 1 from auth.users where id = p_user_id) then
+    p_user_id := null;
+  end if;
+
   insert into public.billing_events (event_id, user_id, type, occurred_at, payload_hash)
   values (p_event_id, p_user_id, p_type, p_occurred_at, p_payload_hash)
   on conflict (event_id) do nothing;
@@ -158,8 +167,10 @@ begin
       current_period_ends_at = excluded.current_period_ends_at,
       provider = excluded.provider,
       updated_at = now();
-  exception when check_violation or not_null_violation then
-    return true; -- audited, not applied (malformed provider event)
+  exception when check_violation or not_null_violation or foreign_key_violation then
+    -- Malformed provider event (bad enum / missing field), or the user was deleted between the check
+    -- above and here: audited, state untouched, no 5xx loop.
+    return true;
   end;
 
   return true;
