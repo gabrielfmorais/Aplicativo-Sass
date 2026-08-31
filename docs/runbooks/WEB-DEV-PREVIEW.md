@@ -43,13 +43,41 @@ Nada disso é bug do preview; é o limite dele. Continua exigindo device/simulad
 
 - Notificações locais de verdade (agendamento, disparo, deep link).
 - Persistência segura de sessão / reinstalação.
+- **Login por email** — não funciona em lugar nenhum hoje (D-84, §6), não só no preview.
 - IAP e o adapter nativo RevenueCat (SPEC-010 Parte 2, DEFERRED).
 - Gestos, teclado do sistema, safe areas reais, performance e fontes do aparelho.
 
 Bug que só aparece no web e depende de um dos itens acima **não é bug de produto** — é o adapter
 web fazendo o que está na tabela do §3.
 
-## 5. Regras
+## 5. Entrar no preview (D-84)
+
+**Use "Continuar com Google".** É o único caminho que fecha o ciclo hoje, e funciona no navegador
+pelo mesmo motivo que funciona no aparelho: o fluxo OAuth com PKCE acontece **sem descarregar a
+página** (popup), então o *code verifier* que vive só em memória (§3) continua lá quando o callback
+volta e o `exchangeCodeForSession` completa.
+
+Pré-requisito, uma vez, no painel do Supabase → **Authentication → URL Configuration → Redirect
+URLs**: adicionar `http://localhost:8081/**`. Sem isso o Supabase ignora o `redirect_to` e devolve
+para a Site URL, e o login não volta para o preview. É configuração de projeto, não de código.
+
+### O login por email **não funciona** — e não é bug do preview
+
+A tela pede um **código de 6 dígitos**; o Supabase DEV está enviando **Magic Link**, porque o
+template padrão de email usa `{{ .ConfirmationURL }}` e **custom SMTP ainda não foi configurado**.
+O código que a tela espera nunca chega. Enquanto isso valer:
+
+- **não registre, não teste e não relate OTP por email como funcional** (CLAUDE.md §0);
+- não tente "consertar" no cliente. As duas saídas são de configuração, não de código: um template
+  que emita `{{ .Token }}` (então a tela de 6 dígitos passa a funcionar como a SPEC-001 desenhou),
+  ou custom SMTP com um template próprio.
+
+E não tente fazer o **Magic Link** completar no preview web: o link chega por email, abre uma
+navegação nova, e o *code verifier* do PKCE morre junto com o contexto JS — porque a sessão web é
+memória-only de propósito (§3). Guardar o verifier no navegador para contornar isso seria trocar
+segurança por conveniência de desenvolvimento; não vale, e o OAuth já resolve.
+
+## 6. Regras
 
 - **Nenhuma regra de negócio conhece a plataforma.** `Platform.OS` fora de um adapter de
   infraestrutura ou de um ajuste puramente visual é bug (CLAUDE.md §2).
