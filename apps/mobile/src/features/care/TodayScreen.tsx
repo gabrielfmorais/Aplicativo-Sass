@@ -227,6 +227,7 @@ export function TodayScreen({
   newExecutionId,
   onChanged,
   onOpenAccount,
+  onReassess,
 }: {
   board: CareBoard;
   care: CareTrackingPort;
@@ -236,6 +237,12 @@ export function TodayScreen({
   newExecutionId: () => string;
   onChanged: () => void;
   onOpenAccount: () => void;
+  /**
+   * D-82 — the way out of a finished cycle. Present whenever there is an active plan, which is the
+   * only situation this screen renders in; it is optional so a test can render the screen without
+   * asserting on navigation.
+   */
+  onReassess?: () => void;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -305,6 +312,10 @@ export function TodayScreen({
       .finally(() => setBusyId(null));
   };
 
+  // Nothing left in the plan — either its four weeks elapsed, or she settled every remaining care
+  // early. Until D-82 this was a dead end: the screen said so and offered nothing, so the product
+  // simply went quiet. The copy below covers both ways of getting here, which is why it talks about
+  // the plan being empty rather than about four weeks having passed.
   const nothingLeft = view.overdue.length === 0 && view.today.length === 0 && view.upcoming.length === 0;
 
   return (
@@ -338,6 +349,18 @@ export function TodayScreen({
         busyId={busyId}
         onAct={act}
       />
+      {nothingLeft && onReassess ? (
+        <View style={styles.cycleEnd}>
+          <Text style={styles.cycleEndText}>
+            Não sobrou nenhum cuidado no seu cronograma atual. Reavaliar seu cabelo monta as próximas semanas
+            a partir de como ele está agora — o que você já registrou continua salvo.
+          </Text>
+          <Pressable style={styles.cycleEndButton} onPress={onReassess} accessibilityRole="button">
+            <Text>Reavaliar e montar o próximo</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {/* After the actionable sections and before the detail: she settles the day first, then
           sees the accumulated summary, which reads naturally as a preface to the history. */}
       <ProgressSummary progress={progress} />
@@ -365,6 +388,9 @@ export function TodayScreen({
 }
 
 const styles = StyleSheet.create({
+  cycleEnd: { gap: 8, paddingVertical: 8 },
+  cycleEndText: { fontSize: 14, lineHeight: 20 },
+  cycleEndButton: { padding: 14, borderWidth: 1, borderRadius: 8, alignItems: 'center', minHeight: 48 },
   container: { padding: 24, gap: 20 },
   title: { fontSize: 24, fontWeight: '600' },
   section: { gap: 8 },
