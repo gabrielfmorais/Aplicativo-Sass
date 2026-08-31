@@ -9,45 +9,77 @@ import type {
 } from '@app/core';
 import { EntitlementService, buildPlan } from '@app/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { Button, Card, Loading, Row, Screen, Stack, Text } from '@/design/primitives';
+import { careColor, radius, space } from '@/design/tokens';
 import { reasonOf } from '@/shared/failure-detail';
 
 import { CARE_TYPE_LABEL, EVIDENCE_LABEL, formatPlannedDate } from './copy';
+import { groupIntoWeeks } from './weeks';
 
 type Item = { key: string; careTypeCode: keyof typeof CARE_TYPE_LABEL; plannedDate: string };
 
-function Schedule({ items }: { items: readonly Item[] }) {
+/**
+ * The schedule, grouped by week (SPEC-016 slice 3).
+ *
+ * Twelve dates in a row are accurate and unreadable; four weeks of two or three are a routine she
+ * can picture. Each care carries its type as a word and its hue as a mark — the same semantic
+ * colours the daily screen uses, so a plan looks the same wherever she meets it (FR5).
+ */
+function Schedule({ items, startsOn }: { items: readonly Item[]; startsOn: LocalDate }) {
+  const weeks = useMemo(() => groupIntoWeeks(items, startsOn), [items, startsOn]);
   if (items.length === 0) {
-    return <Text style={styles.empty}>Nenhum cuidado programado ainda.</Text>;
+    return <Text tone="muted">Nenhum cuidado programado ainda.</Text>;
   }
   return (
-    <View style={styles.list}>
-      {items.map((c) => (
-        <View key={c.key} style={styles.row}>
-          <Text style={styles.rowDate}>{formatPlannedDate(c.plannedDate)}</Text>
-          <Text style={styles.rowCare}>{CARE_TYPE_LABEL[c.careTypeCode]}</Text>
-        </View>
+    <Stack gap="md">
+      {weeks.map((week) => (
+        <Card key={week.number}>
+          <Text variant="overline" tone="muted" accessibilityRole="header">
+            {`Semana ${week.number}`}
+          </Text>
+          <Stack gap="sm">
+            {week.items.map((care) => (
+              <Row key={care.key} gap="sm" style={styles.careRow}>
+                <Row gap="sm" style={styles.careName}>
+                  <View style={[styles.hue, { backgroundColor: careColor[care.careTypeCode].fg }]} />
+                  <Text variant="bodyStrong">{CARE_TYPE_LABEL[care.careTypeCode]}</Text>
+                </Row>
+                <Text variant="caption" tone="muted">
+                  {formatPlannedDate(care.plannedDate)}
+                </Text>
+              </Row>
+            ))}
+          </Stack>
+        </Card>
       ))}
-    </View>
+    </Stack>
   );
 }
 
+/**
+ * Why this plan and not another one — the moment the product stops being generic.
+ *
+ * Accent-tinted because it is the one thing on the screen that is *about her*, and the disclaimer
+ * sits inside it rather than under the title: the sentence that says this is cosmetic and not a
+ * diagnosis belongs next to the reading it qualifies (D-26/BR2).
+ */
 function Assessment({ draft }: { draft: PlanDraft }) {
   return (
-    <View style={styles.block}>
-      <Text style={styles.sectionTitle} accessibilityRole="header">
+    <Card tone="accent">
+      <Text variant="heading" accessibilityRole="header">
         Sua avaliação capilar
       </Text>
-      <Text style={styles.disclaimer}>
+      <Stack gap="xs">
+        {draft.evidenceCodes.map((code) => (
+          <Text key={code}>{`• ${EVIDENCE_LABEL[code] ?? code}`}</Text>
+        ))}
+      </Stack>
+      <Text variant="caption" tone="muted">
         Uma leitura cosmética das suas respostas para montar o cronograma — não é diagnóstico médico.
       </Text>
-      {draft.evidenceCodes.map((code) => (
-        <Text key={code} style={styles.evidence}>
-          • {EVIDENCE_LABEL[code] ?? code}
-        </Text>
-      ))}
-    </View>
+    </Card>
   );
 }
 
@@ -149,98 +181,91 @@ export function PlanScreen({
       .finally(() => setSubmitting(false));
   };
 
-  const items: Item[] = draft.cares.map((c, i) => ({ key: `${c.plannedDate}-${i}`, ...c }));
+  // Memoised so the grouping below can actually be memoised: a fresh array every render would make
+  // the `useMemo` in `Schedule` decorative, which is worse than not having one — it reads as a
+  // guarantee it does not give.
+  const items: Item[] = useMemo(
+    () => draft.cares.map((c, i) => ({ key: `${c.plannedDate}-${i}`, ...c })),
+    [draft],
+  );
 
-  if (preferences === 'resolving') return null;
+  // Not `null`: a white screen is indistinguishable from a crash, and on a slow connection it is the
+  // first thing she would see (SPEC-016 FR4/EC5).
+  if (preferences === 'resolving') return <Loading label="Montando seu cronograma…" />;
+
+  const confirmLabel = submitting
+    ? 'Criando…'
+    : onCancel
+      ? 'Confirmar novo cronograma'
+      : 'Começar meu cronograma';
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title} accessibilityRole="header">
+    <Screen
+      footer={
+        <Stack gap="sm">
+          {/* The only filled button on the screen. `disabled` rather than `busy` on purpose: a
+              full-width primary that says "Criando…" tells her more than a bare spinner, and the
+              double-submit guard is in `confirm` either way. */}
+          <Button
+            label={confirmLabel}
+            disabled={submitting}
+            accessibilityState={{ busy: submitting }}
+            onPress={confirm}
+          />
+          {onCancel ? (
+            <Button label="Cancelar" variant="ghost" disabled={submitting} onPress={onCancel} />
+          ) : onOpenAccount ? (
+            <Button label="Sua conta" variant="ghost" onPress={onOpenAccount} />
+          ) : null}
+        </Stack>
+      }
+    >
+      <Text variant="display" accessibilityRole="header">
         Este é o seu cronograma
       </Text>
 
       <Assessment draft={draft} />
 
-      <View style={styles.block}>
-        <Text style={styles.sectionTitle} accessibilityRole="header">
-          Próximas 4 semanas
+      <Stack gap="md">
+        <Text variant="overline" tone="muted" accessibilityRole="header">
+          {`Próximas 4 semanas · ${items.length} ${items.length === 1 ? 'cuidado' : 'cuidados'}`}
         </Text>
-        <Schedule items={items} />
+        {/* The draft owns the start date, not this screen: grouping by `today` would silently
+            mislabel every week if `buildPlan` ever moved the start away from it. */}
+        <Schedule items={items} startsOn={draft.plan.startsOn as LocalDate} />
         {draft.weekdayPlacement && !draft.weekdayPlacement.fullyHonoured ? (
-          <Text style={styles.disclaimer}>
+          <Text variant="caption" tone="muted">
             Sua rotina pede mais cuidados por semana do que os dias que você escolheu, então alguns ficaram no
             dia sugerido pela avaliação. Nenhum cuidado foi removido.
           </Text>
         ) : null}
-      </View>
+      </Stack>
 
       {onCancel ? (
-        <Text style={styles.replaceWarning}>
-          Confirmar substitui seu cronograma atual. Seu histórico continua salvo.
-        </Text>
+        <Card tone="muted">
+          <Text variant="bodyStrong">
+            Confirmar substitui seu cronograma atual. Seu histórico continua salvo.
+          </Text>
+        </Card>
       ) : null}
 
-      <Pressable
-        style={[styles.primary, submitting && styles.disabled]}
-        disabled={submitting}
-        onPress={confirm}
-        accessibilityRole="button"
-      >
-        <Text style={styles.primaryText}>
-          {submitting ? 'Criando…' : onCancel ? 'Confirmar novo cronograma' : 'Começar meu cronograma'}
-        </Text>
-      </Pressable>
-
       {message ? (
-        <Text accessibilityLiveRegion="polite" style={styles.message}>
+        <Text accessibilityLiveRegion="polite" tone="danger">
           {message}
         </Text>
       ) : null}
-      {__DEV__ && failure ? <Text style={styles.devDetail}>{failure}</Text> : null}
-
-      {onCancel ? (
-        <Pressable
-          style={styles.secondary}
-          disabled={submitting}
-          onPress={onCancel}
-          accessibilityRole="button"
-        >
-          <Text>Cancelar</Text>
-        </Pressable>
-      ) : onOpenAccount ? (
-        <Pressable style={styles.secondary} onPress={onOpenAccount} accessibilityRole="button">
-          <Text>Sua conta</Text>
-        </Pressable>
+      {__DEV__ && failure ? (
+        <Text variant="caption" tone="faint">
+          {failure}
+        </Text>
       ) : null}
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 24, gap: 20 },
-  replaceWarning: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12 },
-  title: { fontSize: 24, fontWeight: '600' },
-  block: { gap: 6 },
-  sectionTitle: { fontSize: 16, fontWeight: '600' },
-  disclaimer: { fontSize: 13, opacity: 0.7 },
-  evidence: { fontSize: 14 },
-  list: { gap: 4 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 },
-  rowDate: { fontSize: 14, opacity: 0.8 },
-  rowCare: { fontSize: 14, fontWeight: '600' },
-  empty: { fontSize: 14, opacity: 0.7 },
-  primary: {
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    minHeight: 48,
-    backgroundColor: '#1c1c1e',
-  },
-  primaryText: { color: '#fff', fontWeight: '600' },
-  secondary: { padding: 14, borderWidth: 1, borderRadius: 8, alignItems: 'center', minHeight: 48 },
-  disabled: { opacity: 0.4 },
-  confirmed: { fontSize: 14 },
-  message: { color: '#b00020' },
-  devDetail: { fontSize: 12, opacity: 0.7 },
+  careRow: { alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap' },
+  careName: { alignItems: 'center', flexWrap: 'nowrap', flexShrink: 1 },
+  /** The care type's hue, as a mark. The word beside it is what carries the meaning. */
+  hue: { width: space.sm, height: space.sm, borderRadius: radius.pill },
 });

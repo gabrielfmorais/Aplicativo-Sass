@@ -105,6 +105,27 @@ export function Screen({
   );
 }
 
+// ------------------------------------------------------------------------------------- Loading
+
+/**
+ * SPEC-016 FR4/EC5 — the state a slow connection actually produces.
+ *
+ * Every screen that waits on a read used to `return null`, which is a white screen: indistinguishable
+ * from a crash, from a blank plan, and from an app that simply stopped. A spinner alone is barely
+ * better — it says "something", not "what" — so the label is not optional decoration, it is the
+ * state in words, which is the rule everywhere else here too.
+ */
+export function Loading({ label = 'Carregando…' }: { label?: string }) {
+  return (
+    <View style={[styles.screen, styles.loading]}>
+      <ActivityIndicator color={color.accent} accessibilityRole="progressbar" accessibilityLabel={label} />
+      <Text variant="caption" tone="muted">
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 // -------------------------------------------------------------------------------------- Button
 
 export function Button({
@@ -130,8 +151,12 @@ export function Button({
   busy?: boolean;
   disabled?: boolean;
   accessibilityLabel?: string;
-  /** Merged over the disabled/busy state — for a button that also toggles something (`expanded`). */
-  accessibilityState?: { expanded?: boolean };
+  /**
+   * Merged over the computed state. `expanded` for a button that toggles something; `busy` for one
+   * whose label already says it is working ("Criando…"), where a spinner would replace the very
+   * words that explain the wait.
+   */
+  accessibilityState?: { expanded?: boolean; busy?: boolean };
   style?: StyleProp<ViewStyle>;
 }) {
   const off = disabled || busy;
@@ -372,6 +397,7 @@ export function Row({
 const styles = StyleSheet.create({
   center: { textAlign: 'center' },
   screen: { flex: 1, backgroundColor: color.canvas, alignItems: 'center' },
+  loading: { justifyContent: 'center', gap: space.md },
   column: { flex: 1, width: '100%', maxWidth: CONTENT_MAX_WIDTH },
   scrollContent: { flexGrow: 1 },
   content: { paddingHorizontal: space.xl, paddingTop: space.xxl, paddingBottom: space.xl, gap: space.xl },
