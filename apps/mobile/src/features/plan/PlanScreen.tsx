@@ -1,6 +1,14 @@
-import type { HairPlanPort, HairProfileSnapshot, LocalDate, PlanDraft } from '@app/core';
-import { buildPlan } from '@app/core';
-import { useMemo, useRef, useState } from 'react';
+import type {
+  EntitlementsPort,
+  HairPlanPort,
+  HairProfileSnapshot,
+  LocalDate,
+  PlanDraft,
+  PlanPreferences,
+  PlanPreferencesPort,
+} from '@app/core';
+import { EntitlementService, buildPlan } from '@app/core';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { CARE_TYPE_LABEL, EVIDENCE_LABEL, formatPlannedDate } from './copy';
@@ -60,6 +68,8 @@ export function PlanScreen({
   onCreated,
   onOpenAccount,
   onCancel,
+  entitlements,
+  planPreferences,
 }: {
   profile: HairProfileSnapshot;
   plans: HairPlanPort;
@@ -67,6 +77,14 @@ export function PlanScreen({
   newRequestId: () => string;
   onCreated: () => void;
   onOpenAccount?: () => void;
+  /**
+   * SPEC-015 — the two questions the server asks before it places her cares. The preview asks them
+   * too, so what she confirms is what gets persisted (AC3). The answers decide only what is
+   * *drawn*: the server re-reads both (`has_entitlement`, FR3) and ignores whatever the client
+   * believed.
+   */
+  entitlements: EntitlementsPort;
+  planPreferences: PlanPreferencesPort;
   /**
    * Present only when this preview is replacing an active plan (SPEC-014). Its presence is what
    * makes the screen say so and offer a way out — the same screen, told what it is doing.
@@ -77,8 +95,29 @@ export function PlanScreen({
   const [message, setMessage] = useState<string | null>(null);
   // One id per user intent: reused across retries so the server call stays idempotent.
   const requestId = useRef<string | null>(null);
+  // The plan is not drawn until this resolves, so she never sees the default schedule flash into a
+  // customised one.
+  const [preferences, setPreferences] = useState<PlanPreferences | undefined | 'resolving'>('resolving');
 
-  const draft = useMemo(() => buildPlan(profile, today), [profile, today]);
+  // Fail closed (§16): entitlement unknown, read failed, no row or an empty set all mean the engine
+  // default — the same answer the server gives itself.
+  useEffect(() => {
+    let active = true;
+    Promise.all([entitlements.get(), planPreferences.get()])
+      .then(([granted, stored]) => {
+        if (!active) return;
+        const weekdays = stored?.preferredWeekdays ?? [];
+        const premium = EntitlementService.can('plan_customization', granted) && weekdays.length > 0;
+        setPreferences(premium ? { preferredWeekdays: weekdays } : undefined);
+      })
+      .catch(() => active && setPreferences(undefined));
+    return () => {
+      active = false;
+    };
+  }, [entitlements, planPreferences]);
+
+  const applied = preferences === 'resolving' ? undefined : preferences;
+  const draft = useMemo(() => buildPlan(profile, today, applied), [profile, today, applied]);
 
   const confirm = () => {
     if (submitting) return; // double-submit guard on top of the server-side idempotency
@@ -97,6 +136,8 @@ export function PlanScreen({
 
   const items: Item[] = draft.cares.map((c, i) => ({ key: `${c.plannedDate}-${i}`, ...c }));
 
+  if (preferences === 'resolving') return null;
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title} accessibilityRole="header">
@@ -110,6 +151,12 @@ export function PlanScreen({
           Próximas 4 semanas
         </Text>
         <Schedule items={items} />
+        {draft.weekdayPlacement && !draft.weekdayPlacement.fullyHonoured ? (
+          <Text style={styles.disclaimer}>
+            Sua rotina pede mais cuidados por semana do que os dias que você escolheu, então alguns ficaram no
+            dia sugerido pela avaliação. Nenhum cuidado foi removido.
+          </Text>
+        ) : null}
       </View>
 
       {onCancel ? (

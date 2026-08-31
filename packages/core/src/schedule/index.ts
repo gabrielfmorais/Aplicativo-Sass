@@ -11,7 +11,13 @@ export type { PlanDraft } from './application/build-plan.ts';
 export { applyPreferredWeekdays, normalizePreferredWeekdays } from './placement/preferred-weekdays.ts';
 export type { PlanPreferences, WeekdayPlacementResult } from './placement/preferred-weekdays.ts';
 export { SCHEDULED_CARE_STATUSES } from './application/ports.ts';
-export type { HairPlan, HairPlanPort, ScheduledCare, ScheduledCareStatus } from './application/ports.ts';
+export type {
+  HairPlan,
+  HairPlanPort,
+  PlanPreferencesPort,
+  ScheduledCare,
+  ScheduledCareStatus,
+} from './application/ports.ts';
 
 /** The version every new plan is generated with. Bump only when behaviour changes (ADR-007). */
 export const CURRENT_SCHEDULE_VERSION = SCHEDULE_ALGORITHM_VERSION_V1;

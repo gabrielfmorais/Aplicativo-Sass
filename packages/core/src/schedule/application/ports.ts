@@ -1,4 +1,5 @@
 import type { CareTypeCode } from '../domain/plan.ts';
+import type { PlanPreferences } from '../placement/preferred-weekdays.ts';
 
 /**
  * Lifecycle of the *intention* (SPEC-005). There is no `completed`: a care is done when an
@@ -46,4 +47,17 @@ export interface HairPlanPort {
    * and never supersedes anything twice (SPEC-004 AC9).
    */
   generate(input: { clientRequestId: string; startsOn: string }): Promise<HairPlan>;
+}
+
+/**
+ * SPEC-015 — her routine preference, stored server-side (`plan_preferences`).
+ *
+ * Holding a preference grants nothing: the premium gate is where it is **applied**, in
+ * `generate-plan` (FR3). This port is a plain read/write of her own row, so a client that lies
+ * about entitlement gains a saved preference and no effect at all.
+ */
+export interface PlanPreferencesPort {
+  /** Her stored preference, or null when she has never saved one. */
+  get(): Promise<PlanPreferences | null>;
+  save(preferences: PlanPreferences): Promise<void>;
 }
