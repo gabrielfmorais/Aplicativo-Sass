@@ -120,4 +120,45 @@ describe('hair plan adapter (SPEC-004 §12)', () => {
       createHairPlanAdapter(client).generate({ clientRequestId: 'req-1', startsOn: '2026-09-01' }),
     ).rejects.toMatchObject({ code: 'hair_plan.generate_failed' });
   });
+
+  /**
+   * D-90. `functions.invoke` collapses every non-2xx into one `FunctionsHttpError` whose message is
+   * the constant "Edge Function returned a non-2xx status code". That is what the app reported for
+   * an evening while `generate-plan` was simply not deployed — and "tente novamente" invited a retry
+   * that could never work. The status and body are the whole diagnosis, so the adapter must carry
+   * them; the screen then shows them under `__DEV__` only.
+   */
+  it('carries the gateway status and body into the error, so a failure is diagnosable (D-90)', async () => {
+    const { client } = makeClient(
+      { data: null, error: null },
+      { data: [], error: null },
+      {
+        error: Object.assign(new Error('Edge Function returned a non-2xx status code'), {
+          context: new Response('{"code":"NOT_FOUND","message":"Requested function was not found"}', {
+            status: 404,
+          }),
+        }),
+      },
+    );
+    await expect(
+      createHairPlanAdapter(client).generate({ clientRequestId: 'req-1', startsOn: '2026-09-01' }),
+    ).rejects.toMatchObject({
+      code: 'hair_plan.generate_failed',
+      message: 'HTTP 404: {"code":"NOT_FOUND","message":"Requested function was not found"}',
+    });
+  });
+
+  /** A body that cannot be read must not swallow the status, which already says most of it. */
+  it('still reports the status when the response body is unreadable', async () => {
+    const unreadable = new Response('x', { status: 503 });
+    await unreadable.text(); // consume it, so a second read throws
+    const { client } = makeClient(
+      { data: null, error: null },
+      { data: [], error: null },
+      { error: Object.assign(new Error('boom'), { context: unreadable }) },
+    );
+    await expect(
+      createHairPlanAdapter(client).generate({ clientRequestId: 'req-1', startsOn: '2026-09-01' }),
+    ).rejects.toMatchObject({ code: 'hair_plan.generate_failed', message: 'HTTP 503: boom' });
+  });
 });

@@ -1,10 +1,20 @@
 # Runbook — provisionar o banco do projeto Supabase DEV
 
+> ✅ **Estado atual (medido 2026-08-31, depois deste runbook ter sido executado pelo dono):** o
+> projeto **`hair-care-dev` / ref `ayecidupmxmirwfzwtea` está provisionado** —
+> `node scripts/check-remote-schema.mjs` responde `OK — all 10 tables present`. DEV sign-in,
+> onboarding real e o preview do cronograma funcionam. Este runbook fica como procedimento
+> reproduzível (outro ambiente, reprovisionamento), **não** como descrição do estado de hoje.
+>
+> ⚠️ **Provisionar o banco não deploya as Edge Functions.** São passos separados, e o app não cria
+> cronograma sem elas: ver `DEV-EDGE-FUNCTIONS-DEPLOY.md` (D-90).
+
 > **Por que este runbook existe.** Em 2026-08-31 o app entrava (DEV sign-in, D-85) e parava em
 > *"Não foi possível carregar seu perfil."*. A causa não era Auth, nem RLS, nem grants: **o projeto
 > DEV remoto não tinha nenhuma das 10 tabelas.** Todas as migrations só tinham rodado localmente e
 > no CI. `pnpm verify` verde, pgTAP verde, e mesmo assim nada funcionava — porque nada testava se o
 > banco remoto havia sido provisionado alguma vez (D-87).
+
 
 ## 1. Diagnosticar (sem credencial nenhuma)
 

@@ -10,6 +10,7 @@ import { ProgressSummary } from '@/features/care/ProgressSummary';
 import { WeekStrip } from '@/features/care/WeekStrip';
 import { buildWeek } from '@/features/care/week';
 import { CARE_TYPE_LABEL, formatPlannedDate } from '@/features/plan/copy';
+import { reasonOf } from '@/shared/failure-detail';
 
 /**
  * Quick reschedule targets. All fall inside the approved window (today … today+28, BR8); a real
@@ -407,6 +408,12 @@ export function TodayScreen({
    * purely presentational: it decides nothing, and losing it costs nothing.
    */
   const [justActedId, setJustActedId] = useState<string | null>(null);
+  /**
+   * Why the last transition failed, rendered **only under `__DEV__`** (D-87/D-90). The user gets
+   * "Não foi possível registrar. Tente novamente." and nothing else; whoever is debugging gets the
+   * code and the message, on screen, without opening devtools. Never logged, never leaves the device.
+   */
+  const [failure, setFailure] = useState<string | null>(null);
 
   const view = useMemo(
     () => buildTodayView(board.cares, board.executions, today, board.checkIns),
@@ -438,6 +445,7 @@ export function TodayScreen({
     if (busyId) return; // one transition at a time; also the double-tap guard
     setBusyId(item.id);
     setMessage(null);
+    setFailure(null);
     setJustActedId(item.id);
 
     const run = (): Promise<unknown> => {
@@ -486,6 +494,7 @@ export function TodayScreen({
           return;
         }
         setMessage('Não foi possível registrar. Tente novamente.');
+        setFailure(reasonOf(error));
       })
       .finally(() => setBusyId(null));
   };
@@ -576,6 +585,11 @@ export function TodayScreen({
       {message ? (
         <Text accessibilityLiveRegion="polite" tone="danger">
           {message}
+        </Text>
+      ) : null}
+      {__DEV__ && failure ? (
+        <Text variant="caption" tone="faint">
+          {failure}
         </Text>
       ) : null}
 

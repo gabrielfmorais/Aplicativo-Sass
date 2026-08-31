@@ -11,6 +11,8 @@ import { EntitlementService, buildPlan } from '@app/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { reasonOf } from '@/shared/failure-detail';
+
 import { CARE_TYPE_LABEL, EVIDENCE_LABEL, formatPlannedDate } from './copy';
 
 type Item = { key: string; careTypeCode: keyof typeof CARE_TYPE_LABEL; plannedDate: string };
@@ -93,6 +95,15 @@ export function PlanScreen({
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  /**
+   * Why the last attempt failed, rendered **only under `__DEV__`** (D-87/D-90).
+   *
+   * "Tente novamente" is the right thing to say to a user and the wrong thing to say to a developer:
+   * it invites a retry that, when `generate-plan` is not deployed at all, can never succeed. The
+   * gateway's real answer — `HTTP 404: {"code":"NOT_FOUND"}` — takes one line to show and turns an
+   * evening of guessing into a diagnosis. Never logged, never leaves the device.
+   */
+  const [failure, setFailure] = useState<string | null>(null);
   // One id per user intent: reused across retries so the server call stays idempotent.
   const requestId = useRef<string | null>(null);
   // The plan is not drawn until this resolves, so she never sees the default schedule flash into a
@@ -124,13 +135,17 @@ export function PlanScreen({
     requestId.current ??= newRequestId();
     setSubmitting(true);
     setMessage(null);
+    setFailure(null);
     plans
       .generate({ clientRequestId: requestId.current, startsOn: today })
       .then(() => {
         requestId.current = null;
         onCreated();
       })
-      .catch(() => setMessage('Não foi possível criar seu cronograma. Tente novamente.'))
+      .catch((error: unknown) => {
+        setMessage('Não foi possível criar seu cronograma. Tente novamente.');
+        setFailure(reasonOf(error));
+      })
       .finally(() => setSubmitting(false));
   };
 
@@ -181,6 +196,7 @@ export function PlanScreen({
           {message}
         </Text>
       ) : null}
+      {__DEV__ && failure ? <Text style={styles.devDetail}>{failure}</Text> : null}
 
       {onCancel ? (
         <Pressable
@@ -226,4 +242,5 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.4 },
   confirmed: { fontSize: 14 },
   message: { color: '#b00020' },
+  devDetail: { fontSize: 12, opacity: 0.7 },
 });
