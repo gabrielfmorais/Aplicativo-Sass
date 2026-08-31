@@ -68,7 +68,11 @@ erDiagram
 - **PII:** display_name. Email/telefone vivem apenas em `auth.users`.
 - **Não armazenar:** gênero, data de nascimento completa (se necessário para ICP, usar faixa etária opcional em `hair_profiles.attributes`... ou não coletar — **decisão: não coletar no MVP**).
 
-### 3.2 `consents`
+### 3.2 `consents` — **NÃO EXISTE ainda** (DEFER → SPEC-013; necessity review SPEC-001 v0.2)
+Aceite de termos ≠ consentimento LGPD, e a base legal para analytics ainda é decisão jurídica (D-32),
+então a tabela nasce quando essa decisão existir — não antes. **É pendência real de release**, não
+ideia descartada: sem ela não há como comprovar base legal. Desenho abaixo é o alvo, não o estado.
+
 | Coluna | Tipo |
 |---|---|
 | id, user_id | |
