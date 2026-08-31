@@ -68,6 +68,13 @@ jobs:
           echo "$names" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
+      # D-91. `deno.json` maps `@app/core` to `../../packages/core/src` — outside `supabase/`, which
+      # is all the bundler can see. Every local check passed and the first real deploy did not.
+      # This copies core in beside the functions and writes an import map pointing at the copy;
+      # both are derived and gitignored, so `deno.json` stays the only hand-written mapping.
+      - name: Stage a self-contained bundle (core lives outside supabase/, D-91)
+        run: node scripts/stage-edge-bundle.mjs
+
       # `verify_jwt` per function comes from `supabase/config.toml`, which is why this runs from the
       # repository root: the JWT decision stays in the file that documents it, not in a CLI flag
       # somebody has to remember. The token is passed through the environment and never echoed —
@@ -85,7 +92,9 @@ jobs:
           while IFS= read -r name; do
             [ -n "$name" ] || continue
             echo "::group::deploy $name"
-            supabase functions deploy "$name" --project-ref "$SUPABASE_PROJECT_REF"
+            supabase functions deploy "$name" \
+              --project-ref "$SUPABASE_PROJECT_REF" \
+              --import-map supabase/functions/import_map.deploy.json
             echo "::endgroup::"
           done <<< "$FUNCTION_NAMES"
 

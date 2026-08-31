@@ -25,7 +25,8 @@
     "check:remote-schema": "node scripts/check-remote-schema.mjs",
     "check:remote-functions": "node scripts/check-remote-functions.mjs",
     "check:remote": "pnpm check:remote-schema && pnpm check:remote-functions",
-    "dev:bootstrap-sql": "node scripts/make-dev-bootstrap.mjs"
+    "dev:bootstrap-sql": "node scripts/make-dev-bootstrap.mjs",
+    "edge:stage": "node scripts/stage-edge-bundle.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

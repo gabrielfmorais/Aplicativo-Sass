@@ -57,6 +57,21 @@ jobs:
       - name: Edge Function unit tests
         run: deno test
 
+      # D-91 — the check that was missing. Everything above type-checks the repository, where
+      # `@app/core` resolves to `../../packages/core/src`. The bundler that actually deploys sees
+      # only `supabase/functions`, so that mapping cannot work there, and nothing noticed until a
+      # real deploy failed. This proves the *deployable* graph resolves, on every PR.
+      - name: The deployable graph resolves too (staged bundle, D-91)
+        working-directory: .
+        run: |
+          set -euo pipefail
+          node scripts/stage-edge-bundle.mjs
+          cd supabase/functions
+          deno check --no-config --import-map import_map.deploy.json \
+            health/index.ts generate-plan/index.ts billing-webhook/index.ts
+          cd ../..
+          node scripts/stage-edge-bundle.mjs --clean
+
       - name: Run core smoke under Deno
         run: deno run _spike/core-smoke.ts
 

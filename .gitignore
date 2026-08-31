@@ -53,3 +53,8 @@ __pycache__/
 # Visual references (videos, screenshots) kept locally for design work. Never versioned: they are
 # large binaries and third-party material — inspiration is read, not vendored.
 references/
+
+# Derived Edge Function deploy bundle (scripts/stage-edge-bundle.mjs). Never versioned: a vendored
+# copy of core in git is a second source of truth that ages in silence (D-91).
+supabase/functions/_core/
+supabase/functions/import_map.deploy.json
