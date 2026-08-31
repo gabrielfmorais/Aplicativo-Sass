@@ -1,7 +1,10 @@
 import type { AuthPort, OAuthProvider } from '@app/core';
 import { EmailSchema, OtpCodeSchema } from '@app/core';
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform } from 'react-native';
+
+import { Button, Field, Screen, Stack, Text } from '@/design/primitives';
+import { space } from '@/design/tokens';
 
 type Phase = 'idle' | 'busy' | 'waiting_for_otp';
 
@@ -63,74 +66,76 @@ export function SignInScreen({ auth }: { auth: AuthPort }) {
     );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title} accessibilityRole="header">
-        Entrar
-      </Text>
-      {Platform.OS === 'ios' && (
-        <Pressable
-          style={styles.button}
-          disabled={busy}
-          onPress={() => provider('apple')}
-          accessibilityRole="button"
-        >
-          <Text>Continuar com Apple</Text>
-        </Pressable>
-      )}
-      <Pressable
-        style={styles.button}
-        disabled={busy}
-        onPress={() => provider('google')}
-        accessibilityRole="button"
-      >
-        <Text>Continuar com Google</Text>
-      </Pressable>
+    <Screen scroll={false}>
+      <Stack gap="xs" style={{ paddingTop: space.xxl }}>
+        <Text variant="overline" tone="accent">
+          SEU CUIDADO CAPILAR
+        </Text>
+        <Text variant="display" accessibilityRole="header">
+          Entrar
+        </Text>
+        <Text variant="body" tone="muted">
+          Um cronograma feito para o seu cabelo, semana a semana.
+        </Text>
+      </Stack>
 
-      <TextInput
-        style={styles.input}
-        placeholder="seu@email.com"
-        accessibilityLabel="Email"
-        autoCapitalize="none"
-        autoComplete="email"
-        keyboardType="email-address"
-        editable={!busy && phase !== 'waiting_for_otp'}
-        value={email}
-        onChangeText={setEmail}
-      />
-      {phase === 'waiting_for_otp' ? (
-        <>
-          <TextInput
-            style={styles.input}
-            placeholder="Código de 6 dígitos"
-            accessibilityLabel="Código"
-            keyboardType="number-pad"
-            autoComplete="one-time-code"
-            maxLength={6}
-            autoFocus
-            value={code}
-            onChangeText={setCode}
+      <Stack gap="sm">
+        {Platform.OS === 'ios' && (
+          <Button
+            label="Continuar com Apple"
+            variant="secondary"
+            disabled={busy}
+            onPress={() => provider('apple')}
           />
-          <Pressable style={styles.button} disabled={busy} onPress={verifyOtp} accessibilityRole="button">
-            <Text>Confirmar código</Text>
-          </Pressable>
-          <Pressable disabled={busy} onPress={requestOtp} accessibilityRole="button">
-            <Text>Reenviar código</Text>
-          </Pressable>
-        </>
-      ) : (
-        <Pressable style={styles.button} disabled={busy} onPress={requestOtp} accessibilityRole="button">
-          <Text>Continuar com email</Text>
-        </Pressable>
-      )}
-      {busy && <Text accessibilityLiveRegion="polite">Aguarde…</Text>}
-      {message && <Text accessibilityLiveRegion="polite">{message}</Text>}
-    </View>
+        )}
+        <Button
+          label="Continuar com Google"
+          variant="secondary"
+          disabled={busy}
+          onPress={() => provider('google')}
+        />
+      </Stack>
+
+      <Stack gap="sm">
+        <Text variant="caption" tone="faint">
+          ou entre com seu email
+        </Text>
+        <Field
+          value={email}
+          onChangeText={setEmail}
+          placeholder="seu@email.com"
+          accessibilityLabel="Email"
+          autoCapitalize="none"
+          autoComplete="email"
+          keyboardType="email-address"
+          editable={!busy && phase !== 'waiting_for_otp'}
+        />
+        {phase === 'waiting_for_otp' ? (
+          <>
+            <Field
+              value={code}
+              onChangeText={setCode}
+              placeholder="Código de 6 dígitos"
+              accessibilityLabel="Código"
+              keyboardType="number-pad"
+              autoComplete="one-time-code"
+              maxLength={6}
+              autoFocus
+              editable={!busy}
+            />
+            <Button label="Confirmar código" onPress={verifyOtp} busy={busy} />
+            <Button label="Reenviar código" variant="ghost" disabled={busy} onPress={requestOtp} />
+          </>
+        ) : (
+          <Button label="Continuar com email" onPress={requestOtp} busy={busy} />
+        )}
+      </Stack>
+
+      {message ? (
+        <Text variant="caption" tone="muted" accessibilityLiveRegion="polite">
+          {message}
+        </Text>
+      ) : null}
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, gap: 12 },
-  title: { fontSize: 24, fontWeight: '600' },
-  button: { padding: 14, borderWidth: 1, borderRadius: 8, alignItems: 'center', minHeight: 48 },
-  input: { padding: 12, borderWidth: 1, borderRadius: 8, minHeight: 48 },
-});

@@ -1,7 +1,10 @@
 import type { HairProfileInput, HairProfilePort, HairProfileSnapshot } from '@app/core';
 import { HairProfileInputSchema } from '@app/core';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { View } from 'react-native';
+
+import { Button, Chip, ProgressBar, Row, Screen, Stack, Text } from '@/design/primitives';
+import { space } from '@/design/tokens';
 
 // UX labels (pt-BR) for the approved inputs (SPEC-002 §6). Values are the domain vocabulary.
 type Opt<T> = { value: T; label: string };
@@ -60,60 +63,133 @@ const GOAL: Opt<HairProfileInput['primaryGoal']>[] = [
   { value: 'maintain_healthy_hair', label: 'Manter o cabelo saudável' },
 ];
 
-function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  return (
-    <Pressable
-      style={[styles.chip, selected && styles.chipSelected]}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-    >
-      <Text style={selected ? styles.chipTextSelected : undefined}>{label}</Text>
-    </Pressable>
-  );
-}
+/** Answers, exactly the eight of SPEC-002 §6 — the shape this screen builds toward. */
+type Answers = {
+  hairPattern?: HairProfileInput['hairPattern'];
+  strandThickness?: HairProfileInput['strandThickness'];
+  scalpTendency?: HairProfileInput['scalpTendency'];
+  washFrequency?: HairProfileInput['washFrequency'];
+  chemicalTreatments: HairProfileInput['chemicalTreatments'];
+  heatUsage?: HairProfileInput['heatUsage'];
+  currentConcerns: HairProfileInput['currentConcerns'];
+  primaryGoal?: HairProfileInput['primaryGoal'];
+};
 
-function Question<T extends string>({
-  title,
-  hint,
-  options,
-  isSelected,
-  onSelect,
-}: {
-  title: string;
-  hint?: string;
-  options: Opt<T>[];
-  isSelected: (v: T) => boolean;
-  onSelect: (v: T) => void;
-}) {
-  return (
-    <View style={styles.question}>
-      <Text style={styles.qTitle} accessibilityRole="header">
-        {title}
-      </Text>
-      {hint ? <Text style={styles.hint}>{hint}</Text> : null}
-      <View style={styles.chips}>
-        {options.map((o) => (
+const EMPTY: Answers = { chemicalTreatments: [], currentConcerns: [] };
+
+/**
+ * `no_major_concern` is exclusive (SPEC-002 §6): choosing it clears the rest, and choosing anything
+ * else clears it. Kept here, next to the toggle it governs, exactly as before.
+ */
+const toggleConcern = (
+  prev: HairProfileInput['currentConcerns'],
+  v: HairProfileInput['currentConcerns'][number],
+): HairProfileInput['currentConcerns'] => {
+  if (v === 'no_major_concern') return prev.includes(v) ? [] : ['no_major_concern'];
+  const rest = prev.filter((x) => x !== 'no_major_concern');
+  return rest.includes(v) ? rest.filter((x) => x !== v) : [...rest, v];
+};
+
+const toggleChemical = (
+  prev: HairProfileInput['chemicalTreatments'],
+  v: HairProfileInput['chemicalTreatments'][number],
+): HairProfileInput['chemicalTreatments'] => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]);
+
+/**
+ * One step = one question. `ready` is what the Continue button reads, so each step states its own
+ * rule instead of a single validator far away deciding for all of them.
+ */
+type Step = {
+  readonly key: string;
+  readonly question: string;
+  readonly hint?: string;
+  readonly render: (a: Answers, set: (next: Answers) => void) => React.ReactNode;
+  readonly ready: (a: Answers) => boolean;
+};
+
+const single = <K extends keyof Answers>(
+  key: K,
+  question: string,
+  options: Opt<NonNullable<Answers[K]> & string>[],
+): Step => ({
+  key: key as string,
+  question,
+  render: (a, set) => (
+    <Row>
+      {options.map((o) => (
+        <Chip
+          key={o.value}
+          label={o.label}
+          selected={a[key] === o.value}
+          onPress={() => set({ ...a, [key]: o.value })}
+        />
+      ))}
+    </Row>
+  ),
+  ready: (a) => a[key] !== undefined,
+});
+
+const STEPS: readonly Step[] = [
+  single('hairPattern', 'Qual é o seu tipo de curvatura?', PATTERN),
+  single('strandThickness', 'Qual é a espessura do fio?', THICKNESS),
+  single('scalpTendency', 'Como é o seu couro cabeludo?', SCALP),
+  single('washFrequency', 'Com que frequência você lava o cabelo?', WASH),
+  {
+    key: 'chemicalTreatments',
+    question: 'Você faz alguma química?',
+    hint: 'Pode escolher mais de uma — ou seguir sem nenhuma.',
+    render: (a, set) => (
+      <Row>
+        {CHEMICAL.map((o) => (
           <Chip
             key={o.value}
             label={o.label}
-            selected={isSelected(o.value)}
-            onPress={() => onSelect(o.value)}
+            multi
+            selected={a.chemicalTreatments.includes(o.value)}
+            onPress={() => set({ ...a, chemicalTreatments: toggleChemical(a.chemicalTreatments, o.value) })}
           />
         ))}
-      </View>
-    </View>
-  );
-}
+      </Row>
+    ),
+    // The only optional question: none is a real answer, so this step is always ready.
+    ready: () => true,
+  },
+  single('heatUsage', 'Com que frequência você usa calor?', HEAT),
+  {
+    key: 'currentConcerns',
+    question: 'O que mais te incomoda hoje?',
+    hint: 'Pode escolher mais de uma.',
+    render: (a, set) => (
+      <Row>
+        {CONCERNS.map((o) => (
+          <Chip
+            key={o.value}
+            label={o.label}
+            multi
+            selected={a.currentConcerns.includes(o.value)}
+            onPress={() => set({ ...a, currentConcerns: toggleConcern(a.currentConcerns, o.value) })}
+          />
+        ))}
+      </Row>
+    ),
+    ready: (a) => a.currentConcerns.length > 0,
+  },
+  single('primaryGoal', 'Qual é o seu principal objetivo?', GOAL),
+];
 
 /**
- * Minimal, mobile-first onboarding for SPEC-002: collects the 8 approved inputs (§6) and saves an
- * immutable snapshot. No diagnosis (D-26). Onboarding completion is derived from the snapshot's
- * existence (no onboarding_status). Prevents accidental double-submit via the submitting state.
+ * SPEC-002 onboarding, presented one question at a time (SPEC-016 FR3/G5).
+ *
+ * The questions, the options, the exclusivity rule and the validation are **exactly** those of
+ * SPEC-002 — only the presentation changed. `HairProfileInputSchema` is still the one thing that
+ * decides whether the answers may be saved, so a stepped UI cannot let through anything the single
+ * scroll would have refused (AC2).
+ *
+ * Nothing is written until the last step is confirmed: leaving mid-way leaves no snapshot, which is
+ * what makes reassessment safe to abandon (SPEC-014 G3).
  *
  * `onCancel` is optional: absent for first onboarding (there is nowhere to go back to), present for
- * SPEC-014 reassessment so the questions step can be abandoned at any point (AC6) without a device
- * back button, leaving the active plan untouched.
+ * reassessment so the questions can be abandoned at any point.
  */
 export function OnboardingScreen({
   hairProfile,
@@ -124,60 +200,34 @@ export function OnboardingScreen({
   onSaved: (snapshot: HairProfileSnapshot) => void;
   onCancel?: () => void;
 }) {
-  const [hairPattern, setHairPattern] = useState<HairProfileInput['hairPattern']>();
-  const [strandThickness, setStrandThickness] = useState<HairProfileInput['strandThickness']>();
-  const [scalpTendency, setScalpTendency] = useState<HairProfileInput['scalpTendency']>();
-  const [washFrequency, setWashFrequency] = useState<HairProfileInput['washFrequency']>();
-  const [chemicalTreatments, setChemical] = useState<HairProfileInput['chemicalTreatments']>([]);
-  const [heatUsage, setHeatUsage] = useState<HairProfileInput['heatUsage']>();
-  const [currentConcerns, setConcerns] = useState<HairProfileInput['currentConcerns']>([]);
-  const [primaryGoal, setPrimaryGoal] = useState<HairProfileInput['primaryGoal']>();
+  const [answers, setAnswers] = useState<Answers>(EMPTY);
+  const [index, setIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const toggleChemical = (v: HairProfileInput['chemicalTreatments'][number]) =>
-    setChemical((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]));
+  const step = STEPS[index] as Step;
+  const last = index === STEPS.length - 1;
+  const parsed = useMemo(() => HairProfileInputSchema.safeParse(answers), [answers]);
 
-  // no_major_concern is exclusive (§6): selecting it clears the rest; any other clears it.
-  const toggleConcern = (v: HairProfileInput['currentConcerns'][number]) =>
-    setConcerns((prev) => {
-      if (v === 'no_major_concern') return prev.includes(v) ? [] : ['no_major_concern'];
-      const rest = prev.filter((x) => x !== 'no_major_concern');
-      return rest.includes(v) ? rest.filter((x) => x !== v) : [...rest, v];
-    });
+  const back = () => {
+    setMessage(null);
+    if (index > 0) setIndex(index - 1);
+    else onCancel?.();
+  };
 
-  const input = useMemo(
-    () => ({
-      hairPattern,
-      strandThickness,
-      scalpTendency,
-      washFrequency,
-      chemicalTreatments,
-      heatUsage,
-      currentConcerns,
-      primaryGoal,
-    }),
-    [
-      hairPattern,
-      strandThickness,
-      scalpTendency,
-      washFrequency,
-      chemicalTreatments,
-      heatUsage,
-      currentConcerns,
-      primaryGoal,
-    ],
-  );
-  const parsed = HairProfileInputSchema.safeParse(input);
-  const canSave = parsed.success && !submitting;
-
-  const save = () => {
+  const next = () => {
+    setMessage(null);
+    if (!last) {
+      setIndex(index + 1);
+      return;
+    }
+    // Belt and braces: the per-step `ready` gates the button, and the schema gates the write.
     if (!parsed.success) {
       setMessage('Responda todas as perguntas para continuar.');
       return;
     }
+    if (submitting) return; // double-submit guard
     setSubmitting(true);
-    setMessage(null);
     hairProfile
       .save(parsed.data)
       .then(onSaved)
@@ -187,122 +237,57 @@ export function OnboardingScreen({
       });
   };
 
+  const canGoBack = index > 0 || onCancel !== undefined;
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title} accessibilityRole="header">
-        Sobre o seu cabelo
-      </Text>
-      <Text style={styles.subtitle}>Algumas perguntas rápidas para personalizar seus cuidados.</Text>
-
-      {onCancel ? (
-        <Pressable style={styles.cancel} onPress={onCancel} disabled={submitting} accessibilityRole="button">
-          <Text>Cancelar</Text>
-        </Pressable>
-      ) : null}
-
-      <Question
-        title="Qual é o seu tipo de curvatura?"
-        options={PATTERN}
-        isSelected={(v) => hairPattern === v}
-        onSelect={setHairPattern}
-      />
-      <Question
-        title="Qual é a espessura do fio?"
-        options={THICKNESS}
-        isSelected={(v) => strandThickness === v}
-        onSelect={setStrandThickness}
-      />
-      <Question
-        title="Como é o seu couro cabeludo?"
-        options={SCALP}
-        isSelected={(v) => scalpTendency === v}
-        onSelect={setScalpTendency}
-      />
-      <Question
-        title="Com que frequência você lava o cabelo?"
-        options={WASH}
-        isSelected={(v) => washFrequency === v}
-        onSelect={setWashFrequency}
-      />
-      <Question
-        title="Você faz alguma química?"
-        hint="Selecione todas que fizer, ou deixe em branco se nenhuma."
-        options={CHEMICAL}
-        isSelected={(v) => chemicalTreatments.includes(v)}
-        onSelect={toggleChemical}
-      />
-      <Question
-        title="Com que frequência você usa calor?"
-        hint="Secador, chapinha, modelador…"
-        options={HEAT}
-        isSelected={(v) => heatUsage === v}
-        onSelect={setHeatUsage}
-      />
-      <Question
-        title="O que mais te incomoda hoje?"
-        hint="Pode escolher mais de uma."
-        options={CONCERNS}
-        isSelected={(v) => currentConcerns.includes(v)}
-        onSelect={toggleConcern}
-      />
-      <Question
-        title="Qual é o seu principal objetivo?"
-        options={GOAL}
-        isSelected={(v) => primaryGoal === v}
-        onSelect={setPrimaryGoal}
-      />
-
-      <Pressable
-        style={[styles.save, !canSave && styles.saveDisabled]}
-        disabled={!canSave}
-        onPress={save}
-        accessibilityRole="button"
-      >
-        <Text style={styles.saveText}>{submitting ? 'Salvando…' : 'Salvar perfil'}</Text>
-      </Pressable>
-      {message ? (
-        <Text accessibilityLiveRegion="polite" style={styles.message}>
-          {message}
+    <Screen
+      footer={
+        <>
+          <Button
+            label={last ? 'Ver meu cronograma' : 'Continuar'}
+            onPress={next}
+            busy={submitting}
+            disabled={!step.ready(answers)}
+          />
+          {canGoBack ? (
+            <Button
+              label={index > 0 ? 'Voltar' : 'Cancelar'}
+              onPress={back}
+              variant="ghost"
+              disabled={submitting}
+            />
+          ) : null}
+          {message ? (
+            <Text tone="danger" variant="caption" accessibilityLiveRegion="polite">
+              {message}
+            </Text>
+          ) : null}
+        </>
+      }
+    >
+      <Stack gap="md">
+        <ProgressBar
+          value={index + 1}
+          total={STEPS.length}
+          label={`Pergunta ${index + 1} de ${STEPS.length}`}
+        />
+        <Text variant="overline" tone="faint">
+          {`PERGUNTA ${index + 1} DE ${STEPS.length}`}
         </Text>
-      ) : null}
-    </ScrollView>
+      </Stack>
+
+      <Stack gap="sm">
+        <Text variant="display" accessibilityRole="header">
+          {step.question}
+        </Text>
+        {step.hint ? (
+          <Text variant="body" tone="muted">
+            {step.hint}
+          </Text>
+        ) : null}
+      </Stack>
+
+      <View style={{ paddingBottom: space.md }}>{step.render(answers, setAnswers)}</View>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { padding: 24, gap: 20 },
-  title: { fontSize: 24, fontWeight: '600' },
-  subtitle: { fontSize: 15, opacity: 0.8 },
-  question: { gap: 8 },
-  qTitle: { fontSize: 16, fontWeight: '600' },
-  hint: { fontSize: 13, opacity: 0.7 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderRadius: 20,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  chipSelected: { backgroundColor: '#1c1c1e', borderColor: '#1c1c1e' },
-  chipTextSelected: { color: '#fff' },
-  save: {
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    minHeight: 48,
-    backgroundColor: '#1c1c1e',
-    marginTop: 8,
-  },
-  saveDisabled: { opacity: 0.4 },
-  saveText: { color: '#fff', fontWeight: '600' },
-  cancel: {
-    alignSelf: 'flex-start',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  message: { color: '#b00020' },
-});
