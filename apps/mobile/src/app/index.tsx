@@ -17,6 +17,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/bootstrap/auth';
 import { AccountScreen } from '@/features/account/AccountScreen';
+import { DevSignIn } from '@/features/auth/DevSignIn';
 import { SignInScreen } from '@/features/auth/SignInScreen';
 import { TodayScreen } from '@/features/care/TodayScreen';
 import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
@@ -255,9 +256,19 @@ export default function IndexRoute() {
     now,
     timeZone,
     newRequestId,
+    devSignIn,
   } = useAuth();
   if (state === 'loading') return null;
-  if (state.status !== 'authenticated') return <SignInScreen auth={auth} />;
+  if (state.status !== 'authenticated') {
+    // The dev entry sits *beside* the real screen, never inside it: the official Apple / Google /
+    // email flows are untouched, and in any build a user could hold `devSignIn` is null (D-85).
+    return (
+      <>
+        <SignInScreen auth={auth} />
+        {devSignIn ? <DevSignIn onPress={devSignIn} /> : null}
+      </>
+    );
+  }
   return (
     <AuthenticatedApp
       hairProfile={hairProfile}

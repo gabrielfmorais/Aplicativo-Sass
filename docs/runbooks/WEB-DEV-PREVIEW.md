@@ -50,32 +50,58 @@ Nada disso é bug do preview; é o limite dele. Continua exigindo device/simulad
 Bug que só aparece no web e depende de um dos itens acima **não é bug de produto** — é o adapter
 web fazendo o que está na tabela do §3.
 
-## 5. Entrar no preview (D-84)
+## 5. Entrar no preview (D-85)
 
-**Use "Continuar com Google".** É o único caminho que fecha o ciclo hoje, e funciona no navegador
-pelo mesmo motivo que funciona no aparelho: o fluxo OAuth com PKCE acontece **sem descarregar a
-página** (popup), então o *code verifier* que vive só em memória (§3) continua lá quando o callback
-volta e o `exchangeCodeForSession` completa.
+### Setup, uma vez (30 segundos, no painel do Supabase)
 
-Pré-requisito, uma vez, no painel do Supabase → **Authentication → URL Configuration → Redirect
-URLs**: adicionar `http://localhost:8081/**`. Sem isso o Supabase ignora o `redirect_to` e devolve
-para a Site URL, e o login não volta para o preview. É configuração de projeto, não de código.
+1. **Authentication → Users → Add user**
+2. Email: o valor de `EXPO_PUBLIC_DEV_LOGIN_EMAIL` do seu `.env.local`
+3. Senha: o valor de `EXPO_PUBLIC_DEV_LOGIN_PASSWORD`
+4. **Marque "Auto Confirm User"** — é o passo que importa; sem ele o usuário nasce inconfirmado e
+   não entra.
 
-### O login por email **não funciona** — e não é bug do preview
+### Depois disso
 
-A tela pede um **código de 6 dígitos**; o Supabase DEV está enviando **Magic Link**, porque o
-template padrão de email usa `{{ .ConfirmationURL }}` e **custom SMTP ainda não foi configurado**.
-O código que a tela espera nunca chega. Enquanto isso valer:
+Abra `http://localhost:8081` e clique em **"Entrar como usuária de desenvolvimento"**, no rodapé da
+tela de login. Uma sessão real do Supabase Auth, com `auth.uid()` de verdade e **todas as policies de
+RLS valendo exatamente como em produção**. Como a sessão web é memória-only (§3), recarregar a página
+desloga — clique de novo e você volta para a **mesma** usuária, com o mesmo perfil, plano e histórico.
 
-- **não registre, não teste e não relate OTP por email como funcional** (CLAUDE.md §0);
-- não tente "consertar" no cliente. As duas saídas são de configuração, não de código: um template
-  que emita `{{ .Token }}` (então a tela de 6 dígitos passa a funcionar como a SPEC-001 desenhou),
-  ou custom SMTP com um template próprio.
+### Por que não dá para entrar de outro jeito hoje
 
-E não tente fazer o **Magic Link** completar no preview web: o link chega por email, abre uma
-navegação nova, e o *code verifier* do PKCE morre junto com o contexto JS — porque a sessão web é
-memória-only de propósito (§3). Guardar o verifier no navegador para contornar isso seria trocar
-segurança por conveniência de desenvolvimento; não vale, e o OAuth já resolve.
+Verificado em 2026-08-31 contra `/auth/v1/settings` do projeto DEV, não deduzido:
+
+| Caminho | Estado real | Por quê |
+|---|---|---|
+| **Google** | `"google": false` | O provider **não está habilitado** no projeto DEV. É isto que fazia a tela ficar presa em "Aguarde…" — não era popup bloqueado, como se suspeitou antes |
+| **Código de 6 dígitos por email** | Não chega | O template padrão manda **Magic Link** (`{{ .ConfirmationURL }}`), e a tela pede `{{ .Token }}`. Custom SMTP não configurado, por decisão |
+| **Magic Link no navegador** | Não fecha | O link abre uma navegação nova e mata o *code verifier* do PKCE, que vive só em memória (§3). Persistir o verifier no browser seria trocar segurança por conveniência — recusado (D-84) |
+| **Auto-cadastro pelo botão** | Não funciona | `mailer_autoconfirm: false` (confirmação obrigatória) **e** o email embutido responde `429 over_email_send_rate_limit`. Por isso o botão **só faz sign-in**, nunca `signUp` |
+
+### ⛔ O que esse acesso NÃO resolve (D-86)
+
+Ele desbloqueia **a sua visualização**, e só. **Auth de produção não pode ser dado como concluído porque isto funciona.** Continuam obrigatórios antes de beta/release, funcionando de verdade e testados nos fluxos reais: **Google OAuth** · **Apple Sign In** · **Email OTP entregando o código que a UI espera** · **redirects/callbacks corretos por plataforma**. As partes externas (console do Google, Apple Developer, custom SMTP, allowlists) são TRUE HUMAN GATE.
+
+### O que esse acesso é, e o que não é
+
+**É** um `signInWithPassword` normal com a **anon key**, contra o Supabase Auth real. Nada é mockado,
+nada é contornado: RLS, `auth.uid()`, entitlements e todas as RPCs se comportam como em produção.
+
+**Não é** uma porta dos fundos. Quatro travas independentes, cada uma suficiente sozinha
+(`apps/mobile/src/infrastructure/supabase/dev-sign-in.ts`, testadas em
+`apps/mobile/__tests__/dev-sign-in.test.ts`):
+
+1. `__DEV__` — falso em release, e o bundler elimina o ramo inteiro;
+2. `Platform.OS === 'web'` — nunca num aparelho, e web não é plataforma de produto (D-80);
+3. `EXPO_PUBLIC_APP_ENV === 'development'` — preview e production valem outra coisa;
+4. **as duas variáveis de credencial precisam existir** — elas vivem só no `.env.local`, que é
+   gitignored e não existe em nenhum runner de CI nem em build EAS.
+
+A quarta é a que segura mesmo se alguém derrubasse as outras três: sem valor no ambiente, não há
+como quem entrar. E `service_role` não aparece em lugar nenhum disso.
+
+Os fluxos oficiais (Apple / Google / email) **não foram tocados**: o botão de dev é um componente
+separado, renderizado **ao lado** de `SignInScreen`, nunca dentro dela.
 
 ## 6. Regras
 
