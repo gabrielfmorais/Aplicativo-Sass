@@ -13,7 +13,10 @@ import type {
 } from '@app/core';
 import { DEFAULT_NOTIFICATION_PREFERENCES, buildNotificationIntents, buildTodayView } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+
+import { Button, Card, Loading, Screen, Stack, Text } from '@/design/primitives';
+import { space } from '@/design/tokens';
 
 import { useAuth } from '@/bootstrap/auth';
 import { AccountScreen } from '@/features/account/AccountScreen';
@@ -30,15 +33,28 @@ type Loadable<T> = 'loading' | 'error' | T;
 const localTimeOf = (instant: Instant): string =>
   new Date(instant).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
 
+/**
+ * The shared failure surface. Every load that can fail lands here, so it is worth being a real
+ * screen rather than a bare sentence: the message, one action, and — only under `__DEV__` — the
+ * reason (D-87/D-90).
+ */
 function Retry({ text, detail, onRetry }: { text: string; detail?: string; onRetry: () => void }) {
   return (
-    <View style={styles.center}>
-      <Text accessibilityLiveRegion="polite">{text}</Text>
-      <Pressable style={styles.button} onPress={onRetry} accessibilityRole="button">
-        <Text>Tentar novamente</Text>
-      </Pressable>
-      {__DEV__ && detail ? <Text style={styles.devDetail}>{detail}</Text> : null}
-    </View>
+    <Screen scroll={false} style={styles.center}>
+      <Card>
+        <Stack gap="lg">
+          <Text variant="heading" accessibilityLiveRegion="polite">
+            {text}
+          </Text>
+          <Button label="Tentar novamente" onPress={onRetry} />
+          {__DEV__ && detail ? (
+            <Text variant="caption" tone="faint">
+              {detail}
+            </Text>
+          ) : null}
+        </Stack>
+      </Card>
+    </Screen>
   );
 }
 
@@ -155,7 +171,7 @@ function AuthenticatedApp({
     });
   }, [board_, prefs, notificationScheduler, today, now]);
 
-  if (profile === 'loading') return null;
+  if (profile === 'loading') return <Loading label="Carregando seu perfil…" />;
   if (profile === 'error') {
     return (
       <Retry
@@ -221,14 +237,13 @@ function AuthenticatedApp({
               }
             : {})}
         />
-        <Pressable style={styles.button} onPress={() => setShowAccount(false)} accessibilityRole="button">
-          <Text>Voltar aos cuidados</Text>
-        </Pressable>
+        {/* The account screen itself is slice 4; this is only the way back out of it. */}
+        <Button label="Voltar aos cuidados" variant="secondary" onPress={() => setShowAccount(false)} />
       </View>
     );
   }
 
-  if (board === 'loading') return null;
+  if (board === 'loading') return <Loading label="Carregando seus cuidados…" />;
   if (board === 'error') {
     return (
       <Retry
@@ -284,7 +299,7 @@ export default function IndexRoute() {
     newRequestId,
     devSignIn,
   } = useAuth();
-  if (state === 'loading') return null;
+  if (state === 'loading') return <Loading />;
   if (state.status !== 'authenticated') {
     // The dev entry sits *beside* the real screen, never inside it: the official Apple / Google /
     // email flows are untouched, and in any build a user could hold `devSignIn` is null (D-85).
@@ -312,8 +327,6 @@ export default function IndexRoute() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12 },
-  devDetail: { fontSize: 12, opacity: 0.7, textAlign: 'center' },
-  stack: { flex: 1, padding: 24, gap: 12 },
-  button: { padding: 14, borderWidth: 1, borderRadius: 8, alignItems: 'center', minHeight: 48 },
+  center: { flexGrow: 1, justifyContent: 'center' },
+  stack: { flex: 1, padding: space.xl, gap: space.md },
 });
