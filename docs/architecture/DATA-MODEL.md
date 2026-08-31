@@ -284,21 +284,62 @@ Ninguém faz UPDATE/DELETE (nem service role por policy de app; retenção via j
 
 ## 4. Matriz de dados pessoais (LGPD)
 
-| Dado | Tabela | Categoria | Necessário? | Retenção | Exportável |
-|---|---|---|---|---|---|
-| Email / senha hash / provider ids | auth.users | Identificação | Sim (conta) | Até exclusão | Email sim |
-| display_name | profiles | Identificação | Opcional | Até exclusão | Sim |
-| timezone / locale | profiles | Técnico | Sim | Até exclusão | Sim |
-| Características do cabelo | hair_profiles | Pessoal (não sensível) | Sim (core) | Até exclusão | Sim |
-| Respostas/diagnóstico | diagnostic_results | Pessoal derivado | Sim | Até exclusão | Sim |
-| Planos e execuções | hair_plans, scheduled_cares, care_executions | Comportamental | Sim | Até exclusão | Sim |
-| Notas livres | care_executions.note, checkins.note | Pessoal (potencialmente sensível — texto livre) | Opcional | Até exclusão | Sim; **nunca em logs/analytics** |
-| Assinatura | subscriptions | Financeiro (sem cartão) | Sim | Até exclusão + obrigação fiscal (avaliar) | Sim (status) |
-| Eventos analytics | provedor externo | Comportamental pseudonimizado | Sim (com consentimento) | Política do provedor; ≤ 12 meses proposto | Não (pseudônimo) |
-| Fotos | — | **Não coletado no MVP** | — | — | — |
+**Derivada do schema real em 2026-08-31**, não do desenho original. Um inventário de privacidade que
+lista dado que o app não coleta produz política e *privacy label* errados — e nesta versão a
+diferença era grande: a matriz anterior declarava `profiles`, `diagnostic_results` e **notas de
+texto livre**, e nenhum dos três existe.
 
-**Exclusão:** pedido registrado pela usuária em `account_deletion_requests` (acesso direto, SPEC-001) → política de purga (D-55) → job privilegiado purga `auth.users` (cascade) + solicita exclusão no provedor de analytics/billing por runbook.
-**Exportação:** RPC `export_my_data()` retorna JSON das tabelas próprias (fase pós-MVP inicial; arquitetura pronta porque tudo tem `user_id`).
+> **Propriedade que vale preservar: o app não tem nenhum campo de texto livre.** Nenhuma tabela
+> aceita texto digitado pela usuária — o onboarding é escolha entre opções fechadas, o check-in é um
+> inteiro de 1 a 5, a preferência de rotina é um array de dias da semana. Isso elimina, por
+> construção, a classe inteira de "PII imprevisível em campo livre": não há como ela digitar um
+> nome, um telefone ou uma condição de saúde num lugar que a gente não controla. **Adicionar o
+> primeiro campo de texto livre muda a postura de privacidade do produto** e exige revisitar esta
+> seção, a política e os labels das lojas.
+
+### 4.1 O que é coletado hoje
+
+| Dado | Onde | Categoria | Necessário? | Retenção | Exportável |
+|---|---|---|---|---|---|
+| Email, provider ids, hash de senha | `auth.users` (Supabase Auth) | Identificação | Sim — é a conta | Até exclusão | Email sim |
+| Características do cabelo (8 respostas de escolha fechada) | `hair_profiles` | Pessoal, não sensível | Sim — é o core | Até exclusão (append-only: os snapshots antigos ficam) | Sim |
+| Plano e cuidados planejados (datas, tipo de cuidado, status) | `hair_plans`, `scheduled_cares` | Comportamental | Sim | Até exclusão | Sim |
+| Execuções (o que ela fez e em que dia civil) | `care_executions` | Comportamental | Sim | Até exclusão; **nunca apagada** — desfazer marca `voided_at` | Sim |
+| Como o cuidado ficou (**um inteiro 1..5**) | `checkins` | Comportamental auto-relatado | Sim (H4) | Até exclusão | Sim |
+| Preferência de lembrete (ligado/desligado, hora local) | `notification_preferences` | Rotina | Sim (SPEC-008) | Até exclusão | Sim |
+| Dias da semana preferidos (array 0..6) | `plan_preferences` | Rotina | Sim (SPEC-015, premium) | Até exclusão | Sim |
+| Estado da assinatura (`status`, `product_code`, `provider`, fim do período) | `subscriptions` | Financeiro — **sem dado de pagamento** | Sim | Até exclusão + eventual obrigação fiscal (avaliar com o jurídico) | Sim (status) |
+| Auditoria de webhook de billing (`event_id`, tipo, timestamps, `payload_hash`) | `billing_events` | Técnico, pseudonimizado | Sim (idempotência/auditoria) | Até exclusão da conta (`user_id` vira null, a linha fica) | Não |
+| Pedido de exclusão de conta (só `requested_at`) | `account_deletion_requests` | Técnico | Sim (SPEC-001) | Até a purga | Não |
+| **Timezone IANA do aparelho** | **não armazenado** — enviado a cada chamada e usado para calcular o dia civil | Técnico | Sim (ADR-008) | Não retido | N/A |
+
+**Pagamento:** a cobrança é IAP, então **cartão e dados de pagamento ficam na loja**, nunca no nosso
+banco. Não há PCI a tratar.
+
+### 4.2 O que a matriz antiga listava e **não existe**
+
+| Dado antes listado | Situação |
+|---|---|
+| `display_name`, `timezone`, `locale` em `profiles` | `profiles` **nunca foi criada** (D-63). Não coletamos nome nem apelido |
+| `diagnostic_results` | **Não existe** (D-66): a avaliação é derivada e reproduzível pelas versões de engine gravadas no plano |
+| `care_executions.note`, `checkins.note` (texto livre) | **Não existem** — adiadas por serem PII sem consumidor. Ver o aviso acima |
+| Fotos | **Não coletadas** no MVP |
+| Gênero, data de nascimento | **Não coletados** — decisão explícita (§3.1) |
+
+### 4.3 Ainda não construído, e por quê
+
+| Item | Situação |
+|---|---|
+| `consents` | **NÃO EXISTE** — DEFER → SPEC-013. Sem ela não há como comprovar base legal. **Pendência de release**, bloqueada por decisão jurídica (D-32) |
+| Eventos de analytics | **Nenhum evento é emitido hoje.** O catálogo em `packages/core/src/shared/analytics` está vazio (`AnalyticsEvent = never`) e o adapter é no-op. Entra na Fase 10 **com consentimento** e provider decidido (D-31) |
+| `export_my_data()` | Não construída. A arquitetura permite (tudo tem `user_id`), mas nenhum fluxo a exige ainda |
+| Job de purga | Não construído — a política (imediata vs *grace period*) é decisão humana pendente (D-55/D-60) |
+
+**Exclusão:** a usuária registra o pedido em `account_deletion_requests` (acesso direto, SPEC-001) →
+política de purga (D-55/D-60, pendente) → job privilegiado purga `auth.users`, e o `on delete
+cascade` leva junto perfil, planos, cuidados, execuções, check-ins e ambas as preferências. Em
+`billing_events` o `user_id` vira `null` (`on delete set null`) e a linha permanece como auditoria
+sem titular. Exclusão no provedor de billing/analytics é passo de runbook.
 
 ## 5. Invariantes que o banco protege (resumo)
 
