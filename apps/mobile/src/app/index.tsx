@@ -9,6 +9,7 @@ import type {
   NotificationPreferences,
   NotificationPreferencesPort,
   NotificationSchedulerPort,
+  PlanPreferencesPort,
 } from '@app/core';
 import { DEFAULT_NOTIFICATION_PREFERENCES, buildNotificationIntents, buildTodayView } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
@@ -49,6 +50,7 @@ function AuthenticatedApp({
   careTracking,
   notificationPreferences,
   notificationScheduler,
+  planPreferences,
   today,
   now,
   timeZone,
@@ -59,6 +61,7 @@ function AuthenticatedApp({
   careTracking: CareTrackingPort;
   notificationPreferences: NotificationPreferencesPort;
   notificationScheduler: NotificationSchedulerPort;
+  planPreferences: PlanPreferencesPort;
   today: () => LocalDate;
   now: () => Instant;
   timeZone: () => string;
@@ -162,6 +165,8 @@ function AuthenticatedApp({
         plans={hairPlan}
         today={today()}
         newRequestId={newRequestId}
+        entitlements={entitlements}
+        planPreferences={planPreferences}
         onCreated={() => {
           setReassessing(null);
           loadBoard();
@@ -178,6 +183,7 @@ function AuthenticatedApp({
           auth={auth}
           deletion={deletion}
           entitlements={entitlements}
+          planPreferences={planPreferences}
           notificationPreferences={notificationPreferences}
           notificationScheduler={notificationScheduler}
           onNotificationPreferencesChanged={setPrefs}
@@ -186,6 +192,10 @@ function AuthenticatedApp({
                 onReassess: () => {
                   setShowAccount(false);
                   setReassessing('profile');
+                },
+                onCustomize: () => {
+                  setShowAccount(false);
+                  setReassessing('preview');
                 },
               }
             : {})}
@@ -208,6 +218,8 @@ function AuthenticatedApp({
         plans={hairPlan}
         today={today()}
         newRequestId={newRequestId}
+        entitlements={entitlements}
+        planPreferences={planPreferences}
         onCreated={loadBoard}
         onOpenAccount={() => setShowAccount(true)}
       />
@@ -237,6 +249,7 @@ export default function IndexRoute() {
     careTracking,
     notificationPreferences,
     notificationScheduler,
+    planPreferences,
     today,
     now,
     timeZone,
@@ -251,6 +264,7 @@ export default function IndexRoute() {
       careTracking={careTracking}
       notificationPreferences={notificationPreferences}
       notificationScheduler={notificationScheduler}
+      planPreferences={planPreferences}
       today={today}
       now={now}
       timeZone={timeZone}

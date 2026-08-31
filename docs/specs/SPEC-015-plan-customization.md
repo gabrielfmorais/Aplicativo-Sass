@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-015 |
-| Status | **APPROVED v0.2 (agente, §0.2/§0.3 — D-81, 2026-08-31)**, escopo mínimo: **dias da semana preferidos** aplicados por uma **camada de placement pura pós-engine**, gated server-side. As cinco OQ estão resolvidas em §23 pelas próprias recomendações de engenharia do rascunho — nenhuma delas é TRUE HUMAN GATE (o dono já escolheu a capacidade premium em D-79; escolher a alavanca dentro dela é decisão pequena, reversível e de baixo risco). **Nenhum ADR novo:** o agregado `HairPlan` não é mutado. **Em implementação:** PR-1 core (placement puro) ✅ · PR-2 banco (`plan_preferences` + RLS) · PR-3 Edge + app. |
+| Status | **APPROVED v0.2 (agente, §0.2/§0.3 — D-81, 2026-08-31)**, escopo mínimo: **dias da semana preferidos** aplicados por uma **camada de placement pura pós-engine**, gated server-side. As cinco OQ estão resolvidas em §23 pelas próprias recomendações de engenharia do rascunho — nenhuma delas é TRUE HUMAN GATE (o dono já escolheu a capacidade premium em D-79; escolher a alavanca dentro dela é decisão pequena, reversível e de baixo risco). **Nenhum ADR novo:** o agregado `HairPlan` não é mutado. **IMPLEMENTADA:** PR-1 core (placement puro, #42) ✅ · PR-2 banco (`plan_preferences` + RLS + pgTAP, #43) ✅ · PR-3 Edge (gate server-side) + app (tela + preview) ✅. |
 | Owner | (humano) — projetopaporeto.erp@gmail.com |
 | Bounded Context | Schedule / Planning (DOMAIN-MAP §3.4), gated por Subscription & Entitlements (§3.9) |
 | Related ADRs | ADR-007 (versionamento de engine), ADR-011 (Subscription & Entitlements), ADR-001 (arquitetura), ADR-008 (datas) |
@@ -46,13 +46,13 @@ Parte das usuárias tem uma rotina fixa (ex.: "só lavo aos sábados", "prefiro 
 - FR2 — Ao (re)gerar o plano, as preferências da usuária premium são aplicadas na **colocação** dos cuidados (o *quê*/cadência vem do engine, inalterado).
 - FR3 — O servidor **revalida** `has_entitlement('plan_customization')` antes de aceitar qualquer customização (FR5/G2). Sem entitlement ⇒ ignora as preferências e gera o padrão (fail closed).
 - FR4 — Aplicar customização passa pelo fluxo de **preview + confirmação + supersede** já existente (SPEC-014): a usuária vê o cronograma customizado antes de confirmar; só a confirmação substitui o plano ativo.
-- FR5 — TODO: comportamento quando a customização é impossível de satisfazer (ex.: preferiu 1 dia/semana mas a cadência pede 3 cuidados) — ver §15/§23.
+- FR5 — Quando a rotina escolhida não comporta a cadência (ex.: 1 dia/semana para 3 cuidados), o cuidado que não couber **mantém a data do engine** e a tela diz isso em português claro ("alguns ficaram no dia sugerido pela avaliação. Nenhum cuidado foi removido"). Nada é removido, adiado para fora da janela ou "afinado" (OQ4).
 
 ## 7. Business Rules
 - BR1 — Entitlement é verificado **no servidor** (`has_entitlement('plan_customization')` na Edge `generate-plan`/RPC `create_plan_tx`); `EntitlementService.can` no cliente é só UI (ADR-011/§2). `if (plan === 'premium')` fora do `EntitlementService` é bug.
 - BR2 — A customização é **input da geração**, não regra de negócio do engine: vive fora de `packages/core/src/schedule/engine/<versão>/` (que permanece `candidate`, imutável por release). Onde exatamente vive é OQ2 (ex.: um novo parâmetro de placement puro em `packages/core/src/schedule/…` separado do engine de regras).
 - BR3 — Preferências **não** são regra capilar: nenhuma preferência muda avaliação, cadência ou tipos (D-26). Mudança de comportamento de *colocação* que dependa de nova lógica no engine de regras exigiria **nova versão de engine** (ADR-007) — evitar; preferir uma camada de placement separada (OQ2).
-- BR4 — TODO: precedência entre a customização e um reagendamento manual (SPEC-005) de um cuidado específico.
+- BR4 — **Reagendamento manual vence, sempre.** A customização só age no momento da **geração**; reagendar/pular (SPEC-005) são transições de Care Tracking sobre um plano já criado e a camada de placement nunca é reexecutada sobre um plano vivo. Não há conflito a resolver: as duas coisas acontecem em momentos diferentes da vida do plano (EC3).
 
 ## 8. Data Model Impact
 Atualizar `DATA-MODEL.md`. **Necessidade (YAGNI):** só o mínimo para guardar a preferência da usuária premium.
@@ -64,9 +64,10 @@ Atualizar `DATA-MODEL.md`. **Necessidade (YAGNI):** só o mínimo para guardar a
 - Sem migração de dados (contexto novo). Sem PII nova além da preferência.
 
 ## 9. API / Contracts
-- **Edge `generate-plan`** (SPEC-004) ganha um parâmetro opcional de preferências; **revalida o entitlement server-side** antes de aplicá-las (BR1/FR3). Sem entitlement ⇒ ignora e gera padrão.
+- **Edge `generate-plan`** (SPEC-004) **não ganha parâmetro nenhum** — decisão de implementação **melhor que o desenho original**: a Edge **lê a preferência do banco com o JWT dela** (`plan_preferences`, RLS) e **revalida `has_entitlement('plan_customization')`** (INVOKER, RLS-scoped) antes de aplicá-la. Como nada da customização vem do corpo do request, **um cliente adulterado não tem o que forjar** — nem o dia, nem o entitlement. Sem entitlement, erro de leitura, linha ausente ou conjunto vazio ⇒ padrão do engine (fail closed).
 - **Camada de placement pura** no core (nome/local = OQ2): `applyPlacement(draft, preferences): HairPlanDraft` — pura, testável, **separada do engine de regras** (não muda cadência).
 - Nenhuma escrita nova de cliente em `hair_plans`/`scheduled_cares` (continuam SELECT-only; escrita só por `create_plan_tx` — SPEC-004 §12b).
+- **A tela de preview faz as mesmas duas perguntas que o servidor** (`EntitlementsPort` + `PlanPreferencesPort`) para desenhar o que será persistido (AC3). O que ela decide é o que é **desenhado**; o servidor decide sozinho o que é **aplicado**.
 - zod valida as preferências (cliente **e** servidor).
 
 ## 10. Authorization
@@ -154,5 +155,6 @@ Para todo perfil e toda escolha de dias: mesmo **conjunto, contagem e ordem** de
 ## 24. Change Log
 | Data | Mudança | Autor |
 |---|---|---|
+| 2026-08-31 | **PR-2 e PR-3 implementadas.** PR-2: tabela `plan_preferences` (1:1, `smallint[]` 0..6, RLS ON+FORCE, sem DELETE, allowlist) + pgTAP com 17 asserções, incluindo a que prende a decisão de gate (preferência gravada sem assinatura ⇒ `has_entitlement` continua false). PR-3: a Edge `generate-plan` lê a preferência **do banco com o JWT dela** e revalida o entitlement — **nada da customização vem do request**, então não há o que forjar (§9 revisado, melhor que o desenho original); `PlanCustomizationSection` (seletor de dias, estado bloqueado para free, erro com retry, sem CTA quebrado); `PlanScreen` resolve as mesmas duas perguntas do servidor para o preview e avisa quando a rotina não coube (EC1). FR5 e BR4 deixam de ser TODO. | agente (§0.3) |
 | 2026-08-31 | **v0.2 — APROVADA (D-81)** com escopo mínimo: OQ1 = dias da semana preferidos; OQ2 = parâmetro puro na geração (sem ADR, sem mutar agregado); OQ3 = camada de placement fora do engine; OQ4 = melhor esforço + `fullyHonoured` em vez de degradar o plano; OQ5 = `plan_preferences` 1:1. §17 AC6 fechado por §23b. **PR-1 (core) implementada:** `placement/preferred-weekdays.ts` + `buildPlan` com `preferences?` + 17 testes de invariante/golden. | agente (§0.3) |
 | 2026-08-30 | Draft inicial: define a primeira capacidade premium (`plan_customization`, D-79/OQ3) consumindo o gate da SPEC-010. Escopo de produto (OQ1) e arquitetura de aplicação (OQ2, possível ADR) deixados como BLOCKING para aprovação humana; domínio (D-26) e imutabilidade do plano explicitamente preservados como Non-Goals. | agente (§0.3) |

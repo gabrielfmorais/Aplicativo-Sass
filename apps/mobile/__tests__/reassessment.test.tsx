@@ -7,6 +7,7 @@ import type {
   LocalDate,
   NotificationPreferencesPort,
   NotificationSchedulerPort,
+  PlanPreferencesPort,
   Progress,
 } from '@app/core';
 import { DEFAULT_NOTIFICATION_PREFERENCES } from '@app/core';
@@ -45,6 +46,19 @@ const accountPorts = () => ({
     ensurePermission: jest.fn(async () => true),
     reconcile: jest.fn(async () => undefined),
   } as unknown as NotificationSchedulerPort,
+  planPreferences: {
+    get: jest.fn(async () => null),
+    save: jest.fn(async () => undefined),
+  } as unknown as PlanPreferencesPort,
+});
+
+/** Free by default: the preview these tests assert on is the engine's, not a customised one. */
+const previewPorts = () => ({
+  entitlements: { get: jest.fn(async () => [] as readonly string[]) } as unknown as EntitlementsPort,
+  planPreferences: {
+    get: jest.fn(async () => null),
+    save: jest.fn(async () => undefined),
+  } as unknown as PlanPreferencesPort,
 });
 
 describe('reassessment entry point (SPEC-014 AC1)', () => {
@@ -89,6 +103,7 @@ describe('the preview that replaces a plan (SPEC-014 AC4–AC6)', () => {
         newRequestId={() => 'req-1'}
         onCreated={over.onCreated ?? jest.fn()}
         onCancel={over.onCancel ?? jest.fn()}
+        {...previewPorts()}
       />,
     );
 
@@ -132,6 +147,7 @@ describe('the preview that replaces a plan (SPEC-014 AC4–AC6)', () => {
         newRequestId={() => 'req-1'}
         onCreated={jest.fn()}
         onOpenAccount={jest.fn()}
+        {...previewPorts()}
       />,
     );
     await waitFor(() => screen.getByText('Começar meu cronograma'));

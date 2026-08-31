@@ -1,4 +1,11 @@
-import type { HairPlan, HairPlanPort, HairProfileSnapshot, LocalDate } from '@app/core';
+import type {
+  EntitlementsPort,
+  HairPlan,
+  HairPlanPort,
+  HairProfileSnapshot,
+  LocalDate,
+  PlanPreferencesPort,
+} from '@app/core';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { PlanScreen } from '@/features/plan/PlanScreen';
@@ -43,6 +50,15 @@ const makePort = (overrides: Partial<HairPlanPort> = {}): jest.Mocked<HairPlanPo
     ...overrides,
   }) as unknown as jest.Mocked<HairPlanPort>;
 
+/** Free by default: no entitlement, no stored routine — the plain SPEC-004 preview. */
+const freePorts = () => ({
+  entitlements: { get: jest.fn(async () => [] as readonly string[]) } as unknown as EntitlementsPort,
+  planPreferences: {
+    get: jest.fn(async () => null),
+    save: jest.fn(async () => undefined),
+  } as unknown as PlanPreferencesPort,
+});
+
 const renderScreen = (
   plans: HairPlanPort,
   onCreated: () => void = jest.fn(),
@@ -56,6 +72,7 @@ const renderScreen = (
       newRequestId={newRequestId}
       onCreated={onCreated}
       onOpenAccount={jest.fn()}
+      {...freePorts()}
     />,
   );
 

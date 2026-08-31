@@ -13,9 +13,13 @@ import {
   hairProfileFromRow,
   isLocalDate,
   isUuid,
+  isWeekday,
+  normalizePreferredWeekdays,
   type LocalDate,
+  type PlanPreferences,
+  type Weekday,
 } from '@app/core';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
@@ -38,6 +42,33 @@ const json = (status: number, body: Record<string, unknown>): Response =>
 
 const daysBetween = (a: string, b: string): number =>
   Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86_400_000;
+
+/**
+ * SPEC-015 FR3/G2 — the premium gate for `plan_customization`, decided here and nowhere else.
+ *
+ * Both reads run with HER JWT: `has_entitlement` is INVOKER and RLS-scoped, and `plan_preferences`
+ * is her own row. Nothing about the customisation comes from the request body — the client cannot
+ * even offer a weekday, let alone an entitlement — so a tampered client has nothing to forge.
+ *
+ * Fail closed at every step (§16): no entitlement, a failed read, a missing row or an empty set all
+ * return `undefined`, and `buildPlan` then produces exactly the free, engine-default plan.
+ */
+const premiumPreferences = async (userClient: SupabaseClient): Promise<PlanPreferences | undefined> => {
+  const { data: entitled, error: entitlementError } = await userClient.rpc('has_entitlement', {
+    p_code: 'plan_customization',
+  });
+  if (entitlementError || entitled !== true) return undefined;
+
+  const { data, error } = await userClient
+    .from('plan_preferences')
+    .select('preferred_weekdays')
+    .maybeSingle();
+  if (error || !data) return undefined;
+
+  const raw = (data as { preferred_weekdays: readonly number[] | null }).preferred_weekdays ?? [];
+  const preferredWeekdays = normalizePreferredWeekdays(raw.filter((d): d is Weekday => isWeekday(d)));
+  return preferredWeekdays.length === 0 ? undefined : { preferredWeekdays };
+};
 
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' });
@@ -91,7 +122,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (profileError) return json(503, { error: 'profile_read_failed' });
   if (!profileRow) return json(409, { error: 'no_hair_profile' });
 
-  const draft = buildPlan(hairProfileFromRow(profileRow), startsOn as LocalDate);
+  // Premium placement, decided server-side. Free (or unverifiable) callers get the engine default,
+  // and either way the care types, their count and their cadence are the engine's alone (SPEC-015 G3).
+  const preferences = await premiumPreferences(userClient);
+  const draft = buildPlan(hairProfileFromRow(profileRow), startsOn as LocalDate, preferences);
 
   const serviceClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },

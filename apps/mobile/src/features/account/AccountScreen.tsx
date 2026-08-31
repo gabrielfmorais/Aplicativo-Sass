@@ -5,11 +5,13 @@ import type {
   NotificationPreferences,
   NotificationPreferencesPort,
   NotificationSchedulerPort,
+  PlanPreferencesPort,
 } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { NotificationSettings } from '@/features/account/NotificationSettings';
+import { PlanCustomizationSection } from '@/features/account/PlanCustomizationSection';
 import { SubscriptionSection } from '@/features/account/SubscriptionSection';
 
 /**
@@ -20,19 +22,27 @@ export function AccountScreen({
   auth,
   deletion,
   entitlements,
+  planPreferences,
   notificationPreferences,
   notificationScheduler,
   onNotificationPreferencesChanged,
   onReassess,
+  onCustomize,
 }: {
   auth: AuthPort;
   deletion: DeletionRequestPort;
   entitlements: EntitlementsPort;
+  planPreferences: PlanPreferencesPort;
   notificationPreferences: NotificationPreferencesPort;
   notificationScheduler: NotificationSchedulerPort;
   onNotificationPreferencesChanged: (preferences: NotificationPreferences) => void;
   /** Absent while she has no active plan: there would be nothing to replace (SPEC-014). */
   onReassess?: () => void;
+  /**
+   * SPEC-015 — opens the preview of a plan built with her preferred weekdays. Absent while she has
+   * no active plan: the preview is already the next screen she sees, so there is nothing to open.
+   */
+  onCustomize?: () => void;
 }) {
   const [requestedAt, setRequestedAt] = useState<string | null | 'loading'>('loading');
   const [message, setMessage] = useState<string | null>(null);
@@ -62,6 +72,12 @@ export function AccountScreen({
       </Text>
 
       <SubscriptionSection entitlements={entitlements} />
+
+      <PlanCustomizationSection
+        entitlements={entitlements}
+        planPreferences={planPreferences}
+        {...(onCustomize ? { onApply: onCustomize } : {})}
+      />
 
       <NotificationSettings
         preferences={notificationPreferences}

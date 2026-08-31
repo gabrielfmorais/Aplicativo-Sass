@@ -10,6 +10,7 @@ import type {
   LocalDate,
   NotificationPreferencesPort,
   NotificationSchedulerPort,
+  PlanPreferencesPort,
 } from '@app/core';
 import { UNAUTHENTICATED, cryptoIdGenerator, systemClock, toLocalDate } from '@app/core';
 import * as Linking from 'expo-linking';
@@ -25,6 +26,7 @@ import { createEntitlementsAdapter } from '@/infrastructure/supabase/entitlement
 import { createHairPlanAdapter } from '@/infrastructure/supabase/hair-plan-adapter';
 import { createHairProfileAdapter } from '@/infrastructure/supabase/hair-profile-adapter';
 import { createNotificationPreferencesAdapter } from '@/infrastructure/supabase/notification-preferences-adapter';
+import { createPlanPreferencesAdapter } from '@/infrastructure/supabase/plan-preferences-adapter';
 import { createLocalNotificationAdapter } from '@/infrastructure/notifications/local-notification-adapter';
 import { discardSessionIfFreshInstall } from '@/infrastructure/supabase/fresh-install';
 
@@ -37,6 +39,7 @@ type AuthContextValue = {
   careTracking: CareTrackingPort;
   entitlements: EntitlementsPort;
   notificationPreferences: NotificationPreferencesPort;
+  planPreferences: PlanPreferencesPort;
   notificationScheduler: NotificationSchedulerPort;
   /** The user's civil day (ADR-008): the composition root owns the clock, screens never read it. */
   today: () => LocalDate;
@@ -81,6 +84,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }),
     [state],
   );
+  const planPreferences = useMemo(
+    () =>
+      createPlanPreferencesAdapter(supabase, () => {
+        if (state === 'loading' || state.status !== 'authenticated') throw new Error('not authenticated');
+        return state.session.userId;
+      }),
+    [state],
+  );
   const notificationScheduler = useMemo(() => createLocalNotificationAdapter(), []);
 
   const hairPlan = useMemo(() => createHairPlanAdapter(supabase), []);
@@ -117,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         careTracking,
         entitlements,
         notificationPreferences,
+        planPreferences,
         notificationScheduler,
         today: () => toLocalDate(systemClock.now(), timeZone()),
         now: () => systemClock.now(),
