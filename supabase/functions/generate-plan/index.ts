@@ -17,6 +17,7 @@ import {
 } from '@app/core';
 import { createClient } from '@supabase/supabase-js';
 
+import { CORS_HEADERS, preflight } from './cors.ts';
 import { premiumPreferences } from './preferences.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
@@ -36,12 +37,20 @@ const MIN_INTERVAL_MS = 3_000;
 const lastCallAt = new Map<string, number>();
 
 const json = (status: number, body: Record<string, unknown>): Response =>
-  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json', ...CORS_HEADERS },
+  });
 
 const daysBetween = (a: string, b: string): number =>
   Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86_400_000;
 
 Deno.serve(async (req: Request): Promise<Response> => {
+  // The browser asks before it calls. Answering this is what makes the web dev preview (D-80)
+  // able to reach the function at all; native never sends it.
+  const preflighted = preflight(req);
+  if (preflighted) return preflighted;
+
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' });
 
   const authorization = req.headers.get('Authorization');

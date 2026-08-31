@@ -68,6 +68,10 @@ pnpm check:remote-functions      # tem de sair OK
 pagamento chamar, e o IAP real está atrás de outro gate (D-79/D-86). Deployar só se e quando aquele
 gate abrir.
 
+### CORS já está resolvido no código
+
+Ao rodar a jornada real (2026-08-31) apareceu um **segundo** defeito: `generate-plan` não tratava o preflight `OPTIONS`, então mesmo depois do deploy o preview web falharia igual. Corrigido em `supabase/functions/generate-plan/cors.ts`. **Deploy a partir desta versão do repositório** — uma versão anterior não serve.
+
 ### Secrets que a função precisa no projeto
 
 `generate-plan` lê `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` do ambiente.

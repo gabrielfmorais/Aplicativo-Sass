@@ -26,7 +26,10 @@ const DETAIL_LIMIT = 200;
 const invokeReason = async (error: unknown): Promise<string> => {
   const context = (error as { context?: unknown }).context;
   const message = error instanceof Error ? error.message : String(error);
-  if (!(context instanceof Response)) return message;
+  // No Response at all means the fetch never completed — on web, that is what a failed CORS
+  // preflight looks like from JavaScript, and it reads like a flaky network when it usually is not.
+  // Naming the check that answers it in five seconds beats guessing at it for an hour.
+  if (!(context instanceof Response)) return `${message} (sem resposta — verifique: pnpm check:remote)`;
   let body = '';
   try {
     body = (await context.text()).slice(0, DETAIL_LIMIT);

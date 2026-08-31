@@ -122,6 +122,25 @@ describe('hair plan adapter (SPEC-004 §12)', () => {
   });
 
   /**
+   * A fetch that never completed carries no Response, which on web is exactly what a failed CORS
+   * preflight looks like from JavaScript — indistinguishable from a dead network. Pointing at the
+   * check that answers it is the difference between five seconds and an hour.
+   */
+  it('points at the diagnostic when there is no response at all (D-90)', async () => {
+    const { client } = makeClient(
+      { data: null, error: null },
+      { data: [], error: null },
+      { error: new Error('Failed to send a request to the Edge Function') },
+    );
+    await expect(
+      createHairPlanAdapter(client).generate({ clientRequestId: 'req-1', startsOn: '2026-09-01' }),
+    ).rejects.toMatchObject({
+      code: 'hair_plan.generate_failed',
+      message: 'Failed to send a request to the Edge Function (sem resposta — verifique: pnpm check:remote)',
+    });
+  });
+
+  /**
    * D-90. `functions.invoke` collapses every non-2xx into one `FunctionsHttpError` whose message is
    * the constant "Edge Function returned a non-2xx status code". That is what the app reported for
    * an evening while `generate-plan` was simply not deployed — and "tente novamente" invited a retry
