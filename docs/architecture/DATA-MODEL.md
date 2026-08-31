@@ -37,6 +37,7 @@ erDiagram
     profiles ||--o{ diagnostic_results : has
     profiles ||--o{ care_executions : has
     profiles ||--o| notification_preferences : has
+    auth_users ||--o| plan_preferences : "1:1 (SPEC-015; dias preferidos)"
     auth_users ||--o| subscriptions : "1:1 (SPEC-010; um plano — NG2)"
     auth_users ||--o{ billing_events : "webhook audit (SPEC-010)"
     profiles ||--o| account_deletion_requests : has
@@ -198,6 +199,21 @@ de um port sem alterar a tela.
 - **Sem token de push**, portanto **sem identificador de dispositivo** — uma das razões de D-22.
 
 `notification_deliveries` e `device_tokens` ficam **fora do MVP** enquanto o canal for local — o SO é a fila (ADR-009).
+
+### 3.11b `plan_preferences` — Schedule / Plan Customization (implementado na SPEC-015, migration `20260903000000_plan_preferences.sql`)
+Os dias da semana em que ela prefere que os cuidados caiam. **1:1** por usuária.
+
+| Coluna | Tipo | Notas |
+|---|---|---|
+| user_id | uuid **PK**, FK `auth.users` on delete cascade | uma linha por usuária; RLS `user_id = auth.uid()` |
+| preferred_weekdays | smallint[] not null default `'{}'` | `0` = domingo … `6` = sábado (espelha o tipo `Weekday` do core). **Vazio = sem preferência = colocação do engine**, idêntico ao free. CHECK: `<@ array[0..6]` e `cardinality <= 7` |
+| updated_at | timestamptz | trigger `set_updated_at` |
+
+- **Guardar a preferência não concede a capacidade.** O gate premium é onde ela é **aplicada**: a Edge `generate-plan` revalida `has_entitlement('plan_customization')` e, sem direito, gera o padrão do engine (SPEC-015 FR3, *fail closed*). Gatear também a escrita colocaria o mesmo gate em dois lugares e trancaria uma assinante vencida fora da própria preferência — que ela deve reaver ao voltar a assinar.
+- **Sem RPC e sem SECURITY DEFINER:** como `notification_preferences` (SPEC-008), esta linha não protege invariante de servidor. Autorização é RLS + `with check`.
+- **Grants:** `authenticated` tem SELECT/INSERT/UPDATE da própria linha; **ninguém tem DELETE** — "sem preferência" é o array vazio, não a ausência da linha. `anon` não tem nada.
+- **Não é regra capilar (D-26):** a preferência nunca muda quais cuidados, a frequência ou a proporção H/N/R — só *quando* cada um cai. A camada `packages/core/src/schedule/placement/` garante contagem, tipos e ordem idênticos aos do engine.
+- Duplicatas no array são inofensivas e não podem mudar resultado: o core normaliza (dedupe + ordena) antes de aplicar, e nenhum SQL lê esta coluna para decidir nada.
 
 ### 3.12 `subscriptions` — Subscription
 Estado corrente da assinatura (SPEC-010 PR-B, implementada — migration `20260902000000_subscriptions.sql`). **1:1** por usuária (um plano no MVP — NG2), então `user_id` é a chave natural.

@@ -43,6 +43,7 @@ Legenda: **U** = `authenticated` (própria linha via `user_id = auth.uid()`) · 
 | care_types | ON | P (`is_active`) | M | M | M | catálogo |
 | content_articles | ON | P (`status='published' AND (NOT is_premium OR has_entitlement('premium_content'))`) | M/admin | M/admin | — | |
 | notification_preferences | ON | U | U | U | U | |
+| plan_preferences (**SPEC-015**) | ON | U | U | U | **—** | Preferência dela sobre a própria rotina; sem RPC (não guarda invariante de servidor). **Guardar não concede a capacidade premium**: aplicar é gated por `has_entitlement('plan_customization')` na geração (fail closed). "Sem preferência" é o array vazio, por isso ninguém tem DELETE |
 | subscriptions | ON | U | S | S | — | webhook |
 | admin_users | ON | admin (`is_admin()`) | M | M | M | |
 | audit_log | ON | admin | S / função definer | — | — | append-only |
