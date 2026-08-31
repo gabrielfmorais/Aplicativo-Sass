@@ -39,8 +39,14 @@ const whenOf = (item: CareItem): string =>
     ? `${formatPlannedDate(item.plannedDate)} · atrasada há ${item.daysLate} dia${item.daysLate > 1 ? 's' : ''}`
     : formatPlannedDate(item.plannedDate);
 
-/** The state of a care, always as a word. Colour is the second channel, never the only one. */
-const stateTagOf = (item: CareItem): { label: string; tone: 'danger' | 'accent' | 'success' | 'neutral' } => {
+/**
+ * The state of a care, always as a word. Colour is the second channel, never the only one.
+ *
+ * `planned` has no tag: in the focus card it is always today's care and reads "Hoje"; in a list it
+ * is an upcoming care whose date is printed right underneath. A "Planejado" chip would say nothing
+ * either place, so it is not produced at all.
+ */
+const stateTagOf = (item: CareItem): { label: string; tone: 'danger' | 'success' | 'neutral' } | null => {
   switch (item.outcome) {
     case 'overdue':
       return { label: 'Atrasado', tone: 'danger' };
@@ -51,7 +57,7 @@ const stateTagOf = (item: CareItem): { label: string; tone: 'danger' | 'accent' 
     case 'rescheduled':
       return { label: 'Reagendado', tone: 'neutral' };
     case 'planned':
-      return { label: 'Planejado', tone: 'neutral' };
+      return null;
   }
 };
 
@@ -73,7 +79,7 @@ function CareTitle({ item, big }: { item: CareItem; big?: boolean }) {
  * SPEC-006 §14 — one question, one tap, on the care she just finished. No navigation: taking her off
  * this screen is the friction G1 exists to remove.
  */
-function CheckInPrompt({ busy, onAnswer }: { busy: boolean; onAnswer: (feel: number) => void }) {
+function CheckInPrompt({ blocked, onAnswer }: { blocked: boolean; onAnswer: (feel: number) => void }) {
   return (
     <Stack gap="sm">
       <Text variant="bodyStrong">Como ficou?</Text>
@@ -81,18 +87,22 @@ function CheckInPrompt({ busy, onAnswer }: { busy: boolean; onAnswer: (feel: num
         {CHECKIN_SCALE.map((feel) => (
           <Pressable
             key={feel}
-            disabled={busy}
+            disabled={blocked}
             onPress={() => onAnswer(feel)}
             accessibilityRole="button"
             accessibilityLabel={`${feel} de 5`}
-            accessibilityState={{ disabled: busy }}
-            style={({ pressed }) => [styles.feel, pressed && !busy && styles.feelPressed, busy && styles.off]}
+            accessibilityState={{ disabled: blocked }}
+            style={({ pressed }) => [
+              styles.feel,
+              pressed && !blocked && styles.feelPressed,
+              blocked && styles.off,
+            ]}
           >
             <Text variant="bodyStrong">{feel}</Text>
           </Pressable>
         ))}
       </Row>
-      <Text variant="caption" tone="faint">
+      <Text variant="caption" tone="muted">
         1 = nada bom · 5 = muito bom
       </Text>
     </Stack>
@@ -111,13 +121,22 @@ function CareActions({
   today,
   now,
   busy,
+  blocked,
   emphasis,
   onAct,
 }: {
   item: CareItem;
   today: LocalDate;
   now: Instant;
+  /** This care is the one in flight — it is what shows the spinner. */
   busy: boolean;
+  /**
+   * *Some* care is in flight. `act` allows one transition at a time for the whole screen, so every
+   * write on every card must look refused while one runs: a button that stays lit and then silently
+   * does nothing is worse than a disabled one, because she cannot tell which of the two happened.
+   * Reading stays open — "Como fazer" is never blocked (SPEC-007 FR6/EC3).
+   */
+  blocked: boolean;
   emphasis: 'focus' | 'list';
   onAct: (item: CareItem, action: Action) => void;
 }) {
@@ -134,7 +153,7 @@ function CareActions({
         {item.checkIn ? (
           <Text tone="muted">{`Você marcou: ${item.checkIn.overallFeel}/5`}</Text>
         ) : canCheckIn(item) ? (
-          <CheckInPrompt busy={busy} onAnswer={(feel) => onAct(item, { kind: 'checkin', feel })} />
+          <CheckInPrompt blocked={blocked} onAnswer={(feel) => onAct(item, { kind: 'checkin', feel })} />
         ) : null}
         {undoable ? (
           <Row gap="sm">
@@ -142,7 +161,7 @@ function CareActions({
               label="Desfazer"
               variant="ghost"
               size="sm"
-              disabled={busy}
+              disabled={blocked}
               onPress={() => onAct(item, { kind: 'undo' })}
             />
           </Row>
@@ -160,13 +179,14 @@ function CareActions({
         variant={emphasis === 'focus' ? 'primary' : 'secondary'}
         size={emphasis === 'focus' ? 'md' : 'sm'}
         busy={busy}
+        disabled={blocked}
         onPress={() => onAct(item, { kind: 'complete' })}
         style={emphasis === 'list' ? styles.listPrimary : undefined}
       />
       <Row gap="sm">
         {guide ? (
-          // Never disabled by `busy`: reading how to do the care is not a write, so an action in
-          // flight must not block it (SPEC-007 FR6/EC3).
+          // Never blocked: reading how to do the care is not a write, so an action in flight must
+          // not take it away (SPEC-007 FR6/EC3).
           <Button
             label="Como fazer"
             variant="ghost"
@@ -179,7 +199,7 @@ function CareActions({
           label="Reagendar"
           variant="ghost"
           size="sm"
-          disabled={busy}
+          disabled={blocked}
           accessibilityState={{ expanded: choosingDate }}
           onPress={() => setChoosingDate((v) => !v)}
         />
@@ -187,7 +207,7 @@ function CareActions({
           label="Pular"
           variant="ghost"
           size="sm"
-          disabled={busy}
+          disabled={blocked}
           onPress={() => onAct(item, { kind: 'skip' })}
         />
       </Row>
@@ -199,7 +219,7 @@ function CareActions({
               label={`${option.label} (${formatPlannedDate(addDaysIso(today, option.days))})`}
               variant="secondary"
               size="sm"
-              disabled={busy}
+              disabled={blocked}
               onPress={() => {
                 setChoosingDate(false);
                 onAct(item, { kind: 'reschedule', days: option.days });
@@ -224,26 +244,36 @@ function FocusCard({
   today,
   now,
   busy,
+  blocked,
   onAct,
 }: {
   item: CareItem;
   today: LocalDate;
   now: Instant;
   busy: boolean;
+  blocked: boolean;
   onAct: (item: CareItem, action: Action) => void;
 }) {
   const state = stateTagOf(item);
   const guide = CARE_GUIDES[item.careTypeCode];
   return (
     <Card style={styles.focus}>
-      <Tag label={item.outcome === 'planned' ? 'Hoje' : state.label} tone={state.tone} />
+      {state ? <Tag label={state.label} tone={state.tone} /> : <Tag label="Hoje" tone="accent" />}
       <CareTitle item={item} big />
       <Text variant="caption" tone="muted">
         {item.outcome === 'done' ? 'Registrado' : whenOf(item)}
         {guide && item.outcome !== 'done' ? ` · ~${guide.durationMin} min` : ''}
       </Text>
       <View style={styles.focusActions}>
-        <CareActions item={item} today={today} now={now} busy={busy} emphasis="focus" onAct={onAct} />
+        <CareActions
+          item={item}
+          today={today}
+          now={now}
+          busy={busy}
+          blocked={blocked}
+          emphasis="focus"
+          onAct={onAct}
+        />
       </View>
     </Card>
   );
@@ -256,26 +286,35 @@ function CareCard({
   today,
   now,
   busy,
+  blocked,
   onAct,
 }: {
   item: CareItem;
   today: LocalDate;
   now: Instant;
   busy: boolean;
+  blocked: boolean;
   onAct: (item: CareItem, action: Action) => void;
 }) {
   const state = stateTagOf(item);
-  const showState = item.outcome !== 'planned';
   return (
     <Card>
       <Row gap="sm" style={styles.cardHead}>
         <CareTitle item={item} />
-        {showState ? <Tag label={state.label} tone={state.tone} /> : null}
+        {state ? <Tag label={state.label} tone={state.tone} /> : null}
       </Row>
       <Text variant="caption" tone="muted">
         {whenOf(item)}
       </Text>
-      <CareActions item={item} today={today} now={now} busy={busy} emphasis="list" onAct={onAct} />
+      <CareActions
+        item={item}
+        today={today}
+        now={now}
+        busy={busy}
+        blocked={blocked}
+        emphasis="list"
+        onAct={onAct}
+      />
     </Card>
   );
 }
@@ -295,7 +334,9 @@ function Section({
   if (items.length === 0) return null;
   return (
     <Stack gap="md">
-      <Text variant="overline" tone="faint" accessibilityRole="header">
+      {/* `muted`, not `faint`: this is a heading, and a heading belongs to the second tier of the
+          ink scale — the third is for metadata that repeats something already on screen. */}
+      <Text variant="overline" tone="muted" accessibilityRole="header">
         {title}
       </Text>
       {items.map((item) => (
@@ -305,6 +346,7 @@ function Section({
           today={rest.today}
           now={rest.now}
           busy={rest.busyId === item.id}
+          blocked={rest.busyId !== null}
           onAct={rest.onAct}
         />
       ))}
@@ -469,7 +511,14 @@ export function TodayScreen({
       <WeekStrip week={week} />
 
       {focus ? (
-        <FocusCard item={focus} today={today} now={renderedNow} busy={busyId === focus.id} onAct={act} />
+        <FocusCard
+          item={focus}
+          today={today}
+          now={renderedNow}
+          busy={busyId === focus.id}
+          blocked={busyId !== null}
+          onAct={act}
+        />
       ) : (
         <Card tone="muted" style={styles.focus}>
           <Text variant="title">

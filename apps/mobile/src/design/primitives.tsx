@@ -16,8 +16,6 @@ import {
   CONTENT_MAX_WIDTH,
   HIT_TARGET,
   HIT_TARGET_MIN,
-  type CareColorKey,
-  careColor,
   color,
   elevation,
   radius,
@@ -122,7 +120,7 @@ export function Button({
 }: {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'ghost';
   /**
    * `sm` is for the tertiary row that sits under a primary action. It is quieter, not smaller to
    * hit: the target stays above the 44pt floor (BR4) — only the padding and the type shrink.
@@ -187,18 +185,15 @@ const buttonVariant = {
     tone: 'muted',
     spinner: color.inkMuted,
   },
-  danger: {
-    container: { backgroundColor: color.dangerSoft, borderWidth: 1, borderColor: color.danger },
-    pressed: { backgroundColor: color.danger },
-    tone: 'danger',
-    spinner: color.danger,
-  },
+  // A `danger` variant used to sit here with no consumer, and its pressed state painted danger text
+  // on a danger fill — 1:1, invisible. Deleted rather than fixed: no destructive action exists in
+  // this product yet, and AC3 says a primitive earns its place by having a real consumer.
 } as const satisfies Record<
   string,
   {
     container: ViewStyle;
     pressed: ViewStyle;
-    tone: 'onFilled' | 'default' | 'muted' | 'danger';
+    tone: 'onFilled' | 'default' | 'muted';
     spinner: string;
   }
 >;
@@ -258,18 +253,17 @@ export function Tag({
   tone = 'neutral',
 }: {
   label: string;
-  tone?: 'neutral' | 'accent' | 'success' | 'danger' | CareColorKey;
+  tone?: 'neutral' | 'accent' | 'success' | 'danger';
 }) {
-  const tones: Record<string, { fg: string; bg: string }> = {
+  // Care-type hues are absent on purpose: a care already says its type in its own title, so a tag
+  // repeating it would be decoration, and none of the four tones here is speculative (AC3).
+  const tones = {
     neutral: { fg: color.inkMuted, bg: color.surfaceMuted },
     accent: { fg: color.accent, bg: color.accentSoft },
     success: { fg: color.success, bg: color.successSoft },
     danger: { fg: color.danger, bg: color.dangerSoft },
-    hydration: careColor.hydration,
-    nutrition: careColor.nutrition,
-    reconstruction: careColor.reconstruction,
-  };
-  const picked = tones[tone] ?? tones.neutral!;
+  } as const;
+  const picked = tones[tone];
   return (
     <View style={[styles.tag, { backgroundColor: picked.bg }]}>
       {/* Not upper-cased: "ATRASADA HÁ 2 DIAS" in pt-BR loses its accents' shape and reads slower

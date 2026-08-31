@@ -156,6 +156,12 @@ describe('TodayScreen (SPEC-005 §14)', () => {
     expect(care.complete).toHaveBeenCalledTimes(1);
     expect(care.skip).not.toHaveBeenCalled();
 
+    // And it is *visibly* refused, not silently ignored: every write on every card reports itself
+    // as disabled while a transition is running.
+    expect(screen.getAllByRole('button', { name: 'Pular' })[0]?.props.accessibilityState).toMatchObject({
+      disabled: true,
+    });
+
     await act(async () => release());
   });
 
