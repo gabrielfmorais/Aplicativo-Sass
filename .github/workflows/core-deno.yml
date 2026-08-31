@@ -44,6 +44,7 @@ jobs:
           deno check
           health/index.ts
           generate-plan/index.ts
+          generate-plan/cors.test.ts
           generate-plan/preferences.test.ts
           billing-webhook/index.ts
           billing-webhook/webhook.test.ts

@@ -1,0 +1,112 @@
+name: deploy-dev-functions
+
+# Deploys the Edge Functions to the **DEV** Supabase project, from Linux, by hand.
+#
+# Why this exists (D-90): the DEV database was provisioned but the functions never were, so
+# `generate-plan` answered 404 and no plan could ever be created — `create_plan_tx` is service_role
+# only, and the function is the only path to it. The Supabase CLI fails with `spawn UNKNOWN` on the
+# owner's Windows machine, and the access token belongs to the owner. Both problems disappear here:
+# GitHub already holds the token as a repository secret and runs Linux.
+#
+# **Manual only.** Deploy is a §4 action in this repository's governance, so it must be a decision
+# someone takes, never a side effect of merging. There is no `push:` trigger on purpose.
+#
+# **DEV only.** The project ref is a constant below rather than an input: a workflow that accepts an
+# arbitrary ref is one wrong paste away from deploying to production. Another environment gets its
+# own workflow, deliberately.
+#
+# NOT a required status check, and it must never become one — it does not run on pull_request, so
+# branch protection would sit at "Expected" forever and block every merge (LEVEL 2).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Two deploys of the same functions racing each other has no upside.
+  group: deploy-dev-functions
+  cancel-in-progress: false
+
+env:
+  # The DEV project (`hair-care-dev`). A ref is not a secret — it is already the host in the app's
+  # public Supabase URL — but the token that authorises writing to it very much is.
+  SUPABASE_PROJECT_REF: ayecidupmxmirwfzwtea
+
+jobs:
+  deploy:
+    name: deploy edge functions · DEV
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # Only needed for the two discovery/verification scripts, which use node builtins alone —
+      # there is no install step here because nothing in this job depends on node_modules.
+      - name: Setup Node (pinned by .node-version — DECISION-REGISTER D-43)
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: latest
+
+      # One source of truth for "which functions exist": the same script the verification step
+      # runs. Deriving the list twice is how a deploy quietly skips a function.
+      - name: Discover the functions this repository ships
+        id: discover
+        run: |
+          set -euo pipefail
+          names="$(node scripts/check-remote-functions.mjs --list)"
+          test -n "$names" || { echo "::error::no functions discovered"; exit 1; }
+          echo "Functions to deploy:"; echo "$names" | sed 's/^/  - /'
+          echo "names<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$names" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      # `verify_jwt` per function comes from `supabase/config.toml`, which is why this runs from the
+      # repository root: the JWT decision stays in the file that documents it, not in a CLI flag
+      # somebody has to remember. The token is passed through the environment and never echoed —
+      # `set -x` is deliberately absent for the same reason.
+      - name: Deploy each function to DEV
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          # Through the environment, never interpolated into the script body: a `${{ }}` expanded
+          # inside a shell is the standard workflow-injection footgun, and avoiding it costs nothing.
+          FUNCTION_NAMES: ${{ steps.discover.outputs.names }}
+        run: |
+          set -euo pipefail
+          test -n "${SUPABASE_ACCESS_TOKEN:-}" || {
+            echo "::error::SUPABASE_ACCESS_TOKEN is not set for this repository"; exit 1; }
+          while IFS= read -r name; do
+            [ -n "$name" ] || continue
+            echo "::group::deploy $name"
+            supabase functions deploy "$name" --project-ref "$SUPABASE_PROJECT_REF"
+            echo "::endgroup::"
+          done <<< "$FUNCTION_NAMES"
+
+      # Credential-free: a function the project does not host answers 404 to anyone, so this proves
+      # convergence without the repository needing to know the anon key.
+      - name: Every expected function is now served
+        run: node scripts/check-remote-functions.mjs --ref "$SUPABASE_PROJECT_REF"
+
+      # The deploy is only worth anything if it carries the CORS fix (D-90): without a preflight
+      # answer the web dev preview cannot reach the function at all, and the failure looks exactly
+      # like the "not deployed" one it replaced. Asserting it here means a stale deploy cannot pass.
+      - name: The deployed generate-plan answers the browser preflight (D-90)
+        run: |
+          set -euo pipefail
+          url="https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/generate-plan"
+          status="$(curl -s -o /dev/null -D /tmp/headers.txt -w '%{http_code}' -X OPTIONS "$url" \
+            -H 'Origin: http://localhost:8081' \
+            -H 'Access-Control-Request-Method: POST' \
+            -H 'Access-Control-Request-Headers: authorization, content-type')"
+          echo "OPTIONS $url -> $status"
+          test "$status" = "204" || { echo "::error::preflight returned $status, expected 204"; exit 1; }
+          grep -iq 'access-control-allow-origin' /tmp/headers.txt || {
+            echo "::error::preflight answered without access-control-allow-origin"; exit 1; }
+          echo "Preflight OK — the deployed version includes the CORS fix."
