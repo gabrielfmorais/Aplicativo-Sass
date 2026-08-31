@@ -112,6 +112,13 @@ export const elevation = {
 export const HIT_TARGET = 48;
 
 /**
+ * The floor for a *secondary* target, when several of them share a row and 48pt each would push the
+ * row into a second line on a 320pt screen (EC3). Still above the 44pt BR4 requires — a smaller
+ * button is allowed to look lighter, never to become harder to hit.
+ */
+export const HIT_TARGET_MIN = 44;
+
+/**
  * The app is a phone app. On the web preview (D-80) the viewport is a desktop window, so content is
  * capped and centred — otherwise a row of chips stretches across 1500px and nothing anyone sees
  * there tells the truth about the product.

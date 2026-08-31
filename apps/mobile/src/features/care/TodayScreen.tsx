@@ -1,10 +1,14 @@
 import type { CareBoard, CareItem, CareTrackingPort, Instant, LocalDate } from '@app/core';
 import { CARE_GUIDES, CHECKIN_SCALE, buildProgress, buildTodayView, canCheckIn, canUndo } from '@app/core';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Button, Card, Row, Screen, Stack, Tag, Text } from '@/design/primitives';
+import { HIT_TARGET_MIN, careColor, color, radius, space } from '@/design/tokens';
 import { CareGuidePanel } from '@/features/care/CareGuidePanel';
 import { ProgressSummary } from '@/features/care/ProgressSummary';
+import { WeekStrip } from '@/features/care/WeekStrip';
+import { buildWeek } from '@/features/care/week';
 import { CARE_TYPE_LABEL, formatPlannedDate } from '@/features/plan/copy';
 
 /**
@@ -29,7 +33,193 @@ type Action =
   | { kind: 'reschedule'; days: number }
   | { kind: 'checkin'; feel: number };
 
-function CareRow({
+/** The planned day, plus how late it is when it is late — the same sentence, wherever it appears. */
+const whenOf = (item: CareItem): string =>
+  item.outcome === 'overdue'
+    ? `${formatPlannedDate(item.plannedDate)} · atrasada há ${item.daysLate} dia${item.daysLate > 1 ? 's' : ''}`
+    : formatPlannedDate(item.plannedDate);
+
+/** The state of a care, always as a word. Colour is the second channel, never the only one. */
+const stateTagOf = (item: CareItem): { label: string; tone: 'danger' | 'accent' | 'success' | 'neutral' } => {
+  switch (item.outcome) {
+    case 'overdue':
+      return { label: 'Atrasado', tone: 'danger' };
+    case 'done':
+      return { label: 'Feito', tone: 'success' };
+    case 'skipped':
+      return { label: 'Pulado', tone: 'neutral' };
+    case 'rescheduled':
+      return { label: 'Reagendado', tone: 'neutral' };
+    case 'planned':
+      return { label: 'Planejado', tone: 'neutral' };
+  }
+};
+
+// ------------------------------------------------------------------------------------ care head
+
+/** Care type as the title, with its semantic hue as a mark beside it (SPEC-016 FR5). */
+function CareTitle({ item, big }: { item: CareItem; big?: boolean }) {
+  return (
+    <Row gap="sm" style={styles.titleRow}>
+      <View style={[styles.hue, { backgroundColor: careColor[item.careTypeCode].fg }]} />
+      <Text variant={big ? 'title' : 'heading'}>{CARE_TYPE_LABEL[item.careTypeCode]}</Text>
+    </Row>
+  );
+}
+
+// -------------------------------------------------------------------------------------- check-in
+
+/**
+ * SPEC-006 §14 — one question, one tap, on the care she just finished. No navigation: taking her off
+ * this screen is the friction G1 exists to remove.
+ */
+function CheckInPrompt({ busy, onAnswer }: { busy: boolean; onAnswer: (feel: number) => void }) {
+  return (
+    <Stack gap="sm">
+      <Text variant="bodyStrong">Como ficou?</Text>
+      <Row gap="sm">
+        {CHECKIN_SCALE.map((feel) => (
+          <Pressable
+            key={feel}
+            disabled={busy}
+            onPress={() => onAnswer(feel)}
+            accessibilityRole="button"
+            accessibilityLabel={`${feel} de 5`}
+            accessibilityState={{ disabled: busy }}
+            style={({ pressed }) => [styles.feel, pressed && !busy && styles.feelPressed, busy && styles.off]}
+          >
+            <Text variant="bodyStrong">{feel}</Text>
+          </Pressable>
+        ))}
+      </Row>
+      <Text variant="caption" tone="faint">
+        1 = nada bom · 5 = muito bom
+      </Text>
+    </Stack>
+  );
+}
+
+// ------------------------------------------------------------------------------------- care body
+
+/**
+ * Everything a care offers, minus its heading — shared by the focus card and the list cards so the
+ * two can never drift apart in what they allow. `emphasis` decides only how loud "Fiz hoje" is:
+ * exactly one button on this screen is the primary one, and it belongs to the focus.
+ */
+function CareActions({
+  item,
+  today,
+  now,
+  busy,
+  emphasis,
+  onAct,
+}: {
+  item: CareItem;
+  today: LocalDate;
+  now: Instant;
+  busy: boolean;
+  emphasis: 'focus' | 'list';
+  onAct: (item: CareItem, action: Action) => void;
+}) {
+  const [choosingDate, setChoosingDate] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+  const undoable = item.execution !== null && canUndo(item.execution, now);
+  // A care type the app has no guide for cannot happen today (the DB CHECK pins the set, and the
+  // guides are exhaustive by type). If it ever did, the card simply loses the button (SPEC-007 EC1).
+  const guide = CARE_GUIDES[item.careTypeCode];
+
+  if (item.outcome === 'done') {
+    return (
+      <Stack gap="md">
+        {item.checkIn ? (
+          <Text tone="muted">{`Você marcou: ${item.checkIn.overallFeel}/5`}</Text>
+        ) : canCheckIn(item) ? (
+          <CheckInPrompt busy={busy} onAnswer={(feel) => onAct(item, { kind: 'checkin', feel })} />
+        ) : null}
+        {undoable ? (
+          <Row gap="sm">
+            <Button
+              label="Desfazer"
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onPress={() => onAct(item, { kind: 'undo' })}
+            />
+          </Row>
+        ) : null}
+      </Stack>
+    );
+  }
+
+  if (item.outcome === 'skipped' || item.outcome === 'rescheduled') return null;
+
+  return (
+    <Stack gap="md">
+      <Button
+        label="Fiz hoje"
+        variant={emphasis === 'focus' ? 'primary' : 'secondary'}
+        size={emphasis === 'focus' ? 'md' : 'sm'}
+        busy={busy}
+        onPress={() => onAct(item, { kind: 'complete' })}
+        style={emphasis === 'list' ? styles.listPrimary : undefined}
+      />
+      <Row gap="sm">
+        {guide ? (
+          // Never disabled by `busy`: reading how to do the care is not a write, so an action in
+          // flight must not block it (SPEC-007 FR6/EC3).
+          <Button
+            label="Como fazer"
+            variant="ghost"
+            size="sm"
+            accessibilityState={{ expanded: showGuide }}
+            onPress={() => setShowGuide((v) => !v)}
+          />
+        ) : null}
+        <Button
+          label="Reagendar"
+          variant="ghost"
+          size="sm"
+          disabled={busy}
+          accessibilityState={{ expanded: choosingDate }}
+          onPress={() => setChoosingDate((v) => !v)}
+        />
+        <Button
+          label="Pular"
+          variant="ghost"
+          size="sm"
+          disabled={busy}
+          onPress={() => onAct(item, { kind: 'skip' })}
+        />
+      </Row>
+      {choosingDate ? (
+        <Row gap="sm">
+          {RESCHEDULE_OPTIONS.map((option) => (
+            <Button
+              key={option.days}
+              label={`${option.label} (${formatPlannedDate(addDaysIso(today, option.days))})`}
+              variant="secondary"
+              size="sm"
+              disabled={busy}
+              onPress={() => {
+                setChoosingDate(false);
+                onAct(item, { kind: 'reschedule', days: option.days });
+              }}
+            />
+          ))}
+        </Row>
+      ) : null}
+      {showGuide && guide ? <CareGuidePanel guide={guide} /> : null}
+    </Stack>
+  );
+}
+
+// ------------------------------------------------------------------------------------ focus card
+
+/**
+ * The one thing this screen is about. Everything else on the page is quieter than this card by
+ * construction: it is the only place a filled accent button appears.
+ */
+function FocusCard({
   item,
   today,
   now,
@@ -42,171 +232,83 @@ function CareRow({
   busy: boolean;
   onAct: (item: CareItem, action: Action) => void;
 }) {
-  const [choosingDate, setChoosingDate] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
-  const undoable = item.execution !== null && canUndo(item.execution, now);
-  // A care type the app has no guide for cannot happen today (the DB CHECK pins the set, and the
-  // guides are exhaustive by type). If it ever did, the row simply loses the button (SPEC-007 EC1).
+  const state = stateTagOf(item);
   const guide = CARE_GUIDES[item.careTypeCode];
-
   return (
-    <View style={styles.row}>
-      <View style={styles.rowHead}>
-        <Text style={styles.care}>{CARE_TYPE_LABEL[item.careTypeCode]}</Text>
-        <Text style={styles.date}>
-          {formatPlannedDate(item.plannedDate)}
-          {item.outcome === 'overdue'
-            ? ` · atrasada há ${item.daysLate} dia${item.daysLate > 1 ? 's' : ''}`
-            : ''}
-        </Text>
+    <Card style={styles.focus}>
+      <Tag label={item.outcome === 'planned' ? 'Hoje' : state.label} tone={state.tone} />
+      <CareTitle item={item} big />
+      <Text variant="caption" tone="muted">
+        {item.outcome === 'done' ? 'Registrado' : whenOf(item)}
+        {guide && item.outcome !== 'done' ? ` · ~${guide.durationMin} min` : ''}
+      </Text>
+      <View style={styles.focusActions}>
+        <CareActions item={item} today={today} now={now} busy={busy} emphasis="focus" onAct={onAct} />
       </View>
+    </Card>
+  );
+}
 
-      {item.outcome === 'done' ? (
-        <>
-          <View style={styles.actions}>
-            <Text style={styles.doneMark}>Feito</Text>
-            {undoable ? (
-              <Pressable
-                style={styles.action}
-                disabled={busy}
-                onPress={() => onAct(item, { kind: 'undo' })}
-                accessibilityRole="button"
-              >
-                <Text>Desfazer</Text>
-              </Pressable>
-            ) : null}
-          </View>
-          {item.checkIn ? (
-            <Text style={styles.resolved}>{`Você marcou: ${item.checkIn.overallFeel}/5`}</Text>
-          ) : canCheckIn(item) ? (
-            // SPEC-006 §14 — one question, one tap, on the care she just finished. No navigation:
-            // taking her off this screen is the friction G1 exists to remove.
-            <View style={styles.checkin}>
-              <Text style={styles.checkinTitle}>Como ficou?</Text>
-              <View style={styles.actions}>
-                {CHECKIN_SCALE.map((feel) => (
-                  <Pressable
-                    key={feel}
-                    style={[styles.action, busy && styles.disabled]}
-                    disabled={busy}
-                    onPress={() => onAct(item, { kind: 'checkin', feel })}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${feel} de 5`}
-                  >
-                    <Text>{feel}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              <Text style={styles.scaleHint}>1 = nada bom · 5 = muito bom</Text>
-            </View>
-          ) : null}
-        </>
-      ) : item.outcome === 'skipped' ? (
-        <Text style={styles.resolved}>Pulado</Text>
-      ) : item.outcome === 'rescheduled' ? (
-        <Text style={styles.resolved}>Reagendado</Text>
-      ) : (
-        <>
-          <View style={styles.actions}>
-            <Pressable
-              style={[styles.action, styles.primary, busy && styles.disabled]}
-              disabled={busy}
-              onPress={() => onAct(item, { kind: 'complete' })}
-              accessibilityRole="button"
-            >
-              <Text style={styles.primaryText}>Fiz hoje</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.action, busy && styles.disabled]}
-              disabled={busy}
-              onPress={() => setChoosingDate((v) => !v)}
-              accessibilityRole="button"
-            >
-              <Text>Reagendar</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.action, busy && styles.disabled]}
-              disabled={busy}
-              onPress={() => onAct(item, { kind: 'skip' })}
-              accessibilityRole="button"
-            >
-              <Text>Pular</Text>
-            </Pressable>
-            {guide ? (
-              // Never disabled by `busy`: reading how to do the care is not a write, so an action
-              // in flight must not block it (SPEC-007 FR6/EC3).
-              <Pressable
-                style={styles.action}
-                onPress={() => setShowGuide((v) => !v)}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: showGuide }}
-              >
-                <Text>Como fazer</Text>
-              </Pressable>
-            ) : null}
-          </View>
-          {showGuide && guide ? <CareGuidePanel guide={guide} /> : null}
-          {choosingDate ? (
-            <View style={styles.actions}>
-              {RESCHEDULE_OPTIONS.map((option) => (
-                <Pressable
-                  key={option.days}
-                  style={[styles.action, busy && styles.disabled]}
-                  disabled={busy}
-                  onPress={() => {
-                    setChoosingDate(false);
-                    onAct(item, { kind: 'reschedule', days: option.days });
-                  }}
-                  accessibilityRole="button"
-                >
-                  <Text>
-                    {option.label} ({formatPlannedDate(addDaysIso(today, option.days))})
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
-        </>
-      )}
-    </View>
+// ----------------------------------------------------------------------------------- list cards
+
+function CareCard({
+  item,
+  today,
+  now,
+  busy,
+  onAct,
+}: {
+  item: CareItem;
+  today: LocalDate;
+  now: Instant;
+  busy: boolean;
+  onAct: (item: CareItem, action: Action) => void;
+}) {
+  const state = stateTagOf(item);
+  const showState = item.outcome !== 'planned';
+  return (
+    <Card>
+      <Row gap="sm" style={styles.cardHead}>
+        <CareTitle item={item} />
+        {showState ? <Tag label={state.label} tone={state.tone} /> : null}
+      </Row>
+      <Text variant="caption" tone="muted">
+        {whenOf(item)}
+      </Text>
+      <CareActions item={item} today={today} now={now} busy={busy} emphasis="list" onAct={onAct} />
+    </Card>
   );
 }
 
 function Section({
   title,
   items,
-  empty,
   ...rest
 }: {
   title: string;
   items: readonly CareItem[];
-  empty?: string;
   today: LocalDate;
   now: Instant;
   busyId: string | null;
   onAct: (item: CareItem, action: Action) => void;
 }) {
-  if (items.length === 0 && !empty) return null;
+  if (items.length === 0) return null;
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle} accessibilityRole="header">
+    <Stack gap="md">
+      <Text variant="overline" tone="faint" accessibilityRole="header">
         {title}
       </Text>
-      {items.length === 0 ? (
-        <Text style={styles.empty}>{empty}</Text>
-      ) : (
-        items.map((item) => (
-          <CareRow
-            key={item.id}
-            item={item}
-            today={rest.today}
-            now={rest.now}
-            busy={rest.busyId === item.id}
-            onAct={rest.onAct}
-          />
-        ))
-      )}
-    </View>
+      {items.map((item) => (
+        <CareCard
+          key={item.id}
+          item={item}
+          today={rest.today}
+          now={rest.now}
+          busy={rest.busyId === item.id}
+          onAct={rest.onAct}
+        />
+      ))}
+    </Stack>
   );
 }
 
@@ -217,6 +319,12 @@ function Section({
  * recorded against them: nothing here reads a "completed" or "overdue" column, because neither
  * exists (D-69 §8.2). An action that the server refuses because the care moved on reloads the board
  * and shows the truth, instead of arguing with the user.
+ *
+ * SPEC-016 slice 2 gave the screen a shape. It used to be four sections of equal weight, each row
+ * carrying four buttons of equal weight, which is the same as having no hierarchy at all: the
+ * question "what do I do now?" had to be answered by reading everything. Now one card answers it,
+ * a week strip says where she is, and nothing that was actionable became hidden — the sections are
+ * quieter, not collapsed, because "Como fazer" is promised on every actionable care (SPEC-007 AC5).
  */
 export function TodayScreen({
   board,
@@ -249,6 +357,14 @@ export function TodayScreen({
   // One idempotency key per care per user intent: reused on retry so a lost response cannot
   // produce a second execution (AC14). Cleared once the care is recorded.
   const [keys] = useState(() => new Map<string, string>());
+  /**
+   * The care she last acted on in this session. It exists to fix a real hole: completing an
+   * *overdue* care makes it `done` on a past day, which `buildTodayView` files under history — so
+   * the "Como ficou?" she just earned used to jump to the bottom of the screen, below the progress
+   * summary. Holding it in the focus card keeps the reward where the action was. Session-scoped and
+   * purely presentational: it decides nothing, and losing it costs nothing.
+   */
+  const [justActedId, setJustActedId] = useState<string | null>(null);
 
   const view = useMemo(
     () => buildTodayView(board.cares, board.executions, today, board.checkIns),
@@ -257,10 +373,30 @@ export function TodayScreen({
   const progress = useMemo(() => buildProgress(view, board.lifetimeDoneCount), [view, board]);
   const renderedNow = now();
 
+  const allItems = useMemo(() => [...view.overdue, ...view.today, ...view.upcoming, ...view.history], [view]);
+  const week = useMemo(() => buildWeek(allItems, today), [allItems, today]);
+
+  // The focus, in priority order: the care she just settled while it still has something to offer
+  // (a check-in to answer, an undo still open), then the oldest overdue one (D-28 — the plan never
+  // moves itself, so a late care stays the most urgent thing until she decides), then today's.
+  const recent = justActedId ? allItems.find((i) => i.id === justActedId) : undefined;
+  const recentHolds =
+    recent !== undefined &&
+    recent.outcome === 'done' &&
+    recent.execution !== null &&
+    (canCheckIn(recent) || canUndo(recent.execution, renderedNow));
+  const focus = recentHolds ? recent : (view.overdue[0] ?? view.today[0] ?? null);
+
+  const notFocus = (item: CareItem) => item.id !== focus?.id;
+  const restOverdue = view.overdue.filter(notFocus);
+  const restToday = view.today.filter(notFocus);
+  const history = view.history.filter(notFocus);
+
   const act = (item: CareItem, action: Action) => {
     if (busyId) return; // one transition at a time; also the double-tap guard
     setBusyId(item.id);
     setMessage(null);
+    setJustActedId(item.id);
 
     const run = (): Promise<unknown> => {
       switch (action.kind) {
@@ -317,30 +453,55 @@ export function TodayScreen({
   // simply went quiet. The copy below covers both ways of getting here, which is why it talks about
   // the plan being empty rather than about four weeks having passed.
   const nothingLeft = view.overdue.length === 0 && view.today.length === 0 && view.upcoming.length === 0;
+  const nextUp = view.upcoming[0];
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title} accessibilityRole="header">
-        Seus cuidados
-      </Text>
+    <Screen>
+      <Stack gap="md">
+        <Text variant="overline" tone="faint">
+          {formatPlannedDate(today)}
+        </Text>
+        <Text variant="display" accessibilityRole="header">
+          Seus cuidados
+        </Text>
+      </Stack>
+
+      <WeekStrip week={week} />
+
+      {focus ? (
+        <FocusCard item={focus} today={today} now={renderedNow} busy={busyId === focus.id} onAct={act} />
+      ) : (
+        <Card tone="muted" style={styles.focus}>
+          <Text variant="title">
+            {nothingLeft ? 'Seu cronograma chegou ao fim.' : 'Nenhum cuidado hoje.'}
+          </Text>
+          {nextUp ? (
+            <Text tone="muted">
+              {`Próximo: ${CARE_TYPE_LABEL[nextUp.careTypeCode]} · ${formatPlannedDate(nextUp.plannedDate)}`}
+            </Text>
+          ) : null}
+        </Card>
+      )}
+
+      {nothingLeft && onReassess ? (
+        <Card tone="accent">
+          <Text tone="muted">
+            Não sobrou nenhum cuidado no seu cronograma atual. Reavaliar seu cabelo monta as próximas semanas
+            a partir de como ele está agora — o que você já registrou continua salvo.
+          </Text>
+          <Button label="Reavaliar e montar o próximo" onPress={onReassess} />
+        </Card>
+      ) : null}
 
       <Section
         title="Atrasados"
-        items={view.overdue}
+        items={restOverdue}
         today={today}
         now={renderedNow}
         busyId={busyId}
         onAct={act}
       />
-      <Section
-        title="Hoje"
-        items={view.today}
-        empty={nothingLeft ? 'Seu cronograma chegou ao fim.' : 'Nenhum cuidado hoje.'}
-        today={today}
-        now={renderedNow}
-        busyId={busyId}
-        onAct={act}
-      />
+      <Section title="Hoje" items={restToday} today={today} now={renderedNow} busyId={busyId} onAct={act} />
       <Section
         title="Próximos"
         items={view.upcoming}
@@ -349,17 +510,6 @@ export function TodayScreen({
         busyId={busyId}
         onAct={act}
       />
-      {nothingLeft && onReassess ? (
-        <View style={styles.cycleEnd}>
-          <Text style={styles.cycleEndText}>
-            Não sobrou nenhum cuidado no seu cronograma atual. Reavaliar seu cabelo monta as próximas semanas
-            a partir de como ele está agora — o que você já registrou continua salvo.
-          </Text>
-          <Pressable style={styles.cycleEndButton} onPress={onReassess} accessibilityRole="button">
-            <Text>Reavaliar e montar o próximo</Text>
-          </Pressable>
-        </View>
-      ) : null}
 
       {/* After the actionable sections and before the detail: she settles the day first, then
           sees the accumulated summary, which reads naturally as a preface to the history. */}
@@ -367,7 +517,7 @@ export function TodayScreen({
 
       <Section
         title="Histórico"
-        items={view.history}
+        items={history}
         today={today}
         now={renderedNow}
         busyId={busyId}
@@ -375,47 +525,34 @@ export function TodayScreen({
       />
 
       {message ? (
-        <Text accessibilityLiveRegion="polite" style={styles.message}>
+        <Text accessibilityLiveRegion="polite" tone="danger">
           {message}
         </Text>
       ) : null}
 
-      <Pressable style={styles.action} onPress={onOpenAccount} accessibilityRole="button">
-        <Text>Sua conta</Text>
-      </Pressable>
-    </ScrollView>
+      <Button label="Sua conta" variant="ghost" onPress={onOpenAccount} />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  cycleEnd: { gap: 8, paddingVertical: 8 },
-  cycleEndText: { fontSize: 14, lineHeight: 20 },
-  cycleEndButton: { padding: 14, borderWidth: 1, borderRadius: 8, alignItems: 'center', minHeight: 48 },
-  container: { padding: 24, gap: 20 },
-  title: { fontSize: 24, fontWeight: '600' },
-  section: { gap: 8 },
-  sectionTitle: { fontSize: 16, fontWeight: '600' },
-  row: { gap: 8, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
-  rowHead: { gap: 2 },
-  care: { fontSize: 15, fontWeight: '600' },
-  date: { fontSize: 13, opacity: 0.8 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
-  action: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderRadius: 8,
-    minHeight: 44,
+  titleRow: { alignItems: 'center', flexWrap: 'nowrap' },
+  /** The care type's hue, as a mark. The word beside it is what carries the meaning. */
+  hue: { width: space.sm, height: space.sm, borderRadius: radius.pill },
+  cardHead: { alignItems: 'center', justifyContent: 'space-between' },
+  focus: { padding: space.xl, gap: space.md },
+  focusActions: { paddingTop: space.sm },
+  listPrimary: { alignSelf: 'flex-start' },
+  feel: {
+    minWidth: HIT_TARGET_MIN,
+    minHeight: HIT_TARGET_MIN,
+    alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+    borderColor: color.borderStrong,
+    backgroundColor: color.surface,
   },
-  primary: { backgroundColor: '#1c1c1e', borderColor: '#1c1c1e' },
-  primaryText: { color: '#fff', fontWeight: '600' },
-  disabled: { opacity: 0.4 },
-  doneMark: { fontSize: 14, fontWeight: '600' },
-  checkin: { gap: 6, paddingTop: 4 },
-  checkinTitle: { fontSize: 14, fontWeight: '600' },
-  scaleHint: { fontSize: 12, opacity: 0.7 },
-  resolved: { fontSize: 14, opacity: 0.7 },
-  empty: { fontSize: 14, opacity: 0.7 },
-  message: { color: '#b00020' },
+  feelPressed: { backgroundColor: color.accentSoft, borderColor: color.accent },
+  off: { opacity: 0.45 },
 });

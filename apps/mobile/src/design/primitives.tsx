@@ -12,7 +12,18 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { CONTENT_MAX_WIDTH, HIT_TARGET, color, elevation, radius, space, type } from './tokens';
+import {
+  CONTENT_MAX_WIDTH,
+  HIT_TARGET,
+  HIT_TARGET_MIN,
+  type CareColorKey,
+  careColor,
+  color,
+  elevation,
+  radius,
+  space,
+  type,
+} from './tokens';
 
 /**
  * SPEC-016 FR1 — the shared vocabulary. Every primitive here has a real consumer in the same slice
@@ -102,18 +113,27 @@ export function Button({
   label,
   onPress,
   variant = 'primary',
+  size = 'md',
   busy = false,
   disabled = false,
   accessibilityLabel,
+  accessibilityState,
   style,
 }: {
   label: string;
   onPress: () => void;
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  /**
+   * `sm` is for the tertiary row that sits under a primary action. It is quieter, not smaller to
+   * hit: the target stays above the 44pt floor (BR4) — only the padding and the type shrink.
+   */
+  size?: 'md' | 'sm';
   /** Shows a spinner and blocks presses — the double-submit guard is still the caller's job. */
   busy?: boolean;
   disabled?: boolean;
   accessibilityLabel?: string;
+  /** Merged over the disabled/busy state — for a button that also toggles something (`expanded`). */
+  accessibilityState?: { expanded?: boolean };
   style?: StyleProp<ViewStyle>;
 }) {
   const off = disabled || busy;
@@ -122,10 +142,11 @@ export function Button({
       onPress={onPress}
       disabled={off}
       accessibilityRole="button"
-      accessibilityState={{ disabled: off, busy }}
+      accessibilityState={{ disabled: off, busy, ...accessibilityState }}
       {...(accessibilityLabel ? { accessibilityLabel } : {})}
       style={({ pressed }) => [
         styles.button,
+        size === 'sm' && styles.buttonSm,
         buttonVariant[variant].container,
         pressed && !off && buttonVariant[variant].pressed,
         off && styles.buttonOff,
@@ -135,7 +156,11 @@ export function Button({
       {busy ? (
         <ActivityIndicator color={buttonVariant[variant].spinner} />
       ) : (
-        <Text variant="bodyStrong" tone={buttonVariant[variant].tone}>
+        <Text
+          variant={size === 'sm' ? 'caption' : 'bodyStrong'}
+          tone={buttonVariant[variant].tone}
+          style={size === 'sm' ? styles.buttonSmLabel : undefined}
+        >
           {label}
         </Text>
       )}
@@ -214,6 +239,43 @@ export function Chip({
         {label}
       </Text>
     </Pressable>
+  );
+}
+
+// ----------------------------------------------------------------------------------------- Tag
+
+/**
+ * A small, non-interactive label that names a *state* or a *kind* — "Atrasada há 2 dias", "Feito",
+ * "Hidratação".
+ *
+ * It exists because the alternative is colour alone, and colour alone is not a state: a user with
+ * low vision, a colour-blind user or anyone glancing at the screen in sunlight gets nothing from a
+ * red dot. Every tag carries its meaning in words, and the hue is the *second* channel (SPEC-016 §14).
+ * Not pressable on purpose — a tag that could be tapped would compete with the action beside it.
+ */
+export function Tag({
+  label,
+  tone = 'neutral',
+}: {
+  label: string;
+  tone?: 'neutral' | 'accent' | 'success' | 'danger' | CareColorKey;
+}) {
+  const tones: Record<string, { fg: string; bg: string }> = {
+    neutral: { fg: color.inkMuted, bg: color.surfaceMuted },
+    accent: { fg: color.accent, bg: color.accentSoft },
+    success: { fg: color.success, bg: color.successSoft },
+    danger: { fg: color.danger, bg: color.dangerSoft },
+    hydration: careColor.hydration,
+    nutrition: careColor.nutrition,
+    reconstruction: careColor.reconstruction,
+  };
+  const picked = tones[tone] ?? tones.neutral!;
+  return (
+    <View style={[styles.tag, { backgroundColor: picked.bg }]}>
+      {/* Not upper-cased: "ATRASADA HÁ 2 DIAS" in pt-BR loses its accents' shape and reads slower
+          than the sentence it replaces. Weight and tint carry the emphasis instead. */}
+      <RNText style={[type.caption as TextStyle, styles.tagLabel, { color: picked.fg }]}>{label}</RNText>
+    </View>
   );
 }
 
@@ -335,7 +397,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: space.lg,
   },
+  buttonSm: { minHeight: HIT_TARGET_MIN, paddingHorizontal: space.md, borderRadius: radius.sm },
+  buttonSmLabel: { fontWeight: '600' },
   buttonOff: { opacity: 0.45 },
+  tag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xs,
+    borderRadius: radius.sm,
+  },
+  tagLabel: { fontWeight: '700' },
   chip: {
     minHeight: HIT_TARGET,
     justifyContent: 'center',

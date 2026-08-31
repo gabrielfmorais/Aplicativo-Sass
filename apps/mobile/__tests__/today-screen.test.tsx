@@ -87,19 +87,44 @@ const finishedPlan = () =>
   });
 
 describe('TodayScreen (SPEC-005 §14)', () => {
-  it('separates overdue, today and upcoming, and says how late a care is', async () => {
+  /**
+   * SPEC-016 slice 2 restructured this screen around a single focus card, so the guarantee is no
+   * longer expressed as four equal section headings: the most urgent care — the overdue one, since
+   * the plan never moves itself (D-28) — leads, and every other care keeps its own state in words.
+   * The guarantee asserted here is unchanged: overdue, today and upcoming stay distinguishable, and
+   * lateness is still stated, not merely coloured.
+   */
+  it('leads with the overdue care and keeps today and upcoming distinguishable', async () => {
     const screen = await renderScreen(makePort());
-    await waitFor(() => screen.getByText('Atrasados'));
+    await waitFor(() => screen.getByText('Seus cuidados'));
+
+    // The focus card is the overdue one, and it says so in words as well as in colour.
+    screen.getByText('Atrasado');
+    screen.getByText(/atrasada há 2 dias/);
+
+    // The other two are still there, still separated, still actionable.
     screen.getByText('Hoje');
     screen.getByText('Próximos');
-    screen.getByText(/atrasada há 2 dias/);
+    expect(screen.getAllByText('Fiz hoje')).toHaveLength(3);
+  });
+
+  it('reads the week around today, in words as well as in dots', async () => {
+    const screen = await renderScreen(makePort());
+    await waitFor(() => screen.getByText('Seus cuidados'));
+
+    // 2026-09-10 is a Thursday; its week runs Sunday 06 → Saturday 12.
+    screen.getByLabelText('Quinta, 10 de setembro. hoje. Nutrição: planejada');
+    screen.getByLabelText('Terça, 8 de setembro. Hidratação: atrasada');
+    screen.getByLabelText('Domingo, 6 de setembro. sem cuidados');
+    // The upcoming care falls on the 14th, outside this week — the strip does not invent it.
+    expect(screen.queryByLabelText(/14 de setembro/)).toBeNull();
   });
 
   it('records a care and lets the route reload the board', async () => {
     const care = makePort();
     const onChanged = jest.fn();
     const screen = await renderScreen(care, board(), onChanged);
-    await waitFor(() => screen.getByText('Atrasados'));
+    await waitFor(() => screen.getByText('Seus cuidados'));
 
     await fireEvent.press(screen.getAllByText('Fiz hoje')[0]!);
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
@@ -110,17 +135,28 @@ describe('TodayScreen (SPEC-005 §14)', () => {
     });
   });
 
+  /**
+   * The guard is `if (busyId) return`: one transition at a time, for the *whole* screen, not just
+   * for the button that was pressed. Pressing a second care while the first is in flight is the
+   * stronger version of this assertion — and the only one still expressible, now that the busy
+   * primary shows a spinner in place of its label instead of merely dimming it.
+   */
   it('does not fire a second call while one is in flight (AC14)', async () => {
     let release: () => void = () => {};
     const care = makePort({ complete: jest.fn(() => new Promise<void>((r) => (release = r))) });
     const screen = await renderScreen(care);
-    await waitFor(() => screen.getByText('Atrasados'));
+    await waitFor(() => screen.getByText('Seus cuidados'));
 
-    const buttons = screen.getAllByText('Fiz hoje');
-    await fireEvent.press(buttons[0]!);
-    await fireEvent.press(buttons[0]!);
+    await fireEvent.press(screen.getAllByText('Fiz hoje')[0]!);
+    // The pressed button is now busy: its label is gone, and the other two are still on screen.
+    expect(screen.getAllByText('Fiz hoje')).toHaveLength(2);
+
+    await fireEvent.press(screen.getAllByText('Fiz hoje')[0]!);
+    await fireEvent.press(screen.getAllByText('Pular')[0]!);
     expect(care.complete).toHaveBeenCalledTimes(1);
-    release();
+    expect(care.skip).not.toHaveBeenCalled();
+
+    await act(async () => release());
   });
 
   it('reuses the same idempotency key when a failed completion is retried (AC14)', async () => {
@@ -136,7 +172,7 @@ describe('TodayScreen (SPEC-005 §14)', () => {
       () => NOW,
       () => `exec-${++issued}`,
     );
-    await waitFor(() => screen.getByText('Atrasados'));
+    await waitFor(() => screen.getByText('Seus cuidados'));
 
     await fireEvent.press(screen.getAllByText('Fiz hoje')[0]!);
     await waitFor(() => screen.getByText('Não foi possível registrar. Tente novamente.'));
@@ -153,7 +189,7 @@ describe('TodayScreen (SPEC-005 §14)', () => {
     const care = makePort({ skip } as Partial<CareTrackingPort>);
     const onChanged = jest.fn();
     const screen = await renderScreen(care, board(), onChanged);
-    await waitFor(() => screen.getByText('Atrasados'));
+    await waitFor(() => screen.getByText('Seus cuidados'));
 
     await fireEvent.press(screen.getAllByText('Pular')[0]!);
     await waitFor(() => screen.getByText('Esse cuidado mudou. Atualizamos a tela.'));
@@ -163,7 +199,7 @@ describe('TodayScreen (SPEC-005 §14)', () => {
   it('reschedules through a quick option inside the allowed window', async () => {
     const care = makePort();
     const screen = await renderScreen(care);
-    await waitFor(() => screen.getByText('Atrasados'));
+    await waitFor(() => screen.getByText('Seus cuidados'));
 
     await fireEvent.press(screen.getAllByText('Reagendar')[0]!);
     await fireEvent.press(screen.getByText(/Em 3 dias/));
@@ -296,7 +332,7 @@ describe('TodayScreen — "Como fazer" (SPEC-007 §14)', () => {
 
   it('offers the guide on every actionable care and shows it in full when opened (AC5)', async () => {
     const screen = await renderScreen(makePort());
-    await waitFor(() => screen.getByText('Atrasados'));
+    await waitFor(() => screen.getByText('Seus cuidados'));
 
     // overdue + today + upcoming — all three are still actionable
     expect(screen.getAllByText('Como fazer')).toHaveLength(3);
@@ -315,7 +351,7 @@ describe('TodayScreen — "Como fazer" (SPEC-007 §14)', () => {
 
   it('closes again on a second press (AC6)', async () => {
     const screen = await renderScreen(makePort());
-    await waitFor(() => screen.getByText('Atrasados'));
+    await waitFor(() => screen.getByText('Seus cuidados'));
 
     await fireEvent.press(screen.getAllByText('Como fazer')[0]!);
     screen.getByText(hydration.whatItIs);
@@ -326,7 +362,7 @@ describe('TodayScreen — "Como fazer" (SPEC-007 §14)', () => {
 
   it('opens only the care that was pressed, not every row', async () => {
     const screen = await renderScreen(makePort());
-    await waitFor(() => screen.getByText('Atrasados'));
+    await waitFor(() => screen.getByText('Seus cuidados'));
 
     await fireEvent.press(screen.getAllByText('Como fazer')[0]!);
     // Both overdue and upcoming are hydration; only one panel may be open.
@@ -337,7 +373,7 @@ describe('TodayScreen — "Como fazer" (SPEC-007 §14)', () => {
     const care = makePort();
     const onChanged = jest.fn();
     const screen = await renderScreen(care, board(), onChanged);
-    await waitFor(() => screen.getByText('Atrasados'));
+    await waitFor(() => screen.getByText('Seus cuidados'));
 
     await fireEvent.press(screen.getAllByText('Como fazer')[0]!);
 
@@ -354,7 +390,7 @@ describe('TodayScreen — "Como fazer" (SPEC-007 §14)', () => {
       complete: jest.fn(() => new Promise<void>((resolve) => (release = resolve))),
     });
     const screen = await renderScreen(care, board());
-    await waitFor(() => screen.getByText('Atrasados'));
+    await waitFor(() => screen.getByText('Seus cuidados'));
 
     await fireEvent.press(screen.getAllByText('Fiz hoje')[0]!); // row is now busy
     await fireEvent.press(screen.getAllByText('Como fazer')[0]!);
@@ -426,7 +462,7 @@ describe('TodayScreen — check-in (SPEC-006 §14)', () => {
 
   it('never asks on a care that is not done (AC13)', async () => {
     const screen = await renderScreen(makePort());
-    await waitFor(() => screen.getByText('Atrasados'));
+    await waitFor(() => screen.getByText('Seus cuidados'));
     expect(screen.queryByText('Como ficou?')).toBeNull();
   });
 

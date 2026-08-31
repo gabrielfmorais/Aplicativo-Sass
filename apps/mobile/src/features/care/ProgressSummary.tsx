@@ -1,5 +1,6 @@
 import type { Progress } from '@app/core';
-import { StyleSheet, Text, View } from 'react-native';
+
+import { Card, Stack, Text } from '@/design/primitives';
 
 /**
  * SPEC-009 §14 — three facts, in words, about what she actually recorded.
@@ -13,45 +14,37 @@ export function ProgressSummary({ progress }: { progress: Progress }) {
   const { elapsed, done, skipped, checkInCount, averageFeel, lifetimeDone } = progress;
 
   return (
-    <View style={styles.section}>
-      <Text style={styles.title} accessibilityRole="header">
+    <Card tone="muted">
+      <Text variant="overline" tone="faint" accessibilityRole="header">
         Seu progresso
       </Text>
 
-      {elapsed === 0 ? (
-        <Text style={styles.line}>
-          Seu plano começou agora. O resumo aparece conforme você registra os cuidados.
-        </Text>
-      ) : (
-        <>
-          <Text style={styles.line}>
-            {`Neste plano, você concluiu ${done} de ${elapsed} cuidados até aqui.`}
+      <Stack gap="xs">
+        {elapsed === 0 ? (
+          <Text tone="muted">
+            Seu plano começou agora. O resumo aparece conforme você registra os cuidados.
           </Text>
-          {skipped > 0 ? (
-            <Text style={styles.line}>{skipped > 1 ? `Pulou ${skipped}.` : 'Pulou 1.'}</Text>
-          ) : null}
-        </>
-      )}
+        ) : (
+          <>
+            <Text>{`Neste plano, você concluiu ${done} de ${elapsed} cuidados até aqui.`}</Text>
+            {skipped > 0 ? <Text tone="muted">{skipped > 1 ? `Pulou ${skipped}.` : 'Pulou 1.'}</Text> : null}
+          </>
+        )}
 
-      {/* Only when it says something the line above did not: after a reassessment the plan-scoped
-          number restarts, and this is what keeps her earlier work visible (SPEC-014 FR7/EC6). */}
-      {lifetimeDone > done ? (
-        <Text style={styles.line}>{`Desde o início, você concluiu ${lifetimeDone} cuidados.`}</Text>
-      ) : null}
+        {/* Only when it says something the line above did not: after a reassessment the plan-scoped
+            number restarts, and this is what keeps her earlier work visible (SPEC-014 FR7/EC6). */}
+        {lifetimeDone > done ? (
+          <Text tone="muted">{`Desde o início, você concluiu ${lifetimeDone} cuidados.`}</Text>
+        ) : null}
 
-      {checkInCount > 0 ? (
-        <Text style={styles.line}>
-          {averageFeel === null
-            ? `Você avaliou ${checkInCount} ${checkInCount > 1 ? 'cuidados' : 'cuidado'}.`
-            : `Você avaliou ${checkInCount} cuidados · média ${averageFeel.toFixed(1).replace('.', ',')} de 5 (sua avaliação).`}
-        </Text>
-      ) : null}
-    </View>
+        {checkInCount > 0 ? (
+          <Text tone="muted">
+            {averageFeel === null
+              ? `Você avaliou ${checkInCount} ${checkInCount > 1 ? 'cuidados' : 'cuidado'}.`
+              : `Você avaliou ${checkInCount} cuidados · média ${averageFeel.toFixed(1).replace('.', ',')} de 5 (sua avaliação).`}
+          </Text>
+        ) : null}
+      </Stack>
+    </Card>
   );
 }
-
-const styles = StyleSheet.create({
-  section: { gap: 6, paddingTop: 4 },
-  title: { fontSize: 16, fontWeight: '600' },
-  line: { fontSize: 14, lineHeight: 20 },
-});
