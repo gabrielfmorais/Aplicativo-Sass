@@ -3,13 +3,13 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-015 |
-| Status | **Draft** (aguardando aprovação humana; escopo de produto e uma decisão arquitetural em aberto — ver §23) |
+| Status | **APPROVED v0.2 (agente, §0.2/§0.3 — D-81, 2026-08-31)**, escopo mínimo: **dias da semana preferidos** aplicados por uma **camada de placement pura pós-engine**, gated server-side. As cinco OQ estão resolvidas em §23 pelas próprias recomendações de engenharia do rascunho — nenhuma delas é TRUE HUMAN GATE (o dono já escolheu a capacidade premium em D-79; escolher a alavanca dentro dela é decisão pequena, reversível e de baixo risco). **Nenhum ADR novo:** o agregado `HairPlan` não é mutado. **Em implementação:** PR-1 core (placement puro) ✅ · PR-2 banco (`plan_preferences` + RLS) · PR-3 Edge + app. |
 | Owner | (humano) — projetopaporeto.erp@gmail.com |
 | Bounded Context | Schedule / Planning (DOMAIN-MAP §3.4), gated por Subscription & Entitlements (§3.9) |
 | Related ADRs | ADR-007 (versionamento de engine), ADR-011 (Subscription & Entitlements), ADR-001 (arquitetura), ADR-008 (datas) |
 | Related SPECs | SPEC-004 (Schedule Engine + generate-plan), SPEC-010 (entitlement `plan_customization` + gate server-side), SPEC-014 (reavaliação/supersede), SPEC-005 (reagendar/pular) |
 | Fase do roadmap | 9 (a **primeira capacidade premium** — consome o gate entregue pela SPEC-010 Parte 2; OQ3 resolvida como `plan_customization`, D-79) |
-| Criado / Atualizado | 2026-08-30 / 2026-08-30 |
+| Criado / Atualizado | 2026-08-30 / 2026-08-31 (v0.2 — aprovada, OQ1–OQ5 resolvidas) |
 
 > **Nota do autor (agente, §0.3):** rascunho criado para dar um alvo concreto ao gate server-side `has_entitlement('plan_customization')` que a SPEC-010 já entrega. O **escopo exato da customização é decisão de produto do dono** (§23 OQ1) e **uma das opções exige um ADR** (§23 OQ2 — mutação do agregado `HairPlan`). Nada aqui inventa regra capilar (D-26): a customização proposta mexe em **quando/como os cuidados são colocados**, nunca em **quais cuidados ou com que frequência** (isso é domínio e continua com o engine V1 `candidate`). Seções sem decisão estão marcadas `TODO`.
 
@@ -111,7 +111,7 @@ Reusa o funil da SPEC-010 §13 (emissor no app, port no-op até Fase 10). Evento
 - AC3 — Dado premium que **expira**, quando o plano é regerado, então volta ao padrão e o histórico permanece. (RNTL/integration)
 - AC4 — Domínio inalterado: para o mesmo perfil, o **conjunto e a contagem** de cuidados gerados são idênticos com e sem customização; só as datas/colocação mudam. (golden/unit)
 - AC5 — `EntitlementService.can` no cliente é só UI; boundaries verdes; nenhum `if plan === 'premium'` fora dele. (dep-cruise/lint)
-- AC6 — TODO conforme OQ1/OQ2 resolverem o escopo.
+- AC6 — As invariantes de §23b valem para **todo** perfil e **toda** escolha de dias, não só para os casos felizes: mesma contagem/tipos/ordem, datas distintas, crescentes, dentro da janela e nunca antes do início. (unit paramétrico sobre as 5 frequências × 5 escolhas de dias)
 
 ## 18. Testing Strategy
 - Unit (core): camada de placement pura (determinística; golden com/sem preferência mostrando cadência idêntica).
@@ -140,13 +140,19 @@ Aditiva (se houver tabela). Compatível com app antigo: sem preferência ⇒ pad
 Código: reverter PRs. Migration: `drop table plan_preferences` (sem dados de produção antes do release). Feature flag de UI oculta a tela sem afetar geração.
 
 ## 23. Open Questions
-- **OQ1 — Escopo exato da customização (BLOCKING / decisão de produto do dono).** Qual(is) alavanca(s): (a) dias da semana preferidos; (b) adiar/antecipar início; (c) horário do dia preferido (faz mais sentido em Notifications, SPEC-008?). *Recomendação de engenharia:* começar por **(a) dias da semana preferidos** — maior valor percebido, claramente não-domínio, e aplicável como camada de placement. *Assunção enquanto aberta:* (a).
-- **OQ2 — Arquitetura de aplicação (BLOCKING / pode exigir ADR).** Aplicar a preferência como **parâmetro puro na geração** (fit com a arquitetura atual, sem mutar agregado — **preferido**) vs. permitir **edição do plano ativo** (violaria imutabilidade → **ADR obrigatório**, NG2). *Assunção:* parâmetro na geração + fluxo de supersede (SPEC-014); **nenhuma** mutação retroativa.
-- **OQ3 — Placement muda o engine? (IMPORTANT / ADR-007).** Se a colocação por dia-da-semana exigir lógica dentro do engine de regras, é **nova versão de engine** (ADR-007). *Assunção:* implementar como **camada separada de placement** (pós-engine), preservando o engine de regras `candidate` intacto — evita mover o gate de PUBLIC RELEASE (D-26).
-- **OQ4 — Preferência insatisfazível (IMPORTANT).** Degradação quando a rotina preferida não cabe na cadência (EC1). *Assunção:* aproximar sem nunca reduzir/alterar cuidados; avisar a usuária.
-- **OQ5 — Persistência (CAN DEFER).** Tabela `plan_preferences` vs. parâmetro efêmero por geração. *Assunção:* persistir (para reaplicar em reavaliações), tabela mínima estilo `notification_preferences`.
+Todas resolvidas em 2026-08-31 (D-81), cada uma pela recomendação de engenharia que o próprio rascunho já registrava. Nenhuma é TRUE HUMAN GATE (§0.3): o dono decidiu a **capacidade** premium em D-79; escolher a alavanca e a arquitetura dentro dela é decisão pequena, reversível e de baixo risco (§0.2), e nenhuma toca ciência capilar, custo, credencial ou publicação irreversível.
+
+- **OQ1 — Escopo exato — RESOLVIDA: (a) dias da semana preferidos.** Maior valor percebido ("só lavo aos sábados"), claramente fora do domínio, e aplicável como camada de colocação. **(b) adiar/antecipar início** cai fora por já existir de graça: `startsOn` é input da geração e a usuária escolhe quando confirmar. **(c) horário do dia** é lembrete, não plano — pertence à SPEC-008, onde o horário já vive.
+- **OQ2 — Arquitetura — RESOLVIDA: parâmetro puro na geração.** `buildPlan(snapshot, startsOn, preferences?)` aplica o placement **depois** do engine; um plano ativo nunca é editado in place (NG2 preservado). **Nenhum ADR novo** — a imutabilidade do agregado `HairPlan` continua intacta, e o caminho de troca é o supersede que a SPEC-014 já entrega.
+- **OQ3 — Placement muda o engine? — RESOLVIDA: não.** `packages/core/src/schedule/placement/preferred-weekdays.ts` fica **fora** de `engine/v1/`, que não muda um byte. Sem nova versão de engine (ADR-007), sem mover o gate de PUBLIC RELEASE (D-26).
+- **OQ4 — Preferência insatisfazível — RESOLVIDA: melhor esforço com aviso honesto.** Cada cuidado vai para o dia preferido mais próximo; quando não há dia preferido livre, dentro da janela e a partir do início, o cuidado **mantém a data do engine**. Nada é removido, empurrado para fora da janela ou "afinado" — reduzir cuidados seria mudar domínio. `weekdayPlacement.fullyHonoured = false` diz ao app que a rotina escolhida não coube na cadência.
+- **OQ5 — Persistência — RESOLVIDA: persistir (`plan_preferences`, 1:1).** Necessidade (A): a tela precisa mostrar a escolha atual, e a reavaliação (SPEC-014) precisa reaplicá-la sem a usuária redigitar. Tabela mínima no padrão de `notification_preferences` (SPEC-008): a linha é dela (SELECT/UPSERT own com `with check`); **guardar a preferência não concede a capacidade** — aplicá-la é gated na geração (BR1/FR3).
+
+### 23b. Invariantes que a camada de placement garante (testadas)
+Para todo perfil e toda escolha de dias: mesmo **conjunto, contagem e ordem** de tipos de cuidado que sem customização; datas **distintas, crescentes e dentro da janela de 28 dias**; nunca antes de `startsOn`; determinístico e insensível a ordem/duplicatas na escolha. É o que separa "premium" de "mexer no domínio".
 
 ## 24. Change Log
 | Data | Mudança | Autor |
 |---|---|---|
+| 2026-08-31 | **v0.2 — APROVADA (D-81)** com escopo mínimo: OQ1 = dias da semana preferidos; OQ2 = parâmetro puro na geração (sem ADR, sem mutar agregado); OQ3 = camada de placement fora do engine; OQ4 = melhor esforço + `fullyHonoured` em vez de degradar o plano; OQ5 = `plan_preferences` 1:1. §17 AC6 fechado por §23b. **PR-1 (core) implementada:** `placement/preferred-weekdays.ts` + `buildPlan` com `preferences?` + 17 testes de invariante/golden. | agente (§0.3) |
 | 2026-08-30 | Draft inicial: define a primeira capacidade premium (`plan_customization`, D-79/OQ3) consumindo o gate da SPEC-010. Escopo de produto (OQ1) e arquitetura de aplicação (OQ2, possível ADR) deixados como BLOCKING para aprovação humana; domínio (D-26) e imutabilidade do plano explicitamente preservados como Non-Goals. | agente (§0.3) |

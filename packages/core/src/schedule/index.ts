@@ -8,6 +8,8 @@ export { PLAN_WINDOW_DAYS } from './engine/v1/generate-schedule.ts';
 export type { ScheduleContext, ScheduleResult } from './engine/v1/generate-schedule.ts';
 export { buildPlan } from './application/build-plan.ts';
 export type { PlanDraft } from './application/build-plan.ts';
+export { applyPreferredWeekdays, normalizePreferredWeekdays } from './placement/preferred-weekdays.ts';
+export type { PlanPreferences, WeekdayPlacementResult } from './placement/preferred-weekdays.ts';
 export { SCHEDULED_CARE_STATUSES } from './application/ports.ts';
 export type { HairPlan, HairPlanPort, ScheduledCare, ScheduledCareStatus } from './application/ports.ts';
 
