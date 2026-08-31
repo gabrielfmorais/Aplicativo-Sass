@@ -11,12 +11,7 @@ import type {
   NotificationSchedulerPort,
   PlanPreferencesPort,
 } from '@app/core';
-import {
-  AppError,
-  DEFAULT_NOTIFICATION_PREFERENCES,
-  buildNotificationIntents,
-  buildTodayView,
-} from '@app/core';
+import { DEFAULT_NOTIFICATION_PREFERENCES, buildNotificationIntents, buildTodayView } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -27,25 +22,13 @@ import { SignInScreen } from '@/features/auth/SignInScreen';
 import { TodayScreen } from '@/features/care/TodayScreen';
 import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import { PlanScreen } from '@/features/plan/PlanScreen';
+import { reasonOf } from '@/shared/failure-detail';
 
 type Loadable<T> = 'loading' | 'error' | T;
 
 /** The device's wall clock as `HH:MM`, so the pure builder can skip a slot that already passed. */
 const localTimeOf = (instant: Instant): string =>
   new Date(instant).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
-
-/**
- * The reason a load failed, as a short string. Kept for the retry screen and shown **only in
- * development** (D-87): a user gets the plain sentence and nothing else, but a developer staring at
- * "Não foi possível carregar seu perfil." should not have to open devtools to learn that the table
- * does not exist. That exact message cost an afternoon once.
- */
-const reasonOf = (error: unknown): string =>
-  error instanceof AppError
-    ? `${error.code}: ${error.message}`
-    : error instanceof Error
-      ? error.message
-      : String(error);
 
 function Retry({ text, detail, onRetry }: { text: string; detail?: string; onRetry: () => void }) {
   return (
