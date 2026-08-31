@@ -172,7 +172,7 @@ export function Button({
         size === 'sm' && styles.buttonSm,
         buttonVariant[variant].container,
         pressed && !off && buttonVariant[variant].pressed,
-        off && styles.buttonOff,
+        off && styles.off,
         style,
       ]}
     >
@@ -235,6 +235,7 @@ export function Chip({
   onPress,
   multi = false,
   disabled = false,
+  accessibilityLabel,
 }: {
   label: string;
   selected: boolean;
@@ -242,6 +243,11 @@ export function Chip({
   /** `true` renders as a checkbox to assistive tech; `false` as a radio within its group. */
   multi?: boolean;
   disabled?: boolean;
+  /**
+   * For when the visible label is abbreviated. "Qua" is what fits in a row of seven; "quarta-feira"
+   * is what a screen reader has to say, and three letters read aloud are not a weekday.
+   */
+  accessibilityLabel?: string;
 }) {
   return (
     <Pressable
@@ -249,10 +255,14 @@ export function Chip({
       disabled={disabled}
       accessibilityRole={multi ? 'checkbox' : 'radio'}
       accessibilityState={{ checked: selected, disabled }}
+      {...(accessibilityLabel ? { accessibilityLabel } : {})}
       style={({ pressed }) => [
         styles.chip,
         selected ? styles.chipOn : styles.chipOff,
         pressed && !disabled && (selected ? styles.chipOnPressed : styles.chipOffPressed),
+        // Without this a busy chip looks exactly like a live one and silently refuses the tap —
+        // the same defect the daily screen already had, reintroduced here by the move to Chip.
+        disabled && styles.off,
       ]}
     >
       <Text variant={selected ? 'bodyStrong' : 'body'} tone={selected ? 'accent' : 'default'}>
@@ -419,7 +429,8 @@ const styles = StyleSheet.create({
   },
   buttonSm: { minHeight: HIT_TARGET_MIN, paddingHorizontal: space.md, borderRadius: radius.sm },
   buttonSmLabel: { fontWeight: '600' },
-  buttonOff: { opacity: 0.45 },
+  /** One dimming for every control that is refusing input, so "disabled" always looks the same. */
+  off: { opacity: 0.45 },
   tag: {
     alignSelf: 'flex-start',
     paddingHorizontal: space.sm,
