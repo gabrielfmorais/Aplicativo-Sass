@@ -11,7 +11,12 @@ import type {
   NotificationSchedulerPort,
   PlanPreferencesPort,
 } from '@app/core';
-import { DEFAULT_NOTIFICATION_PREFERENCES, buildNotificationIntents, buildTodayView } from '@app/core';
+import {
+  AppError,
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  buildNotificationIntents,
+  buildTodayView,
+} from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -29,13 +34,27 @@ type Loadable<T> = 'loading' | 'error' | T;
 const localTimeOf = (instant: Instant): string =>
   new Date(instant).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
 
-function Retry({ text, onRetry }: { text: string; onRetry: () => void }) {
+/**
+ * The reason a load failed, as a short string. Kept for the retry screen and shown **only in
+ * development** (D-87): a user gets the plain sentence and nothing else, but a developer staring at
+ * "Não foi possível carregar seu perfil." should not have to open devtools to learn that the table
+ * does not exist. That exact message cost an afternoon once.
+ */
+const reasonOf = (error: unknown): string =>
+  error instanceof AppError
+    ? `${error.code}: ${error.message}`
+    : error instanceof Error
+      ? error.message
+      : String(error);
+
+function Retry({ text, detail, onRetry }: { text: string; detail?: string; onRetry: () => void }) {
   return (
     <View style={styles.center}>
       <Text accessibilityLiveRegion="polite">{text}</Text>
       <Pressable style={styles.button} onPress={onRetry} accessibilityRole="button">
         <Text>Tentar novamente</Text>
       </Pressable>
+      {__DEV__ && detail ? <Text style={styles.devDetail}>{detail}</Text> : null}
     </View>
   );
 }
@@ -78,6 +97,8 @@ function AuthenticatedApp({
    * replaced until she confirms, so leaving at either step leaves the active plan untouched (G3).
    */
   const [reassessing, setReassessing] = useState<null | 'profile' | 'preview'>(null);
+  // Why the last load failed. Rendered only under __DEV__ (D-87).
+  const [failure, setFailure] = useState<string | null>(null);
   const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
 
   // Read once per session. A failure is treated as "off": not notifying is always safer than
@@ -98,8 +119,14 @@ function AuthenticatedApp({
     let active = true;
     hairProfile
       .getCurrent()
+      // A read that fails is NOT the same as a user with no profile: treating it as "no profile"
+      // would push her into onboarding and risk a second snapshot. Absence is `null` (SPEC-002).
       .then((p) => active && setProfile(p))
-      .catch(() => active && setProfile('error'));
+      .catch((error: unknown) => {
+        if (!active) return;
+        setFailure(reasonOf(error));
+        setProfile('error');
+      });
     return () => {
       active = false;
     };
@@ -112,7 +139,11 @@ function AuthenticatedApp({
     careTracking
       .getBoard()
       .then((b) => active && setBoard(b))
-      .catch(() => active && setBoard('error'));
+      .catch((error: unknown) => {
+        if (!active) return;
+        setFailure(reasonOf(error));
+        setBoard('error');
+      });
     return () => {
       active = false;
     };
@@ -143,7 +174,13 @@ function AuthenticatedApp({
 
   if (profile === 'loading') return null;
   if (profile === 'error') {
-    return <Retry text="Não foi possível carregar seu perfil." onRetry={loadProfile} />;
+    return (
+      <Retry
+        text="Não foi possível carregar seu perfil."
+        {...(failure ? { detail: failure } : {})}
+        onRetry={loadProfile}
+      />
+    );
   }
   if (!profile) return <OnboardingScreen hairProfile={hairProfile} onSaved={setProfile} />;
 
@@ -210,7 +247,13 @@ function AuthenticatedApp({
 
   if (board === 'loading') return null;
   if (board === 'error') {
-    return <Retry text="Não foi possível carregar seus cuidados." onRetry={loadBoard} />;
+    return (
+      <Retry
+        text="Não foi possível carregar seus cuidados."
+        {...(failure ? { detail: failure } : {})}
+        onRetry={loadBoard}
+      />
+    );
   }
   if (!board) {
     return (
@@ -287,6 +330,7 @@ export default function IndexRoute() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12 },
+  devDetail: { fontSize: 12, opacity: 0.7, textAlign: 'center' },
   stack: { flex: 1, padding: 24, gap: 12 },
   button: { padding: 14, borderWidth: 1, borderRadius: 8, alignItems: 'center', minHeight: 48 },
 });
