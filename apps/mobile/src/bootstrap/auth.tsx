@@ -21,6 +21,7 @@ import { AppState } from 'react-native';
 import { createSupabaseAuthAdapter } from '@/infrastructure/supabase/auth-adapter';
 import { supabase } from '@/infrastructure/supabase/client';
 import { createDeletionRequestAdapter } from '@/infrastructure/supabase/deletion-request-adapter';
+import { createDevSignIn } from '@/infrastructure/supabase/dev-sign-in';
 import { createCareTrackingAdapter } from '@/infrastructure/supabase/care-tracking-adapter';
 import { createEntitlementsAdapter } from '@/infrastructure/supabase/entitlements-adapter';
 import { createHairPlanAdapter } from '@/infrastructure/supabase/hair-plan-adapter';
@@ -49,6 +50,11 @@ type AuthContextValue = {
   timeZone: () => string;
   /** Fresh idempotency key for a user-initiated server write (SPEC-004 AC9 / SPEC-005 AC14). */
   newRequestId: () => string;
+  /**
+   * DEV-ONLY web sign-in (D-85). `null` in every build a user could ever hold — see the four guards
+   * in `dev-sign-in.ts`. The official flows do not go through here.
+   */
+  devSignIn: (() => Promise<void>) | null;
 };
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -98,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const careTracking = useMemo(() => createCareTrackingAdapter(supabase), []);
   const entitlements = useMemo(() => createEntitlementsAdapter(supabase), []);
   const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const devSignIn = useMemo(() => createDevSignIn(supabase), []);
 
   useEffect(() => {
     let active = true;
@@ -134,6 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         now: () => systemClock.now(),
         timeZone,
         newRequestId: () => cryptoIdGenerator.next(),
+        devSignIn,
       }}
     >
       {children}

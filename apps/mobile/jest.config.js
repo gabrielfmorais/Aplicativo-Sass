@@ -6,6 +6,7 @@ module.exports = {
   // Jest's 5s default on a CI runner. This is a wall-clock budget, not an assertion: no test waits
   // this long when things work, and a genuine hang still fails.
   testTimeout: 30000,
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@app/core$': '<rootDir>/../../packages/core/src/index.ts',
