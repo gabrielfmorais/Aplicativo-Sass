@@ -61,6 +61,57 @@ node scripts/check-remote-schema.mjs      # tem de sair OK
   pgTAP) roda em `db reset` local, nunca em `db push`. Isso é proposital: são helpers de teste e
   não têm nada que fazer num projeto remoto.
 
+## 2b. Rota manual: SQL Editor (quando o CLI está bloqueado)
+
+Usada em 2026-08-31: o Windows Application Control bloqueia `supabase.exe`, e desativar Smart App
+Control para contornar isso **não é uma opção aceitável** — o antivírus estava certo em ser chato, e
+a resposta é outro caminho, não um caminho mais fraco.
+
+### Gerar o bundle
+
+```
+node scripts/make-dev-bootstrap.mjs           # escreve fora do repo, em %TEMP%
+```
+
+Ele concatena as migrations **literalmente**, na ordem dos timestamps (que é uma ordem topológica
+válida: cada `references public.<tabela>` aponta para tabela criada num arquivo anterior), dentro de
+um único `begin; … commit;`. Nenhuma migration usa `CREATE INDEX CONCURRENTLY`, então a transação é
+segura: ou o banco fica exatamente com o schema das migrations, ou fica exatamente como estava.
+
+**O bundle nunca entra no git.** Ele é derivado, descartável, e versioná-lo criaria uma segunda
+fonte de verdade que envelhece em silêncio — exatamente o problema que D-87 já custou uma tarde.
+
+**`supabase/seed/` fica de fora**, de propósito: os helpers de teste e as allowlists do pgTAP são
+locais e não têm o que fazer num projeto remoto.
+
+### Aplicar
+
+1. Supabase → projeto **hair-care-dev** → **SQL Editor** → **New query**
+2. Colar o conteúdo do bundle inteiro
+3. **Run**
+4. Conferir: `node scripts/check-remote-schema.mjs` → tem de sair `OK`
+
+### ⚠️ 4. A history remota fica dessincronizada — reconcilie antes do próximo `db push`
+
+Aplicar por SQL Editor cria o **schema** sem escrever nada em `supabase_migrations.schema_migrations`.
+Para o CLI, o banco continua "sem nenhuma migration aplicada": **o próximo `supabase db push` tentaria
+reaplicar tudo do zero**, e falharia feio no meio.
+
+Assim que o CLI voltar a ser utilizável, antes de qualquer push:
+
+```bash
+npx --yes supabase@latest link --project-ref ayecidupmxmirwfzwtea
+npx --yes supabase@latest migration list           # remoto aparece vazio
+npx --yes supabase@latest migration repair --status applied <version> # uma por migration já aplicada
+npx --yes supabase@latest migration list           # local e remoto batendo
+```
+
+As versões são os prefixos dos arquivos (`20260826000000`, `20260827000000`, …). `migration repair`
+**só escreve na tabela de histórico** — não toca no schema.
+
+**Enquanto isso não for feito, nenhuma migration nova pode ir por `db push` neste projeto.** Uma
+migration nova, antes do repair, aplica-se por este mesmo caminho manual.
+
 ## 3. O que esperar depois
 
 Com as tabelas no lugar, uma usuária **sem** `hair_profiles` cai no **onboarding**, que é o
