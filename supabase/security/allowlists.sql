@@ -60,6 +60,15 @@ insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
   ('authenticated', 'notification_preferences', 'INSERT', 'SPEC-008'),
   ('authenticated', 'notification_preferences', 'UPDATE', 'SPEC-008');
 
+-- SPEC-015 §10: plan_preferences — the weekdays she prefers, her own row only.
+-- Same shape as notification_preferences: no server-side invariant, so no RPC. Holding the
+-- preference grants nothing; applying it is gated by has_entitlement at generation time (D-81).
+-- No DELETE — "no preference" is the empty array, not a missing row.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'plan_preferences', 'SELECT', 'SPEC-015'),
+  ('authenticated', 'plan_preferences', 'INSERT', 'SPEC-015'),
+  ('authenticated', 'plan_preferences', 'UPDATE', 'SPEC-015');
+
 -- SPEC-010 §10: subscriptions — authenticated may only SELECT its own row.
 -- Every write goes through apply_billing_event (service_role only); billing_events has no client
 -- grant at all; anon has nothing. has_entitlement/get_my_entitlements are INVOKER (not DEFINER).
