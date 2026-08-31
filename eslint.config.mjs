@@ -85,6 +85,9 @@ export default tseslint.config(
         module: 'writable',
         require: 'readonly',
         __dirname: 'readonly',
+        // Node 22 ships both as globals; scripts/check-remote-schema.mjs uses them.
+        fetch: 'readonly',
+        URL: 'readonly',
       },
     },
     rules: {
