@@ -3,7 +3,7 @@
 Projeto: assistente pessoal de cuidados capilares (mobile, Expo + Supabase). Idioma dos docs: pt-BR; código, identificadores e commits em inglês.
 
 ## 0. Estado atual
-**Arquitetura aprovada (2026-08-26).** Última sincronização deste bloco: **2026-08-31**.
+**Arquitetura aprovada (2026-08-26).** Última sincronização deste bloco: **2026-08-31** (SPEC-016 fatia 2, D-89).
 
 **Implementadas e merged (Fases 0–9):** SPEC-000 Engineering Foundation (AC12 deferred, D-50) · SPEC-001 Identity & Authentication (#3) · SPEC-002 Hair Profile & Onboarding (#6; D-62/D-63/D-64/D-65) · SPEC-004 Schedule Engine v1 + `generate-plan`, com o Assessment dentro (SPEC-003 folded, D-66) (#11; D-68, regras V1 `candidate` por D-67) · SPEC-005 Care Tracking (#14; D-69, D-12, D-35) · SPEC-007 Content v1 (#19; D-70/D-71/D-72 ratificadas) · SPEC-006 Check-ins (#21; D-73 ratificada) · SPEC-008 Notifications (#24; D-74 ratificada; `expo-notifications` por D-75) · SPEC-009 Progress v1 (#26; D-76) · SPEC-014 Reavaliação (#28; D-77) · **SPEC-010 Subscription & Entitlements** — Parte 1 infraestrutura (#35/#36/#37, D-78) e Parte 2 provider-agnóstica (#39, D-79) · **SPEC-015 Plan Customization** — a primeira capacidade premium (#42/#43/#44, D-81).
 
@@ -18,6 +18,8 @@ Projeto: assistente pessoal de cuidados capilares (mobile, Expo + Supabase). Idi
 **Para o preview web existe um acesso somente-dev (D-85)** — `signInWithPassword` real com anon key, RLS e `auth.uid()` intactos, quatro travas, credencial só no `.env.local`. **Ele NÃO é o Auth do produto e não conclui nada.** `docs/runbooks/WEB-DEV-PREVIEW.md`.
 
 ⛔ **Auth real é requisito obrigatório de beta/release (D-86), e o DEV sign-in não o satisfaz.** Antes de qualquer beta ou publicação, todos precisam estar funcionando **de verdade e testados nos fluxos reais**: Google OAuth · Apple Sign In · Email OTP entregando o código que a UI espera · redirects/callbacks corretos em cada plataforma. As partes que dependem de credencial externa (console Google, Apple Developer, custom SMTP) são **TRUE HUMAN GATE**; o resto do roadmap continua sem esperar por elas.
+
+**Beta Experience — SPEC-016 (D-88), em andamento.** O milestone que transforma o produto funcional em produto apresentável. Identidade aprovada pelo dono: **base neutra quente** (osso `#FBF8F5`) e **ameixa `#7A2F52`** como cor principal; grafite quente em vez de preto; cores semânticas por tipo de cuidado. Design system em `apps/mobile/src/design/` (`apps/mobile/src/design/tokens.ts` + `apps/mobile/src/design/primitives.tsx`) — **literal de cor ou espaçamento em tela de produto é bug** (FR2), e **primitiva sem consumidor real é bug** (AC3). Fatia 1 (SignIn + Onboarding em etapas) merged em #54; **fatia 2 (D-89)** dá forma à Hoje: cartão de foco com a **única ação primária da tela**, week strip informativo, estado sempre em palavra e não só em cor. Faltam as fatias 3 (Plano/Progresso), 4 (Conta/Premium) e 5 (consistência + `improve --full`). **Sem dependência nova** (NG3): fonte custom, ícones, dark mode e motion são OQ com gatilho, não omissões.
 
 **Ambiente visual de desenvolvimento (D-80):** `pnpm --filter mobile run web` abre o app no navegador (Expo Web) para acompanhar telas em viewport de celular com Fast Refresh. **Web não é plataforma de produto**: `export:check` e o CI constroem só iOS + Android; três adapters de plataforma em `apps/mobile/src/infrastructure` (sessão em memória, fresh-install no-op, notificações fail-closed) mantêm o bundle nativo intacto. Runbook: `docs/runbooks/WEB-DEV-PREVIEW.md`.
 

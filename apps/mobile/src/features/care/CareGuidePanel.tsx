@@ -1,5 +1,8 @@
 import type { CareGuide } from '@app/core';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+
+import { Stack, Text } from '@/design/primitives';
+import { color, space } from '@/design/tokens';
 
 /**
  * SPEC-007 §14 — "Como fazer" for the care the user is looking at.
@@ -8,39 +11,47 @@ import { StyleSheet, Text, View } from 'react-native';
  * retry state exists here, and the instructions work with the phone offline (§16). Rendered with
  * plain `<Text>` rather than markdown — one less dependency, and nothing user- or server-supplied
  * is ever interpreted (§11).
+ *
+ * The rule down the left edge is what makes it read as *inside* the care it belongs to rather than
+ * as one more block on the page: this panel opens in place, and the indent is the only thing saying
+ * so once the card around it is scrolled past.
  */
 export function CareGuidePanel({ guide }: { guide: CareGuide }) {
   return (
     <View style={styles.panel}>
-      <Text style={styles.duration}>~{guide.durationMin} min</Text>
-      <Text style={styles.what}>{guide.whatItIs}</Text>
+      <Text variant="caption" tone="faint">
+        ~{guide.durationMin} min
+      </Text>
+      <Text>{guide.whatItIs}</Text>
 
-      <View style={styles.block}>
+      <Stack gap="xs">
         {guide.steps.map((step, index) => (
-          <Text key={step} style={styles.step}>
+          <Text key={step}>
             {index + 1}. {step}
           </Text>
         ))}
-      </View>
+      </Stack>
 
-      <View style={styles.block}>
-        <Text style={styles.mistakesTitle}>Erros comuns</Text>
+      <Stack gap="xs">
+        <Text variant="caption" tone="muted">
+          Erros comuns
+        </Text>
         {guide.commonMistakes.map((mistake) => (
-          <Text key={mistake} style={styles.mistake}>
+          <Text key={mistake} tone="muted">
             • {mistake}
           </Text>
         ))}
-      </View>
+      </Stack>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  panel: { gap: 8, paddingVertical: 10, paddingLeft: 12, borderLeftWidth: 2, borderLeftColor: '#d1d1d6' },
-  duration: { fontSize: 13, fontWeight: '600', opacity: 0.8 },
-  what: { fontSize: 14, lineHeight: 20 },
-  block: { gap: 4 },
-  step: { fontSize: 14, lineHeight: 20 },
-  mistakesTitle: { fontSize: 13, fontWeight: '600' },
-  mistake: { fontSize: 14, lineHeight: 20, opacity: 0.85 },
+  panel: {
+    gap: space.md,
+    paddingVertical: space.sm,
+    paddingLeft: space.md,
+    borderLeftWidth: 2,
+    borderLeftColor: color.border,
+  },
 });

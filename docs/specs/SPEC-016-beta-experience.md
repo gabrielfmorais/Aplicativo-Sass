@@ -123,8 +123,8 @@ Inalterados. O que muda: falha passa a ter forma — mensagem legível, retry vi
 
 ## 20. Implementation Plan
 Fatias pequenas, cada uma verificável e mergeável sozinha:
-1. **Tokens + primitivas + Onboarding em etapas + SignIn.** A primeira impressão inteira, e o sistema nasce com consumidor.
-2. **Hoje + execução do cuidado + check-in.** A tela do dia a dia, onde a usuária mais volta.
+1. ✅ **MERGED (#54)** — **Tokens + primitivas + Onboarding em etapas + SignIn.** A primeira impressão inteira, e o sistema nasce com consumidor.
+2. ✅ **Entregue** — **Hoje + execução do cuidado + check-in.** A tela do dia a dia, onde a usuária mais volta. Cartão de foco (uma ação primária por tela, garantida por construção), week strip informativo, estado sempre em palavra. Nada acionável foi colapsado: SPEC-007 AC5 promete "Como fazer" em todo cuidado acionável.
 3. **Plano/preview + Progresso.** O momento "isto é meu" e a leitura de evolução.
 4. **Conta + Plan Customization/Premium.** Premium como evolução (G7).
 5. **Passada de consistência** e `improve --full` antes do beta.
@@ -146,3 +146,4 @@ Reverter a PR da fatia. Como nenhuma fatia toca core, banco ou contrato, o rollb
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-08-31 | v0.1 — SPEC criada e aprovada (D-88) para o milestone Beta Experience. Escopo: identidade, design system e refinamento da jornada, **sem** tocar regra, schema, autorização ou domínio capilar. Direção visual decidida em §14; fonte custom, ícones, dark mode e motion ficam como OQ com gatilho; nome/marca é decisão do dono (OQ5). | agente (§0.3) |
+| 2026-08-31 | v0.2 — Fatia 2 entregue: **Hoje, execução e check-in**. A tela ganha forma em torno de um **cartão de foco** — a única ação primária da tela, garantida por construção (`emphasis: 'focus' \| 'list'`) — mais um **week strip** informativo (`buildWeek`, puro e testado, no app e não no core: não decide nada de domínio, e "semana começa no domingo" é locale, que é UI — AC6 preservado). Estado sempre em palavra, nunca só em cor. **Nada acionável foi colapsado**: divulgação progressiva ficaria em conflito com SPEC-007 AC5, que promete "Como fazer" em todo cuidado acionável. Fecha um buraco real: concluir um cuidado **atrasado** o arquiva em histórico, então o "Como ficou?" saltava para o fim da tela — o foco segura o cuidado recém-registrado enquanto houver check-in ou desfazer. Auditoria `improve`: `inkFaint` estava em **3.09:1** (reprovado em WCAG AA) e foi para **4.97:1**; escrita em cartão que não era o em voo ficava acesa e não fazia nada, agora reporta-se desabilitada; `Button variant="danger"` (sem consumidor, texto invisível no pressionado), as tonalidades de cuidado do `Tag` e o rótulo "Planejado" removidos por AC3/D-47. | agente (§0.3) |

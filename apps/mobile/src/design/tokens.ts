@@ -37,8 +37,15 @@ export const color = {
   ink: '#2B2523',
   /** Secondary text: still comfortably readable, clearly subordinate. */
   inkMuted: '#6B615B',
-  /** Hints and metadata. Never used for anything that must be read to act. */
-  inkFaint: '#988C84',
+  /**
+   * The quietest tone in the scale — hints, metadata, an eyebrow above a heading.
+   *
+   * It is quiet, **not** decorative: 4.97:1 on the canvas, so it clears WCAG AA for body text like
+   * everything else here. The first draft of this token was `#988C84`, which measured 3.09:1 and
+   * therefore failed for every size the app uses. There is no such thing as text that does not have
+   * to be readable — if a value ever wants to go lighter than this, it may only paint a shape.
+   */
+  inkFaint: '#756A62',
   /** Text on a filled accent/ink surface. */
   onFilled: '#FFFFFF',
 
@@ -110,6 +117,13 @@ export const elevation = {
 
 /** Minimum comfortable tap target (SPEC-016 BR4/AC5). */
 export const HIT_TARGET = 48;
+
+/**
+ * The floor for a *secondary* target, when several of them share a row and 48pt each would push the
+ * row into a second line on a 320pt screen (EC3). Still above the 44pt BR4 requires — a smaller
+ * button is allowed to look lighter, never to become harder to hit.
+ */
+export const HIT_TARGET_MIN = 44;
 
 /**
  * The app is a phone app. On the web preview (D-80) the viewport is a desktop window, so content is
