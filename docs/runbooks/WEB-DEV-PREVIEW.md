@@ -52,14 +52,25 @@ web fazendo o que está na tabela do §3.
 
 ## 5. Entrar no preview (D-84)
 
-**Use "Continuar com Google".** É o único caminho que fecha o ciclo hoje, e funciona no navegador
-pelo mesmo motivo que funciona no aparelho: o fluxo OAuth com PKCE acontece **sem descarregar a
-página** (popup), então o *code verifier* que vive só em memória (§3) continua lá quando o callback
-volta e o `exchangeCodeForSession` completa.
+**"Continuar com Google" é o único caminho que pode fechar o ciclo hoje** — mas leia o aviso
+abaixo antes de contar com ele.
+
+Por que *pode* funcionar no navegador: o OAuth com PKCE acontece em **popup**, sem descarregar a
+página, então o *code verifier* que vive só em memória (§3) continua lá quando o callback volta e o
+`exchangeCodeForSession` completa. `expo-web-browser` implementa `openAuthSessionAsync` no web via
+`window.open`.
 
 Pré-requisito, uma vez, no painel do Supabase → **Authentication → URL Configuration → Redirect
 URLs**: adicionar `http://localhost:8081/**`. Sem isso o Supabase ignora o `redirect_to` e devolve
 para a Site URL, e o login não volta para o preview. É configuração de projeto, não de código.
+
+> ⚠️ **Não verificado ponta a ponta.** Concluir o login exige credencial Google de uma pessoa, então
+> ninguém validou isso ainda — e a tentativa parcial deixou a tela em "Aguarde…" sem erro no
+> console, o que é ambíguo: pode ser o popup legitimamente aberto esperando você, ou pode ser o
+> popup bloqueado pelo Chrome (o `window.open` acontece depois de um `await`, então o *user
+> gesture* pode ter expirado — `expo-web-browser` avisa exatamente sobre isso). **Se a tela travar
+> em "Aguarde…" sem abrir popup, é a segunda hipótese**: libere popups para `localhost:8081` e
+> tente de novo. Quando alguém confirmar, atualize este parágrafo com o que aconteceu.
 
 ### O login por email **não funciona** — e não é bug do preview
 
