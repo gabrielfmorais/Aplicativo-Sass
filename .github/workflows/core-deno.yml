@@ -18,6 +18,8 @@ permissions:
 
 jobs:
   deno:
+    # NAME IS A CONTRACT: branch protection requires this check by name (LEVEL 2). Renaming it
+    # leaves the required check "Expected" forever and blocks every merge. Add steps, not names.
     name: deno check · run smoke · lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -33,8 +35,26 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Type-check functions and core against Deno
-        run: deno check health/index.ts generate-plan/index.ts _spike/core-smoke.ts
+      # Every entrypoint and every module they import, plus the test files themselves — a test
+      # that does not type-check is a test that is not really guarding anything. billing-webhook
+      # was missing here until 2026-08-31: it shipped in SPEC-010 PR-C and was linted but never
+      # type-checked.
+      - name: Type-check functions, their tests, and core against Deno
+        run: >-
+          deno check
+          health/index.ts
+          generate-plan/index.ts
+          generate-plan/preferences.test.ts
+          billing-webhook/index.ts
+          billing-webhook/webhook.test.ts
+          _spike/core-smoke.ts
+
+      # The Edge Functions' own unit tests. Authorised 2026-08-31; until then the workflow proved
+      # the functions compiled and said nothing about whether they behaved. These cover the two
+      # decisions no other layer can make for them: the billing webhook's HMAC/ACL (SPEC-010 AC5)
+      # and the premium gate on plan generation (SPEC-015 AC2, fail closed).
+      - name: Edge Function unit tests
+        run: deno test
 
       - name: Run core smoke under Deno
         run: deno run _spike/core-smoke.ts

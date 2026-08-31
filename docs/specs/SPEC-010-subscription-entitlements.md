@@ -31,7 +31,7 @@ Precisamos cobrar por assinatura **dentro das lojas** (IAP é obrigatório para 
 
 ## 4. Non-Goals
 - NG1 — Reconciliação diária com a API do provider (pós-MVP; ADR-011). MVP confia no webhook + refresh explícito.
-- NG2 — Múltiplos tiers/planos simultâneos, upgrade/downgrade com proração, add-ons. **Um** plano premium no MVP.
+- NG2 — Múltiplos **tiers** simultâneos, upgrade/downgrade com proração, add-ons. **Um tier premium** no MVP — que, por D-83, é vendido em **dois períodos de cobrança** (mensal e anual) com **trial de 7 dias**. Dois produtos IAP do mesmo tier não são dois tiers: o catálogo por capacidade (BR2) não muda, e `product_code` já distingue os produtos para telemetria/suporte.
 - NG3 — Códigos promocionais, cupons, referral, trials estendidos manuais, family sharing.
 - NG4 — Billing na web / fora das lojas.
 - NG5 — Reembolso/estorno além de refletir o `status` que o provider enviar (sem fluxo de suporte próprio).
@@ -211,7 +211,7 @@ Migrations novas e aditivas (forward-only), na ordem: `subscriptions`, depois `b
 
 ## 23. Open Questions
 - **OQ1 — Provider + custo — RESOLVIDA (humano, 2026-08-30): RevenueCat.** Abstrai App Store/Play, webhooks e sandbox (ADR-011). Autoriza a dependência `react-native-purchases` (§4) quando o development build for retomado. Custo do provider aceito pelo dono.
-- **OQ2 — Preço e plano — DIFERIDA (humano, 2026-08-30): "decide preço depois".** Valor/moeda/período/trial serão definidos na loja mais tarde; o código lê preço/período da loja em runtime (nada hard-coded), então nada aqui depende do número. Configurar os produtos IAP continua sendo credencial externa (App Store Connect / Google Play).
+- **OQ2 — Preço e plano — ESTRUTURA RESOLVIDA (humano, 2026-08-31, D-83); número ainda diferido.** Decidido: **freemium**, **mensal + anual**, **trial de 7 dias**, **sem paywall obrigatório na entrada**, FREE completo no core. **Valor e moeda continuam vindo da loja em runtime** (nada hard-coded), então nenhum código depende do número e nada aqui muda de schema. Criar os produtos IAP continua sendo credencial externa (App Store Connect / Google Play).
 - **OQ3 — Primeira capacidade premium — RESOLVIDA (humano, 2026-08-30): `plan_customization`.** Menor risco de domínio (não inventa ciência capilar — não toca o gate D-26). A **funcionalidade** de customização de plano é substantiva e vira **SPEC própria** (NG7); esta SPEC entrega o gate server-side reutilizável (`has_entitlement('plan_customization')`) e o paywall que o expõe.
 - **OQ4 — Grace period (IMPORTANT).** Usar o `grace` nativo do provider (billing retry) como acesso concedido. *Assunção:* sim, `grace` concede acesso (BR3).
 - **OQ5 — Reconciliação (CAN DEFER).** Cron diário com a API do provider. *Assunção:* fora do MVP (NG1); webhook + refresh bastam.
