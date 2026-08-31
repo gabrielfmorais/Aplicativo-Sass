@@ -235,6 +235,7 @@ function AuthenticatedApp({
       newExecutionId={newRequestId}
       onChanged={loadBoard}
       onOpenAccount={() => setShowAccount(true)}
+      onReassess={() => setReassessing('profile')}
     />
   );
 }
