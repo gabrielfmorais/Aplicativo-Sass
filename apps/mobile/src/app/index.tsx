@@ -13,10 +13,9 @@ import type {
 } from '@app/core';
 import { DEFAULT_NOTIFICATION_PREFERENCES, buildNotificationIntents, buildTodayView } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { Button, Card, Loading, Screen, Stack, Text } from '@/design/primitives';
-import { space } from '@/design/tokens';
 
 import { useAuth } from '@/bootstrap/auth';
 import { AccountScreen } from '@/features/account/AccountScreen';
@@ -215,31 +214,28 @@ function AuthenticatedApp({
 
   if (showAccount) {
     return (
-      <View style={styles.stack}>
-        <AccountScreen
-          auth={auth}
-          deletion={deletion}
-          entitlements={entitlements}
-          planPreferences={planPreferences}
-          notificationPreferences={notificationPreferences}
-          notificationScheduler={notificationScheduler}
-          onNotificationPreferencesChanged={setPrefs}
-          {...(board && board !== 'loading' && board !== 'error'
-            ? {
-                onReassess: () => {
-                  setShowAccount(false);
-                  setReassessing('profile');
-                },
-                onCustomize: () => {
-                  setShowAccount(false);
-                  setReassessing('preview');
-                },
-              }
-            : {})}
-        />
-        {/* The account screen itself is slice 4; this is only the way back out of it. */}
-        <Button label="Voltar aos cuidados" variant="secondary" onPress={() => setShowAccount(false)} />
-      </View>
+      <AccountScreen
+        auth={auth}
+        deletion={deletion}
+        entitlements={entitlements}
+        planPreferences={planPreferences}
+        notificationPreferences={notificationPreferences}
+        notificationScheduler={notificationScheduler}
+        onNotificationPreferencesChanged={setPrefs}
+        onBack={() => setShowAccount(false)}
+        {...(board && board !== 'loading' && board !== 'error'
+          ? {
+              onReassess: () => {
+                setShowAccount(false);
+                setReassessing('profile');
+              },
+              onCustomize: () => {
+                setShowAccount(false);
+                setReassessing('preview');
+              },
+            }
+          : {})}
+      />
     );
   }
 
@@ -328,5 +324,4 @@ export default function IndexRoute() {
 
 const styles = StyleSheet.create({
   center: { flexGrow: 1, justifyContent: 'center' },
-  stack: { flex: 1, padding: space.xl, gap: space.md },
 });

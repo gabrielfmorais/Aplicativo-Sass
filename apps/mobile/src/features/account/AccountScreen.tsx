@@ -8,15 +8,24 @@ import type {
   PlanPreferencesPort,
 } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Button, Card, Screen, Stack, Text } from '@/design/primitives';
 import { NotificationSettings } from '@/features/account/NotificationSettings';
 import { PlanCustomizationSection } from '@/features/account/PlanCustomizationSection';
 import { SubscriptionSection } from '@/features/account/SubscriptionSection';
 
 /**
- * Authenticated home for SPEC-001: logout and the account-deletion request contract (FR5/FR6).
- * Product screens arrive with later SPECs. Session behaviour after a request is not decided (D-60).
+ * Authenticated home for SPEC-001: logout and the account-deletion request contract (FR5/FR6),
+ * plus every setting the later SPECs added.
+ *
+ * SPEC-016 slice 4 fixed something that was not cosmetic: this screen was a `View` with
+ * `justifyContent: 'center'` and **no scroll view at all**. With subscription, weekday preferences,
+ * reminders, reassessment, deletion and sign-out stacked in it, everything below the fold was
+ * simply unreachable on a phone — the web preview's tall window was hiding it. It scrolls now.
+ *
+ * Order is deliberate: what she can *gain* first, what she can *change* next, and the two
+ * irreversible things last and quietest. A destructive action should never be the first thing a
+ * thumb finds.
  */
 export function AccountScreen({
   auth,
@@ -28,6 +37,7 @@ export function AccountScreen({
   onNotificationPreferencesChanged,
   onReassess,
   onCustomize,
+  onBack,
 }: {
   auth: AuthPort;
   deletion: DeletionRequestPort;
@@ -43,8 +53,14 @@ export function AccountScreen({
    * no active plan: the preview is already the next screen she sees, so there is nothing to open.
    */
   onCustomize?: () => void;
+  /**
+   * The way back to the cares. It lives inside this screen rather than beside it: the account is a
+   * full page on the warm canvas now, and a control floating outside its frame would sit on a
+   * different background with different padding. Optional so a test can render the screen alone.
+   */
+  onBack?: () => void;
 }) {
-  const [requestedAt, setRequestedAt] = useState<string | null | 'loading'>('loading');
+  const [requestedAt, setRequestedAt] = useState<string | null | 'loading' | 'error'>('loading');
   const [message, setMessage] = useState<string | null>(null);
 
   const refresh = useCallback(
@@ -52,7 +68,9 @@ export function AccountScreen({
       deletion
         .current()
         .then((r) => setRequestedAt(r?.requestedAt ?? null))
-        .catch(() => setMessage('Não foi possível carregar sua conta.')),
+        // Terminal, not "still loading". Leaving it on `loading` left a spinner that never ended and
+        // no way to try again — a failed read has to be a state she can act on (FR4/AC4).
+        .catch(() => setRequestedAt('error')),
     [deletion],
   );
 
@@ -66,8 +84,12 @@ export function AccountScreen({
       .catch(() => setMessage(fallback));
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title} accessibilityRole="header">
+    <Screen
+      {...(onBack
+        ? { footer: <Button label="Voltar aos cuidados" variant="secondary" onPress={onBack} /> }
+        : {})}
+    >
+      <Text variant="display" accessibilityRole="header">
         Sua conta
       </Text>
 
@@ -86,62 +108,66 @@ export function AccountScreen({
       />
 
       {onReassess ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle} accessibilityRole="header">
+        <Card>
+          <Text variant="heading" accessibilityRole="header">
             Reavaliar meu cabelo
           </Text>
-          <Text style={styles.sectionBody}>
+          <Text tone="muted">
             Responda as perguntas de novo para receber um cronograma novo. O cronograma atual será
             substituído; o que você já registrou continua salvo.
           </Text>
-          <Pressable style={styles.button} onPress={onReassess} accessibilityRole="button">
-            <Text>Reavaliar</Text>
-          </Pressable>
-        </View>
+          <Button label="Reavaliar" variant="secondary" onPress={onReassess} />
+        </Card>
       ) : null}
 
-      {requestedAt === 'loading' ? (
-        <Text>Carregando…</Text>
-      ) : requestedAt ? (
-        <>
-          <Text accessibilityLiveRegion="polite">
-            Exclusão da conta solicitada em {new Date(requestedAt).toLocaleDateString()}. Você pode cancelar o
-            pedido.
-          </Text>
-          <Pressable
-            style={styles.button}
-            onPress={() => act(deletion.cancel, 'Não foi possível cancelar.')}
-            accessibilityRole="button"
-          >
-            <Text>Cancelar exclusão</Text>
-          </Pressable>
-        </>
-      ) : (
-        <Pressable
-          style={styles.button}
-          onPress={() => act(deletion.request, 'Não foi possível solicitar.')}
-          accessibilityRole="button"
-        >
-          <Text>Solicitar exclusão da conta</Text>
-        </Pressable>
-      )}
-      <Pressable
-        style={styles.button}
-        onPress={() => act(auth.signOut, 'Não foi possível sair.')}
-        accessibilityRole="button"
-      >
-        <Text>Sair</Text>
-      </Pressable>
-      {message && <Text accessibilityLiveRegion="polite">{message}</Text>}
-    </View>
+      {/* Last, and quiet on purpose: leaving and deleting are the two things she cannot undo by
+          tapping again, so neither should sit where a thumb lands by accident. */}
+      <Stack gap="md">
+        <Text variant="overline" tone="muted" accessibilityRole="header">
+          Acesso e dados
+        </Text>
+        {/* Inline, not the full-page `Loading`: this is one sub-state inside a scrolling page, and
+            a flex-1 screen dropped into a scroll view collapses. */}
+        {requestedAt === 'loading' ? (
+          <Text tone="muted">Carregando sua conta…</Text>
+        ) : requestedAt === 'error' ? (
+          <Card>
+            <Text tone="muted" accessibilityLiveRegion="polite">
+              Não foi possível carregar sua conta.
+            </Text>
+            <Button label="Tentar novamente" variant="secondary" onPress={() => void refresh()} />
+          </Card>
+        ) : requestedAt ? (
+          <Card tone="muted">
+            <Text accessibilityLiveRegion="polite">
+              Exclusão da conta solicitada em {new Date(requestedAt).toLocaleDateString()}. Você pode cancelar
+              o pedido.
+            </Text>
+            <Button
+              label="Cancelar exclusão"
+              variant="secondary"
+              onPress={() => act(deletion.cancel, 'Não foi possível cancelar.')}
+            />
+          </Card>
+        ) : (
+          <Button
+            label="Solicitar exclusão da conta"
+            variant="ghost"
+            onPress={() => act(deletion.request, 'Não foi possível solicitar.')}
+          />
+        )}
+        <Button
+          label="Sair"
+          variant="secondary"
+          onPress={() => act(auth.signOut, 'Não foi possível sair.')}
+        />
+      </Stack>
+
+      {message ? (
+        <Text accessibilityLiveRegion="polite" tone="danger">
+          {message}
+        </Text>
+      ) : null}
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, gap: 12 },
-  title: { fontSize: 24, fontWeight: '600' },
-  button: { padding: 14, borderWidth: 1, borderRadius: 8, alignItems: 'center', minHeight: 48 },
-  section: { gap: 8 },
-  sectionTitle: { fontSize: 16, fontWeight: '600' },
-  sectionBody: { fontSize: 14, lineHeight: 20 },
-});

@@ -1,7 +1,8 @@
 import type { EntitlementsPort, PlanPreferencesPort, Weekday } from '@app/core';
 import { EntitlementService, normalizePreferredWeekdays } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { Button, Card, Chip, Row, Stack, Text } from '@/design/primitives';
 
 /**
  * `0` = Sunday … `6` = Saturday, the same numbering the core and the database use.
@@ -67,21 +68,19 @@ export function PlanCustomizationSection({
   }, [entitlements, planPreferences]);
   useEffect(() => load(), [load]);
 
-  if (state === 'loading') return <Text>Carregando suas preferências…</Text>;
+  if (state === 'loading') return <Text tone="muted">Carregando suas preferências…</Text>;
 
   if (state === 'error') {
     return (
-      <View style={styles.section}>
-        <Text style={styles.title} accessibilityRole="header">
+      <Card>
+        <Text variant="heading" accessibilityRole="header">
           Seus dias preferidos
         </Text>
-        <Text accessibilityLiveRegion="polite">
+        <Text tone="muted" accessibilityLiveRegion="polite">
           Não foi possível carregar suas preferências. Seu cronograma segue o padrão.
         </Text>
-        <Pressable style={styles.button} onPress={load} accessibilityRole="button">
-          <Text>Tentar novamente</Text>
-        </Pressable>
-      </View>
+        <Button label="Tentar novamente" variant="secondary" onPress={load} />
+      </Card>
     );
   }
 
@@ -89,15 +88,17 @@ export function PlanCustomizationSection({
 
   if (!canCustomize) {
     return (
-      <View style={styles.section}>
-        <Text style={styles.title} accessibilityRole="header">
+      <Card>
+        <Text variant="heading" accessibilityRole="header">
           Seus dias preferidos
         </Text>
-        <Text style={styles.body}>
+        {/* Framed as what premium *adds*, and the second half says the free schedule is a real
+            schedule — not a degraded one waiting to be unlocked (G7/D-83). */}
+        <Text tone="muted">
           Escolher em que dias da semana seus cuidados caem faz parte do premium. Hoje seu cronograma segue os
           intervalos que a avaliação indicou.
         </Text>
-      </View>
+      </Card>
     );
   }
 
@@ -122,86 +123,59 @@ export function PlanCustomizationSection({
   };
 
   return (
-    <View style={styles.section}>
-      <Text style={styles.title} accessibilityRole="header">
+    <Card>
+      <Text variant="heading" accessibilityRole="header">
         Seus dias preferidos
       </Text>
-      <Text style={styles.body}>
+      <Text tone="muted">
         Escolha em que dias da semana você prefere cuidar do cabelo. Isso muda só{' '}
-        <Text style={styles.emphasis}>quando</Text> cada cuidado cai — quais cuidados e com que frequência
-        continua vindo da sua avaliação.
+        <Text variant="bodyStrong" tone="muted">
+          quando
+        </Text>{' '}
+        cada cuidado cai — quais cuidados e com que frequência continua vindo da sua avaliação.
       </Text>
 
-      <View style={styles.days}>
-        {WEEKDAYS.map((day) => {
-          const on = state.selected.includes(day.value);
-          return (
-            <Pressable
-              key={day.value}
-              style={[styles.day, on && styles.dayOn]}
-              onPress={() => toggle(day.value)}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: on }}
-              accessibilityLabel={day.full}
-            >
-              <Text style={styles.dayText}>{day.short}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <Row gap="sm">
+        {WEEKDAYS.map((day) => (
+          <Chip
+            key={day.value}
+            label={day.short}
+            accessibilityLabel={day.full}
+            selected={state.selected.includes(day.value)}
+            multi
+            onPress={() => toggle(day.value)}
+          />
+        ))}
+      </Row>
 
       {state.selected.length === 0 ? (
-        <Text style={styles.body}>Sem dias escolhidos, seu cronograma segue o padrão da avaliação.</Text>
+        <Text variant="caption" tone="muted">
+          Sem dias escolhidos, seu cronograma segue o padrão da avaliação.
+        </Text>
       ) : null}
 
-      <Pressable
-        style={styles.button}
-        onPress={save}
+      <Button
+        label={saving ? 'Salvando…' : 'Salvar meus dias'}
+        variant="secondary"
         disabled={saving}
-        accessibilityRole="button"
-        accessibilityState={{ disabled: saving }}
-      >
-        <Text>{saving ? 'Salvando…' : 'Salvar meus dias'}</Text>
-      </Pressable>
+        accessibilityState={{ busy: saving }}
+        onPress={save}
+      />
 
       {message ? (
-        <Text accessibilityLiveRegion="polite" style={styles.body}>
+        <Text accessibilityLiveRegion="polite" tone="danger">
           {message}
         </Text>
       ) : null}
 
       {saved ? (
-        <View style={styles.saved}>
-          <Text accessibilityLiveRegion="polite" style={styles.body}>
+        <Stack gap="sm">
+          <Text accessibilityLiveRegion="polite" tone="success">
             Salvo. Seu cronograma atual continua como está — ele só muda quando você gerar um novo.
           </Text>
-          {onApply ? (
-            <Pressable style={styles.button} onPress={onApply} accessibilityRole="button">
-              <Text>Ver novo cronograma</Text>
-            </Pressable>
-          ) : null}
-        </View>
+          {onApply ? <Button label="Ver novo cronograma" onPress={onApply} /> : null}
+        </Stack>
       ) : null}
-    </View>
+    </Card>
   );
 }
-
-const styles = StyleSheet.create({
-  section: { gap: 8 },
-  title: { fontSize: 16, fontWeight: '600' },
-  body: { fontSize: 14, lineHeight: 20 },
-  emphasis: { fontWeight: '600' },
-  days: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  day: {
-    minWidth: 48,
-    minHeight: 44,
-    borderWidth: 1,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayOn: { borderWidth: 3 },
-  dayText: { fontSize: 16 },
-  button: { padding: 14, borderWidth: 1, borderRadius: 8, alignItems: 'center', minHeight: 48 },
-  saved: { gap: 8 },
-});
