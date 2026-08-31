@@ -4,7 +4,7 @@
 -- a user with no subscription may write one, and it grants her nothing (has_entitlement stays false).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(19);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values ('00000000-0000-4000-8000-0000000000af', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'af@example.test'),
