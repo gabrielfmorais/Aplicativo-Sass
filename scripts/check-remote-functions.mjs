@@ -17,7 +17,15 @@
 //
 // Usage (reads apps/mobile/.env.local by default):
 //   node scripts/check-remote-functions.mjs
-//   node scripts/check-remote-functions.mjs --url <project-url> --key <anon-key>
+//   node scripts/check-remote-functions.mjs --url <project-url>
+//   node scripts/check-remote-functions.mjs --ref <project-ref>
+//   node scripts/check-remote-functions.mjs --list        # just the names, one per line
+//
+// **No credential is required.** The anon key is sent when one is available, but the 404 probe does
+// not depend on it — which is what lets CI run this straight after a deploy without the repository
+// having to learn a new secret. `--list` exists so the deploy workflow and this check read the same
+// list from the same place: two implementations of "which functions exist" would drift, and the
+// first sign of the drift would be a deploy that silently skips one.
 //
 // NOT part of `pnpm verify`, for the same reason as its sibling: it talks to the network and to one
 // specific project. It is what you run when you point the app at an environment.
@@ -46,18 +54,6 @@ const argOf = (name) => {
   return at === -1 ? undefined : process.argv[at + 1];
 };
 
-const env = readEnvFile(join(root, 'apps/mobile/.env.local'));
-const url = argOf('url') ?? env.EXPO_PUBLIC_SUPABASE_URL;
-const key = argOf('key') ?? env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!url || !key) {
-  console.error(
-    '[check-remote-functions] No project to check. Set EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY\n' +
-      '[check-remote-functions] in apps/mobile/.env.local, or pass --url and --key.',
-  );
-  process.exit(2);
-}
-
 /**
  * Every function this repo deploys, read from the directory itself so it cannot drift from what is
  * on disk. Names starting with `_` are scaffolding, not deployables (`_spike`).
@@ -76,6 +72,28 @@ if (functions.length === 0) {
   process.exit(2);
 }
 
+// `--list` answers only "what should exist", with no network and no environment. The deploy
+// workflow consumes exactly this, so what gets deployed and what gets checked cannot disagree.
+if (process.argv.includes('--list')) {
+  for (const name of functions) console.log(name);
+  process.exit(0);
+}
+
+const env = readEnvFile(join(root, 'apps/mobile/.env.local'));
+const ref = argOf('ref');
+const url = argOf('url') ?? (ref ? `https://${ref}.supabase.co` : env.EXPO_PUBLIC_SUPABASE_URL);
+// Optional on purpose: a function the project does not host answers 404 to *any* caller, so this
+// probe needs no privilege. Sent when present only because a real client would send it.
+const key = argOf('key') ?? env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!url) {
+  console.error(
+    '[check-remote-functions] No project to check. Set EXPO_PUBLIC_SUPABASE_URL in\n' +
+      '[check-remote-functions] apps/mobile/.env.local, or pass --url / --ref.',
+  );
+  process.exit(2);
+}
+
 const missing = [];
 const present = [];
 
@@ -84,7 +102,7 @@ for (const name of functions) {
   try {
     response = await fetch(`${url}/functions/v1/${name}`, {
       method: 'POST',
-      headers: { apikey: key, 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...(key ? { apikey: key } : {}) },
       body: '{}',
     });
   } catch (error) {

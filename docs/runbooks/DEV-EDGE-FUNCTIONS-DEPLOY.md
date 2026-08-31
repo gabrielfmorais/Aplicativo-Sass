@@ -39,7 +39,24 @@ token nenhum. Saída atual:
   - health
 ```
 
-## O que precisa ser feito (TRUE HUMAN GATE — credencial)
+## Como deployar: workflow manual no GitHub Actions (rota canônica)
+
+O CLI local neste Windows falha com `spawn UNKNOWN`, e o token é do dono. Os dois problemas somem no CI: o GitHub já guarda `SUPABASE_ACCESS_TOKEN` como secret do repositório e roda Linux.
+
+**Actions → `deploy-dev-functions` → Run workflow** (só `workflow_dispatch`; não existe gatilho por push, porque deploy é decisão de alguém e não efeito colateral de merge).
+
+O workflow:
+
+1. descobre as funções com `check-remote-functions.mjs --list` — **a mesma lista** que o check de verificação usa, para deploy e conferência não poderem discordar;
+2. deploya cada uma com `--project-ref` (o `verify_jwt` por função vem do `supabase/config.toml`, onde a decisão está documentada);
+3. roda `check-remote-functions --ref`, **sem credencial**;
+4. faz um `OPTIONS` real contra `generate-plan` e **exige 204 + `access-control-allow-origin`** — assim um deploy de uma versão sem a correção de CORS não passa.
+
+O token vai por variável de ambiente e nunca é ecoado; a lista de funções também vai por `env` em vez de ser interpolada no shell.
+
+**O ref do projeto DEV é constante no workflow, não input** — um workflow que aceita ref arbitrário está a um colar errado de deployar em produção.
+
+## Rota alternativa: CLI local (TRUE HUMAN GATE — credencial)
 
 Deployar exige **Supabase CLI** ou um **`SUPABASE_ACCESS_TOKEN`**. Medido nesta máquina em
 2026-08-31: `supabase` não está no PATH, não é dependência do projeto, e a variável não existe. O
