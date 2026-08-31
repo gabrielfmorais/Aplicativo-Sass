@@ -33,6 +33,14 @@ const build = (
     nowLocalTime,
   });
 
+/**
+ * The care reminders only. `reassessment_due` (D-82) is about the plan's calendar rather than about
+ * any care, so it would otherwise show up in every assertion below and say nothing about what those
+ * tests are for. It has its own block at the end of this file, which is where it is guarded.
+ */
+const careReminders = (...args: Parameters<typeof build>) =>
+  build(...args).filter((i) => i.type !== 'reassessment_due');
+
 describe('opt-in (BR1/AC6)', () => {
   it('produces nothing while reminders are off', () => {
     expect(build([care({ id: 'c1', plannedDate: '2026-09-10' })], DEFAULT_NOTIFICATION_PREFERENCES)).toEqual(
@@ -52,7 +60,7 @@ describe('opt-in (BR1/AC6)', () => {
 
 describe('care reminders (AC7/AC8)', () => {
   it('reminds once per day, not once per care', () => {
-    const intents = build([
+    const intents = careReminders([
       care({ id: 'a', plannedDate: '2026-09-12' }),
       care({ id: 'b', plannedDate: '2026-09-12', careTypeCode: 'nutrition' }),
     ]);
@@ -94,13 +102,15 @@ describe('never remind about what is already resolved (BR2/AC9)', () => {
         voidedAt: null,
       },
     ];
-    expect(build(cares, ON, '08:00', done)).toEqual([]);
+    expect(careReminders(cares, ON, '08:00', done)).toEqual([]);
   });
 
   it('says nothing about a skipped or rescheduled care', () => {
-    expect(build([care({ id: 'c1', plannedDate: '2026-09-10', status: 'skipped' })])).toEqual([]);
+    expect(careReminders([care({ id: 'c1', plannedDate: '2026-09-10', status: 'skipped' })])).toEqual([]);
     expect(
-      build([care({ id: 'c1', plannedDate: '2026-09-10', status: 'rescheduled', rescheduledToId: 'c2' })]),
+      careReminders([
+        care({ id: 'c1', plannedDate: '2026-09-10', status: 'rescheduled', rescheduledToId: 'c2' }),
+      ]),
     ).toEqual([]);
   });
 
@@ -114,7 +124,7 @@ describe('never remind about what is already resolved (BR2/AC9)', () => {
         voidedAt: '2026-09-10T09:05:00.000Z',
       },
     ];
-    expect(build(cares, ON, '08:00', voided).map((i) => i.type)).toEqual(['care_today']);
+    expect(careReminders(cares, ON, '08:00', voided).map((i) => i.type)).toEqual(['care_today']);
   });
 });
 
@@ -131,14 +141,16 @@ describe('check-in reminder (AC10)', () => {
   ];
 
   it('asks for the check-in only when that reminder is on', () => {
-    expect(build(cares, ON, '08:00', done)).toEqual([]);
-    const intents = build(cares, { ...ON, checkinReminderEnabled: true }, '08:00', done);
+    expect(careReminders(cares, ON, '08:00', done)).toEqual([]);
+    const intents = careReminders(cares, { ...ON, checkinReminderEnabled: true }, '08:00', done);
     expect(intents.map((i) => i.type)).toEqual(['checkin_pending']);
   });
 
   it('stops asking once she has answered', () => {
     const answered: CheckIn[] = [{ id: 'ck1', careExecutionId: 'e1', overallFeel: 4 }];
-    expect(build(cares, { ...ON, checkinReminderEnabled: true }, '08:00', done, answered)).toEqual([]);
+    expect(careReminders(cares, { ...ON, checkinReminderEnabled: true }, '08:00', done, answered)).toEqual(
+      [],
+    );
   });
 });
 
@@ -177,9 +189,9 @@ describe('the past is never scheduled (FR7/AC12)', () => {
       care({ id: 'now', plannedDate: '2026-09-10' }),
       care({ id: 'next', plannedDate: '2026-09-12' }),
     ];
-    expect(build(cares, ON, '19:00').map((i) => i.date)).toEqual(['2026-09-12']);
-    expect(build(cares, ON, '23:30').map((i) => i.date)).toEqual(['2026-09-12']);
-    expect(build(cares, ON, '18:59').map((i) => i.date)).toContain(TODAY);
+    expect(careReminders(cares, ON, '19:00').map((i) => i.date)).toEqual(['2026-09-12']);
+    expect(careReminders(cares, ON, '23:30').map((i) => i.date)).toEqual(['2026-09-12']);
+    expect(careReminders(cares, ON, '18:59').map((i) => i.date)).toContain(TODAY);
   });
 });
 
@@ -220,5 +232,77 @@ describe('no personal data can reach the text (BR4/AC14)', () => {
       expect(text).not.toMatch(/hydration|nutrition|reconstruction|hidrataç|nutriç|reconstruç/i);
       expect(text).not.toMatch(/@|\bhttps?:\/\//);
     }
+  });
+});
+
+describe('the end of the cycle is announced, once (D-82)', () => {
+  it('fires the day after the plan’s last day', () => {
+    const intents = build([
+      care({ id: 'c1', plannedDate: '2026-09-10' }),
+      care({ id: 'c2', plannedDate: '2026-09-14' }),
+    ]);
+    const due = intents.find((i) => i.type === 'reassessment_due');
+    expect(due?.date).toBe('2026-09-15');
+    expect(due?.title).toBe('Seu cronograma chegou ao fim');
+  });
+
+  /**
+   * The anchor is the plan's last day, not her progress through it. Anchoring on what is still
+   * actionable would move the reminder every time she completed something — and delete it at the
+   * exact moment she finished the last care, which is when she needs it most.
+   */
+  it('does not move when she completes or skips the last care', () => {
+    const cares = [care({ id: 'c1', plannedDate: '2026-09-14' })];
+    const dateOf = (intents: readonly { type: string; date: string }[]) =>
+      intents.find((i) => i.type === 'reassessment_due')?.date;
+
+    expect(dateOf(build(cares))).toBe('2026-09-15');
+    expect(
+      dateOf(
+        build(cares, ON, '08:00', [
+          {
+            id: 'e1',
+            scheduledCareId: 'c1',
+            executedOn: '2026-09-14',
+            executedAt: '2026-09-14T10:00:00Z',
+            voidedAt: null,
+          },
+        ]),
+      ),
+    ).toBe('2026-09-15');
+    expect(dateOf(build([care({ id: 'c1', plannedDate: '2026-09-14', status: 'skipped' })]))).toBe(
+      '2026-09-15',
+    );
+  });
+
+  /** Self-limiting: once that day is behind her the intent stops existing, so it never nags daily. */
+  it('is not produced once the cycle end is already in the past', () => {
+    const intents = build([care({ id: 'c1', plannedDate: '2026-09-01', status: 'skipped' })]);
+    expect(intents.some((i) => i.type === 'reassessment_due')).toBe(false);
+  });
+
+  it('stays inside the scheduling horizon like every other intent', () => {
+    const farOut = build([care({ id: 'c1', plannedDate: '2026-10-30' })]);
+    expect(farOut.some((i) => i.type === 'reassessment_due')).toBe(false);
+  });
+
+  it('yields to today’s cares when a day is over the cap (lowest priority)', () => {
+    // Cycle ends today: an overdue reminder, a care today and the cycle-end notice all want today.
+    const intents = build([
+      care({ id: 'c1', plannedDate: '2026-09-09' }),
+      care({ id: 'c2', plannedDate: '2026-09-10' }),
+    ]);
+    const today = intents.filter((i) => i.date === '2026-09-10');
+    expect(today).toHaveLength(MAX_NOTIFICATIONS_PER_DAY);
+    expect(today.map((i) => i.type).sort()).toEqual(['care_overdue', 'care_today']);
+  });
+
+  it('carries no personal data — just the fact that the cycle ended', () => {
+    const due = build([care({ id: 'c1', plannedDate: '2026-09-14' })]).find(
+      (i) => i.type === 'reassessment_due',
+    );
+    expect(`${due?.title} ${due?.body}`).toBe(
+      'Seu cronograma chegou ao fim Reavalie seu cabelo para montar as próximas semanas.',
+    );
   });
 });

@@ -56,6 +56,7 @@ const renderScreen = (
   onChanged: () => void = jest.fn(),
   now: () => Instant = () => NOW,
   newExecutionId: () => string = () => 'exec-1',
+  onReassess: () => void = jest.fn(),
 ) =>
   render(
     <TodayScreen
@@ -67,8 +68,23 @@ const renderScreen = (
       newExecutionId={newExecutionId}
       onChanged={onChanged}
       onOpenAccount={jest.fn()}
+      onReassess={onReassess}
     />,
   );
+
+/** A plan whose four weeks are behind her: nothing overdue, nothing today, nothing upcoming. */
+const finishedPlan = () =>
+  board({
+    cares: [
+      {
+        id: 'old',
+        careTypeCode: 'hydration',
+        plannedDate: '2026-09-02',
+        status: 'skipped',
+        rescheduledToId: null,
+      },
+    ],
+  });
 
 describe('TodayScreen (SPEC-005 §14)', () => {
   it('separates overdue, today and upcoming, and says how late a care is', async () => {
@@ -238,23 +254,40 @@ describe('TodayScreen — empty states (AC15)', () => {
   });
 
   it('says the plan is over when nothing is left', async () => {
-    const screen = await renderScreen(
-      makePort(),
-      board({
-        cares: [
-          {
-            id: 'old',
-            careTypeCode: 'hydration',
-            plannedDate: '2026-09-02',
-            status: 'skipped',
-            rescheduledToId: null,
-          },
-        ],
-      }),
-    );
+    const screen = await renderScreen(makePort(), finishedPlan());
     await waitFor(() => screen.getByText('Seu cronograma chegou ao fim.'));
     screen.getByText('Histórico');
     screen.getByText('Pulado');
+  });
+});
+
+/**
+ * D-82 — the four weeks running out used to be a dead end: the screen said so and offered nothing,
+ * so the product went quiet exactly when she had finished a cycle.
+ */
+describe('TodayScreen — the end of a cycle offers the way forward (D-82)', () => {
+  it('offers reassessment when the plan has run out, and says what is kept', async () => {
+    const onReassess = jest.fn();
+    const screen = await renderScreen(
+      makePort(),
+      finishedPlan(),
+      jest.fn(),
+      () => NOW,
+      () => 'exec-1',
+      onReassess,
+    );
+    await waitFor(() => screen.getByText('Reavaliar e montar o próximo'));
+    screen.getByText(/o que você já registrou continua salvo/);
+
+    await fireEvent.press(screen.getByText('Reavaliar e montar o próximo'));
+    expect(onReassess).toHaveBeenCalled();
+  });
+
+  /** While there is still something to do, the offer would be noise pulling her out of the loop. */
+  it('is absent while she still has cares to act on', async () => {
+    const screen = await renderScreen(makePort());
+    await waitFor(() => screen.getByText('Seus cuidados'));
+    expect(screen.queryByText('Reavaliar e montar o próximo')).toBeNull();
   });
 });
 

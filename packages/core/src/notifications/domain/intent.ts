@@ -12,8 +12,16 @@ export const NOTIFICATION_HORIZON_DAYS = 14;
 /** Central volume policy (ADR-009). A constant, not a column: no UI changes it (SPEC-008 §8.2). */
 export const MAX_NOTIFICATIONS_PER_DAY = 2;
 
-/** Highest priority first — this order is what FR6 drops by when a day is over the cap. */
-export const NOTIFICATION_INTENT_TYPES = ['care_overdue', 'care_today', 'checkin_pending'] as const;
+/**
+ * Highest priority first — this order is what FR6 drops by when a day is over the cap.
+ * `reassessment_due` is last on purpose: it is the only one that is not about today.
+ */
+export const NOTIFICATION_INTENT_TYPES = [
+  'care_overdue',
+  'care_today',
+  'checkin_pending',
+  'reassessment_due',
+] as const;
 export type NotificationIntentType = (typeof NOTIFICATION_INTENT_TYPES)[number];
 
 export type NotificationPreferences = {
@@ -66,6 +74,11 @@ const copyFor = (type: NotificationIntentType, careCount: number): { title: stri
       };
     case 'checkin_pending':
       return { title: 'Como ficou?', body: 'Conta rapidinho como o cabelo ficou depois do cuidado.' };
+    case 'reassessment_due':
+      return {
+        title: 'Seu cronograma chegou ao fim',
+        body: 'Reavalie seu cabelo para montar as próximas semanas.',
+      };
   }
 };
 
@@ -78,6 +91,22 @@ const intent = (
 
 /** A care still worth reminding about: planned or overdue, never one already resolved (BR2). */
 const isActionable = (item: CareItem): boolean => item.outcome === 'planned' || item.outcome === 'overdue';
+
+/**
+ * The last day the plan covers — the anchor for `reassessment_due` (SPEC-008 §9.1, D-82).
+ *
+ * Deliberately every care in the view, whatever became of it: a plan's last day is a fact about the
+ * plan, not about how she got through it. Anchoring on what is still *actionable* would move the
+ * reminder every time she completed or skipped something, and would delete it entirely the moment
+ * she finished the last care — which is exactly the moment she needs it.
+ */
+const lastPlannedDate = (view: TodayView): string | null => {
+  let last: string | null = null;
+  for (const item of [...view.overdue, ...view.today, ...view.upcoming, ...view.history]) {
+    if (last === null || item.plannedDate > last) last = item.plannedDate;
+  }
+  return last;
+};
 
 /**
  * The complete set of local notifications that should exist right now (SPEC-008 §9.1).
@@ -125,6 +154,18 @@ export const buildNotificationIntents = (input: {
     view.today.some((item) => item.outcome === 'done' && canCheckIn(item))
   ) {
     intents.push(intent('checkin_pending', today, time, 0));
+  }
+
+  // D-82 — the day after her plan's last day, she is told the cycle is over instead of the app
+  // simply going quiet. Anchored to a date that does not move, so it fires once: as soon as that
+  // day is behind her the intent stops being produced, and there is no daily nagging to suppress.
+  // A new plan re-anchors it, because the view it is derived from is the new plan's.
+  const last = lastPlannedDate(view);
+  if (last !== null) {
+    const due = addDays(last as LocalDate, 1);
+    if (due >= today && due <= horizonEnd && usableToday(due)) {
+      intents.push(intent('reassessment_due', due, time, 0));
+    }
   }
 
   // FR6: at most MAX_NOTIFICATIONS_PER_DAY on any day, dropping the least important first.

@@ -49,7 +49,7 @@ Quatro coisas precisam ser verdade:
 | Fora | Por quê | Onde volta |
 | --- | --- | --- |
 | Push remoto, `device_tokens`, `notification_deliveries` | D-22: canal local basta para validar H3; o SO é a fila | quando houver campanha/servidor |
-| Intent `reassessment_due` | **Impossível hoje**: não existe reavaliação no produto | SPEC-014 |
+| ~~Intent `reassessment_due`~~ | **IMPLEMENTADO em 2026-08-31 (D-82).** Deixou de ser impossível quando a SPEC-014 entregou a reavaliação; faltava só a regra de "quando lembrar". A regra é **o dia seguinte ao último dia do plano**, ancorada no `plannedDate` de **todos** os cuidados — não no que ainda está acionável, que moveria o lembrete a cada cuidado concluído e o apagaria justamente quando ela terminasse o último. Âncora fixa ⇒ dispara uma vez e se auto-limita; prioridade mais baixa do catálogo, então cede a vaga do cap de 2/dia | — |
 | Intent `habit_recovery` (D+3/D+7 sem abrir) | Especulativo: dispara justamente quando ela **não** está usando o app — maior risco de irritação, sem dado que justifique | quando houver dado de retenção (SPEC-011) |
 | Coluna `max_per_day` | Regra central sem UI que a altere: é constante no core, não coluna que ninguém escreve | quando a usuária puder mudar o limite |
 | Janela silenciosa | Redundante: o horário é escolhido por ela — ninguém escolhe 3h | se surgirem intents não ancorados no horário dela |
@@ -281,7 +281,7 @@ Reverter o merge. A tabela fica órfã e inerte. Notificações já agendadas no
 
 | ID | Questão | Premissa |
 | --- | --- | --- |
-| OQ-1 | 3 intents em vez dos 5 da ADR-009 | `reassessment_due` é impossível (sem SPEC-014); `habit_recovery` dispara quando ela não está usando o app — maior risco de irritação, sem dado. §4 |
+| OQ-1 | 3 intents em vez dos 5 da ADR-009 — **agora 4 (D-82)** | `reassessment_due` **entrou em 2026-08-31**: a SPEC-014 tornou a reavaliação possível e D-82 fixou a regra de quando lembrar (o dia seguinte ao último dia do plano). `habit_recovery` continua fora — dispara quando ela não está usando o app, maior risco de irritação, sem dado que justifique. §4 |
 | OQ-2 | `max_per_day` como constante, não coluna | Nenhuma UI a altera; vira coluna quando alterar for possível. §8.2 |
 
 ### CAN DEFER
