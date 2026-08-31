@@ -74,3 +74,15 @@ export const compareLocalDates = (a: LocalDate, b: LocalDate): -1 | 0 | 1 => (a 
 
 export const isBefore = (a: LocalDate, b: LocalDate): boolean => a < b;
 export const isAfter = (a: LocalDate, b: LocalDate): boolean => a > b;
+
+/** Day of the week, `0` = Sunday … `6` = Saturday (matches `Date.prototype.getUTCDay`). */
+export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+/**
+ * The weekday a civil date falls on. Pure arithmetic over the date itself — nothing here reads a
+ * clock, so it is safe inside the engines' world (ADR-001, D-06).
+ */
+export const weekdayOf = (date: LocalDate): Weekday => new Date(utcMidnightMs(date)).getUTCDay() as Weekday;
+
+export const isWeekday = (value: unknown): value is Weekday =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 6;
