@@ -5,7 +5,6 @@ Nenhuma feature significativa é implementada a partir de uma mensagem informal.
 ```
 Idea → Requirement → (ADR se decisão arquitetural) → SPEC → Implementation Plan → Implementation → Tests → Smoke Test → Review → Done
 ```
-
 ## Convenção
 - Arquivo: `docs/specs/SPEC-NNN-slug.md` (template: [SPEC-TEMPLATE.md](SPEC-TEMPLATE.md)).
 - Status: `Draft` → `In Review` → `Approved` → `In Progress` → `Implemented` → `Superseded`/`Rejected`.
@@ -54,3 +53,4 @@ Idea → Requirement → (ADR se decisão arquitetural) → SPEC → Implementat
 | SPEC-013 | Release readiness (stores, privacy labels, LGPD) | — | 10 | Reservado |
 | [SPEC-014](SPEC-014-reassessment.md) | Reavaliação: o cabelo mudou, o cronograma acompanha | Diagnostic/Schedule | 8 | **IMPLEMENTED** (v0.2, 2026-08-28; aprovada por D-77) — reusa onboarding + preview; supersede só na confirmação; total vitalício preserva o histórico |
 | [SPEC-015](SPEC-015-plan-customization.md) | Plan Customization (primeira capacidade premium) | Schedule/Planning (gated por Subscription) | 9 | **IMPLEMENTED** (v0.2, 2026-08-31; aprovada por D-81) — dias da semana preferidos por **camada de placement pura fora do engine** (ADR-007 e o gate D-26 intactos), gated server-side na `generate-plan`; **nada da customização vem do request**. PR-1 #42 · PR-2 #43 · PR-3 #44. Requer label `security` |
+| [SPEC-016](SPEC-016-beta-experience.md) | Beta Experience: identidade visual, design system e refinamento da jornada | — (transversal de apresentação) | entre 9 e 10 | **APPROVED** (v0.1, 2026-08-31; D-88) — tokens + primitivas, onboarding em etapas, jornada refinada. Não toca regra, schema nem autorização |
