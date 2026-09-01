@@ -4,6 +4,7 @@ import type {
   HairPlanPort,
   HairEventPort,
   HairProfilePort,
+  ProductPort,
   HairProfileSnapshot,
   Instant,
   LocalDate,
@@ -23,6 +24,7 @@ import { useAuth } from '@/bootstrap/auth';
 import { AccountScreen } from '@/features/account/AccountScreen';
 import { CycleScreen } from '@/features/care/CycleScreen';
 import { HairEventsScreen } from '@/features/hair-events/HairEventsScreen';
+import { ShelfScreen } from '@/features/shelf/ShelfScreen';
 import { DevSignIn } from '@/features/auth/DevSignIn';
 import { SignInScreen } from '@/features/auth/SignInScreen';
 import { WelcomeScreen } from '@/features/auth/WelcomeScreen';
@@ -72,6 +74,7 @@ function AuthenticatedApp({
   hairProfile,
   hairPlan,
   hairEvents,
+  products,
   careTracking,
   notificationPreferences,
   notificationScheduler,
@@ -85,6 +88,7 @@ function AuthenticatedApp({
   hairProfile: HairProfilePort;
   hairPlan: HairPlanPort;
   hairEvents: HairEventPort;
+  products: ProductPort;
   careTracking: CareTrackingPort;
   notificationPreferences: NotificationPreferencesPort;
   notificationScheduler: NotificationSchedulerPort;
@@ -103,6 +107,8 @@ function AuthenticatedApp({
   const [showCycle, setShowCycle] = useState(false);
   /** SPEC-020 — contar o que mudou, alcançável da conta. */
   const [showHairEvents, setShowHairEvents] = useState(false);
+  /** SPEC-023 — a prateleira, alcançável da conta como os outros registros dela. */
+  const [showShelf, setShowShelf] = useState(false);
   /**
    * SPEC-014 — reassessment reuses the screens that already exist, so it is a mode rather than a
    * route: 'profile' asks the same questions again, 'preview' shows what she would get. Nothing is
@@ -252,6 +258,8 @@ function AuthenticatedApp({
     );
   }
 
+  if (showShelf) return <ShelfScreen products={products} onBack={() => setShowShelf(false)} />;
+
   if (showHairEvents) {
     return (
       <HairEventsScreen
@@ -284,6 +292,7 @@ function AuthenticatedApp({
         notificationScheduler={notificationScheduler}
         onNotificationPreferencesChanged={setPrefs}
         onOpenHairEvents={() => setShowHairEvents(true)}
+        onOpenShelf={() => setShowShelf(true)}
         onBack={() => setShowAccount(false)}
         {...(board && board !== 'loading' && board !== 'error'
           ? {
@@ -372,6 +381,7 @@ export default function IndexRoute() {
     hairProfile,
     hairPlan,
     hairEvents,
+    products,
     careTracking,
     notificationPreferences,
     notificationScheduler,
@@ -409,6 +419,7 @@ export default function IndexRoute() {
       hairProfile={hairProfile}
       hairPlan={hairPlan}
       hairEvents={hairEvents}
+      products={products}
       careTracking={careTracking}
       notificationPreferences={notificationPreferences}
       notificationScheduler={notificationScheduler}

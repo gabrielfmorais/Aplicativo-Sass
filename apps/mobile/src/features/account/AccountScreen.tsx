@@ -37,6 +37,7 @@ export function AccountScreen({
   onNotificationPreferencesChanged,
   onReassess,
   onOpenHairEvents,
+  onOpenShelf,
   onCustomize,
   onBack,
 }: {
@@ -51,6 +52,8 @@ export function AccountScreen({
   onReassess?: () => void;
   /** SPEC-020 — contar o que mudou; ausente quando a capability não está disponível. */
   onOpenHairEvents?: () => void;
+  /** SPEC-023 — a prateleira; ausente quando a capability não está disponível. */
+  onOpenShelf?: () => void;
   /**
    * SPEC-015 — opens the preview of a plan built with her preferred weekdays. Absent while she has
    * no active plan: the preview is already the next screen she sees, so there is nothing to open.
@@ -112,6 +115,18 @@ export function AccountScreen({
 
       {/* Antes da reavaliação, de propósito: contar o que aconteceu é o passo barato, e é o que
           costuma tornar a reavaliação a decisão certa em vez de um palpite (SPEC-020 FR4). */}
+      {onOpenShelf ? (
+        <Card>
+          <Text variant="heading" accessibilityRole="header">
+            Minha prateleira
+          </Text>
+          <Text tone="muted">
+            Os produtos que você já tem em casa. Serve para o app não sugerir o que você não tem.
+          </Text>
+          <Button label="Ver minha prateleira" variant="secondary" onPress={onOpenShelf} />
+        </Card>
+      ) : null}
+
       {onOpenHairEvents ? (
         <Card>
           <Text variant="heading" accessibilityRole="header">

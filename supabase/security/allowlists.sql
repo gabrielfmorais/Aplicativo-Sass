@@ -172,3 +172,11 @@ insert into tests.security_definer_allowlist (function_signature, spec, justific
     'SPEC-022',
     'Only way to close a pause and the only path that shifts planned dates; the client holds no UPDATE on plan_pauses or scheduled_cares. Scoped to auth.uid(); locks the open pause FOR UPDATE so two concurrent resumes cannot shift the schedule twice. p_commit=false is a dry run that computes and returns the outcome without writing, so the screen can tell her what will happen before she confirms (FR4) without a second copy of the shift rule living in TypeScript. Only cares that are still planned, unexecuted and on or after the pause date move; executions are never touched. search_path is pinned.'
   );
+
+-- SPEC-023 §10: products — authenticated may SELECT/INSERT/UPDATE its own rows; no DELETE
+-- (archiving is an UPDATE, and the row dies with the account by cascade). No RPC: the row guards no
+-- server invariant, and the partial unique index handles the double tap.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'products', 'SELECT', 'SPEC-023'),
+  ('authenticated', 'products', 'INSERT', 'SPEC-023'),
+  ('authenticated', 'products', 'UPDATE', 'SPEC-023');

@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-023 |
-| Status | **Draft** |
+| Status | **IMPLEMENTADA — validação real pendente** (agente, §0.2/§0.4). Código verde; a migration ainda não rodou no DEV. |
 | Owner | (humano) — projetopaporeto.erp@gmail.com |
 | Bounded Context | **Hair Profile** (DOMAIN-MAP §3.2) — o inventário é dela, como o perfil |
 | Related ADRs | ADR-001, ADR-008 |
@@ -184,4 +184,5 @@ Reverter a PR e `drop table if exists public.products`.
 
 | Data | Mudança | Autor |
 |---|---|---|
+| 2026-09-01 | v0.2 — **implementada.** `products` sem RPC — a linha não guarda invariante de servidor, e o duplo toque cai no índice único parcial. A violação de unicidade é **traduzida na fronteira**: chega à tela como "você já tem esse produto", não como falha. 15 asserções pgTAP. | agente (§0.2) |
 | 2026-09-01 | v0.1 — Draft criada para o **F26**, movido para **antes** do `F25` porque o Blueprint §9 diz que o Wash Day **consome** os produtos: construir o hub primeiro daria um modelo desenhado sem o seu principal consumidor. Texto livre aqui é justificado ao contrário de SPEC-020 — o nome **é** o produto, e um vocabulário fechado de nomes seria o catálogo global que `P18` reserva. | agente (§0.4/D-97) |
