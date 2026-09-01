@@ -84,7 +84,9 @@ export function Screen({
   footer?: ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
-  const body = <View style={[styles.content, style]}>{children}</View>;
+  // Sem scroll, o corpo estica: uma tela de altura fixa que não preenche deixa um vazio no pé, e
+  // um filho com `flex: 1` (um hero, por exemplo) não tem contra o que crescer.
+  const body = <View style={[styles.content, !scroll && styles.contentFill, style]}>{children}</View>;
   return (
     <View style={styles.screen}>
       <View style={styles.column}>
@@ -410,6 +412,7 @@ const styles = StyleSheet.create({
   loading: { justifyContent: 'center', gap: space.md },
   column: { flex: 1, width: '100%', maxWidth: CONTENT_MAX_WIDTH },
   scrollContent: { flexGrow: 1 },
+  contentFill: { flex: 1 },
   content: { paddingHorizontal: space.xl, paddingTop: space.xxl, paddingBottom: space.xl, gap: space.xl },
   footer: {
     paddingHorizontal: space.xl,

@@ -21,6 +21,7 @@ import { useAuth } from '@/bootstrap/auth';
 import { AccountScreen } from '@/features/account/AccountScreen';
 import { DevSignIn } from '@/features/auth/DevSignIn';
 import { SignInScreen } from '@/features/auth/SignInScreen';
+import { WelcomeScreen } from '@/features/auth/WelcomeScreen';
 import { TodayScreen } from '@/features/care/TodayScreen';
 import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import { PlanScreen } from '@/features/plan/PlanScreen';
@@ -295,8 +296,18 @@ export default function IndexRoute() {
     newRequestId,
     devSignIn,
   } = useAuth();
+  // A abertura já foi vista nesta sessão. Ver `state` primeiro: um hook não pode ficar atrás de um return.
+  const [started, setStarted] = useState(false);
   if (state === 'loading') return <Loading />;
   if (state.status !== 'authenticated') {
+    /**
+     * SPEC-018 FR1 — a marca vem antes do formulário. Alguém que nunca ouviu falar da Huna
+     * encontrava a palavra "Entrar" como primeira coisa do produto; agora encontra o produto.
+     *
+     * O estado é local e de sessão de propósito: se ela voltar à entrada, ver a abertura de novo é
+     * o comportamento certo — e não há nada a persistir sobre uma tela que não coleta nada.
+     */
+    if (!started) return <WelcomeScreen onStart={() => setStarted(true)} />;
     // The dev entry sits *beside* the real screen, never inside it: the official Apple / Google /
     // email flows are untouched, and in any build a user could hold `devSignIn` is null (D-85).
     return (
