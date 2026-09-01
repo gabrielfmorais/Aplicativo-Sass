@@ -25,6 +25,22 @@ export const createHairProfileAdapter = (client: SupabaseClient, userId: () => s
     if (error) throw fail('hair_profile.read_failed', error);
     return data ? hairProfileFromRow(data) : null;
   },
+  /**
+   * SPEC-017 — o snapshot que gerou um plano, pelo id que o plano registrou.
+   *
+   * Sem `user_id` no filtro: a RLS de `hair_profiles` decide. Um id de outra pessoa devolve zero
+   * linhas, e `maybeSingle` transforma isso em `null` — que a tela lê como "não dá para explicar" e
+   * responde não mostrando nada (FR4, fail closed).
+   */
+  async getById(hairProfileId) {
+    const { data, error } = await client
+      .from(TABLE)
+      .select(HAIR_PROFILE_COLUMNS)
+      .eq('id', hairProfileId)
+      .maybeSingle();
+    if (error) throw fail('hair_profile.read_failed', error);
+    return data ? hairProfileFromRow(data) : null;
+  },
   async save(input) {
     const { data, error } = await client
       .from(TABLE)

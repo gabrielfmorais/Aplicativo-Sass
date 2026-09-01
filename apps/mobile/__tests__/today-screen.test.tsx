@@ -1,4 +1,4 @@
-import type { CareBoard, CareTrackingPort, Instant, LocalDate } from '@app/core';
+import type { CareBoard, CareTrackingPort, HairProfilePort, Instant, LocalDate } from '@app/core';
 import { CARE_GUIDES, ConflictError, instantFromString } from '@app/core';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
@@ -10,6 +10,9 @@ const NOW = instantFromString('2026-09-10T12:00:00.000Z');
 const board = (over: Partial<CareBoard> = {}): CareBoard => ({
   planId: 'plan-1',
   startsOn: '2026-09-01',
+  hairProfileId: 'hp-1',
+  assessmentAlgorithmVersion: 'v1',
+  scheduleAlgorithmVersion: 'v1',
   cares: [
     {
       id: 'late',
@@ -50,6 +53,17 @@ const makePort = (overrides: Partial<CareTrackingPort> = {}): jest.Mocked<CareTr
     ...overrides,
   }) as unknown as jest.Mocked<CareTrackingPort>;
 
+/**
+ * SPEC-017 — por padrão o perfil de origem some, e com ele a explicação. Os testes desta suíte são
+ * sobre o loop diário; a explicação tem suíte própria.
+ */
+const hairProfilePort = (snapshot: unknown = null): HairProfilePort =>
+  ({
+    getById: jest.fn(async () => snapshot),
+    getCurrent: jest.fn(async () => null),
+    save: jest.fn(),
+  }) as unknown as HairProfilePort;
+
 const renderScreen = (
   care: CareTrackingPort,
   b: CareBoard = board(),
@@ -67,6 +81,7 @@ const renderScreen = (
       timeZone="America/Sao_Paulo"
       newExecutionId={newExecutionId}
       onChanged={onChanged}
+      hairProfile={hairProfilePort()}
       onOpenAccount={jest.fn()}
       onOpenCycle={jest.fn()}
       onReassess={onReassess}

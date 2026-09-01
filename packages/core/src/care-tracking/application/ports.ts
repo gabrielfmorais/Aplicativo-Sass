@@ -5,6 +5,24 @@ import type { CareExecution, CheckIn } from '../domain/care-tracking.ts';
 export type CareBoard = {
   readonly planId: string;
   readonly startsOn: string;
+  /**
+   * SPEC-017 — o snapshot de perfil que **gerou** este plano, não o perfil de hoje.
+   *
+   * A diferença não é acadêmica: reavaliar e desistir no meio deixa um perfil novo salvo e o plano
+   * antigo ativo (SPEC-014 G3). Explicar o cronograma a partir do perfil corrente descreveria, com
+   * toda a confiança, um plano que ela não tem.
+   */
+  readonly hairProfileId: string;
+  /**
+   * As versões de engine registradas no plano. Existem para a explicação poder se **calar** quando
+   * não puder ser reproduzida: uma engine futura leria o mesmo snapshot de outro jeito, e uma
+   * explicação plausível e errada é pior que nenhuma (SPEC-017 FR4).
+   *
+   * São **duas** porque a evidência que ela leu no preview também é de duas: a avaliação diz o que
+   * ela quer e tem, o cronograma diz como isso virou frequência.
+   */
+  readonly assessmentAlgorithmVersion: string;
+  readonly scheduleAlgorithmVersion: string;
   readonly cares: readonly ScheduledCare[];
   readonly executions: readonly CareExecution[];
   /** Check-ins for those executions (SPEC-006); empty until the user answers one. */

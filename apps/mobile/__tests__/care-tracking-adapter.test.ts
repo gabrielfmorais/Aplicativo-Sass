@@ -3,7 +3,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { createCareTrackingAdapter } from '@/infrastructure/supabase/care-tracking-adapter';
 
-const planRow = { id: 'plan-1', starts_on: '2026-09-01' };
+const planRow = {
+  id: 'plan-1',
+  starts_on: '2026-09-01',
+  // SPEC-017: a origem do plano e as versões de engine viajam no mesmo select.
+  hair_profile_id: 'hp-1',
+  assessment_algorithm_version: 'v1',
+  schedule_algorithm_version: 'v1',
+};
 const careRows = [
   {
     id: 'c1',
@@ -48,9 +55,15 @@ const makeClient = (
     data: null,
     error: rpcError,
   }));
+  // As colunas pedidas são capturadas: um select que perde uma coluna não quebra nada em runtime
+  // — só devolve `undefined` — e sem isto o teste passaria enquanto a tela silenciosamente morre.
+  const selects: string[] = [];
   const thenable = (result: Result) => {
     const chain = {
-      select: () => chain,
+      select: (columns?: string) => {
+        if (typeof columns === 'string') selects.push(columns);
+        return chain;
+      },
       eq: () => chain,
       in: () => Promise.resolve(result),
       is: () => Promise.resolve(lifetime),
@@ -69,7 +82,7 @@ const makeClient = (
           ? thenable(executions)
           : thenable(checkIns),
   );
-  return { client: { from, rpc } as unknown as SupabaseClient, rpc };
+  return { client: { from, rpc } as unknown as SupabaseClient, rpc, selects };
 };
 
 const ok = (data: unknown): Result => ({ data, error: null });
@@ -84,6 +97,9 @@ describe('care tracking adapter — reads (SPEC-005 §9)', () => {
     expect(boardResult).toEqual({
       planId: 'plan-1',
       startsOn: '2026-09-01',
+      hairProfileId: 'hp-1',
+      assessmentAlgorithmVersion: 'v1',
+      scheduleAlgorithmVersion: 'v1',
       cares: [
         {
           id: 'c1',
@@ -202,5 +218,23 @@ describe('care tracking adapter — writes go through the RPCs only', () => {
         timeZone: 'UTC',
       }),
     ).rejects.toBeInstanceOf(InfrastructureError);
+  });
+});
+
+/**
+ * SPEC-017 — a explicação do cronograma depende de três colunas que a Hoje não desenha. Perder uma
+ * delas do `select` não quebra nada em runtime: o campo vira `undefined`, `getById(undefined)`
+ * falha, e a seção **some** — que é exatamente o comportamento de fail-closed correto, aplicado ao
+ * caso errado. Sem esta asserção, o defeito viajaria com a suíte verde.
+ */
+describe('care tracking adapter — a origem do plano viaja no board (SPEC-017)', () => {
+  it('pede explicitamente a origem e as versões de engine ao ler o plano ativo', async () => {
+    const { client, selects } = makeClient(ok(planRow), ok(careRows), ok(executionRows));
+    await createCareTrackingAdapter(client).getBoard();
+
+    const planSelect = selects[0] ?? '';
+    for (const column of ['hair_profile_id', 'assessment_algorithm_version', 'schedule_algorithm_version']) {
+      expect(planSelect).toContain(column);
+    }
   });
 });

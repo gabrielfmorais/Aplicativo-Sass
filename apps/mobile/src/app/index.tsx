@@ -340,6 +340,7 @@ function AuthenticatedApp({
     <TodayScreen
       board={board}
       care={careTracking}
+      hairProfile={hairProfile}
       today={today()}
       now={now}
       timeZone={timeZone()}

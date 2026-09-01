@@ -78,3 +78,30 @@ describe('hair-profile adapter (SPEC-002 §11)', () => {
     });
   });
 });
+
+/**
+ * SPEC-017 — o snapshot que gerou um plano, pelo id que o plano registrou. Sem `user_id` no filtro:
+ * a RLS decide, e um id de outra pessoa devolve zero linhas, não o perfil dela.
+ */
+describe('hair profile adapter: snapshot por id (SPEC-017)', () => {
+  it('lê o snapshot de origem e não filtra por usuária — quem decide isso é a RLS', async () => {
+    const maybeSingle = jest.fn(async () => ({ data: row, error: null }));
+    const eq = jest.fn(() => ({ maybeSingle }));
+    const select = jest.fn(() => ({ eq }));
+    const client = { from: jest.fn(() => ({ select })) } as unknown as SupabaseClient;
+
+    const snapshot = await createHairProfileAdapter(client, () => 'user-1').getById('hp-1');
+    expect(eq).toHaveBeenCalledWith('id', 'hp-1');
+    expect(JSON.stringify(eq.mock.calls)).not.toMatch(/user_id/);
+    expect(snapshot?.hairProfileId).toBe('hp-1');
+  });
+
+  it('um id que a RLS não deixa ver vira null, e a tela lê isso como "não dá para explicar"', async () => {
+    const client = {
+      from: jest.fn(() => ({
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
+      })),
+    } as unknown as SupabaseClient;
+    await expect(createHairProfileAdapter(client, () => 'user-1').getById('hp-alheio')).resolves.toBeNull();
+  });
+});
