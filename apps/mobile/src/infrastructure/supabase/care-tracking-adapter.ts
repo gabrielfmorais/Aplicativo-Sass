@@ -9,7 +9,10 @@ import type {
 import { ConflictError, InfrastructureError } from '@app/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-const PLAN_COLUMNS = 'id, starts_on';
+// SPEC-017: a origem do plano vem no mesmo `select` — explicar o cronograma não vale uma viagem
+// extra ao servidor, e a coluna já existia para reprodutibilidade.
+const PLAN_COLUMNS =
+  'id, starts_on, hair_profile_id, assessment_algorithm_version, schedule_algorithm_version';
 const CARE_COLUMNS = 'id, care_type_code, planned_date, status, rescheduled_to_id';
 const EXECUTION_COLUMNS = 'id, scheduled_care_id, executed_at, executed_on, voided_at';
 const CHECKIN_COLUMNS = 'id, care_execution_id, overall_feel';
@@ -84,7 +87,13 @@ export const createCareTrackingAdapter = (client: SupabaseClient): CareTrackingP
         .maybeSingle();
       if (planError) throw fail('care.board_read_failed', planError);
       if (!planRow) return null;
-      const plan = planRow as { id: string; starts_on: string };
+      const plan = planRow as {
+        id: string;
+        starts_on: string;
+        hair_profile_id: string;
+        assessment_algorithm_version: string;
+        schedule_algorithm_version: string;
+      };
 
       const { data: careRows, error: caresError } = await client
         .from('scheduled_cares')
@@ -131,6 +140,9 @@ export const createCareTrackingAdapter = (client: SupabaseClient): CareTrackingP
       return {
         planId: plan.id,
         startsOn: plan.starts_on,
+        hairProfileId: plan.hair_profile_id,
+        assessmentAlgorithmVersion: plan.assessment_algorithm_version,
+        scheduleAlgorithmVersion: plan.schedule_algorithm_version,
         cares,
         executions,
         checkIns,

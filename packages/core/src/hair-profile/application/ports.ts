@@ -6,6 +6,12 @@ import type { HairProfileInput, HairProfileSnapshot } from '../domain/hair-profi
  * Direct table access under RLS — ownership and immutability are enforced in Postgres.
  */
 export interface HairProfilePort {
+  /**
+   * SPEC-017 — um snapshot específico, pelo id que o plano registrou. `null` quando não existe.
+   *
+   * Sob a mesma RLS de `getCurrent`: um id de outra pessoa devolve zero linhas, não o perfil dela.
+   */
+  getById(hairProfileId: string): Promise<HairProfileSnapshot | null>;
   /** The user's current (most recent) snapshot, or null when she has none yet. */
   getCurrent(): Promise<HairProfileSnapshot | null>;
   /** Persists a new immutable snapshot and returns it. */

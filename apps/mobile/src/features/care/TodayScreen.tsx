@@ -1,4 +1,4 @@
-import type { CareBoard, CareItem, CareTrackingPort, Instant, LocalDate } from '@app/core';
+import type { CareBoard, CareItem, CareTrackingPort, HairProfilePort, Instant, LocalDate } from '@app/core';
 import { CARE_GUIDES, CHECKIN_SCALE, buildProgress, buildTodayView, canCheckIn, canUndo } from '@app/core';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -7,6 +7,7 @@ import { Button, Card, Row, Screen, Stack, Tag, Text } from '@/design/primitives
 import { HIT_TARGET_MIN, color, radius, space } from '@/design/tokens';
 import { CareGuidePanel } from '@/features/care/CareGuidePanel';
 import { CareTypeMark } from '@/features/care/CareTypeMark';
+import { PlanRationale } from '@/features/care/PlanRationale';
 import { ProgressSummary } from '@/features/care/ProgressSummary';
 import { WeekStrip } from '@/features/care/WeekStrip';
 import { buildWeek } from '@/features/care/week';
@@ -366,6 +367,7 @@ export function TodayScreen({
   timeZone,
   newExecutionId,
   onChanged,
+  hairProfile,
   onOpenAccount,
   onOpenCycle,
   onReassess,
@@ -377,6 +379,8 @@ export function TodayScreen({
   timeZone: string;
   newExecutionId: () => string;
   onChanged: () => void;
+  /** SPEC-017 — para ler o snapshot que gerou o plano ativo, não o perfil de hoje. */
+  hairProfile: HairProfilePort;
   onOpenAccount: () => void;
   /** SPEC-019 — a forma do mês, a partir da tela que mostra o dia. */
   onOpenCycle: () => void;
@@ -564,6 +568,16 @@ export function TodayScreen({
       {/* After the actionable sections and before the detail: she settles the day first, then
           sees the accumulated summary, which reads naturally as a preface to the history. */}
       <ProgressSummary progress={progress} />
+
+      {/* SPEC-017 OQ2 — aqui, e não no cartão de foco: a explicação é leitura reflexiva, e no topo
+          competiria com a única ação primária da tela. Fechada por padrão (FR1). */}
+      <PlanRationale
+        hairProfile={hairProfile}
+        hairProfileId={board.hairProfileId}
+        startsOn={board.startsOn as LocalDate}
+        assessmentAlgorithmVersion={board.assessmentAlgorithmVersion}
+        scheduleAlgorithmVersion={board.scheduleAlgorithmVersion}
+      />
 
       <Section
         title="Histórico"

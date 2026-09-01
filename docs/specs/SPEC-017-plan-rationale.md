@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-017 |
-| Status | **Draft** — aguardando aprovação humana |
+| Status | **IMPLEMENTADA** — OQ1 resolvida pelo dono em 2026-09-01: **opção A**. Validada a 390px no DEV real. |
 | Owner | (humano) — projetopaporeto.erp@gmail.com |
 | Bounded Context | **Diagnostic / Assessment** (DOMAIN-MAP §3.3) — dono da evidência — exposto numa superfície de **Care Tracking** (§3.5) |
 | Related ADRs | ADR-001 (UI não contém regra), ADR-006 (fronteiras de domínio), ADR-007 (regras capilares / gate de validação), ADR-008 (datas) |
@@ -58,7 +58,7 @@ Essa explicação aparece **uma vez**, na tela que ela vê antes de confirmar, e
 - FR2 — O conteúdo é a lista de `evidenceCodes` do plano ativo, traduzida por `EVIDENCE_LABEL`, mais o aviso já existente de que é leitura cosmética e não diagnóstico.
 - FR3 — A evidência é derivada do **perfil que gerou o plano ativo**, nunca do perfil corrente quando os dois diferem (§2.1).
 - FR4 — Se a evidência não puder ser determinada, a tela **não mostra a seção** — ausência é melhor que uma explicação possivelmente errada (fail closed).
-- FR5 — Estados desenhados: conteúdo, carregando (se houver leitura extra), ausente. Erro só existe se FR3 exigir uma leitura nova.
+- FR5 — Estados: **conteúdo** e **ausente**. O carregamento é deliberadamente invisível, e o erro também: esta é uma leitura de fundo para uma seção opcional no fim da Hoje, e um esqueleto piscando ali custaria mais atenção do que a informação vale. Falhar em explicar não é falhar em nada que ela precise para agir — a seção some, e nenhum "tentar novamente" aparece para algo que ninguém pediu.
 
 ## 7. Business Rules
 
@@ -69,14 +69,14 @@ Essa explicação aparece **uma vez**, na tela que ela vê antes de confirmar, e
 
 ## 8. Data Model Impact
 
-**TODO — depende da OQ1.** Ver `docs/architecture/DATA-MODEL.md`.
+**Nenhum.** A opção A não toca schema: `hair_plans.hair_profile_id`, `assessment_algorithm_version` e `schedule_algorithm_version` já existiam, gravados justamente para reprodutibilidade. Mudou só o `select` do board.
 
 - Se a resposta for **A** (expor `hairProfileId` no board e ler o snapshot): **nenhuma** mudança de schema. `hair_plans.hair_profile_id` já existe; muda só o `select` do adapter e o tipo `CareBoard`.
 - Se for **B** (persistir os códigos com o plano): coluna nova em `hair_plans` + migration + backfill dos planos existentes. **Só com aprovação explícita**, e NG4 diz que é a última opção.
 
 ## 9. API / Contracts
 
-**TODO — depende da OQ1.** Na opção A: `CareBoard` ganha `hairProfileId: string`, e o `HairProfilePort` ganha uma leitura por id (`getById`) ou o board passa a trazer o snapshot. **Ambas mudam contrato de port** — logo, ao contrário da SPEC-016, esta SPEC **toca `packages/core`** e precisa dizer isso desde já.
+**Dois contratos de `packages/core` mudam, e a SPEC dizia isso desde o rascunho.** `CareBoard` ganha `hairProfileId`, `assessmentAlgorithmVersion` e `scheduleAlgorithmVersion`; `HairProfilePort` ganha `getById`. Nenhum port novo, nenhuma RPC, nenhuma Edge Function. *Texto original:* Na opção A: `CareBoard` ganha `hairProfileId: string`, e o `HairProfilePort` ganha uma leitura por id (`getById`) ou o board passa a trazer o snapshot. **Ambas mudam contrato de port** — logo, ao contrário da SPEC-016, esta SPEC **toca `packages/core`** e precisa dizer isso desde já.
 
 ## 10. Authorization
 
@@ -160,7 +160,7 @@ Reverter a PR. Na opção A nada é persistido, então o rollback é local à le
 
 ## 23. Open Questions
 
-- **OQ1 — De onde vem a evidência do plano ativo? (BLOCKING — decide §8, §9, §20.)**
+- **OQ1 — RESOLVIDA (dono, 2026-09-01): opção A.** *"Use `hairProfileId` do plano ativo e derive os `evidenceCodes` do snapshot que realmente originou aquele plano. Não persistir dado derivável apenas para evitar leitura."* Registro das opções como estavam:
   - **(A) Expor `hairProfileId` no `CareBoard` e derivar do snapshot de origem.** Sem schema novo; usa o que a migration já registrou para reprodutibilidade. Custo: muda `CareBoard` e um port — esta SPEC passa a tocar `packages/core`, ao contrário da SPEC-016. **Assunção adotada:** A.
   - **(B) Persistir os `evidenceCodes` junto do plano.** Explicação imutável e barata de ler, imune a qualquer mudança futura de engine. Custo: coluna nova, migration, backfill dos planos existentes, e um segundo lugar guardando algo derivável. NG4 diz que é a última opção.
   - **(C) Não fazer.** Manter a explicação só no preview. Registrado para que a escolha seja consciente.
@@ -172,4 +172,5 @@ Reverter a PR. Na opção A nada é persistido, então o rollback é local à le
 
 | Data | Mudança | Autor |
 |---|---|---|
+| 2026-09-01 | v0.2 — **OQ1 resolvida (A) e implementada.** A evidência vem do snapshot que gerou o plano ativo, e a seção **se cala** quando não puder ser reproduzida — snapshot ausente, leitura falha, ou versão de engine diferente da atual. **Defeito achado na validação visual a 390px:** eu derivava de `assess`, mas a evidência que ela leu no preview é a de `buildPlan` — avaliação **mais** cronograma. A Hoje mostrava uma linha onde o preview mostrou duas: o mesmo plano com duas explicações. Corrigido, com teste de regressão e a segunda versão de engine conferida. | agente (§0.2) |
 | 2026-08-31 | v0.1 — Draft criado para a capability F21 (COMMITTED em D-92). A armadilha de §2.1 foi **medida antes de desenhar**: `CareBoard` não expõe `hairProfileId`, e reavaliar-e-cancelar dessincroniza perfil corrente e plano ativo, então recomputar do perfil atual explicaria um plano que ela não tem. OQ1 é BLOCKING porque decide se a SPEC toca `packages/core` (opção A) ou o schema (opção B). | agente (§0.3) |

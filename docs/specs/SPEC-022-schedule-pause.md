@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-022 |
-| Status | **Draft — aguarda aprovação humana** |
+| Status | **APPROVED** — OQ2 resolvida pelo dono em 2026-09-01 (opção 1, com o fim do ciclo como limite). Implementação autorizada. |
 | Owner | (humano) — projetopaporeto.erp@gmail.com |
 | Bounded Context | **Schedule / Planning** (DOMAIN-MAP §3.4), lido por Care Tracking, Notifications e Progress |
 | Related ADRs | ADR-001, ADR-008 (datas), ADR-007 |
@@ -150,17 +150,19 @@ Reverter a PR e derrubar tabela e funções. O estado pausado deixa de existir; 
 ## 23. Open Questions
 
 - **OQ1 — IMPORTANT — tabela ou coluna.** Ver §8. *Assunção:* tabela, por BR4.
-- **OQ2 — 🔴 BLOCKING — o que exatamente acontece com os cuidados na volta.** O Blueprint fecha as bordas (nada apaga, nada vira avalanche, ela sabe antes) mas **não decide o meio**. Três desenhos cabem nas bordas:
+- **OQ2 — RESOLVIDA (dono, 2026-09-01): opção 1, com o fim do ciclo como limite natural.** Deslocar o restante do plano preservando os intervalos originalmente calculados; quando o deslocamento deixar de caber no ciclo, a volta oferece um ciclo novo. Registro das opções como estavam: O Blueprint fecha as bordas (nada apaga, nada vira avalanche, ela sabe antes) mas **não decide o meio**. Três desenhos cabem nas bordas:
   1. **Deslocar o que sobrou** pelo tamanho da pausa, preservando o ritmo — é o que a assunção de FR5 adota.
   2. **Deslocar só o que caiu dentro da pausa**, deixando o resto onde estava — comprime o cronograma e muda os intervalos entre cuidados, que é justamente o que o engine calculou.
   3. **Oferecer um ciclo novo** em vez de mover — mais simples, mas perde o plano em curso.
 
   **Isto é comportamento material de produto, não detalhe técnico:** move o cronograma dela, muda os intervalos que o engine escolheu e altera o que "meu plano" significa depois de uma ausência. Por CLAUDE.md §0.1 é decisão humana, e não a tomo por conta própria. *Assunção provisória para a SPEC:* (1).
-- **OQ3 — IMPORTANT — pausa afeta o fim do ciclo?** Se o ciclo termina durante a pausa, EC3 diz que a volta oferece o próximo. Mas deslocar (OQ2.1) pode empurrar cuidados para além do fim do ciclo — e a SPEC-019 não desenha uma quinta semana. *Assunção:* a volta que ultrapassa o ciclo vira oferta de novo ciclo, não deslocamento. **Depende de OQ2.**
+- **OQ3 — RESOLVIDA por OQ2:** o deslocamento que ultrapassaria as quatro semanas vira oferta de ciclo novo, não uma quinta semana.
+- ~~OQ3 original~~ — pausa afeta o fim do ciclo? Se o ciclo termina durante a pausa, EC3 diz que a volta oferece o próximo. Mas deslocar (OQ2.1) pode empurrar cuidados para além do fim do ciclo — e a SPEC-019 não desenha uma quinta semana. *Assunção:* a volta que ultrapassa o ciclo vira oferta de novo ciclo, não deslocamento. **Depende de OQ2.**
 - **OQ4 — CAN DEFER — pausa com data de volta marcada.** "Volto em duas semanas" permitiria retomar sozinho — que NG1 proíbe. *Assunção:* sem agendamento; ela retoma quando quiser.
 
 ## 24. Change Log
 
 | Data | Mudança | Autor |
 |---|---|---|
+| 2026-09-01 | v0.2 — **OQ2 e OQ3 resolvidas pelo dono**, com a recomendação do agente: deslocar preservando os intervalos, e o fim do ciclo como limite natural — pausa curta preserva o plano, pausa longa reconhece que o cronograma envelheceu. O limite não é número inventado: é a fronteira que a SPEC-019 já desenhou. **APPROVED**, implementação autorizada. | dono + agente |
 | 2026-09-01 | v0.1 — Draft criada para o **F22**, seguindo o Blueprint §5. **Parada deliberadamente antes da implementação:** a OQ2 é BLOCKING e é decisão humana (§0.1) — o que acontece com os cuidados na volta move o cronograma dela e redefine o que "meu plano" significa depois de uma ausência. As bordas o Blueprint fecha; o meio, não. | agente |
