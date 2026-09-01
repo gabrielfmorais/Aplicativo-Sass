@@ -30,17 +30,17 @@
 
 ```mermaid
 erDiagram
-    auth_users ||--|| profiles : "1:1"
-    profiles ||--o{ consents : has
+    auth_users ||--o| profiles : "0..1 (SPEC-018; nasce quando ela responde o nome)"
+    auth_users ||--o{ consents : has
     auth_users ||--o{ hair_profiles : "snapshots (SPEC-002; ownership direto — D-63)"
     auth_users ||--o{ hair_plans : "planos (SPEC-004; ownership direto)"
-    profiles ||--o{ diagnostic_results : has
-    profiles ||--o{ care_executions : has
-    profiles ||--o| notification_preferences : has
+    auth_users ||--o{ diagnostic_results : has
+    auth_users ||--o{ care_executions : has
+    auth_users ||--o| notification_preferences : has
     auth_users ||--o| plan_preferences : "1:1 (SPEC-015; dias preferidos)"
     auth_users ||--o| subscriptions : "1:1 (SPEC-010; um plano — NG2)"
     auth_users ||--o{ billing_events : "webhook audit (SPEC-010)"
-    profiles ||--o| account_deletion_requests : has
+    auth_users ||--o| account_deletion_requests : has
     hair_profiles ||--o{ hair_plans : "generates (SPEC-004; sem diagnostic_results — D-66/§9)"
     hair_plans ||--o{ scheduled_cares : contains
     scheduled_cares o|--o{ care_executions : "fulfilled by"
@@ -54,17 +54,31 @@ erDiagram
 
 ## 3. Entidades
 
-### 3.1 `profiles` — Identity & Account
+### 3.1 `profiles` — Identity & Account (criada pela SPEC-018, fatia 2)
+
+D-63 adiou esta tabela até haver requisito concreto. O requisito chegou com a primeira experiência
+da Huna, que pergunta **como a usuária quer ser chamada** — e a tabela nasceu com exatamente a
+coluna que responde a isso. As outras três do desenho original **não** foram criadas.
+
 | Coluna | Tipo | Notas |
 |---|---|---|
-| user_id | uuid PK, FK auth.users | **entidade conceitual/futura** — **NÃO** criada pela SPEC-002 (D-63): nasce numa SPEC futura quando houver requisito concreto (ex.: `timezone` para Schedule, SPEC-004). Dados de produto ancoram direto em `auth.users` até lá; sem trigger em `auth.users` |
-| display_name | text null | dado pessoal (nome/apelido) — opcional |
-| timezone | text not null default 'America/Sao_Paulo' | IANA; validada |
-| locale | text not null default 'pt-BR' | |
-| onboarding_status | text CHECK (not_started/in_progress/completed) | |
-| created_at / updated_at | | |
+| user_id | uuid PK, FK `auth.users` on delete cascade | ownership direto; sem trigger em `auth.users` — a linha nasce quando ela responde (ou pula) a pergunta |
+| display_name | text null | **PII** — nome/apelido escolhido por ela. `check` 1..60 caracteres e `btrim <> ''`. **Nulo é resposta:** "prefiro não dizer" |
+| created_at / updated_at | timestamptz not null | `updated_at` por trigger `set_updated_at` |
 
-- **Ownership:** usuária. **Lifecycle:** criado numa SPEC futura (não SPEC-002 — D-63) → ativo → (pedido de exclusão em `account_deletion_requests`, cancelável; política de purga pendente — D-55) → hard delete cascade a partir de `auth.users`. *(Revisão v0.2: coluna `deleted_at` removida — fonte única de verdade é `account_deletion_requests`.)*
+- **A existência da linha é informação.** Linha ausente = a pergunta ainda não foi feita; linha com
+  `display_name` nulo = foi feita e ela preferiu não responder. Sem essa distinção o app perguntaria
+  o nome a cada abertura exatamente a quem já disse não.
+- **Não criadas (D-47/D-48):** `timezone` (o fuso vai na chamada, ADR-008 — ver §4.1), `locale` (sem
+  consumidor: o app é pt-BR) e `onboarding_status`, que D-63 rejeitou explicitamente ao derivar
+  "onboarding concluído" da existência de um `hair_profiles`.
+- **Sem DELETE concedido:** a linha morre por cascade a partir de `auth.users`, e "apagar meu nome" é
+  um UPDATE para nulo — a linha ainda guarda o fato de já termos perguntado.
+- **Ownership:** usuária, por RLS + `with check` (SELECT/INSERT/UPDATE da própria linha). Sem RPC e
+  sem `SECURITY DEFINER`: não há invariante de servidor aqui, é a declaração dela sobre ela mesma.
+- **Lifecycle:** criada na SPEC-018 → ativa → (pedido de exclusão em `account_deletion_requests`,
+  cancelável; política de purga pendente — D-55) → hard delete cascade a partir de `auth.users`.
+  *(Revisão v0.2: coluna `deleted_at` removida — fonte única de verdade é `account_deletion_requests`.)*
 - **PII:** display_name. Email/telefone vivem apenas em `auth.users`.
 - **Não armazenar:** gênero, data de nascimento completa (se necessário para ICP, usar faixa etária opcional em `hair_profiles.attributes`... ou não coletar — **decisão: não coletar no MVP**).
 
@@ -302,6 +316,7 @@ texto livre**, e nenhum dos três existe.
 | Dado | Onde | Categoria | Necessário? | Retenção | Exportável |
 |---|---|---|---|---|---|
 | Email, provider ids, hash de senha | `auth.users` (Supabase Auth) | Identificação | Sim — é a conta | Até exclusão | Email sim |
+| **Nome ou apelido escolhido por ela** (opcional; pular é grátis) | `profiles.display_name` | **PII** — identificação | Sim (SPEC-018): o app fala com ela pelo nome | Até exclusão; ela pode apagar a qualquer momento (UPDATE para nulo) | Sim |
 | Características do cabelo (8 respostas de escolha fechada) | `hair_profiles` | Pessoal, não sensível | Sim — é o core | Até exclusão (append-only: os snapshots antigos ficam) | Sim |
 | Plano e cuidados planejados (datas, tipo de cuidado, status) | `hair_plans`, `scheduled_cares` | Comportamental | Sim | Até exclusão | Sim |
 | Execuções (o que ela fez e em que dia civil) | `care_executions` | Comportamental | Sim | Até exclusão; **nunca apagada** — desfazer marca `voided_at` | Sim |
@@ -320,7 +335,7 @@ banco. Não há PCI a tratar.
 
 | Dado antes listado | Situação |
 |---|---|
-| `display_name`, `timezone`, `locale` em `profiles` | `profiles` **nunca foi criada** (D-63). Não coletamos nome nem apelido |
+| `timezone`, `locale`, `onboarding_status` em `profiles` | A tabela **passou a existir** na SPEC-018 (§3.1), mas **só** com `display_name`: o fuso viaja na chamada (ADR-008), `locale` não tem consumidor e `onboarding_status` foi rejeitado por D-63. `display_name` saiu desta lista — é coletado hoje, e está em §4.1 |
 | `diagnostic_results` | **Não existe** (D-66): a avaliação é derivada e reproduzível pelas versões de engine gravadas no plano |
 | `care_executions.note`, `checkins.note` (texto livre) | **Não existem** — adiadas por serem PII sem consumidor. Ver o aviso acima |
 | Fotos | **Não coletadas** no MVP |

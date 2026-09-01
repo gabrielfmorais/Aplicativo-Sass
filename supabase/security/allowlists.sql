@@ -31,6 +31,13 @@ insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
   ('authenticated', 'account_deletion_requests', 'INSERT', 'SPEC-001'),
   ('authenticated', 'account_deletion_requests', 'DELETE', 'SPEC-001');
 
+-- SPEC-018 §10: profiles — authenticated may SELECT/INSERT/UPDATE its own row; no DELETE (the row
+-- dies with the account by cascade, and clearing a name is an UPDATE to null). anon has nothing.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'profiles', 'SELECT', 'SPEC-018'),
+  ('authenticated', 'profiles', 'INSERT', 'SPEC-018'),
+  ('authenticated', 'profiles', 'UPDATE', 'SPEC-018');
+
 -- SPEC-002 §13: hair_profiles — authenticated may SELECT/INSERT own rows; no UPDATE/DELETE (immutable); anon nothing.
 insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
   ('authenticated', 'hair_profiles', 'SELECT', 'SPEC-002'),

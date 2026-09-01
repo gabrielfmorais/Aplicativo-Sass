@@ -22,3 +22,23 @@ export interface DeletionRequestPort {
   request(): Promise<void>;
   cancel(): Promise<void>;
 }
+
+/**
+ * SPEC-018 — `profiles`: o nome que ela escolheu, e nada mais.
+ *
+ * Duas ausências diferentes, e a diferença é o produto inteiro: **linha ausente** significa que
+ * ainda não perguntamos, e **`displayName` nulo** significa que perguntamos e ela preferiu não
+ * dizer. Sem essa distinção o app volta a perguntar o nome a cada abertura para quem escolheu não
+ * responder — que é a definição de não ouvir.
+ *
+ * Sem RPC: a linha não guarda invariante de servidor, é a declaração dela sobre ela mesma. RLS mais
+ * `with check` é toda a autorização (§10).
+ */
+export type UserProfile = { readonly displayName: string | null };
+
+export interface ProfilePort {
+  /** O perfil dela, ou `null` quando a pergunta nunca foi feita. */
+  get(): Promise<UserProfile | null>;
+  /** Registra a resposta. `null` grava "prefiro não dizer" — que também é ter respondido. */
+  save(displayName: string | null): Promise<void>;
+}
