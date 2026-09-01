@@ -1,4 +1,12 @@
-import type { CareBoard, CareItem, CareTrackingPort, HairProfilePort, Instant, LocalDate } from '@app/core';
+import type {
+  CareBoard,
+  CareItem,
+  CareTrackingPort,
+  HairProfilePort,
+  Instant,
+  LocalDate,
+  ResumeOutcome,
+} from '@app/core';
 import { CARE_GUIDES, CHECKIN_SCALE, buildProgress, buildTodayView, canCheckIn, canUndo } from '@app/core';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -7,6 +15,7 @@ import { Button, Card, Row, Screen, Stack, Tag, Text } from '@/design/primitives
 import { HIT_TARGET_MIN, color, radius, space } from '@/design/tokens';
 import { CareGuidePanel } from '@/features/care/CareGuidePanel';
 import { CareTypeMark } from '@/features/care/CareTypeMark';
+import { PauseCard } from '@/features/care/PauseCard';
 import { PlanRationale } from '@/features/care/PlanRationale';
 import { ProgressSummary } from '@/features/care/ProgressSummary';
 import { WeekStrip } from '@/features/care/WeekStrip';
@@ -368,6 +377,9 @@ export function TodayScreen({
   newExecutionId,
   onChanged,
   hairProfile,
+  onPause,
+  onPreviewResume,
+  onResume,
   onOpenAccount,
   onOpenCycle,
   onReassess,
@@ -381,6 +393,10 @@ export function TodayScreen({
   onChanged: () => void;
   /** SPEC-017 — para ler o snapshot que gerou o plano ativo, não o perfil de hoje. */
   hairProfile: HairProfilePort;
+  /** SPEC-022 — pausar, prever a volta e voltar. A rota é quem chama o port. */
+  onPause: () => void;
+  onPreviewResume: () => Promise<ResumeOutcome>;
+  onResume: () => void;
   onOpenAccount: () => void;
   /** SPEC-019 — a forma do mês, a partir da tela que mostra o dia. */
   onOpenCycle: () => void;
@@ -501,6 +517,12 @@ export function TodayScreen({
   // the plan being empty rather than about four weeks having passed.
   const nothingLeft = view.overdue.length === 0 && view.today.length === 0 && view.upcoming.length === 0;
   const nextUp = view.upcoming[0];
+  /**
+   * SPEC-022 FR3 — pausada, a Hoje é **calma**, não vazia: diz o estado, desde quando, e oferece
+   * voltar. O cartão de foco e as seções continuam ali, sem nada marcado como atrasado — porque
+   * pausada nada atrasou (BR1), e não porque a tela esconda alguma coisa.
+   */
+  const paused = board.pausedOn !== null;
 
   return (
     <Screen>
@@ -514,6 +536,19 @@ export function TodayScreen({
       </Stack>
 
       <WeekStrip week={week} />
+
+      {/* Pausada, a pausa vem **antes** do cuidado do dia: é o que explica por que nada está
+          atrasado, e ler a explicação depois da consequência é ler ao contrário. Andando, ela fica
+          no fim, quieta, perto das outras saídas. */}
+      {paused ? (
+        <PauseCard
+          pausedOn={board.pausedOn}
+          busy={busyId !== null}
+          onPause={onPause}
+          onPreviewResume={onPreviewResume}
+          onResume={onResume}
+        />
+      ) : null}
 
       {focus ? (
         <FocusCard
@@ -601,6 +636,16 @@ export function TodayScreen({
 
       {/* Duas saídas quietas, na mesma linha: a Hoje continua com uma única ação primária, que é
           o cuidado do dia. Ver o ciclo nunca compete com fazer o cuidado. */}
+      {paused ? null : (
+        <PauseCard
+          pausedOn={null}
+          busy={busyId !== null}
+          onPause={onPause}
+          onPreviewResume={onPreviewResume}
+          onResume={onResume}
+        />
+      )}
+
       <Row gap="sm">
         <Button label="Ver meu ciclo" variant="ghost" onPress={onOpenCycle} />
         <Button label="Sua conta" variant="ghost" onPress={onOpenAccount} />

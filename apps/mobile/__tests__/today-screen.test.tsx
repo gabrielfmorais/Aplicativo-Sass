@@ -83,6 +83,9 @@ const renderScreen = (
       newExecutionId={newExecutionId}
       onChanged={onChanged}
       hairProfile={hairProfilePort()}
+      onPause={jest.fn()}
+      onPreviewResume={jest.fn(async () => ({ action: 'shifted' as const, shiftDays: 0, careCount: 0 }))}
+      onResume={jest.fn()}
       onOpenAccount={jest.fn()}
       onOpenCycle={jest.fn()}
       onReassess={onReassess}

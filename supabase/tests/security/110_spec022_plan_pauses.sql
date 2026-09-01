@@ -1,7 +1,7 @@
 -- SPEC-022 §11 — a pausa sob cliente hostil: posse, isolamento, idempotência e o deslocamento.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(25);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values ('00000000-0000-4000-8000-0000000000e1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'e1@example.test'),
@@ -136,6 +136,31 @@ select is(
   (select count(*)::int from public.plan_pauses where resumed_on is null),
   0,
   'e ela não fica pausada para sempre depois de reavaliar');
+
+-- ------------------------------------------------------------------ o deslocamento, de verdade
+-- **Nenhum caso acima move uma data.** As pausas abertas "hoje" deslocam zero dias, e o caso do
+-- ciclo não desloca por definição — então a linha que soma `v_shift` a `planned_date`, que é o
+-- coração da capability, nunca tinha sido exercitada. Aqui ela é.
+select tests.as_service();
+update public.hair_plans set status = 'active' where id = '00000000-0000-4000-8000-0000000000a1';
+-- Um cuidado já pulado: ele **não** pode andar. O que ela decidiu já aconteceu.
+update public.scheduled_cares set status = 'skipped' where id = '00000000-0000-4000-8000-0000000000b1';
+update public.plan_pauses set resumed_on = null, paused_on = (now() at time zone 'America/Sao_Paulo')::date - 3
+ where user_id = '00000000-0000-4000-8000-0000000000e1';
+select tests.as_user('00000000-0000-4000-8000-0000000000e1');
+
+select is(
+  (select action from public.resume_plan('America/Sao_Paulo', true)),
+  'shifted',
+  'uma pausa de três dias cabe no ciclo, então o que sobrou anda');
+select is(
+  (select planned_date from public.scheduled_cares where id = '00000000-0000-4000-8000-0000000000b2'),
+  (now() at time zone 'America/Sao_Paulo')::date + 6,
+  'o cuidado planejado andou exatamente os três dias da pausa, preservando o espaçamento');
+select is(
+  (select planned_date from public.scheduled_cares where id = '00000000-0000-4000-8000-0000000000b1'),
+  (now() at time zone 'America/Sao_Paulo')::date - 2,
+  'e o que ela pulou não se moveu: aquilo já aconteceu');
 
 select * from finish();
 rollback;
