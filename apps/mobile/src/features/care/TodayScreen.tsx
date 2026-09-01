@@ -4,8 +4,9 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button, Card, Row, Screen, Stack, Tag, Text } from '@/design/primitives';
-import { HIT_TARGET_MIN, careColor, color, radius, space } from '@/design/tokens';
+import { HIT_TARGET_MIN, color, radius, space } from '@/design/tokens';
 import { CareGuidePanel } from '@/features/care/CareGuidePanel';
+import { CareTypeMark } from '@/features/care/CareTypeMark';
 import { ProgressSummary } from '@/features/care/ProgressSummary';
 import { WeekStrip } from '@/features/care/WeekStrip';
 import { buildWeek } from '@/features/care/week';
@@ -61,18 +62,6 @@ const stateTagOf = (item: CareItem): { label: string; tone: 'danger' | 'success'
       return null;
   }
 };
-
-// ------------------------------------------------------------------------------------ care head
-
-/** Care type as the title, with its semantic hue as a mark beside it (SPEC-016 FR5). */
-function CareTitle({ item, big }: { item: CareItem; big?: boolean }) {
-  return (
-    <Row gap="sm" style={styles.titleRow}>
-      <View style={[styles.hue, { backgroundColor: careColor[item.careTypeCode].fg }]} />
-      <Text variant={big ? 'title' : 'heading'}>{CARE_TYPE_LABEL[item.careTypeCode]}</Text>
-    </Row>
-  );
-}
 
 // -------------------------------------------------------------------------------------- check-in
 
@@ -260,7 +249,7 @@ function FocusCard({
   return (
     <Card style={styles.focus}>
       {state ? <Tag label={state.label} tone={state.tone} /> : <Tag label="Hoje" tone="accent" />}
-      <CareTitle item={item} big />
+      <CareTypeMark careTypeCode={item.careTypeCode} big />
       <Text variant="caption" tone="muted">
         {item.outcome === 'done' ? 'Registrado' : whenOf(item)}
         {guide && item.outcome !== 'done' ? ` · ~${guide.durationMin} min` : ''}
@@ -301,7 +290,7 @@ function CareCard({
   return (
     <Card>
       <Row gap="sm" style={styles.cardHead}>
-        <CareTitle item={item} />
+        <CareTypeMark careTypeCode={item.careTypeCode} />
         {state ? <Tag label={state.label} tone={state.tone} /> : null}
       </Row>
       <Text variant="caption" tone="muted">
@@ -599,9 +588,6 @@ export function TodayScreen({
 }
 
 const styles = StyleSheet.create({
-  titleRow: { alignItems: 'center', flexWrap: 'nowrap' },
-  /** The care type's hue, as a mark. The word beside it is what carries the meaning. */
-  hue: { width: space.sm, height: space.sm, borderRadius: radius.pill },
   cardHead: { alignItems: 'center', justifyContent: 'space-between' },
   focus: { padding: space.xl, gap: space.md },
   focusActions: { paddingTop: space.sm },
