@@ -1,8 +1,10 @@
 import type { HairProfileInput, HairProfilePort, HairProfileSnapshot } from '@app/core';
 import { HairProfileInputSchema } from '@app/core';
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { HairFlow } from '@/design/HairFlow';
+import { Reveal } from '@/design/Reveal';
 import { Button, Chip, ProgressBar, Row, Screen, Stack, Text } from '@/design/primitives';
 import { space } from '@/design/tokens';
 
@@ -178,6 +180,62 @@ const STEPS: readonly Step[] = [
 ];
 
 /**
+ * SPEC-018 fatia 3 — os interstícios entre blocos de perguntas.
+ *
+ * Oito perguntas seguidas, todas com a mesma forma, viram formulário: a pessoa para de ler e começa
+ * a despachar. Uma pausa curta entre blocos devolve ritmo e diz onde ela está — e é o único lugar
+ * desta tela em que o app fala **com** ela em vez de perguntar.
+ *
+ * **O que estes textos não fazem, por decisão.** Nenhum comenta o cabelo dela, nenhum interpreta uma
+ * resposta e nenhum antecipa o que virá no cronograma. Uma frase do tipo "cabelo cacheado costuma
+ * pedir mais hidratação" seria orientação capilar substantiva e cairia no gate de domínio (D-26/D-70)
+ * — a batida emocional aqui não vale esse preço, e não precisa dele. Contar quantas perguntas faltam
+ * é verdade verificável (BR3); dizer o que o cabelo dela precisa, não.
+ */
+type Interlude = {
+  readonly key: string;
+  readonly overline: string;
+  readonly title: string;
+  readonly body: string;
+};
+
+type FlowItem =
+  | { readonly kind: 'question'; readonly step: Step }
+  | { readonly kind: 'interlude'; readonly interlude: Interlude };
+
+/** Depois de qual índice de `STEPS` cada pausa entra. Os blocos são: o cabelo · a rotina · o que ela quer. */
+const INTERLUDES: readonly (readonly [number, Interlude])[] = [
+  [
+    2,
+    {
+      key: 'after-hair',
+      overline: 'Seu cabelo',
+      title: 'Essa parte já está registrada.',
+      body: 'Agora quero entender a sua rotina — o que você faz com o cabelo no dia a dia. São três perguntas.',
+    },
+  ],
+  [
+    5,
+    {
+      key: 'after-routine',
+      overline: 'Sua rotina',
+      title: 'Falta pouco.',
+      body: 'Só faltam duas perguntas: o que te incomoda hoje e o que você quer mudar.',
+    },
+  ],
+];
+
+const FLOW: readonly FlowItem[] = STEPS.flatMap((step, i) => {
+  const item: FlowItem = { kind: 'question', step };
+  const pause = INTERLUDES.find(([after]) => after === i);
+  return pause ? [item, { kind: 'interlude', interlude: pause[1] } as FlowItem] : [item];
+});
+
+/** Quantas perguntas existem até `cursor`, inclusive. É o que a barra e o rótulo contam. */
+const questionsThrough = (cursor: number) =>
+  FLOW.slice(0, cursor + 1).filter((f) => f.kind === 'question').length;
+
+/**
  * SPEC-002 onboarding, presented one question at a time (SPEC-016 FR3/G5).
  *
  * The questions, the options, the exclusivity rule and the validation are **exactly** those of
@@ -201,12 +259,13 @@ export function OnboardingScreen({
   onCancel?: () => void;
 }) {
   const [answers, setAnswers] = useState<Answers>(EMPTY);
+  /** Posição no **fluxo**, que inclui as pausas — não no vetor de perguntas. */
   const [index, setIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const step = STEPS[index] as Step;
-  const last = index === STEPS.length - 1;
+  const item = FLOW[index] as FlowItem;
+  const last = index === FLOW.length - 1;
   const parsed = useMemo(() => HairProfileInputSchema.safeParse(answers), [answers]);
 
   const back = () => {
@@ -238,16 +297,26 @@ export function OnboardingScreen({
   };
 
   const canGoBack = index > 0 || onCancel !== undefined;
+  // Numa pausa a barra mostra o que já foi respondido; numa pergunta, ela própria.
+  const answered = questionsThrough(index);
 
   return (
     <Screen
+      /**
+       * A pausa fica centrada; as perguntas ficam ancoradas no topo. É deliberado: numa sequência
+       * de oito passos, a pergunta precisa aparecer **sempre no mesmo lugar**, senão o olho procura
+       * o título a cada troca. A pausa não pertence à sequência — ela interrompe — e centrada ela
+       * lê como um momento em vez de mais uma tela do formulário.
+       */
+      style={item.kind === 'interlude' ? styles.fill : undefined}
       footer={
         <>
           <Button
             label={last ? 'Ver meu cronograma' : 'Continuar'}
             onPress={next}
             busy={submitting}
-            disabled={!step.ready(answers)}
+            // Uma pausa não tem o que validar: seguir é a única coisa que se faz nela.
+            disabled={item.kind === 'question' && !item.step.ready(answers)}
           />
           {canGoBack ? (
             <Button
@@ -265,29 +334,62 @@ export function OnboardingScreen({
         </>
       }
     >
-      <Stack gap="md">
-        <ProgressBar
-          value={index + 1}
-          total={STEPS.length}
-          label={`Pergunta ${index + 1} de ${STEPS.length}`}
-        />
-        <Text variant="overline" tone="faint">
-          {`PERGUNTA ${index + 1} DE ${STEPS.length}`}
-        </Text>
-      </Stack>
+      {/* A barra fica **fora** do `Reveal`: ela é a continuidade entre os passos, e piscar junto com
+          o conteúdo faria justamente a coisa que ela existe para desmentir — que nada avançou. */}
+      <ProgressBar value={answered} total={STEPS.length} label={`Pergunta ${answered} de ${STEPS.length}`} />
 
-      <Stack gap="sm">
-        <Text variant="display" accessibilityRole="header">
-          {step.question}
-        </Text>
-        {step.hint ? (
-          <Text variant="body" tone="muted">
-            {step.hint}
-          </Text>
-        ) : null}
-      </Stack>
-
-      <View style={{ paddingBottom: space.md }}>{step.render(answers, setAnswers)}</View>
+      {/* `key` no item do fluxo: cada passo é conteúdo novo, e é isso que reinicia a transição. */}
+      <Reveal
+        key={item.kind === 'question' ? item.step.key : item.interlude.key}
+        style={item.kind === 'interlude' ? styles.pause : undefined}
+      >
+        {item.kind === 'question' ? (
+          <Stack gap="xl">
+            <Stack gap="sm">
+              <Text variant="overline" tone="faint">
+                {`PERGUNTA ${answered} DE ${STEPS.length}`}
+              </Text>
+              <Text variant="display" accessibilityRole="header">
+                {item.step.question}
+              </Text>
+              {item.step.hint ? (
+                <Text variant="body" tone="muted">
+                  {item.step.hint}
+                </Text>
+              ) : null}
+            </Stack>
+            <View style={styles.options}>{item.step.render(answers, setAnswers)}</View>
+          </Stack>
+        ) : (
+          <Stack gap="xl">
+            <HairFlow style={styles.ribbon} />
+            <Stack gap="sm">
+              <Text variant="overline" tone="accent">
+                {item.interlude.overline}
+              </Text>
+              <Text variant="display" accessibilityRole="header">
+                {item.interlude.title}
+              </Text>
+              <Text variant="body" tone="muted">
+                {item.interlude.body}
+              </Text>
+            </Stack>
+          </Stack>
+        )}
+      </Reveal>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  options: { paddingBottom: space.md },
+  /**
+   * `flexGrow`, não `flex`: preenche o que sobra e ainda rola quando não sobra nada (EC1/EC5).
+   * `fill` estica o corpo da tela; `pause` centra o conteúdo **dentro** do que sobrou — e é por isso
+   * que são dois: sem separar, a barra de progresso descia junto e ficava no meio da tela na pausa.
+   */
+  fill: { flexGrow: 1 },
+  pause: { flexGrow: 1, justifyContent: 'center' },
+  /** Faixa, como no login: marca a pausa como um momento, sem competir com o texto. */
+  ribbon: { height: space.xxxl * 2, marginHorizontal: -space.xl },
+});

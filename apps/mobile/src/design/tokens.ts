@@ -131,3 +131,21 @@ export const HIT_TARGET_MIN = 44;
  * there tells the truth about the product.
  */
 export const CONTENT_MAX_WIDTH = 460;
+
+/**
+ * SPEC-018 fatia 3 — quanto a opção escolhida cresce no instante do toque.
+ *
+ * Seis por cento. Menos não é percebido, mais lê como um pulo — e uma fileira de opções pulando é
+ * ruído, não resposta. Fica aqui, e não na primitiva, porque escala de movimento é decisão do
+ * sistema visual pela mesma razão que espaçamento e cor são.
+ */
+export const CHIP_POP = 1.06;
+
+/**
+ * Duração da transição de conteúdo, em milissegundos, e o deslocamento vertical de entrada, em
+ * pontos. Curta o bastante para não fazer ninguém esperar por ela, longa o bastante para o olho
+ * perceber que a tela **mudou** em vez de piscar; e uma subida pequena, que sugere chegada sem
+ * virar carrossel.
+ */
+export const REVEAL_MS = 260;
+export const REVEAL_RISE = 10;

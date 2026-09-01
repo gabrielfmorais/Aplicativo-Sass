@@ -30,6 +30,9 @@ const advance = async (s: Screen) => fireEvent.press(s.getByText('Continuar'));
  * Walks the eight steps of SPEC-002 (SPEC-016 FR3), answering each one, and stops **on** the last
  * step without confirming. The answers are the same ones the single-scroll version used, so what
  * the port receives can be compared against exactly the same expectation (AC2).
+ *
+ * The two `advance` calls without an answer in between are the SPEC-018 interludes: pauses, not
+ * questions, so there is nothing to answer on them.
  */
 const answerEveryStep = async (s: Screen) => {
   await fireEvent.press(s.getByText('Cacheado')); // hairPattern = curly
@@ -38,11 +41,13 @@ const answerEveryStep = async (s: Screen) => {
   await advance(s);
   await fireEvent.press(s.getByText('Equilibrado')); // scalpTendency = balanced
   await advance(s);
+  await advance(s); // interlúdio "Seu cabelo"
   await fireEvent.press(s.getByText('2x por semana')); // washFrequency = twice_weekly
   await advance(s);
   await advance(s); // chemicalTreatments: none — the one optional step
   await fireEvent.press(s.getByText('Quase nunca')); // heatUsage = almost_never
   await advance(s);
+  await advance(s); // interlúdio "Sua rotina"
   await fireEvent.press(s.getByText('Com bastante frizz')); // currentConcerns = [frizz]
   await advance(s);
   await fireEvent.press(s.getByText('Manter o cabelo saudável')); // primaryGoal
@@ -134,5 +139,77 @@ describe('OnboardingScreen (SPEC-002, stepped by SPEC-016)', () => {
 
     const first = await render(<OnboardingScreen hairProfile={makePort()} onSaved={jest.fn()} />);
     expect(first.queryByText('Cancelar')).toBeNull();
+  });
+});
+
+/**
+ * SPEC-018 fatia 3. As pausas existem para dar ritmo — e não podem custar nada: nem uma pergunta a
+ * mais na contagem, nem um caminho sem volta, nem uma frase que precise de revisão de domínio.
+ */
+describe('OnboardingScreen — interstícios (SPEC-018 FR8)', () => {
+  const toFirstInterlude = async (s: Screen) => {
+    await fireEvent.press(s.getByText('Cacheado'));
+    await advance(s);
+    await fireEvent.press(s.getByText('Médio'));
+    await advance(s);
+    await fireEvent.press(s.getByText('Equilibrado'));
+    await advance(s);
+  };
+
+  it('faz uma pausa depois do bloco sobre o cabelo, e ela não é uma pergunta', async () => {
+    const s = await render(<OnboardingScreen hairProfile={makePort()} onSaved={jest.fn()} />);
+    await toFirstInterlude(s);
+
+    s.getByText('Essa parte já está registrada.');
+    // A barra continua em três de oito: uma pausa não inventa progresso que não houve — e não se
+    // apresenta como pergunta, então o rótulo "PERGUNTA n DE 8" some com ela.
+    expect(s.getByLabelText('Pergunta 3 de 8').props.accessibilityValue).toEqual({
+      min: 0,
+      max: 8,
+      now: 3,
+    });
+    expect(s.queryByText(/^PERGUNTA \d+ DE 8$/)).toBeNull();
+    expect(s.queryByRole('radio')).toBeNull();
+    // E seguir dela é sempre possível — não há o que responder.
+    expect(s.getByText('Continuar').parent?.props.accessibilityState?.disabled).toBe(false);
+  });
+
+  it('a pausa tem volta, como qualquer outro passo', async () => {
+    const s = await render(<OnboardingScreen hairProfile={makePort()} onSaved={jest.fn()} />);
+    await toFirstInterlude(s);
+    await fireEvent.press(s.getByText('Voltar'));
+
+    s.getByText('Como é o seu couro cabeludo?');
+    expect(s.getByText('Equilibrado').props.accessibilityState?.checked ?? true).not.toBe(false);
+  });
+
+  it('a segunda pausa chega depois do bloco da rotina, e o fluxo termina em pergunta', async () => {
+    const s = await render(<OnboardingScreen hairProfile={makePort()} onSaved={jest.fn()} />);
+    await answerEveryStep(s);
+    // Terminar numa pausa seria pedir confirmação sem pergunta à vista.
+    s.getByText('Qual é o seu principal objetivo?');
+    s.getByText('PERGUNTA 8 DE 8');
+  });
+
+  /**
+   * BR2/D-26 — a batida emocional não pode virar conteúdo capilar por descuido. Uma frase que
+   * comente o cabelo dela ou antecipe o cronograma exigiria sign-off de domínio, e nenhuma pausa
+   * vale esse preço. A barreira casa o vocabulário que denunciaria a escorregada.
+   */
+  it('nenhuma pausa dá orientação capilar, interpreta a resposta ou promete resultado', async () => {
+    const s = await render(<OnboardingScreen hairProfile={makePort()} onSaved={jest.fn()} />);
+    await toFirstInterlude(s);
+    const forbidden =
+      /hidrat|nutri|reconstru|proteín|umectaç|porosidade|cachead|liso|crespo|ondulad|precisa de|indica|recomend|\d+\s*%/i;
+    expect(s.queryByText(forbidden)).toBeNull();
+
+    await advance(s);
+    await fireEvent.press(s.getByText('2x por semana'));
+    await advance(s);
+    await advance(s);
+    await fireEvent.press(s.getByText('Quase nunca'));
+    await advance(s);
+    s.getByText('Falta pouco.');
+    expect(s.queryByText(forbidden)).toBeNull();
   });
 });

@@ -1,14 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  AccessibilityInfo,
-  Animated,
-  Easing,
-  StyleSheet,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { Animated, Easing, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { useReduceMotion } from './motion';
 import { color, radius } from './tokens';
 
 /**
@@ -134,21 +127,10 @@ function Strand({
 
 export function HairFlow({ style }: { style?: StyleProp<ViewStyle> }) {
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
-  const [animate, setAnimate] = useState(true);
-
   // FR4 — quem pediu menos movimento ao sistema recebe uma composição parada, não uma mais lenta.
-  useEffect(() => {
-    let active = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((reduced) => active && setAnimate(!reduced))
-      // Se não dá para saber, animar é o comportamento normal do app; não é uma decisão de risco.
-      .catch(() => undefined);
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', (reduced) => setAnimate(!reduced));
-    return () => {
-      active = false;
-      sub.remove();
-    };
-  }, []);
+  // `=== false`, não `!`: enquanto a preferência não voltou o valor é `null`, e mover antes de
+  // saber é exatamente o que FR4 proíbe.
+  const animate = useReduceMotion() === false;
 
   return (
     <View

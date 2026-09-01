@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,7 +13,9 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { useReduceMotion } from './motion';
 import {
+  CHIP_POP,
   CONTENT_MAX_WIDTH,
   HIT_TARGET,
   HIT_TARGET_MIN,
@@ -251,26 +254,54 @@ export function Chip({
    */
   accessibilityLabel?: string;
 }) {
+  /**
+   * SPEC-018 fatia 3 — a resposta ao toque, na própria opção escolhida.
+   *
+   * Cor e peso já diziam "selecionado", mas diziam **depois**, em silêncio: quem tocou não recebia
+   * nada de volta no instante do toque. Um pulso curto na hora de marcar é a confirmação mais barata
+   * que existe, e é o que faz oito perguntas parecerem uma conversa em vez de um formulário.
+   *
+   * Só ao **marcar**. Desmarcar não é um momento a celebrar, e animar os dois faria a opção pular
+   * a cada toque — que é ruído, não resposta.
+   */
+  const reduce = useReduceMotion();
+  const pop = useRef(new Animated.Value(1)).current;
+  const wasSelected = useRef(selected);
+  useEffect(() => {
+    const turnedOn = selected && !wasSelected.current;
+    wasSelected.current = selected;
+    // `reduce` `null` é "ainda não sabemos": não animar até saber (FR4).
+    if (!turnedOn || reduce !== false) return;
+    const animation = Animated.sequence([
+      Animated.timing(pop, { toValue: CHIP_POP, duration: 90, useNativeDriver: true }),
+      Animated.timing(pop, { toValue: 1, duration: 130, useNativeDriver: true }),
+    ]);
+    animation.start();
+    return () => animation.stop();
+  }, [selected, reduce, pop]);
+
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole={multi ? 'checkbox' : 'radio'}
-      accessibilityState={{ checked: selected, disabled }}
-      {...(accessibilityLabel ? { accessibilityLabel } : {})}
-      style={({ pressed }) => [
-        styles.chip,
-        selected ? styles.chipOn : styles.chipOff,
-        pressed && !disabled && (selected ? styles.chipOnPressed : styles.chipOffPressed),
-        // Without this a busy chip looks exactly like a live one and silently refuses the tap —
-        // the same defect the daily screen already had, reintroduced here by the move to Chip.
-        disabled && styles.off,
-      ]}
-    >
-      <Text variant={selected ? 'bodyStrong' : 'body'} tone={selected ? 'accent' : 'default'}>
-        {label}
-      </Text>
-    </Pressable>
+    <Animated.View style={{ transform: [{ scale: pop }] }}>
+      <Pressable
+        onPress={onPress}
+        disabled={disabled}
+        accessibilityRole={multi ? 'checkbox' : 'radio'}
+        accessibilityState={{ checked: selected, disabled }}
+        {...(accessibilityLabel ? { accessibilityLabel } : {})}
+        style={({ pressed }) => [
+          styles.chip,
+          selected ? styles.chipOn : styles.chipOff,
+          pressed && !disabled && (selected ? styles.chipOnPressed : styles.chipOffPressed),
+          // Without this a busy chip looks exactly like a live one and silently refuses the tap —
+          // the same defect the daily screen already had, reintroduced here by the move to Chip.
+          disabled && styles.off,
+        ]}
+      >
+        <Text variant={selected ? 'bodyStrong' : 'body'} tone={selected ? 'accent' : 'default'}>
+          {label}
+        </Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
