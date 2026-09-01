@@ -1,4 +1,5 @@
 import type {
+  CareTypeCode,
   EntitlementsPort,
   HairPlanPort,
   HairProfileSnapshot,
@@ -9,16 +10,17 @@ import type {
 } from '@app/core';
 import { EntitlementService, buildPlan } from '@app/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { Button, Card, Loading, Row, Screen, Stack, Text } from '@/design/primitives';
-import { careColor, radius, space } from '@/design/tokens';
+import { CareTypeMark } from '@/features/care/CareTypeMark';
 import { reasonOf } from '@/shared/failure-detail';
 
-import { CARE_TYPE_LABEL, EVIDENCE_LABEL, formatPlannedDate } from './copy';
+import { EVIDENCE_LABEL, formatPlannedDate } from './copy';
 import { groupIntoWeeks } from './weeks';
 
-type Item = { key: string; careTypeCode: keyof typeof CARE_TYPE_LABEL; plannedDate: string };
+/** What the preview draws. `careTypeCode` is the engine's own type, not a key of a copy map. */
+type Item = { key: string; careTypeCode: CareTypeCode; plannedDate: string };
 
 /**
  * The schedule, grouped by week (SPEC-016 slice 3).
@@ -42,10 +44,7 @@ function Schedule({ items, startsOn }: { items: readonly Item[]; startsOn: Local
           <Stack gap="sm">
             {week.items.map((care) => (
               <Row key={care.key} gap="sm" style={styles.careRow}>
-                <Row gap="sm" style={styles.careName}>
-                  <View style={[styles.hue, { backgroundColor: careColor[care.careTypeCode].fg }]} />
-                  <Text variant="bodyStrong">{CARE_TYPE_LABEL[care.careTypeCode]}</Text>
-                </Row>
+                <CareTypeMark careTypeCode={care.careTypeCode} />
                 <Text variant="caption" tone="muted">
                   {formatPlannedDate(care.plannedDate)}
                 </Text>
@@ -265,7 +264,4 @@ export function PlanScreen({
 
 const styles = StyleSheet.create({
   careRow: { alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap' },
-  careName: { alignItems: 'center', flexWrap: 'nowrap', flexShrink: 1 },
-  /** The care type's hue, as a mark. The word beside it is what carries the meaning. */
-  hue: { width: space.sm, height: space.sm, borderRadius: radius.pill },
 });

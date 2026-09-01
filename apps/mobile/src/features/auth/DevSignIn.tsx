@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+
+import { Text } from '@/design/primitives';
+import { HIT_TARGET, color, radius, space } from '@/design/tokens';
 
 /**
  * DEV-ONLY entry into the browser preview (D-85). Rendered **beside** `SignInScreen`, never inside
@@ -31,7 +34,9 @@ export function DevSignIn({ onPress }: { onPress: () => Promise<void> }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Somente desenvolvimento (web)</Text>
+      <Text variant="overline" tone="muted">
+        Somente desenvolvimento (web)
+      </Text>
       <Pressable
         style={[styles.button, busy && styles.disabled]}
         disabled={busy}
@@ -41,7 +46,7 @@ export function DevSignIn({ onPress }: { onPress: () => Promise<void> }) {
         <Text>{busy ? 'Entrando…' : 'Entrar como usuária de desenvolvimento'}</Text>
       </Pressable>
       {message ? (
-        <Text accessibilityLiveRegion="polite" style={styles.message}>
+        <Text accessibilityLiveRegion="polite" variant="caption" tone="danger">
           {message}
         </Text>
       ) : null}
@@ -50,16 +55,19 @@ export function DevSignIn({ onPress }: { onPress: () => Promise<void> }) {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 24, paddingBottom: 24, gap: 8 },
-  label: { fontSize: 12, opacity: 0.6, textTransform: 'uppercase', letterSpacing: 1 },
+  container: { paddingHorizontal: space.xl, paddingBottom: space.xl, gap: space.sm },
+  // Dashed on purpose, and the only dashed border in the app: this must never be mistaken for a
+  // product control. Everything else comes from the tokens, so it does not look like a different app
+  // bolted onto the sign-in screen either.
   button: {
-    padding: 14,
+    padding: space.md,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderRadius: 8,
+    borderColor: color.borderStrong,
+    borderRadius: radius.md,
     alignItems: 'center',
-    minHeight: 48,
+    justifyContent: 'center',
+    minHeight: HIT_TARGET,
   },
-  disabled: { opacity: 0.6 },
-  message: { fontSize: 13, lineHeight: 18 },
+  disabled: { opacity: 0.45 },
 });
