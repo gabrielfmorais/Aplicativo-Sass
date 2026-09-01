@@ -157,7 +157,7 @@ Vitest para a derivação com plano pausado (atraso e lembretes) · pgTAP para p
 ## 20. Implementation Plan
 
 1. Banco: `plan_pauses`, as duas RPCs, allowlist, pgTAP. ← **esta fatia**
-2. Core: o estado da pausa em `CareBoard`, e a derivação de atraso e de lembretes conhecendo-o.
+2. Core: o estado da pausa em `CareBoard`, e a derivação de atraso e de lembretes conhecendo-o. ← **esta fatia**
 3. App: Hoje pausada, pausar pela conta e pela Hoje, confirmação de retomada.
 4. Validação a 390px e fechamento do `F22`.
 
@@ -188,6 +188,7 @@ Reverter a PR e derrubar tabela e funções. O estado pausado deixa de existir; 
 
 | Data | Mudança | Autor |
 |---|---|---|
+| 2026-09-01 | v0.4 — **fatia 2 (core) implementada.** `CareBoard.pausedOn` — a data é o estado inteiro, porque não existe coluna "pausado". `buildTodayView` recebe a pausa e devolve `planned` onde devolveria `overdue`; `buildNotificationIntents` recebe `paused` e devolve vazio. **G4 caiu de graça:** `buildProgress` conta `overdue`, e pausada não há nenhum — o período pausado não vira número contra ela sem nenhuma regra a mais. A pausa é lida **escopada ao plano ativo**, para que uma reavaliação durante a pausa não deixe a Hoje dizendo "pausado" sobre um cronograma novo. | agente (§0.2) |
 | 2026-09-01 | v0.3 — **fatia 1 (banco) implementada.** `plan_pauses` com índice único parcial (uma pausa aberta por usuária), `pause_plan` idempotente e `resume_plan` com `p_commit` — o *dry run* que faz a previsão de FR4 caber **sem** uma segunda cópia da regra de deslocamento em TypeScript. 20 asserções pgTAP. Decidido sob D-97: deslocar altera `planned_date` no lugar, porque cuidado futuro sem execução é intenção, não fato. | agente (§0.2, D-97) |
 | 2026-09-01 | v0.2 — **OQ2 e OQ3 resolvidas pelo dono**, com a recomendação do agente: deslocar preservando os intervalos, e o fim do ciclo como limite natural — pausa curta preserva o plano, pausa longa reconhece que o cronograma envelheceu. O limite não é número inventado: é a fronteira que a SPEC-019 já desenhou. **APPROVED**, implementação autorizada. | dono + agente |
 | 2026-09-01 | v0.1 — Draft criada para o **F22**, seguindo o Blueprint §5. **Parada deliberadamente antes da implementação:** a OQ2 é BLOCKING e é decisão humana (§0.1) — o que acontece com os cuidados na volta move o cronograma dela e redefine o que "meu plano" significa depois de uma ausência. As bordas o Blueprint fecha; o meio, não. | agente |

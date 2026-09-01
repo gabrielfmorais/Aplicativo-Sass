@@ -69,11 +69,24 @@ export type TodayView = {
 
 const isEffective = (e: CareExecution): boolean => e.voidedAt === null;
 
-const outcomeOf = (care: ScheduledCare, execution: CareExecution | null, today: LocalDate): CareOutcome => {
+const outcomeOf = (
+  care: ScheduledCare,
+  execution: CareExecution | null,
+  today: LocalDate,
+  paused: boolean,
+): CareOutcome => {
   // An effective execution wins: completing does not change `status`, so the fact is the truth (BR4).
   if (execution) return 'done';
   if (care.status === 'skipped') return 'skipped';
   if (care.status === 'rescheduled') return 'rescheduled';
+  /**
+   * SPEC-022 BR1 — **atraso pressupõe compromisso vigente.** Pausada, ela não combinou nada com
+   * ninguém, então nada atrasou. O cuidado volta a ser o que sempre foi: uma intenção.
+   *
+   * Isto é o que faz a volta não ser uma avalanche, e faz o período pausado não contar contra ela
+   * em nenhum número — `buildProgress` conta `overdue`, e aqui não há nenhum (FR6/G4).
+   */
+  if (paused) return 'planned';
   return care.plannedDate < today ? 'overdue' : 'planned';
 };
 
@@ -95,6 +108,12 @@ export const buildTodayView = (
   executions: readonly CareExecution[],
   today: LocalDate,
   checkIns: readonly CheckIn[] = [],
+  /**
+   * SPEC-022 — o dia em que ela pausou, ou `null`. Parâmetro, não estado global: a mesma função
+   * serve a Hoje, ao ciclo e aos lembretes, e os três **têm** de enxergar a mesma pausa, ou duas
+   * partes do app discordam sobre o mesmo plano (BR2).
+   */
+  pausedOn: string | null = null,
 ): TodayView => {
   const effectiveByCare = new Map<string, CareExecution>();
   for (const execution of executions) {
@@ -112,7 +131,7 @@ export const buildTodayView = (
 
   for (const care of cares) {
     const execution = effectiveByCare.get(care.id) ?? null;
-    const outcome = outcomeOf(care, execution, today);
+    const outcome = outcomeOf(care, execution, today, pausedOn !== null);
     const item: CareItem = {
       id: care.id,
       careTypeCode: care.careTypeCode,

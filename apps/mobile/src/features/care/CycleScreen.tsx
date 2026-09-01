@@ -37,7 +37,15 @@ export function CycleScreen({
   onStartNext?: () => void;
 }) {
   const cycle = useMemo(
-    () => buildCycleView(board.cares, board.executions, board.startsOn as LocalDate, today, board.checkIns),
+    () =>
+      buildCycleView(
+        board.cares,
+        board.executions,
+        board.startsOn as LocalDate,
+        today,
+        board.checkIns,
+        board.pausedOn,
+      ),
     [board, today],
   );
   /**

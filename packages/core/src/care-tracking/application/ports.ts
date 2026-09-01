@@ -2,6 +2,19 @@ import type { ScheduledCare } from '../../schedule/index.ts';
 import type { CareExecution, CheckIn } from '../domain/care-tracking.ts';
 
 /** Everything the daily screen needs, in one read: the active plan, its cares and their executions. */
+/**
+ * SPEC-022 — o que a retomada faz, decidido pelo servidor (D-98).
+ *
+ * `shifted`: o que sobrou anda `shiftDays` dias, preservando os intervalos que o engine calculou.
+ * `new_cycle`: o deslocamento não cabe no ciclo — a volta oferece montar o próximo.
+ * `not_paused`: não havia pausa aberta. No-op, não erro.
+ */
+export type ResumeOutcome = {
+  readonly action: 'shifted' | 'new_cycle' | 'not_paused';
+  readonly shiftDays: number;
+  readonly careCount: number;
+};
+
 export type CareBoard = {
   readonly planId: string;
   readonly startsOn: string;
@@ -23,6 +36,14 @@ export type CareBoard = {
    */
   readonly assessmentAlgorithmVersion: string;
   readonly scheduleAlgorithmVersion: string;
+  /**
+   * SPEC-022 — o dia em que ela parou, ou `null` quando o cronograma está andando.
+   *
+   * **É o estado inteiro.** Não existe coluna "pausado": uma pausa é uma linha com `resumed_on`
+   * nulo, e o board carrega a data porque `buildTodayView` precisa dela para decidir que nada
+   * atrasou — atraso pressupõe compromisso vigente (BR1).
+   */
+  readonly pausedOn: string | null;
   readonly cares: readonly ScheduledCare[];
   readonly executions: readonly CareExecution[];
   /** Check-ins for those executions (SPEC-006); empty until the user answers one. */
@@ -51,6 +72,18 @@ export interface CareTrackingPort {
   complete(input: { scheduledCareId: string; clientExecutionId: string; timeZone: string }): Promise<void>;
   skip(scheduledCareId: string): Promise<void>;
   reschedule(input: { scheduledCareId: string; newDate: string; timeZone: string }): Promise<void>;
+  /**
+   * SPEC-022 — para o cronograma. Idempotente: pausar de novo devolve a pausa que já está aberta.
+   */
+  pause(timeZone: string): Promise<void>;
+  /**
+   * Retoma, ou apenas **conta o que aconteceria** (`commit: false`).
+   *
+   * O Blueprint exige que ela saiba antes de confirmar, e a previsão vem do servidor pela mesma
+   * função que executa — uma segunda cópia da regra de deslocamento em TypeScript divergiria da
+   * primeira na primeira vez que qualquer uma das duas mudasse.
+   */
+  resume(input: { timeZone: string; commit: boolean }): Promise<ResumeOutcome>;
   /** Undoes an accidental execution inside the approved window (D-69/D-12). */
   undo(executionId: string): Promise<void>;
   /**

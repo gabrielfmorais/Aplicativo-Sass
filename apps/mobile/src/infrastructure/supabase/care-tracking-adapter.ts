@@ -3,6 +3,7 @@ import type {
   CareExecution,
   CareTrackingPort,
   CheckIn,
+  ResumeOutcome,
   ScheduledCare,
   ScheduledCareStatus,
 } from '@app/core';
@@ -11,6 +12,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 // SPEC-017: a origem do plano vem no mesmo `select` — explicar o cronograma não vale uma viagem
 // extra ao servidor, e a coluna já existia para reprodutibilidade.
+type ResumeRow = { action: ResumeOutcome['action']; shift_days: number; care_count: number };
+
 const PLAN_COLUMNS =
   'id, starts_on, hair_profile_id, assessment_algorithm_version, schedule_algorithm_version';
 const CARE_COLUMNS = 'id, care_type_code, planned_date, status, rescheduled_to_id';
@@ -129,6 +132,19 @@ export const createCareTrackingAdapter = (client: SupabaseClient): CareTrackingP
         checkIns = (checkInRows ?? []).map((r) => toCheckIn(r as CheckInRow));
       }
 
+      /**
+       * SPEC-022 — a pausa aberta, se houver. **Escopada ao plano ativo de propósito:** uma pausa
+       * cujo plano foi substituído por uma reavaliação já não pausa nada, e mostrá-la faria a Hoje
+       * dizer "pausado" sobre um cronograma novo em folha (EC5).
+       */
+      const { data: pauseRow, error: pauseError } = await client
+        .from('plan_pauses')
+        .select('paused_on')
+        .eq('plan_id', plan.id)
+        .is('resumed_on', null)
+        .maybeSingle();
+      if (pauseError) throw fail('care.board_read_failed', pauseError);
+
       // Across every plan, not just this one (SPEC-014): `head: true` asks for the count and no
       // rows, so this stays one cheap round trip regardless of how long she has been using the app.
       const { count, error: countError } = await client
@@ -143,6 +159,7 @@ export const createCareTrackingAdapter = (client: SupabaseClient): CareTrackingP
         hairProfileId: plan.hair_profile_id,
         assessmentAlgorithmVersion: plan.assessment_algorithm_version,
         scheduleAlgorithmVersion: plan.schedule_algorithm_version,
+        pausedOn: (pauseRow as { paused_on: string } | null)?.paused_on ?? null,
         cares,
         executions,
         checkIns,
@@ -172,6 +189,28 @@ export const createCareTrackingAdapter = (client: SupabaseClient): CareTrackingP
       ),
 
     undo: (executionId) => call('void_execution', { p_execution_id: executionId }, 'care.undo_failed'),
+
+    pause: (timeZone) => call('pause_plan', { p_timezone: timeZone }, 'care.pause_failed'),
+
+    /**
+     * SPEC-022 — a mesma função responde "o que aconteceria" e "faça". `commit: false` é previsão:
+     * o servidor calcula e devolve sem escrever nada, para a tela poder dizer antes de confirmar
+     * sem que a regra de deslocamento passe a existir também em TypeScript.
+     */
+    async resume({ timeZone, commit }): Promise<ResumeOutcome> {
+      const { data, error } = await client.rpc('resume_plan', {
+        p_timezone: timeZone,
+        p_commit: commit,
+      });
+      if (error) throw fail('care.resume_failed', error);
+      // `returns table` chega como array de uma linha; sem linha, não havia pausa aberta.
+      const row = (data as ResumeRow[] | null)?.[0];
+      return {
+        action: row?.action ?? 'not_paused',
+        shiftDays: row?.shift_days ?? 0,
+        careCount: row?.care_count ?? 0,
+      };
+    },
 
     submitCheckIn: ({ careExecutionId, overallFeel, clientCheckinId }) =>
       call(

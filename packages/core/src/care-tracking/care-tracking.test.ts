@@ -1,4 +1,5 @@
 import type { ScheduledCare } from '../schedule/index.ts';
+import type { LocalDate } from '../shared/index.ts';
 import { instantFromString, localDateFromString } from '../shared/index.ts';
 import {
   RESCHEDULE_HORIZON_DAYS,
@@ -240,5 +241,69 @@ describe('check-ins (SPEC-006 AC11)', () => {
 
   it('keeps the board readable when check-ins are omitted entirely', () => {
     expect(buildTodayView([c], [done], TODAY).today[0]!.checkIn).toBeNull();
+  });
+});
+
+/**
+ * SPEC-022 (F22) — o estado pausado é **real, não simulado**: atraso, lembretes e progresso têm de
+ * enxergar a mesma diferença, ou duas partes do app discordam sobre o mesmo plano (BR2).
+ */
+describe('pausa: atraso pressupõe compromisso vigente (SPEC-022 BR1)', () => {
+  const TODAY = '2026-09-10' as LocalDate;
+  const care = (id: string, plannedDate: string): ScheduledCare =>
+    ({
+      id,
+      careTypeCode: 'hydration',
+      plannedDate,
+      status: 'planned',
+      rescheduledToId: null,
+    }) as ScheduledCare;
+
+  it('sem pausa, o que passou está atrasado', () => {
+    const view = buildTodayView([care('a', '2026-09-05')], [], TODAY);
+    expect(view.overdue.map((i) => i.id)).toEqual(['a']);
+  });
+
+  /** Pausada, ela não combinou nada com ninguém. O cuidado volta a ser o que sempre foi: intenção. */
+  it('pausada, nada atrasa — o cuidado volta a ser planejado', () => {
+    const view = buildTodayView([care('a', '2026-09-05')], [], TODAY, [], '2026-09-04');
+    expect(view.overdue).toEqual([]);
+    expect(view.upcoming.map((i) => i.id)).toEqual(['a']);
+    // E sem contagem de dias de atraso: não há atraso a contar.
+    expect(view.upcoming[0]?.daysLate).toBe(0);
+  });
+
+  it('a pausa não inventa nem apaga o que já aconteceu', () => {
+    const cares = [care('feito', '2026-09-05'), care('pulado', '2026-09-06')];
+    const skipped = { ...cares[1]!, status: 'skipped' as const };
+    const view = buildTodayView(
+      [cares[0]!, skipped],
+      [
+        {
+          id: 'e1',
+          scheduledCareId: 'feito',
+          executedAt: '2026-09-05T10:00:00Z',
+          executedOn: '2026-09-05',
+          voidedAt: null,
+        },
+      ],
+      TODAY,
+      [],
+      '2026-09-04',
+    );
+    const outcomes = Object.fromEntries(view.history.map((i) => [i.id, i.outcome]));
+    expect(outcomes).toEqual({ feito: 'done', pulado: 'skipped' });
+  });
+
+  /**
+   * G4/FR6 — "o período pausado não conta contra ela em nenhum número que ela veja". Não é uma
+   * regra à parte: cai de graça porque `buildProgress` conta `overdue`, e pausada não há nenhum.
+   */
+  it('o período pausado não vira número contra ela', () => {
+    const cares = [care('a', '2026-09-05'), care('b', '2026-09-08')];
+    const andando = buildTodayView(cares, [], TODAY);
+    const pausada = buildTodayView(cares, [], TODAY, [], '2026-09-04');
+    expect(andando.overdue).toHaveLength(2);
+    expect(pausada.overdue).toHaveLength(0);
   });
 });
