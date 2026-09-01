@@ -112,10 +112,12 @@ export const buildCycleView = (
   startsOn: LocalDate,
   today: LocalDate,
   checkIns: readonly CheckIn[] = [],
+  /** SPEC-022 — a mesma pausa que a Hoje enxerga; sem ela o ciclo mostraria atrasos que não existem. */
+  pausedOn: string | null = null,
 ): CycleView => {
   // Uma única passagem de derivação, a mesma da Hoje. `TodayView` separa por quando; aqui o que
   // interessa é o cuidado em si, então as quatro listas voltam a ser uma.
-  const view = buildTodayView(cares, executions, today, checkIns);
+  const view = buildTodayView(cares, executions, today, checkIns, pausedOn);
   const items = [...view.overdue, ...view.today, ...view.upcoming, ...view.history];
 
   const endsOn = addDays(startsOn, CYCLE_WEEKS * 7 - 1);

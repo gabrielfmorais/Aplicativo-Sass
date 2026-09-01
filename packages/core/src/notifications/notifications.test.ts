@@ -306,3 +306,23 @@ describe('the end of the cycle is announced, once (D-82)', () => {
     );
   });
 });
+
+/**
+ * SPEC-022 FR2 — lembrar alguém de um compromisso que ela **suspendeu** é a forma mais direta de
+ * transformar uma pausa em cobrança, e o Blueprint §5 pede o contrário.
+ */
+describe('pausa silencia os lembretes (SPEC-022 FR2)', () => {
+  it('pausada, nenhum lembrete é agendado — mesmo com a preferência ligada', () => {
+    const cares = [care({ id: 'a', plannedDate: TODAY })];
+    const base = {
+      view: buildTodayView(cares, [], TODAY),
+      preferences: ON,
+      today: TODAY,
+      nowLocalTime: '07:00',
+    };
+    // Sem pausa, com a preferência ligada, há o que lembrar.
+    expect(buildNotificationIntents(base).length).toBeGreaterThan(0);
+    // Com pausa, nada — e não por a preferência estar desligada, que é o outro caminho para vazio.
+    expect(buildNotificationIntents({ ...base, paused: true })).toEqual([]);
+  });
+});

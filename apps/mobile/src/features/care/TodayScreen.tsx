@@ -412,7 +412,7 @@ export function TodayScreen({
   const [failure, setFailure] = useState<string | null>(null);
 
   const view = useMemo(
-    () => buildTodayView(board.cares, board.executions, today, board.checkIns),
+    () => buildTodayView(board.cares, board.executions, today, board.checkIns, board.pausedOn),
     [board, today],
   );
   const progress = useMemo(() => buildProgress(view, board.lifetimeDoneCount), [view, board]);

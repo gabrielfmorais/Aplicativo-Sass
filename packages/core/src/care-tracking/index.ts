@@ -9,6 +9,6 @@ export {
   rescheduleRange,
 } from './domain/care-tracking.ts';
 export type { CareExecution, CareItem, CareOutcome, CheckIn, TodayView } from './domain/care-tracking.ts';
-export type { CareBoard, CareTrackingPort } from './application/ports.ts';
+export type { CareBoard, CareTrackingPort, ResumeOutcome } from './application/ports.ts';
 export { CYCLE_WEEKS, buildCycleView, groupIntoWeeks } from './domain/cycle.ts';
 export type { CycleView, CycleWeek, PlanWeek } from './domain/cycle.ts';

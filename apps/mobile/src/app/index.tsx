@@ -194,7 +194,9 @@ function AuthenticatedApp({
     if (board_ === 'loading' || board_ === 'error') return;
     const intents = board_
       ? buildNotificationIntents({
-          view: buildTodayView(board_.cares, board_.executions, today(), board_.checkIns),
+          // SPEC-022 FR2 — pausada, nada toca. A mesma pausa que a Hoje e o ciclo enxergam (BR2).
+          paused: board_.pausedOn !== null,
+          view: buildTodayView(board_.cares, board_.executions, today(), board_.checkIns, board_.pausedOn),
           preferences: prefs,
           today: today(),
           nowLocalTime: localTimeOf(now()),

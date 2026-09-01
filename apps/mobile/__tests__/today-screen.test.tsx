@@ -13,6 +13,7 @@ const board = (over: Partial<CareBoard> = {}): CareBoard => ({
   hairProfileId: 'hp-1',
   assessmentAlgorithmVersion: 'v1',
   scheduleAlgorithmVersion: 'v1',
+  pausedOn: null,
   cares: [
     {
       id: 'late',

@@ -123,8 +123,17 @@ export const buildNotificationIntents = (input: {
   today: LocalDate;
   /** Local wall-clock time now, `HH:MM` — used only to skip today's slot once it has passed (FR7). */
   nowLocalTime: string;
+  /**
+   * SPEC-022 — cronograma pausado. Lembrar alguém de um compromisso que ela **suspendeu** é a forma
+   * mais direta de transformar uma pausa em cobrança, e o Blueprint §5 pede exatamente o contrário.
+   *
+   * Parâmetro, e não uma porta dos fundos na tela: o estado pausado é real, não simulado, e quem
+   * agenda tem de enxergar a mesma pausa que a Hoje enxerga (BR2).
+   */
+  paused?: boolean;
 }): readonly NotificationIntent[] => {
-  const { view, preferences, today, nowLocalTime } = input;
+  const { view, preferences, today, nowLocalTime, paused = false } = input;
+  if (paused) return []; // FR2 — pausada, nada toca
   if (!preferences.enabled) return []; // BR1: opt-in, and the only way to get an empty set for free
 
   const time = preferences.reminderTimeLocal;
