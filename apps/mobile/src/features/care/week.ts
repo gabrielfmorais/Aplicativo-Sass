@@ -1,6 +1,7 @@
 import type { CareItem, CareOutcome, CareTypeCode, LocalDate } from '@app/core';
 import { addDays } from '@app/core';
 
+import { OUTCOME_LABEL } from '@/features/care/copy';
 import { CARE_TYPE_LABEL } from '@/features/plan/copy';
 
 /**
@@ -42,13 +43,6 @@ const MONTH_NAME = [
  * away is no longer happening on its original day, and drawing it there would tell the user
  * something false about her week.
  */
-const OUTCOME_WORD: Record<Exclude<CareOutcome, 'rescheduled'>, string> = {
-  planned: 'planejada',
-  overdue: 'atrasada',
-  done: 'feita',
-  skipped: 'pulada',
-};
-
 export type WeekCare = {
   readonly careTypeCode: CareTypeCode;
   readonly outcome: Exclude<CareOutcome, 'rescheduled'>;
@@ -104,7 +98,7 @@ export const buildWeek = (items: readonly CareItem[], today: LocalDate): readonl
     const cares = byDate.get(date) ?? [];
     const isToday = date === today;
 
-    const spoken = cares.map((c) => `${CARE_TYPE_LABEL[c.careTypeCode]}: ${OUTCOME_WORD[c.outcome]}`);
+    const spoken = cares.map((c) => `${CARE_TYPE_LABEL[c.careTypeCode]}: ${OUTCOME_LABEL[c.outcome]}`);
     const label = [
       `${WEEKDAY_NAME[offset]}, ${d} de ${MONTH_NAME[m - 1]}`,
       isToday ? 'hoje' : null,

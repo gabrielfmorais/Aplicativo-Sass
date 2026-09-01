@@ -8,7 +8,7 @@ import type {
   PlanPreferences,
   PlanPreferencesPort,
 } from '@app/core';
-import { EntitlementService, buildPlan } from '@app/core';
+import { EntitlementService, buildPlan, groupIntoWeeks } from '@app/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
@@ -19,7 +19,6 @@ import { CareTypeMark } from '@/features/care/CareTypeMark';
 import { reasonOf } from '@/shared/failure-detail';
 
 import { EVIDENCE_LABEL, formatPlannedDate } from './copy';
-import { groupIntoWeeks } from './weeks';
 
 /** What the preview draws. `careTypeCode` is the engine's own type, not a key of a copy map. */
 type Item = { key: string; careTypeCode: CareTypeCode; plannedDate: string };

@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-019 |
-| Status | **Draft** |
+| Status | **IMPLEMENTED** (agente, §0.2/§0.4 — capability COMMITTED do MASTER PRODUCT SCOPE; aguarda ratificação humana) |
 | Owner | (humano) — projetopaporeto.erp@gmail.com |
 | Bounded Context | **Care Tracking** (subdomínio *calendar projection*, DOMAIN-MAP §3.5) |
 | Related ADRs | ADR-001 (UI não contém regra), ADR-008 (datas e fuso) |
@@ -174,7 +174,7 @@ Reverter a PR. Nada toca banco, contrato ou autorização.
 
 - **OQ1 — CAN DEFER — a origem do "ciclo".** O plano tem `startsOn` e a janela de 28 dias do engine v1, mas "quatro semanas" é hoje uma convenção do preview (`groupIntoWeeks`), não um conceito do domínio. *Assunção adotada:* reusar exatamente a mesma regra de agrupamento que o preview já usa, para que o ciclo que ela confirmou e o ciclo que ela revisita sejam o mesmo objeto. *Gatilho para reabrir:* uma versão de engine com janela diferente de 28 dias.
 - **OQ2 — IMPORTANT — agir a partir da visão de ciclo.** NG5 diz que não se transita cuidado aqui. É a decisão certa para a primeira versão (a Hoje é o lugar da ação, e duplicar transições multiplicaria caminhos de escrita), mas ver um cuidado atrasado e não poder resolvê-lo dali é atrito real. *Assunção:* somente leitura; tocar num cuidado leva de volta à Hoje se ele for acionável. *Gatilho:* observar o atrito de verdade antes de abrir um segundo caminho de escrita.
-- **OQ3 — IMPORTANT — EC5, execução ad hoc.** Ela não pertence ao plano; mostrá-la na semana em que aconteceu conta a verdade do mês, omiti-la mantém a visão fiel ao **plano**. *Assunção:* mostrar, marcada como fora do plano — o objetivo declarado no Blueprint é "o que aconteceu", não "o que foi planejado". Decisão pequena e reversível (§0.2).
+- **OQ3 — RESOLVIDA POR AUSÊNCIA — EC5, execução ad hoc.** A implementação mostrou que ela **não existe hoje**: o tipo `CareExecution` do core tem `scheduledCareId: string`, não anulável, e nenhuma tela cria execução sem agendamento. Tratá-la exigiria mudar um tipo do domínio por um caso que não pode acontecer (D-47/D-48). *Gatilho para reabrir:* o dia em que registrar um cuidado fora do plano virar uma capability. **Texto original:** Ela não pertence ao plano; mostrá-la na semana em que aconteceu conta a verdade do mês, omiti-la mantém a visão fiel ao **plano**. *Assunção:* mostrar, marcada como fora do plano — o objetivo declarado no Blueprint é "o que aconteceu", não "o que foi planejado". Decisão pequena e reversível (§0.2).
 - **OQ4 — CAN DEFER — EC4, reagendado para fora da janela.** *Assunção:* a origem diz que foi reagendada e para quando, sem tentar desenhar uma quinta semana.
 - **OQ5 — CAN DEFER — ciclos anteriores.** Depois de uma reavaliação o plano antigo fica `superseded` e o histórico continua salvo (SPEC-014 FR7). Ver **ciclos passados** é valor real, mas é `F29`/`P12`. *Assunção:* esta SPEC mostra **o ciclo ativo**.
 
@@ -182,4 +182,5 @@ Reverter a PR. Nada toca banco, contrato ou autorização.
 
 | Data | Mudança | Autor |
 |---|---|---|
+| 2026-09-01 | v0.2 — **implementada.** `buildCycleView` puro em `packages/core/src/care-tracking/domain/cycle.ts`, reusando `buildTodayView` para que a Hoje e o ciclo nunca discordem sobre o mesmo cuidado. `groupIntoWeeks` **mudou de casa** do app para o core (BR1): duas cópias de `floor(dias / 7)` são duas cópias que podem divergir, e o ciclo que ela confirma tem de ser o ciclo que ela revisita. `OUTCOME_LABEL` passou a ser compartilhado com a faixa da semana. **OQ3 resolvida por ausência.** Validada a 390px no DEV real. | agente (§0.2/§0.4) |
 | 2026-09-01 | v0.1 — Draft criada pela skill `spec-create` para fechar o **F20** do MASTER PRODUCT BACKLOG (D-92), seguindo o Blueprint §3 (D-94). Escopo deliberadamente estreito: a visão do ciclo ativo, sem o resumo de fim de ciclo (`F29`) e sem escrita. Cinco Open Questions, nenhuma BLOCKING. | agente |
