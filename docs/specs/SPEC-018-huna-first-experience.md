@@ -84,6 +84,7 @@ Analisadas: 9 screenshots do fluxo de onboarding do Flo e 2 vídeos (32s e 1m38s
 - FR4 — O movimento **respeita a preferência de redução de movimento** do sistema: quando ligada, a composição fica estática.
 - FR5 — Tudo compõe dos tokens (SPEC-016 FR2/AC1 continuam valendo).
 - FR6 — O nome do produto passa a ser **Huna** onde o app se identifica.
+- FR7 *(fatia 2)* — Depois de entrar e **antes** das perguntas sobre cabelo, o app pergunta **como a usuária quer ser chamada**, e responde com um cumprimento pelo nome. Responder é opcional: **pular não custa nada e é registrado**, para que a pergunta não volte. A pergunta **nunca** impede o uso do app — falha de gravação oferece tentar de novo e seguir.
 
 ## 7. Business Rules
 
@@ -94,27 +95,49 @@ Analisadas: 9 screenshots do fluxo de onboarding do Flo e 2 vídeos (32s e 1m38s
 
 ## 8. Data Model Impact
 
-**Nenhum nesta fatia.** Capturar o nome da usuária (§14) exige uma coluna que **não existe** — fica para a fatia própria, com migration e decisão explícita.
+**Fatia 1: nenhum.** **Fatia 2: uma tabela nova, `public.profiles`** — a entidade que D-63 desenhou e adiou "até haver requisito concreto". O requisito é FR7.
+
+| Coluna | Tipo | Por quê |
+|---|---|---|
+| `user_id` | uuid PK, FK `auth.users` on delete cascade | a linha é dela e morre com a conta |
+| `display_name` | text null, `check` 1..60 e `btrim <> ''` | **PII.** Nulo = "prefiro não dizer" |
+| `created_at` / `updated_at` | timestamptz not null | `updated_at` por trigger existente |
+
+**A existência da linha é o registro de que já perguntamos**; `display_name` nulo é a resposta "não quero dizer". Sem essa distinção o app perguntaria de novo, a cada abertura, exatamente a quem já disse não.
+
+**Não criadas** (D-47/D-48, e D-63 no caso da última): `timezone` — o fuso viaja na chamada (ADR-008); `locale` — sem consumidor; `onboarding_status` — D-63 derivou "onboarding concluído" da existência de um `hair_profiles`, e continua assim. `DATA-MODEL.md` §3.1/§4.1/§4.2 e o diagrama ER foram reconciliados na mesma PR.
 
 ## 9. API / Contracts
 
-**Nenhum.** Nenhuma RPC, Edge Function ou port muda.
+**Fatia 1: nenhum.** **Fatia 2: um port novo, nenhuma RPC e nenhuma Edge Function.**
+
+```ts
+type UserProfile = { readonly displayName: string | null };
+interface ProfilePort {
+  get(): Promise<UserProfile | null>;      // null = a pergunta nunca foi feita
+  save(displayName: string | null): Promise<void>;
+}
+```
+
+Mais `DisplayNameSchema` em `packages/core/src/identity/domain/` — a mesma regra que o banco aplica (normaliza espaço, 1..60), para o erro chegar como "faltou algo" e não como falha de escrita. Sem RPC de propósito: não há invariante de servidor aqui, é a declaração dela sobre ela mesma — como `plan_preferences`, e ao contrário de planos e execuções.
 
 ## 10. Authorization
 
-**Nada.** Os fluxos de autenticação e suas garantias são preservados integralmente; muda a apresentação.
+**Fatia 1: nada.** **Fatia 2:** posse por RLS, não por RPC. `SELECT`/`INSERT`/`UPDATE` **apenas da própria linha**, com `using` e `with check` em `user_id = auth.uid()` — é o `with check` que impede um cliente adulterado de escrever o nome de outra pessoa. **Sem `DELETE` concedido:** a linha morre por cascade a partir de `auth.users`, e "apagar meu nome" é um `UPDATE` para nulo. Os fluxos de autenticação seguem preservados integralmente.
 
 ## 11. Security Considerations
 
-- Tabela/coluna nova + RLS: **N/A** nesta fatia.
-- Autorização: **inalterada**.
+- **Tabela nova (fatia 2):** RLS `enable` + `force`, três policies de linha própria, grants na allowlist, e uma policy `for all to postgres` porque `force` vale também para o dono. **Nenhum `SECURITY DEFINER`.** Coberta por pgTAP (§18).
+- Autorização: **inalterada** nos fluxos existentes.
 - **DEV sign-in continua com as quatro travas de D-85** e visualmente separado do fluxo real — um desenvolvedor olhando a tela nunca deve confundir os dois.
-- PII: nenhum dado novo exibido, logado ou emitido.
+- PII: **a fatia 2 introduz o primeiro dado pessoal declarado pela usuária** (`display_name`). Não é logado, não vai para analytics (não há — D-31) e não sai do dispositivo dela para lugar nenhum além da própria linha.
 - Segredo: nenhum.
 
 ## 12. Privacy Considerations
 
 A tela de login **diz** o que o produto faz com os dados dela, em linguagem verdadeira sobre o Huna. Consentimento formal e a tabela `consents` seguem em D-32 — **e esta SPEC não os antecipa nem finge que existem**.
+
+**Fatia 2 — o nome.** É PII, e por isso: (a) a pergunta explica na própria tela para que serve e que não aparece para mais ninguém; (b) responder é **opcional**, com uma saída que é botão de verdade, não link escondido; (c) ela pode apagar o nome depois — `UPDATE` para nulo, e o app volta a não a chamar pelo nome; (d) o dado sai junto com a conta, por cascade. `DATA-MODEL.md` §4.1 passa a listá-lo no inventário do que é coletado hoje. **Nada disso cria consentimento novo nem antecipa a base legal de D-32** — é dado fornecido por ela para a função que ela pediu.
 
 ## 13. Analytics Events
 
@@ -158,7 +181,10 @@ Inalterados. A abertura não faz leitura de rede: não tem como falhar por dado.
 - AC5 — Nenhum literal de cor/espaçamento fora de `design/` (AC1 da SPEC-016 continua).
 - AC6 — Acessibilidade: hero decorativo; alvos ≥ 44px; rótulos e estados preservados.
 - AC7 — **Validação visual real em viewport mobile (390px)** — testes automatizados **não bastam** para esta fatia.
-- AC8 — `pnpm verify` verde; nenhuma mudança em `packages/core`, `supabase/` ou contrato de port.
+- AC8 — `pnpm verify` verde. *(Fatia 1: nenhuma mudança em `packages/core`, `supabase/` ou contrato de port. **Fatia 2 muda os três, pelo que §8–§11 descrevem, e só por isso.**)*
+- AC9 *(fatia 2)* — A pergunta do nome aparece **uma vez**: quem respondeu e quem pulou não a vê de novo. Uma leitura que **falha** não a faz reaparecer no meio da sessão nem trava a entrada — na dúvida, o app segue.
+- AC10 *(fatia 2)* — Nenhum caminho desta tela deixa a usuária presa: erro de gravação oferece tentar de novo **e** seguir sem salvar.
+- AC11 *(fatia 2)* — Um cliente adulterado não escreve, não lê e não altera o nome de outra usuária (pgTAP, positivo e negativo).
 
 ## 18. Testing Strategy
 
@@ -166,6 +192,7 @@ Inalterados. A abertura não faz leitura de rede: não tem como falhar por dado.
 - Redução de movimento: teste do comportamento, não da animação.
 - **Validação visual obrigatória a 390px** (AC7): scroll, teclado, safe area, textos longos, estados desabilitados.
 - Regressão: as suítes de SignIn e Onboarding continuam passando **sem afrouxamento**.
+- **Fatia 2** — pgTAP em `supabase/tests/security/090_spec018_profiles.sql`: guardrails de fundação, posse, isolamento entre duas usuárias e os limites do nome (>60 e só-espaço recusados pelo banco). Vitest para `DisplayNameSchema`, incluindo nomes com acento, hífen, apóstrofo e fora do ASCII — recusar um nome real seria dizer a alguém que o nome dela está errado. RNTL para a tela: validação antes de gravar, pular grava nulo e **não** cumprimenta, falha oferece seguir, e durante a gravação não há segundo toque a dar.
 
 ## 19. Dependencies
 
@@ -173,18 +200,18 @@ Inalterados. A abertura não faz leitura de rede: não tem como falhar por dado.
 
 ## 20. Implementation Plan
 
-1. **Abertura + hero + login + marca Huna.** A entrada inteira. ← esta fatia
-2. **Nome da usuária + confirmação com o nome.** Precisa de coluna nova ⇒ migration e decisão própria.
+1. **Abertura + hero + login + marca Huna.** A entrada inteira. ✅ #69
+2. **Nome da usuária + confirmação com o nome.** Tabela `profiles`, port, tela. ← esta fatia
 3. **Batidas emocionais e transições no onboarding.**
 4. **Criação do plano + revelação do primeiro cronograma.**
 
 ## 21. Migration Plan
 
-N/A nesta fatia. A fatia 2 terá migration.
+Fatia 1: N/A. **Fatia 2:** `supabase/migrations/20260904000000_profiles.sql` — aditiva, cria a tabela, as policies e os grants. Não altera tabela existente, não move dado e não tem passo de backfill: quem já usa o app simplesmente ainda não tem linha, que é exatamente o estado "ainda não perguntamos". Deploy DEV pelo caminho normal de migration; nenhuma Edge Function muda.
 
 ## 22. Rollback Plan
 
-Reverter a PR. Nada toca core, banco ou contrato.
+Fatia 1: reverter a PR; nada toca core, banco ou contrato. **Fatia 2:** reverter a PR e `drop table if exists public.profiles`. Antes do release não há dado de produção a preservar; depois dele, reverter só o app já basta — a tabela órfã não faz mal a ninguém, e apagá-la apagaria nomes que as usuárias deram.
 
 ## 23. Open Questions
 
@@ -201,4 +228,5 @@ Reverter a PR. Nada toca core, banco ou contrato.
 
 | Data | Mudança | Autor |
 |---|---|---|
+| 2026-09-01 | v0.2 — **fatia 2 implementada.** FR7, AC9–AC11. `public.profiles` nasce com **uma** coluna de produto (D-63 destravada por requisito concreto; `timezone`/`locale`/`onboarding_status` continuam não existindo). `ProfilePort` + `DisplayNameSchema` no core, adapter sem RPC, posse por RLS + `with check`. §8–§12, §18, §21 e §22 passam a distinguir fatia 1 de fatia 2, e AC8 registra que esta fatia **muda** core/`supabase`/port — por FR7, não por conveniência. | agente (§0.2/§0.3) |
 | 2026-08-31 | v0.1 — SPEC criada e aprovada a pedido explícito e detalhado do dono. **Huna** passa a ser o nome oficial de trabalho. Escopo: a primeira experiência, evoluindo a fundação da SPEC-016 sem substituí-la. Referências analisadas e **recusas registradas** (porcentagem falsa, prova social inexistente, consentimento de saúde, dark pattern de saída, múltiplos planos). Hero em registro **abstrato** por decisão de diversidade capilar, com `Animated` da plataforma e **zero dependência nova**. | agente (§0.3) |

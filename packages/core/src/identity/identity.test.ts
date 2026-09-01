@@ -1,4 +1,11 @@
-import { EmailSchema, OtpCodeSchema, redactEmail, redactForLog } from './index.ts';
+import {
+  DISPLAY_NAME_MAX_LENGTH,
+  DisplayNameSchema,
+  EmailSchema,
+  OtpCodeSchema,
+  redactEmail,
+  redactForLog,
+} from './index.ts';
 
 describe('identity: input validation at the trust boundary', () => {
   it('normalises and validates emails', () => {
@@ -32,5 +39,28 @@ describe('identity: redaction (AC11)', () => {
       list: [{ code: '[redacted]' }],
     });
     expect(JSON.stringify(out)).not.toMatch(/eyJ|123456|Ana/);
+  });
+});
+
+/**
+ * SPEC-018 FR5 — o nome dela. As regras aqui espelham as constraints de `profiles`: o que o banco
+ * recusa, a UI precisa recusar antes, para que o erro chegue como "faltou algo" e não como falha.
+ */
+describe('identity: display name (SPEC-018)', () => {
+  it('normalises whitespace instead of rejecting it', () => {
+    expect(DisplayNameSchema.parse('  Gabriela  ')).toBe('Gabriela');
+    expect(DisplayNameSchema.parse('Ana   Maria')).toBe('Ana Maria');
+  });
+  it('refuses what the database refuses: empty, blank and over the limit', () => {
+    expect(DisplayNameSchema.safeParse('').success).toBe(false);
+    expect(DisplayNameSchema.safeParse('   ').success).toBe(false);
+    expect(DisplayNameSchema.safeParse('a'.repeat(DISPLAY_NAME_MAX_LENGTH)).success).toBe(true);
+    expect(DisplayNameSchema.safeParse('a'.repeat(DISPLAY_NAME_MAX_LENGTH + 1)).success).toBe(false);
+  });
+  /** Um nome não é ASCII. Recusar acento ou hífen seria dizer a alguém que o nome dela está errado. */
+  it('accepts the names people actually have', () => {
+    for (const name of ['Maria José', "D'Ávila", 'Ana-Clara', 'Thaís', '晴']) {
+      expect(DisplayNameSchema.safeParse(name).success).toBe(true);
+    }
   });
 });

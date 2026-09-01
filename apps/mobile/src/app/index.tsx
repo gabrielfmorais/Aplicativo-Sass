@@ -10,6 +10,7 @@ import type {
   NotificationPreferencesPort,
   NotificationSchedulerPort,
   PlanPreferencesPort,
+  ProfilePort,
 } from '@app/core';
 import { DEFAULT_NOTIFICATION_PREFERENCES, buildNotificationIntents, buildTodayView } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
@@ -23,6 +24,7 @@ import { DevSignIn } from '@/features/auth/DevSignIn';
 import { SignInScreen } from '@/features/auth/SignInScreen';
 import { WelcomeScreen } from '@/features/auth/WelcomeScreen';
 import { TodayScreen } from '@/features/care/TodayScreen';
+import { NameScreen } from '@/features/onboarding/NameScreen';
 import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import { PlanScreen } from '@/features/plan/PlanScreen';
 import { reasonOf } from '@/shared/failure-detail';
@@ -70,6 +72,7 @@ function AuthenticatedApp({
   notificationPreferences,
   notificationScheduler,
   planPreferences,
+  profile: userProfile,
   today,
   now,
   timeZone,
@@ -81,6 +84,7 @@ function AuthenticatedApp({
   notificationPreferences: NotificationPreferencesPort;
   notificationScheduler: NotificationSchedulerPort;
   planPreferences: PlanPreferencesPort;
+  profile: ProfilePort;
   today: () => LocalDate;
   now: () => Instant;
   timeZone: () => string;
@@ -112,6 +116,28 @@ function AuthenticatedApp({
       active = false;
     };
   }, [notificationPreferences]);
+
+  /**
+   * SPEC-018 FR5 — a pergunta do nome, feita uma vez e nunca de novo.
+   *
+   * `null` enquanto lê. `true` **só** quando a linha comprovadamente não existe: uma leitura que
+   * falha não vira pergunta. Perguntar o nome outra vez a quem já respondeu é o único erro que esta
+   * tela pode cometer, e um campo opcional jamais deve segurar a entrada do app — na dúvida, segue.
+   *
+   * Lê em paralelo com o perfil capilar de propósito: são duas perguntas independentes, e encadeá-las
+   * dobraria a espera antes do primeiro pixel.
+   */
+  const [askName, setAskName] = useState<boolean | null>(null);
+  useEffect(() => {
+    let active = true;
+    userProfile
+      .get()
+      .then((p) => active && setAskName(p === null))
+      .catch(() => active && setAskName(false));
+    return () => {
+      active = false;
+    };
+  }, [userProfile]);
 
   const loadProfile = useCallback(() => {
     setProfile('loading');
@@ -171,7 +197,9 @@ function AuthenticatedApp({
     });
   }, [board_, prefs, notificationScheduler, today, now]);
 
-  if (profile === 'loading') return <Loading label="Carregando seu perfil…" />;
+  if (askName === null || profile === 'loading') return <Loading label="Carregando seu perfil…" />;
+  // Antes do cabelo, ela. A pergunta abre a primeira experiência e sai do caminho para sempre.
+  if (askName) return <NameScreen profile={userProfile} onDone={() => setAskName(false)} />;
   if (profile === 'error') {
     return (
       <Retry
@@ -290,6 +318,7 @@ export default function IndexRoute() {
     notificationPreferences,
     notificationScheduler,
     planPreferences,
+    profile,
     today,
     now,
     timeZone,
@@ -325,6 +354,7 @@ export default function IndexRoute() {
       notificationPreferences={notificationPreferences}
       notificationScheduler={notificationScheduler}
       planPreferences={planPreferences}
+      profile={profile}
       today={today}
       now={now}
       timeZone={timeZone}
