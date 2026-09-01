@@ -186,13 +186,24 @@ select throws_ok(
   '23514', null, 'a rescheduled care is terminal (AC7)');
 
 -- AC8: the window is enforced server-side.
+--
+-- These two boundaries are measured in **the caller's timezone**, not in UTC, because that is the
+-- frame `reschedule_care` enforces: it compares against `care_local_today(p_timezone)`, which is
+-- `(now() at time zone p_timezone)::date`. Written against `current_date` these tests were wrong
+-- for three hours every day — between 00:00 and 03:00 UTC it is still yesterday in São Paulo, so
+-- "UTC yesterday" is the caller's *today*, which the window allows and must allow. The lower bound
+-- failed exactly there on 2026-09-01T01:24Z and blocked every merge until it passed 03:00.
+--
+-- The lesson is general: a date assertion has to use the same clock the code under test uses.
 select throws_ok(
-  format($$ select public.reschedule_care(%L, current_date - 1, 'America/Sao_Paulo') $$,
-         (select id from public.scheduled_cares where user_id = '00000000-0000-4000-8000-0000000000a5' and planned_date = current_date + 2)),
+  format($$ select public.reschedule_care(%L, '%s'::date, 'America/Sao_Paulo') $$,
+         (select id from public.scheduled_cares where user_id = '00000000-0000-4000-8000-0000000000a5' and planned_date = current_date + 2),
+         ((now() at time zone 'America/Sao_Paulo')::date - 1)::text),
   '22023', null, 'rescheduling into the past is refused');
 select throws_ok(
-  format($$ select public.reschedule_care(%L, current_date + 29, 'America/Sao_Paulo') $$,
-         (select id from public.scheduled_cares where user_id = '00000000-0000-4000-8000-0000000000a5' and planned_date = current_date + 2)),
+  format($$ select public.reschedule_care(%L, '%s'::date, 'America/Sao_Paulo') $$,
+         (select id from public.scheduled_cares where user_id = '00000000-0000-4000-8000-0000000000a5' and planned_date = current_date + 2),
+         ((now() at time zone 'America/Sao_Paulo')::date + 29)::text),
   '22023', null, 'rescheduling beyond today+28 is refused');
 
 -- --------------------------------------------------------------------------- isolation (AC10)
