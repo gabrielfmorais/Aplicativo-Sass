@@ -77,7 +77,7 @@ Não há paywall na entrada. Nenhuma capability hoje gratuita pode virar premium
 | F26 | **Minha Prateleira** | **COMMITTED** | Cadastro dos produtos que ela possui e usa. Base de F27, P6 e da Hair Intelligence. |
 | F27 | **Cadastro dos produtos utilizados** | **COMMITTED** | Liga produto ↔ cuidado/Wash Day. Depende de F26. |
 | F28 | **Fotos básicas de evolução** | **COMMITTED** | Primeira capability com **mídia**: storage, privacidade, LGPD, custo. Dependência real de infraestrutura. |
-| F29 | **Resumo de ciclo** | **COMMITTED** | Fecha o loop mensal. Depende de dados de ciclo suficientes. |
+| F29 | **Resumo de ciclo** | **DONE** | SPEC-021: na visão de ciclo, as contagens **do `Progress`** (reusadas, nunca recontadas) fecham o mês e levam à oferta do próximo. Sem percentual, nota ou comparação. Alimenta `P12` e `P16`. |
 | F30 | **Recursos de segurança / orientação profissional** | **COMMITTED** | Quando procurar um profissional. **Gate D-26** por natureza. |
 | F31 | **Check-in básico de couro cabeludo** | **COMMITTED** | Extensão do check-in (SPEC-006). Vocabulário de couro cabeludo pode exigir **domain review**. |
 

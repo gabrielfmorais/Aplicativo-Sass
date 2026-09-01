@@ -8,6 +8,8 @@ const progress = (over: Partial<Progress> = {}): Progress => ({
   done: 0,
   skipped: 0,
   overdue: 0,
+  planned: 0,
+  total: 0,
   checkInCount: 0,
   averageFeel: null,
   lifetimeDone: 0,
