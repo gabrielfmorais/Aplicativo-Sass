@@ -1,11 +1,12 @@
 import type { CareBoard, CareItem, CycleWeek, LocalDate } from '@app/core';
-import { buildCycleView } from '@app/core';
+import { buildCycleView, buildProgress, buildTodayView } from '@app/core';
 import { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { Button, Card, Row, Screen, Stack, Text } from '@/design/primitives';
 import { space } from '@/design/tokens';
 import { OUTCOME_LABEL } from '@/features/care/copy';
+import { CycleSummary } from '@/features/care/CycleSummary';
 import { CareTypeMark } from '@/features/care/CareTypeMark';
 import { formatPlannedDate } from '@/features/plan/copy';
 
@@ -27,15 +28,40 @@ export function CycleScreen({
   board,
   today,
   onBack,
+  onStartNext,
 }: {
   board: CareBoard;
   today: LocalDate;
   onBack: () => void;
+  /** SPEC-021 — presente quando há um próximo ciclo a oferecer (D-82). */
+  onStartNext?: () => void;
 }) {
   const cycle = useMemo(
     () => buildCycleView(board.cares, board.executions, board.startsOn as LocalDate, today, board.checkIns),
     [board, today],
   );
+  /**
+   * SPEC-021 — os **mesmos** números que a Hoje mostra, não uma segunda contagem: duas verdades
+   * sobre o mesmo mês divergiriam na primeira vez que qualquer regra de desfecho mudasse (BR1).
+   */
+  const progress = useMemo(
+    () =>
+      buildProgress(
+        buildTodayView(board.cares, board.executions, today, board.checkIns),
+        board.lifetimeDoneCount,
+      ),
+    [board, today],
+  );
+  /**
+   * "Encerrado" é derivado, nunca armazenado (BR4/D-69) — e tem **duas** entradas, não uma.
+   *
+   * A data de fim é a óbvia. A outra é ela ter resolvido tudo antes: a Hoje já trata esse caso e
+   * oferece o próximo ciclo (D-82), então marcar aqui só pela data faria as duas telas discordarem
+   * sobre o mesmo fato — a Hoje dizendo "chegou ao fim" enquanto o ciclo diz "como está indo" e não
+   * oferece nada.
+   */
+  const nothingLeft = progress.planned === 0 && progress.overdue === 0;
+  const ended = today > cycle.endsOn || nothingLeft;
 
   return (
     <Screen footer={<Button label="Voltar aos cuidados" variant="ghost" onPress={onBack} />}>
@@ -62,9 +88,15 @@ export function CycleScreen({
         </Text>
       </Stack>
 
+      {/* No fim, o resumo **abre** a tela: ela veio fechar o mês, não conferir a semana 2. Em
+          andamento, ele fecha — porque aí o que importa é o desenho, e o número é contexto. */}
+      {ended ? <CycleSummary progress={progress} ended {...(onStartNext ? { onStartNext } : {})} /> : null}
+
       {cycle.weeks.map((week) => (
         <Week key={week.number} week={week} />
       ))}
+
+      {ended ? null : <CycleSummary progress={progress} ended={false} />}
 
       {/*
        * EC4 — reagendar tem janela de 28 dias a partir de hoje, que pode passar do fim do plano.

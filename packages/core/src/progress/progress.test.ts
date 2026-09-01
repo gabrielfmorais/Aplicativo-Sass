@@ -124,6 +124,9 @@ describe('honest at the extremes (EC1/EC7/EC9)', () => {
       done: 0,
       skipped: 0,
       overdue: 0,
+      // SPEC-021: o cuidado existe e ainda vem. Nada decidido, o que é diferente de nada planejado.
+      planned: 1,
+      total: 1,
       checkInCount: 0,
       averageFeel: null,
       lifetimeDone: 0,
@@ -175,5 +178,46 @@ describe('lifetime total (SPEC-014 AC7/BR5)', () => {
       12,
     );
     expect(p).toMatchObject({ done: 1, lifetimeDone: 12 });
+  });
+});
+
+/**
+ * SPEC-021 — `planned` e `total` existem para o resumo de ciclo poder dizer "de quantos" sem
+ * recontar nada. O que precisa ficar travado é o que **não** entra nas duas.
+ */
+describe('buildProgress: o ciclo inteiro (SPEC-021)', () => {
+  it('conta o que ainda vem sem chamar isso de falha', () => {
+    const p = progressOf(
+      [
+        care({ id: 'feito', plannedDate: '2026-09-01' }),
+        care({ id: 'atrasado', plannedDate: '2026-09-05' }),
+        care({ id: 'futuro', plannedDate: '2026-09-20' }),
+      ],
+      [execution({ id: 'e1', scheduledCareId: 'feito' })],
+    );
+    expect(p.planned).toBe(1);
+    expect(p.elapsed).toBe(2);
+    expect(p.total).toBe(3);
+    // Atrasado é "decidido pelo dia", planejado é futuro: juntá-los faria um plano novo parecer
+    // um plano abandonado.
+    expect(p.overdue).toBe(1);
+  });
+
+  /** BR2/FR5 — a linha que substituiu é a que conta; somar as duas contaria um cuidado duas vezes. */
+  it('não conta o cuidado reagendado nem em planned nem em total', () => {
+    const p = progressOf([
+      care({ id: 'origem', plannedDate: '2026-09-05', status: 'rescheduled' }),
+      care({ id: 'destino', plannedDate: '2026-09-20' }),
+    ]);
+    expect(p.planned).toBe(1);
+    expect(p.total).toBe(1);
+  });
+
+  it('um ciclo recém-criado tem total, e nada decidido', () => {
+    const p = progressOf([
+      care({ id: 'a', plannedDate: '2026-09-20' }),
+      care({ id: 'b', plannedDate: '2026-09-25' }),
+    ]);
+    expect(p).toMatchObject({ elapsed: 0, done: 0, skipped: 0, overdue: 0, planned: 2, total: 2 });
   });
 });

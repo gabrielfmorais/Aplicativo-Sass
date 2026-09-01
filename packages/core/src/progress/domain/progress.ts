@@ -16,6 +16,18 @@ export type Progress = {
   readonly done: number;
   readonly skipped: number;
   readonly overdue: number;
+  /**
+   * Ainda por vir. SPEC-021: o futuro não é acerto nem falha, e é justamente por isso que ele fica
+   * numa contagem própria em vez de somar com "em aberto" — atrasado e planejado são estados
+   * diferentes, e juntá-los faria um cronograma novo parecer um cronograma abandonado.
+   */
+  readonly planned: number;
+  /**
+   * Quantos cuidados o plano tem, do ponto de vista dela: `elapsed + planned`. **Reagendado fica
+   * fora**, porque a linha que o substituiu é a que conta — somar as duas contaria um cuidado duas
+   * vezes (BR2).
+   */
+  readonly total: number;
   readonly checkInCount: number;
   /**
    * Effective executions across every plan, superseded ones included (SPEC-014 BR5).
@@ -45,6 +57,7 @@ export const buildProgress = (view: TodayView, lifetimeDone: number): Progress =
   let done = 0;
   let skipped = 0;
   let overdue = 0;
+  let planned = 0;
   const feels: number[] = [];
 
   for (const item of all) {
@@ -58,9 +71,13 @@ export const buildProgress = (view: TodayView, lifetimeDone: number): Progress =
       case 'overdue':
         overdue += 1;
         break;
+      // SPEC-021: contado, nunca julgado. O futuro entra no total do ciclo e em lugar nenhum que
+      // se pareça com desempenho.
+      case 'planned':
+        planned += 1;
+        break;
       // `rescheduled` is deliberately absent: the row that replaced it is the one that counts, and
-      // counting both would double-count a single care (BR2). `planned` is the future — judging it
-      // as a failure would be a lie (BR1).
+      // counting both would double-count a single care (BR2).
       default:
         break;
     }
@@ -79,6 +96,8 @@ export const buildProgress = (view: TodayView, lifetimeDone: number): Progress =
     done,
     skipped,
     overdue,
+    planned,
+    total: done + skipped + overdue + planned,
     checkInCount: feels.length,
     averageFeel,
     lifetimeDone,

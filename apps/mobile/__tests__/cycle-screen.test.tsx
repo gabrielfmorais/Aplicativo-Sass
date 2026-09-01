@@ -1,5 +1,5 @@
 import type { CareBoard, LocalDate } from '@app/core';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 
 import { CycleScreen } from '@/features/care/CycleScreen';
 
@@ -144,5 +144,129 @@ describe('CycleScreen (SPEC-019)', () => {
     for (const sample of ['83%', 'nota 7', 'usuárias parecidas', 'recomendamos algo', 'parabéns']) {
       expect(forbidden.some((p) => p.test(sample))).toBe(true);
     }
+  });
+});
+
+/**
+ * SPEC-021 (F29) — o mês contado por ela mesma. O que este bloco protege: os números são
+ * contagens, o fecho só aparece quando o ciclo fechou, e nada aqui vira julgamento.
+ */
+describe('CycleScreen — resumo de ciclo (SPEC-021)', () => {
+  const done = (careId: string, on: string) => ({
+    id: `x-${careId}`,
+    scheduledCareId: careId,
+    executedAt: `${on}T10:00:00Z`,
+    executedOn: on,
+    voidedAt: null,
+  });
+
+  it('em andamento, conta o que já foi e o que ainda falta', async () => {
+    const s = await render(
+      <CycleScreen
+        board={board({ executions: [done('c1', '2026-09-01')] })}
+        today={'2026-09-10' as LocalDate}
+        onBack={jest.fn()}
+      />,
+    );
+    s.getByText('Como está indo');
+    // c1 feito, c2 atrasado (05/09 já passou), c3 ainda por vir: dois já decididos, um no futuro.
+    s.getByText('Até aqui, você concluiu 1 de 2 cuidados.');
+    // Em aberto, não "em falta": um cuidado que ainda não chegou não é dívida (EC5).
+    s.getByText('Ainda falta 1 no ciclo.');
+    expect(s.queryByText('Ciclo encerrado')).toBeNull();
+  });
+
+  it('encerrado, fecha o mês e oferece o próximo', async () => {
+    const onStartNext = jest.fn();
+    const s = await render(
+      <CycleScreen
+        board={board({ executions: [done('c1', '2026-09-01')] })}
+        today={'2026-10-20' as LocalDate}
+        onBack={jest.fn()}
+        onStartNext={onStartNext}
+      />,
+    );
+    s.getByText('Ciclo encerrado');
+    s.getByText('Você concluiu 1 dos 3 cuidados deste ciclo.');
+    await fireEvent.press(s.getByText('Montar o próximo ciclo'));
+    expect(onStartNext).toHaveBeenCalled();
+  });
+
+  it('sem nada registrado, diz que o resumo aparece conforme ela registra', async () => {
+    const s = await render(
+      <CycleScreen board={board()} today={'2026-09-01' as LocalDate} onBack={jest.fn()} />,
+    );
+    s.getByText(/O resumo aparece conforme você registra/);
+    // Zeros leriam como resultado; a frase acima lê como começo (EC1/FR4).
+    expect(s.queryByText(/você concluiu 0/i)).toBeNull();
+  });
+
+  it('zero avaliações some, em vez de virar cobrança', async () => {
+    const s = await render(
+      <CycleScreen
+        board={board({ executions: [done('c1', '2026-09-01')] })}
+        today={'2026-09-10' as LocalDate}
+        onBack={jest.fn()}
+      />,
+    );
+    expect(s.queryByText(/avaliou 0/)).toBeNull();
+  });
+
+  /** AC4 — a mesma barreira da SPEC-019, agora sobre números: contagem não pode virar nota. */
+  it('o resumo não pontua, não compara e não elogia nem cobra', async () => {
+    const s = await render(
+      <CycleScreen
+        board={board({ executions: [done('c1', '2026-09-01')] })}
+        today={'2026-10-20' as LocalDate}
+        onBack={jest.fn()}
+        onStartNext={jest.fn()}
+      />,
+    );
+    const forbidden = [
+      /\d+\s*%/,
+      /\b(score|nota|pontuação|aderência|desempenho|meta)\b/i,
+      /\b(parabéns|muito bem|mandou bem|você falhou|faltou com|deixou de)/i,
+      /\b(melhor que|pior que|ciclo anterior|usuárias|média das)/i,
+    ];
+    for (const pattern of forbidden) expect(s.queryByText(pattern)).toBeNull();
+
+    for (const sample of ['70%', 'sua nota', 'parabéns!', 'melhor que o ciclo anterior']) {
+      expect(forbidden.some((p) => p.test(sample))).toBe(true);
+    }
+  });
+});
+
+/**
+ * A Hoje já trata "não sobrou nada" como fim de ciclo e oferece o próximo (D-82). Se aqui o fim
+ * fosse só a data, as duas telas discordariam sobre o mesmo fato — e ela veria "chegou ao fim" numa
+ * e "como está indo" na outra, no mesmo dia.
+ */
+describe('CycleScreen — o ciclo pode acabar antes da data (SPEC-021 BR4)', () => {
+  it('resolveu tudo antes do fim: o resumo fecha e oferece o próximo', async () => {
+    const settled = board({
+      cares: [care('c1', '2026-09-01'), care('c2', '2026-09-05', 'skipped')],
+      executions: [
+        {
+          id: 'x1',
+          scheduledCareId: 'c1',
+          executedAt: '2026-09-01T10:00:00Z',
+          executedOn: '2026-09-01',
+          voidedAt: null,
+        },
+      ],
+    });
+    const onStartNext = jest.fn();
+    const s = await render(
+      <CycleScreen
+        board={settled}
+        today={'2026-09-10' as LocalDate}
+        onBack={jest.fn()}
+        onStartNext={onStartNext}
+      />,
+    );
+    // Ainda estamos dentro das quatro semanas, e mesmo assim o ciclo acabou.
+    s.getByText('Ciclo encerrado');
+    s.getByText('Montar o próximo ciclo');
+    expect(s.queryByText('Como está indo')).toBeNull();
   });
 });

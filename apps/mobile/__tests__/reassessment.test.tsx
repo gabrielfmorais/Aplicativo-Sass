@@ -162,6 +162,8 @@ describe('history survives the new plan (SPEC-014 FR7/AC8)', () => {
     done: 0,
     skipped: 0,
     overdue: 0,
+    planned: 0,
+    total: 0,
     checkInCount: 0,
     averageFeel: null,
     lifetimeDone: 0,

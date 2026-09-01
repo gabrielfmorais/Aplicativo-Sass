@@ -323,7 +323,19 @@ function AuthenticatedApp({
       />
     );
   }
-  if (showCycle) return <CycleScreen board={board} today={today()} onBack={() => setShowCycle(false)} />;
+  if (showCycle) {
+    return (
+      <CycleScreen
+        board={board}
+        today={today()}
+        onBack={() => setShowCycle(false)}
+        onStartNext={() => {
+          setShowCycle(false);
+          setReassessing('profile');
+        }}
+      />
+    );
+  }
   return (
     <TodayScreen
       board={board}
