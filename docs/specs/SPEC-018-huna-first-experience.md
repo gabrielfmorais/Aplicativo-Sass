@@ -84,6 +84,7 @@ Analisadas: 9 screenshots do fluxo de onboarding do Flo e 2 vídeos (32s e 1m38s
 - FR4 — O movimento **respeita a preferência de redução de movimento** do sistema: quando ligada, a composição fica estática.
 - FR5 — Tudo compõe dos tokens (SPEC-016 FR2/AC1 continuam valendo).
 - FR6 — O nome do produto passa a ser **Huna** onde o app se identifica.
+- FR8 *(fatia 3)* — O onboarding tem **ritmo**: a troca de passo é uma transição visível, a opção escolhida **responde ao toque**, e entre blocos de perguntas há uma pausa curta que diz onde ela está. Nada disso é pré-requisito para ler a tela nem para responder.
 - FR7 *(fatia 2)* — Depois de entrar e **antes** das perguntas sobre cabelo, o app pergunta **como a usuária quer ser chamada**, e responde com um cumprimento pelo nome. Responder é opcional: **pular não custa nada e é registrado**, para que a pergunta não volte. A pergunta **nunca** impede o uso do app — falha de gravação oferece tentar de novo e seguir.
 
 ## 7. Business Rules
@@ -185,6 +186,8 @@ Inalterados. A abertura não faz leitura de rede: não tem como falhar por dado.
 - AC9 *(fatia 2)* — A pergunta do nome aparece **uma vez**: quem respondeu e quem pulou não a vê de novo. Uma leitura que **falha** não a faz reaparecer no meio da sessão nem trava a entrada — na dúvida, o app segue.
 - AC10 *(fatia 2)* — Nenhum caminho desta tela deixa a usuária presa: erro de gravação oferece tentar de novo **e** seguir sem salvar.
 - AC11 *(fatia 2)* — Um cliente adulterado não escreve, não lê e não altera o nome de outra usuária (pgTAP, positivo e negativo).
+- AC12 *(fatia 3)* — Entre os blocos de perguntas existem pausas que **não são perguntas**: não entram na contagem, têm volta, e nenhuma delas comenta o cabelo dela, interpreta uma resposta ou promete resultado.
+- AC13 *(fatia 3)* — Nenhuma animação começa **antes** de a preferência de redução de movimento ser conhecida, e nenhum conteúdo depende de uma animação para aparecer.
 
 ## 18. Testing Strategy
 
@@ -201,8 +204,8 @@ Inalterados. A abertura não faz leitura de rede: não tem como falhar por dado.
 ## 20. Implementation Plan
 
 1. **Abertura + hero + login + marca Huna.** A entrada inteira. ✅ #69
-2. **Nome da usuária + confirmação com o nome.** Tabela `profiles`, port, tela. ← esta fatia
-3. **Batidas emocionais e transições no onboarding.**
+2. **Nome da usuária + confirmação com o nome.** Tabela `profiles`, port, tela. ✅ #70 · composição corrigida na validação a 390px (#71) · **DONE validada no DEV real** (2026-09-01): nome, pular, erro de gravação, nome de 60 caracteres, reload e persistência.
+3. **Batidas emocionais e transições no onboarding.** ← esta fatia
 4. **Criação do plano + revelação do primeiro cronograma.**
 
 ## 21. Migration Plan
@@ -228,5 +231,6 @@ Fatia 1: reverter a PR; nada toca core, banco ou contrato. **Fatia 2:** reverter
 
 | Data | Mudança | Autor |
 |---|---|---|
+| 2026-09-01 | v0.3 — **fatia 3 implementada.** FR8, AC12–AC13. `useReduceMotion` extraído para `design/motion.ts` e `Reveal` criado (dois consumidores reais cada, AC3 da SPEC-016); `Chip` responde ao toque ao **marcar**; duas pausas entre os blocos de perguntas, contadas fora da numeração e com volta. **Defeito real corrigido na implementação:** a leitura da preferência de redução de movimento é assíncrona, e o valor inicial otimista fazia a animação começar antes da resposta — quem tinha a preferência ligada via a transição assim mesmo. O estado inicial passou a ser `null` ("ainda não sabemos"), e ninguém anima sem saber. | agente (§0.2/§0.3) |
 | 2026-09-01 | v0.2 — **fatia 2 implementada.** FR7, AC9–AC11. `public.profiles` nasce com **uma** coluna de produto (D-63 destravada por requisito concreto; `timezone`/`locale`/`onboarding_status` continuam não existindo). `ProfilePort` + `DisplayNameSchema` no core, adapter sem RPC, posse por RLS + `with check`. §8–§12, §18, §21 e §22 passam a distinguir fatia 1 de fatia 2, e AC8 registra que esta fatia **muda** core/`supabase`/port — por FR7, não por conveniência. | agente (§0.2/§0.3) |
 | 2026-08-31 | v0.1 — SPEC criada e aprovada a pedido explícito e detalhado do dono. **Huna** passa a ser o nome oficial de trabalho. Escopo: a primeira experiência, evoluindo a fundação da SPEC-016 sem substituí-la. Referências analisadas e **recusas registradas** (porcentagem falsa, prova social inexistente, consentimento de saúde, dark pattern de saída, múltiplos planos). Hero em registro **abstrato** por decisão de diversidade capilar, com `Animated` da plataforma e **zero dependência nova**. | agente (§0.3) |
