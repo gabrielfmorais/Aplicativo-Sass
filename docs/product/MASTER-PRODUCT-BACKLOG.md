@@ -51,7 +51,7 @@ Não há paywall na entrada. Nenhuma capability hoje gratuita pode virar premium
 |---|---|---|---|
 | F1 | Conta | **DONE** | SPEC-001 (#3) |
 | F2 | Perfil capilar | **DONE** | SPEC-002 (#6) |
-| F3 | Onboarding | **DONE** | SPEC-002; refinado em SPEC-016 fatia 1 (#54) |
+| F3 | Onboarding | **DONE** | SPEC-002; refinado em SPEC-016 fatia 1 (#54) e em SPEC-018 (nome da usuária, ritmo, interstícios, revelação — #70/#72/#73) |
 | F4 | Avaliação inicial | **DONE** | SPEC-004 (assessment dentro, D-66) |
 | F5 | Cronograma personalizado H/N/R | **DONE** | SPEC-004 (#11) |
 | F6 | Tela Hoje | **DONE** | SPEC-005 (#14); redesenhada em SPEC-016 fatia 2 (#55) |
@@ -68,7 +68,7 @@ Não há paywall na entrada. Nenhuma capability hoje gratuita pode virar premium
 | F17 | Reavaliação | **DONE** | SPEC-014 (#28) |
 | F18 | Novos ciclos | **DONE** | SPEC-014 + D-82 (#45) |
 | F19 | Preservação do histórico | **DONE** | SPEC-014 FR7 (contagem vitalícia atravessa a substituição de plano) |
-| F20 | Calendário / ciclo | **IN PROGRESS** | Week strip da semana corrente entregue (SPEC-016 fatia 2, #55) e o preview agrupado por semana (#60). Falta a visão de **ciclo** — as quatro semanas navegáveis com o que já aconteceu em cada uma. |
+| F20 | Calendário / ciclo | **IN PROGRESS** | Week strip da semana corrente entregue (SPEC-016 fatia 2, #55) e o preview agrupado por semana (#60). A visão de **ciclo** que falta está especificada em **SPEC-019 (Draft)** — as quatro semanas do plano ativo com o que aconteceu em cada uma, sem SQL e sem contrato novo. |
 | F21 | **"Por que isso está no meu plano?"** | **IN PROGRESS** | SPEC-017 em Draft. Os `evidenceCodes` já existem e já aparecem no preview; falta trazê-los para a Hoje. **Não é por cuidado individual** — a evidência é do plano, e fingir o contrário seria inventar causalidade (SPEC-017 NG1/BR1). OQ1 BLOCKING: de onde vem a evidência do plano **ativo**, já que reavaliar-e-cancelar dessincroniza o perfil corrente. |
 | F22 | **Pausa do cronograma** | **COMMITTED** | Precisa de estado de plano novo (`paused`) + regra do que acontece com os cuidados na volta. Toca schema. |
 | F23 | **"Meu cabelo mudou"** | **COMMITTED** | Registrar eventos (química, coloração, descoloração, corte, calor, praia/piscina, tranças, pausa, mudança percebida). No Free, **dispara reavaliação**. |
