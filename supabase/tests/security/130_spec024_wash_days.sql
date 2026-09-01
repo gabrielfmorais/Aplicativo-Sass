@@ -22,8 +22,8 @@ values ('00000000-0000-4000-8000-000000000a11', '00000000-0000-4000-8000-0000000
         current_date, 'v1', 'v1', 'active', '00000000-0000-4000-8000-0000000000d1');
 insert into public.scheduled_cares (id, plan_id, user_id, care_type_code, planned_date, status)
 values ('00000000-0000-4000-8000-000000000b11', '00000000-0000-4000-8000-000000000a11', '00000000-0000-4000-8000-000000000d11', 'hydration', current_date, 'planned');
-insert into public.care_executions (id, user_id, scheduled_care_id, executed_at, executed_on, client_execution_id)
-values ('00000000-0000-4000-8000-000000000e11', '00000000-0000-4000-8000-000000000d11', '00000000-0000-4000-8000-000000000b11', now(), current_date, '00000000-0000-4000-8000-0000000000e1');
+insert into public.care_executions (id, user_id, scheduled_care_id, care_type_code, executed_at, executed_on, client_execution_id)
+values ('00000000-0000-4000-8000-000000000e11', '00000000-0000-4000-8000-000000000d11', '00000000-0000-4000-8000-000000000b11', 'hydration', now(), current_date, '00000000-0000-4000-8000-0000000000e1');
 
 -- Guardrails de fundação continuam verdes com as três tabelas novas (SPEC-000).
 select is((select count(*)::int from tests.tables_without_rls()), 0, 'as três tabelas do Wash Day têm RLS habilitada e forçada');
