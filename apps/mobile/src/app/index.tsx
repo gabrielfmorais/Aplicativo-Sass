@@ -2,6 +2,7 @@ import type {
   CareBoard,
   CareTrackingPort,
   HairPlanPort,
+  HairEventPort,
   HairProfilePort,
   HairProfileSnapshot,
   Instant,
@@ -21,6 +22,7 @@ import { Button, Card, Loading, Screen, Stack, Text } from '@/design/primitives'
 import { useAuth } from '@/bootstrap/auth';
 import { AccountScreen } from '@/features/account/AccountScreen';
 import { CycleScreen } from '@/features/care/CycleScreen';
+import { HairEventsScreen } from '@/features/hair-events/HairEventsScreen';
 import { DevSignIn } from '@/features/auth/DevSignIn';
 import { SignInScreen } from '@/features/auth/SignInScreen';
 import { WelcomeScreen } from '@/features/auth/WelcomeScreen';
@@ -69,6 +71,7 @@ function Retry({ text, detail, onRetry }: { text: string; detail?: string; onRet
 function AuthenticatedApp({
   hairProfile,
   hairPlan,
+  hairEvents,
   careTracking,
   notificationPreferences,
   notificationScheduler,
@@ -81,6 +84,7 @@ function AuthenticatedApp({
 }: {
   hairProfile: HairProfilePort;
   hairPlan: HairPlanPort;
+  hairEvents: HairEventPort;
   careTracking: CareTrackingPort;
   notificationPreferences: NotificationPreferencesPort;
   notificationScheduler: NotificationSchedulerPort;
@@ -97,6 +101,8 @@ function AuthenticatedApp({
   const [showAccount, setShowAccount] = useState(false);
   /** SPEC-019 — a visão de ciclo é um modo da mesma rota, como a conta: só leitura, e volta. */
   const [showCycle, setShowCycle] = useState(false);
+  /** SPEC-020 — contar o que mudou, alcançável da conta. */
+  const [showHairEvents, setShowHairEvents] = useState(false);
   /**
    * SPEC-014 — reassessment reuses the screens that already exist, so it is a mode rather than a
    * route: 'profile' asks the same questions again, 'preview' shows what she would get. Nothing is
@@ -244,6 +250,27 @@ function AuthenticatedApp({
     );
   }
 
+  if (showHairEvents) {
+    return (
+      <HairEventsScreen
+        events={hairEvents}
+        today={today()}
+        timeZone={timeZone}
+        newEventId={newRequestId}
+        onBack={() => setShowHairEvents(false)}
+        {...(board && board !== 'loading' && board !== 'error'
+          ? {
+              onReassess: () => {
+                setShowHairEvents(false);
+                setShowAccount(false);
+                setReassessing('profile');
+              },
+            }
+          : {})}
+      />
+    );
+  }
+
   if (showAccount) {
     return (
       <AccountScreen
@@ -254,6 +281,7 @@ function AuthenticatedApp({
         notificationPreferences={notificationPreferences}
         notificationScheduler={notificationScheduler}
         onNotificationPreferencesChanged={setPrefs}
+        onOpenHairEvents={() => setShowHairEvents(true)}
         onBack={() => setShowAccount(false)}
         {...(board && board !== 'loading' && board !== 'error'
           ? {
@@ -319,6 +347,7 @@ export default function IndexRoute() {
     auth,
     hairProfile,
     hairPlan,
+    hairEvents,
     careTracking,
     notificationPreferences,
     notificationScheduler,
@@ -355,6 +384,7 @@ export default function IndexRoute() {
     <AuthenticatedApp
       hairProfile={hairProfile}
       hairPlan={hairPlan}
+      hairEvents={hairEvents}
       careTracking={careTracking}
       notificationPreferences={notificationPreferences}
       notificationScheduler={notificationScheduler}

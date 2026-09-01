@@ -138,3 +138,20 @@ insert into tests.security_definer_allowlist (function_signature, spec, justific
     'SPEC-010',
     'Only write path into subscriptions/billing_events. Clients hold no INSERT/UPDATE privilege on either, so a subscription (T04) or a webhook effect (T18) cannot be forged by a tampered client. Idempotent by billing_events.event_id (PK) so a redelivered event is a no-op; a strictly newer provider event blocks a stale one so state never regresses (EC3); an event with no mapped user is audited but applied to no one (EC4). EXECUTE granted to service_role only; the billing-webhook Edge Function authenticates the provider by HMAC; search_path is pinned.'
   );
+
+-- SPEC-020 §10: hair_events — authenticated may only SELECT its own rows. Every write goes through
+-- the two RPCs below, because the civil day and the idempotency are server invariants.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'hair_events', 'SELECT', 'SPEC-020');
+
+insert into tests.security_definer_allowlist (function_signature, spec, justification) values
+  (
+    'public.record_hair_event(p_event_type text, p_occurred_on date, p_client_event_id uuid, p_timezone text)',
+    'SPEC-020',
+    'Only write path into hair_events; the client holds no INSERT. user_id is never a parameter — it comes from auth.uid() via care_current_user(), so a tampered client cannot record an event for someone else. Two server invariants justify DEFINER: the civil day (an event cannot be in the future, checked against care_local_today, which validates and bounds the caller-supplied IANA timezone, T22) and idempotency by (user_id, client_event_id), so a double tap or a retry after a lost response yields one event, not two. The event type is revalidated by the table CHECK rather than restated here. search_path is pinned.'
+  ),
+  (
+    'public.void_hair_event(p_event_id uuid)',
+    'SPEC-020',
+    'Only path that voids an event; the client holds no UPDATE on hair_events. Scoped to auth.uid() and to rows not already voided, so it can neither touch another user''s event nor re-void one. The row is preserved (voided_at) and never deleted (BR6/D-69). A foreign, missing or already-voided event all raise the same error, so the caller cannot probe for existence. search_path is pinned.'
+  );

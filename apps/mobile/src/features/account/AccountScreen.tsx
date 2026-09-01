@@ -36,6 +36,7 @@ export function AccountScreen({
   notificationScheduler,
   onNotificationPreferencesChanged,
   onReassess,
+  onOpenHairEvents,
   onCustomize,
   onBack,
 }: {
@@ -48,6 +49,8 @@ export function AccountScreen({
   onNotificationPreferencesChanged: (preferences: NotificationPreferences) => void;
   /** Absent while she has no active plan: there would be nothing to replace (SPEC-014). */
   onReassess?: () => void;
+  /** SPEC-020 — contar o que mudou; ausente quando a capability não está disponível. */
+  onOpenHairEvents?: () => void;
   /**
    * SPEC-015 — opens the preview of a plan built with her preferred weekdays. Absent while she has
    * no active plan: the preview is already the next screen she sees, so there is nothing to open.
@@ -106,6 +109,21 @@ export function AccountScreen({
         scheduler={notificationScheduler}
         onChanged={onNotificationPreferencesChanged}
       />
+
+      {/* Antes da reavaliação, de propósito: contar o que aconteceu é o passo barato, e é o que
+          costuma tornar a reavaliação a decisão certa em vez de um palpite (SPEC-020 FR4). */}
+      {onOpenHairEvents ? (
+        <Card>
+          <Text variant="heading" accessibilityRole="header">
+            Meu cabelo mudou
+          </Text>
+          <Text tone="muted">
+            Química, coloração, corte, praia, uma pausa — contar o que aconteceu ajuda o app a não seguir com
+            um cronograma feito para antes.
+          </Text>
+          <Button label="Contar o que mudou" variant="secondary" onPress={onOpenHairEvents} />
+        </Card>
+      ) : null}
 
       {onReassess ? (
         <Card>

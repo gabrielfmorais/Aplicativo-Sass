@@ -1,4 +1,4 @@
-// hair-profile — public surface (SPEC-002).
+// hair-profile — public surface (SPEC-002, SPEC-020).
 export {
   HairProfileInputSchema,
   HAIR_PATTERNS,
@@ -15,4 +15,10 @@ export {
   type HairProfileInput,
   type HairProfileSnapshot,
 } from './domain/hair-profile.ts';
-export type { HairProfilePort } from './application/ports.ts';
+export {
+  HAIR_EVENT_TYPES,
+  HairEventTypeSchema,
+  type HairEvent,
+  type HairEventType,
+} from './domain/hair-event.ts';
+export type { HairEventPort, HairProfilePort } from './application/ports.ts';
