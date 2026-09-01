@@ -5,7 +5,8 @@ import type {
 } from '@app/core';
 import { DEFAULT_NOTIFICATION_PREFERENCES } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { Button, Card, Chip, Row, Stack, Text } from '@/design/primitives';
 
 /**
  * Four fixed times instead of a picker: it covers the real cases in one tap and needs no new UI
@@ -48,15 +49,18 @@ export function NotificationSettings({
   }, [port]);
   useEffect(() => load(), [load]);
 
-  if (prefs === 'loading') return <Text>Carregando lembretes…</Text>;
+  if (prefs === 'loading') return <Text tone="muted">Carregando lembretes…</Text>;
   if (prefs === 'error') {
     return (
-      <View style={styles.section}>
-        <Text accessibilityLiveRegion="polite">Não foi possível carregar seus lembretes.</Text>
-        <Pressable style={styles.option} onPress={load} accessibilityRole="button">
-          <Text>Tentar novamente</Text>
-        </Pressable>
-      </View>
+      <Card>
+        <Text variant="heading" accessibilityRole="header">
+          Lembretes
+        </Text>
+        <Text tone="muted" accessibilityLiveRegion="polite">
+          Não foi possível carregar seus lembretes.
+        </Text>
+        <Button label="Tentar novamente" variant="secondary" onPress={load} />
+      </Card>
     );
   }
 
@@ -85,78 +89,58 @@ export function NotificationSettings({
   };
 
   return (
-    <View style={styles.section}>
-      <Text style={styles.title} accessibilityRole="header">
+    <Card>
+      <Text variant="heading" accessibilityRole="header">
         Lembretes
       </Text>
 
-      <Pressable
-        style={[styles.option, prefs.enabled && styles.selected, busy && styles.disabled]}
-        disabled={busy}
-        onPress={() => apply({ ...prefs, enabled: !prefs.enabled })}
-        accessibilityRole="button"
-        accessibilityState={{ selected: prefs.enabled }}
-      >
-        <Text>{prefs.enabled ? 'Lembretes ligados' : 'Lembretes desligados'}</Text>
-      </Pressable>
+      {/* Checkbox rather than button-with-selected: this is a thing that is on or off, and that is
+          what a screen reader should hear. The visible label still says which. */}
+      <Row gap="sm">
+        <Chip
+          label={prefs.enabled ? 'Lembretes ligados' : 'Lembretes desligados'}
+          selected={prefs.enabled}
+          multi
+          disabled={busy}
+          onPress={() => apply({ ...prefs, enabled: !prefs.enabled })}
+        />
+      </Row>
 
       {prefs.enabled ? (
-        <>
-          <Text style={styles.label}>Horário</Text>
-          <View style={styles.row}>
+        <Stack gap="sm">
+          <Text variant="overline" tone="muted">
+            Horário
+          </Text>
+          {/* One choice out of four — radios, which is what `multi={false}` gives. */}
+          <Row gap="sm">
             {TIMES.map((time) => (
-              <Pressable
+              <Chip
                 key={time}
-                style={[
-                  styles.option,
-                  prefs.reminderTimeLocal === time && styles.selected,
-                  busy && styles.disabled,
-                ]}
+                label={time}
+                selected={prefs.reminderTimeLocal === time}
                 disabled={busy}
                 onPress={() => apply({ ...prefs, reminderTimeLocal: time })}
-                accessibilityRole="button"
-                accessibilityState={{ selected: prefs.reminderTimeLocal === time }}
-              >
-                <Text>{time}</Text>
-              </Pressable>
+              />
             ))}
-          </View>
+          </Row>
 
-          <Pressable
-            style={[styles.option, prefs.checkinReminderEnabled && styles.selected, busy && styles.disabled]}
-            disabled={busy}
-            onPress={() => apply({ ...prefs, checkinReminderEnabled: !prefs.checkinReminderEnabled })}
-            accessibilityRole="button"
-            accessibilityState={{ selected: prefs.checkinReminderEnabled }}
-          >
-            <Text>Lembrar do check-in</Text>
-          </Pressable>
-        </>
+          <Row gap="sm">
+            <Chip
+              label="Lembrar do check-in"
+              selected={prefs.checkinReminderEnabled}
+              multi
+              disabled={busy}
+              onPress={() => apply({ ...prefs, checkinReminderEnabled: !prefs.checkinReminderEnabled })}
+            />
+          </Row>
+        </Stack>
       ) : null}
 
       {message ? (
-        <Text accessibilityLiveRegion="polite" style={styles.message}>
+        <Text accessibilityLiveRegion="polite" tone="danger">
           {message}
         </Text>
       ) : null}
-    </View>
+    </Card>
   );
 }
-
-const styles = StyleSheet.create({
-  section: { gap: 8 },
-  title: { fontSize: 16, fontWeight: '600' },
-  label: { fontSize: 13, opacity: 0.8 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  option: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderRadius: 8,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  selected: { borderWidth: 2 },
-  disabled: { opacity: 0.4 },
-  message: { color: '#b00020' },
-});
