@@ -6,6 +6,8 @@
 | Fonte de verdade para | O que o produto **vai** ter. Não para *quando* — a ordem é decidida pelo agente (§0.3). |
 | Atualizado | 2026-08-31 |
 
+> 📖 **O que cada capability significa** está em [`MASTER-PRODUCT-BLUEPRINT.md`](MASTER-PRODUCT-BLUEPRINT.md) (D-94). Este documento guarda **estado**; o Blueprint guarda **intenção funcional** — objetivo, fluxo, regras, limites e o que a capability **não** pode fazer. Antes de escrever uma SPEC, ler os dois.
+
 ## 1. O que este documento é
 
 Toda capability listada aqui é **COMMITTED**: faz parte oficialmente do produto e **será construída**. Não são ideias, sugestões nem possibilidades. A pergunta *"isso vai ser feito?"* já está respondida com **sim**; a pergunta em aberto é sempre *"qual é o melhor momento e a melhor forma de construir?"*.
