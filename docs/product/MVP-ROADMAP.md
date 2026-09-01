@@ -1,9 +1,26 @@
 # MVP ROADMAP
 
+> ✅ **Estado real (2026-08-31).** As fases **0 a 9 estão implementadas e mergeadas**, e a
+> **SPEC-016 (Beta Experience)** está nas fatias finais. Este documento continua valendo como o
+> **grafo de dependências do MVP** — que foi respeitado — mas não é mais a fonte do que o produto
+> vai ter.
+>
+> 📌 **O escopo do produto vive em [`MASTER-PRODUCT-BACKLOG.md`](MASTER-PRODUCT-BACKLOG.md)** (D-92,
+> decisão humana): 55 capabilities COMMITTED, cada uma com estado, e a ordem é decidida pelo agente
+> (CLAUDE.md §0.4). Duas restrições de sequenciamento são do dono e não do agente: o **Assistente IA
+> é obrigatoriamente a última** grande capability (e até lá é proibida infraestrutura antecipada de
+> IA), e **Community fica `DEFERRED BY DEPENDENCY`** sem sair do roadmap.
+>
+> ⛔ **O que ainda bloqueia o beta/release** são gates humanos, não engenharia: Auth real
+> (D-86) · sign-off de domínio capilar para as regras V1 e o conteúdo dos guias (D-26/OQ-REL) ·
+> base legal LGPD e a tabela `consents`, que não existe (D-32) · purchase flow / IAP (D-79).
+
 | Campo | Valor |
 |---|---|
-| Status | Draft v0.1 — aguardando aprovação |
+| Status | Fases 0–9 **entregues**; SPEC-016 em fatias finais. Escopo do produto: `MASTER-PRODUCT-BACKLOG.md` (D-92) |
 | Princípio | Cada fase entrega algo testável end-to-end; nenhuma fase começa sem SPEC aprovada |
+| DONE | **Não basta CI verde** quando há DEV real: a jornada afetada é executada e observada de ponta a ponta (CLAUDE.md §0.1, D-90) |
+
 
 ## 1. Grafo de dependências
 
