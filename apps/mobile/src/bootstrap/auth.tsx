@@ -12,6 +12,7 @@ import type {
   NotificationPreferencesPort,
   NotificationSchedulerPort,
   PlanPreferencesPort,
+  ProductPort,
   ProfilePort,
 } from '@app/core';
 import { UNAUTHENTICATED, cryptoIdGenerator, systemClock, toLocalDate } from '@app/core';
@@ -31,6 +32,7 @@ import { createHairPlanAdapter } from '@/infrastructure/supabase/hair-plan-adapt
 import { createHairProfileAdapter } from '@/infrastructure/supabase/hair-profile-adapter';
 import { createNotificationPreferencesAdapter } from '@/infrastructure/supabase/notification-preferences-adapter';
 import { createPlanPreferencesAdapter } from '@/infrastructure/supabase/plan-preferences-adapter';
+import { createProductAdapter } from '@/infrastructure/supabase/product-adapter';
 import { createProfileAdapter } from '@/infrastructure/supabase/profile-adapter';
 import { createLocalNotificationAdapter } from '@/infrastructure/notifications/local-notification-adapter';
 import { discardSessionIfFreshInstall } from '@/infrastructure/supabase/fresh-install';
@@ -47,6 +49,8 @@ type AuthContextValue = {
   planPreferences: PlanPreferencesPort;
   /** SPEC-020 — o que ela declara que mudou no cabelo dela. */
   hairEvents: HairEventPort;
+  /** SPEC-023 — a prateleira dela. */
+  products: ProductPort;
   /** SPEC-018 — o nome escolhido por ela; a única coisa em `profiles`. */
   profile: ProfilePort;
   notificationScheduler: NotificationSchedulerPort;
@@ -119,6 +123,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hairPlan = useMemo(() => createHairPlanAdapter(supabase), []);
   // Sem `userId`: a leitura é decidida por RLS e toda escrita passa por RPC (SPEC-020 §10).
   const hairEvents = useMemo(() => createHairEventAdapter(supabase), []);
+  const products = useMemo(
+    () =>
+      createProductAdapter(
+        supabase,
+        () => {
+          if (state === 'loading' || state.status !== 'authenticated') throw new Error('not authenticated');
+          return state.session.userId;
+        },
+        () => systemClock.now(),
+      ),
+    [state],
+  );
   const careTracking = useMemo(() => createCareTrackingAdapter(supabase), []);
   const entitlements = useMemo(() => createEntitlementsAdapter(supabase), []);
   const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -155,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         notificationPreferences,
         planPreferences,
         hairEvents,
+        products,
         profile,
         notificationScheduler,
         today: () => toLocalDate(systemClock.now(), timeZone()),

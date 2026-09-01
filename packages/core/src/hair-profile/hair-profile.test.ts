@@ -2,6 +2,10 @@ import {
   HAIR_EVENT_TYPES,
   HairEventTypeSchema,
   HairProfileInputSchema,
+  PRODUCT_CATEGORIES,
+  PRODUCT_NAME_MAX_LENGTH,
+  ProductCategorySchema,
+  ProductNameSchema,
   hairProfileFromRow,
 } from './index.ts';
 
@@ -119,5 +123,27 @@ describe('hair events (SPEC-020)', () => {
     expect(HAIR_EVENT_TYPES).toHaveLength(9);
     expect(HAIR_EVENT_TYPES).toContain('bleaching_or_highlights');
     expect(HAIR_EVENT_TYPES).toContain('noticed_change');
+  });
+});
+
+/** SPEC-023 — o nome é dela; a categoria é organização de prateleira, nunca afirmação capilar. */
+describe('products (SPEC-023)', () => {
+  it('normaliza espaço e nada mais — o produto se chama como ela chama', () => {
+    expect(ProductNameSchema.parse('  Máscara   da feira  ')).toBe('Máscara da feira');
+    expect(ProductNameSchema.parse('shampoo x')).toBe('shampoo x');
+  });
+
+  it('recusa o que o banco recusa: vazio, só espaço e acima de 80', () => {
+    expect(ProductNameSchema.safeParse('').success).toBe(false);
+    expect(ProductNameSchema.safeParse('   ').success).toBe(false);
+    expect(ProductNameSchema.safeParse('a'.repeat(PRODUCT_NAME_MAX_LENGTH)).success).toBe(true);
+    expect(ProductNameSchema.safeParse('a'.repeat(PRODUCT_NAME_MAX_LENGTH + 1)).success).toBe(false);
+  });
+
+  /** Sete valores neutros. Um oitavo que descreva efeito abriria o gate D-26 sem avisar. */
+  it('a categoria é a lista fechada, e nenhum valor promete nada', () => {
+    expect(PRODUCT_CATEGORIES).toHaveLength(7);
+    expect(ProductCategorySchema.safeParse('mask').success).toBe(true);
+    expect(ProductCategorySchema.safeParse('reconstrutor').success).toBe(false);
   });
 });

@@ -121,6 +121,25 @@ de que ela contou.
 - **Nenhuma regra lê `event_type`.** É registro, não interpretação: é isso que mantém a capability
   fora do gate de domínio (D-26/D-70).
 
+### 3.2c `products` — a prateleira dela (SPEC-023)
+
+| Coluna | Tipo | Notas |
+|---|---|---|
+| id | uuid PK | |
+| user_id | uuid not null, FK `auth.users` cascade | ownership direto (D-63) |
+| name | text not null, `check` 1..80 e `btrim <> ''` | **PII** — como ela chama o produto dela |
+| category | text not null, `CHECK` em 7 valores | shampoo · condicionador · máscara · leave-in/creme · óleo/sérum · finalizador · outro |
+| archived_at | timestamptz null | fora da prateleira; a linha fica |
+| created_at | timestamptz not null | |
+
+- Índice único parcial `(user_id, lower(name)) where archived_at is null`: **um ativo por nome**, o
+  que resolve o duplo toque sem chave de idempotência e ainda permite recadastrar após arquivar.
+- **Sem RPC e sem `DELETE`.** Não há invariante de servidor: a posse é RLS mais `with check`, e
+  arquivar é `UPDATE`. A linha precisa sobreviver para o uso registrado pelo Wash Day (`F25`)
+  continuar fazendo sentido.
+- **Não é catálogo** (`P18`) e não guarda composição, indicação, preço, marca, benefício ou link: o
+  app não sabe nada disso.
+
 ### 3.3 `hair_profiles` — Hair Profile (append-only, implementado na SPEC-002)
 | Coluna | Tipo | Notas |
 |---|---|---|
@@ -342,6 +361,7 @@ texto livre**, e nenhum dos três existe.
 |---|---|---|---|---|---|
 | Email, provider ids, hash de senha | `auth.users` (Supabase Auth) | Identificação | Sim — é a conta | Até exclusão | Email sim |
 | **Nome ou apelido escolhido por ela** (opcional; pular é grátis) | `profiles.display_name` | **PII** — identificação | Sim (SPEC-018): o app fala com ela pelo nome | Até exclusão; ela pode apagar a qualquer momento (UPDATE para nulo) | Sim |
+| **Os produtos que ela possui** (nome dado por ela + categoria fechada) | `products` | **PII** — inventário pessoal | Sim (SPEC-023): sem saber o que ela tem, o app recomendaria o que ela não tem | Até exclusão; ela arquiva quando quiser (a linha fica) | Sim |
 | **O que mudou no cabelo dela** (escolha fechada + data) | `hair_events` | Pessoal, não sensível — mesma categoria de `hair_profiles` | Sim (SPEC-020): sem isso o cronograma segue feito para antes | Até exclusão; anulada por ela a qualquer momento (a linha fica) | Sim |
 | Características do cabelo (8 respostas de escolha fechada) | `hair_profiles` | Pessoal, não sensível | Sim — é o core | Até exclusão (append-only: os snapshots antigos ficam) | Sim |
 | Plano e cuidados planejados (datas, tipo de cuidado, status) | `hair_plans`, `scheduled_cares` | Comportamental | Sim | Até exclusão | Sim |

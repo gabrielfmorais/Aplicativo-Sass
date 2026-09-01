@@ -1,4 +1,5 @@
 import type { HairEvent, HairEventType } from '../domain/hair-event.ts';
+import type { Product, ProductCategory } from '../domain/product.ts';
 import type { HairProfileInput, HairProfileSnapshot } from '../domain/hair-profile.ts';
 
 /**
@@ -40,4 +41,18 @@ export interface HairEventPort {
   }): Promise<void>;
   /** Anula um evento registrado por engano. A linha continua no banco. */
   void(eventId: string): Promise<void>;
+}
+
+/**
+ * SPEC-023 — a prateleira. Sem RPC: a linha não guarda invariante de servidor, e a posse é RLS mais
+ * `with check`. O duplo toque cai no índice único parcial, não numa chave de idempotência.
+ */
+export interface ProductPort {
+  /** Os ativos, mais recente primeiro. Arquivados não voltam por aqui. */
+  list(): Promise<readonly Product[]>;
+  /** Rejeita com `hair_profile.product_duplicate` quando ela já tem esse nome ativo (EC2). */
+  add(input: { name: string; category: ProductCategory }): Promise<void>;
+  rename(input: { id: string; name: string }): Promise<void>;
+  /** Tira da prateleira. A linha continua no banco — o uso registrado precisa dela (BR4). */
+  archive(id: string): Promise<void>;
 }
