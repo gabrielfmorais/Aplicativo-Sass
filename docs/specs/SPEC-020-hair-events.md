@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-020 |
-| Status | **IMPLEMENTADA — validação real pendente** (agente, §0.2/§0.4). O código está pronto e verde; a migration **ainda não foi aplicada no DEV**, então a jornada feliz não foi observada e a capability **não é DONE** (D-90). |
+| Status | **DONE** (agente, §0.2/§0.4 — aguarda ratificação humana). Jornada completa executada e observada no DEV real a 390×844 em 2026-09-01, depois de a migration ser aplicada pelo dono. |
 | Owner | (humano) — projetopaporeto.erp@gmail.com |
 | Bounded Context | **Hair Profile** (DOMAIN-MAP §3.2) |
 | Related ADRs | ADR-001 (UI não contém regra), ADR-007 (gate de domínio), ADR-008 (datas) |
@@ -217,5 +217,6 @@ Reverter a PR e `drop table if exists public.hair_events` mais as funções. Ant
 
 | Data | Mudança | Autor |
 |---|---|---|
+| 2026-09-01 | v0.3 — **DONE.** Migration aplicada no DEV pelo dono; jornada executada e observada a 390×844: registrar → oferta de reavaliar → recusar → listar (mais recente primeiro) → remover → **reload e novo login** → o que sobrou persistiu e o removido não voltou. Zero BLOCKER/IMPORTANT na execução real. | agente (§0.2) |
 | 2026-09-01 | v0.2 — **implementada.** Tabela `hair_events` com `SELECT` próprio e **nenhuma escrita** para o cliente; `record_hair_event` e `void_hair_event` `SECURITY DEFINER` com `search_path` fixo, `user_id` de `auth.uid()`, não-futuro por `care_local_today` e idempotência por `client_event_id`. `HairEventPort` + enum no core, adapter, tela, entrada pela conta **antes** da reavaliação. 17 asserções pgTAP. **OQ1 resolvida.** A tela e os caminhos de erro foram validados a 390px no DEV; o caminho feliz espera a migration. | agente (§0.2/§0.4) |
 | 2026-09-01 | v0.1 — Draft criada pela skill `spec-create` para o **F23** do MASTER PRODUCT BACKLOG (D-92), seguindo o Blueprint §6 (D-94). O Free **registra e oferece reavaliar**; não interpreta, não aconselha e não diagnostica — é o que mantém a capability fora do gate D-26. Cinco Open Questions, nenhuma BLOCKING. | agente |
