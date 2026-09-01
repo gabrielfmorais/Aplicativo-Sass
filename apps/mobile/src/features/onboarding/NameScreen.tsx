@@ -3,7 +3,7 @@ import { DISPLAY_NAME_MAX_LENGTH, DisplayNameSchema } from '@app/core';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 
-import { HairFlow } from '@/design/HairFlow';
+import { Moment } from '@/design/Moment';
 import { Button, Field, Screen, Stack, Text } from '@/design/primitives';
 import { space } from '@/design/tokens';
 
@@ -52,24 +52,14 @@ export function NameScreen({ profile, onDone }: { profile: ProfilePort; onDone: 
   };
 
   if (greeting !== null) {
+    // O momento inteiro é uma linha, e o nome dela é a informação — por isso `Moment`, que já
+    // resolve o hero, a composição centrada e o anúncio para leitor de tela.
     return (
-      // Rola de propósito (EC1/EC5). Um nome de 60 caracteres em `display`, com a fonte grande do
-      // sistema numa tela de 320pt, passa da altura visível — e sem scroll a saudação seria cortada
-      // exatamente na parte que tem o nome dela.
-      <Screen style={styles.page} footer={<Button label="Continuar" onPress={onDone} />}>
-        <HairFlow style={styles.hero} />
-        <Stack gap="sm">
-          {/* O momento inteiro é esta linha. Ela é anunciada por leitor de tela porque é o que
-              mudou na tela — e porque o nome dela é a informação, não a decoração. */}
-          <Text variant="display" accessibilityRole="header" accessibilityLiveRegion="polite">
-            É um prazer conhecer você, {greeting}.
-          </Text>
-          <Text tone="muted">
-            Agora me conta sobre o seu cabelo. São poucas perguntas, e cada uma muda o cronograma que você vai
-            receber no fim.
-          </Text>
-        </Stack>
-      </Screen>
+      <Moment
+        title={`É um prazer conhecer você, ${greeting}.`}
+        body="Agora me conta sobre o seu cabelo. São poucas perguntas, e cada uma muda o cronograma que você vai receber no fim."
+        footer={<Button label="Continuar" onPress={onDone} />}
+      />
     );
   }
 
@@ -147,10 +137,4 @@ const styles = StyleSheet.create({
    * do sistema é grande ou a tela é de 320pt (EC1/EC5).
    */
   page: { flexGrow: 1, justifyContent: 'center', paddingTop: space.xxl, gap: space.xl },
-  /**
-   * Presente só no cumprimento, e menor que na abertura: aqui o protagonista é o nome dela. Altura
-   * fixa, não `flex`, porque a tela rola — dentro de um scroll `flex: 1` não tem contra o que
-   * crescer, e o hero passaria a depender do acaso do conteúdo.
-   */
-  hero: { height: 140, marginHorizontal: -space.xl },
 });
