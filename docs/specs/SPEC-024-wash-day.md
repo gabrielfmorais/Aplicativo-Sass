@@ -69,11 +69,13 @@ Hoje, quando ela conclui um cuidado, o app registra **que** aconteceu e **como e
 
 ## 8. Data Model Impact
 
-`TODO` — **duas tabelas, e a forma é a decisão inteira desta SPEC.**
+**Três tabelas, e a forma é a decisão inteira desta SPEC.**
 
 - `wash_days` — o hub: `id`, `user_id`, `care_execution_id` (único), `created_at`. Sem colunas de conteúdo: tudo o que descreve o dia pendura nele.
 - `wash_day_products` — junção `(wash_day_id, product_id)`, PK composta.
-- **Técnicas:** `TODO`, ver OQ1 — coluna `text[]` com `CHECK` no hub, ou tabela de junção própria.
+- `wash_day_techniques` — junção `(wash_day_id, technique)`, com `CHECK` na lista fechada. **Junção, não `text[]`** (OQ1 resolvida): o array é mais barato hoje e mais caro exatamente onde a promessa do Premium está — `P8` consulta *técnica × produto × resultado*, e isso é `join`.
+
+**Posse validada nas duas pontas.** Cada junção tem FK composta para o **hub** (`wash_day_id, user_id`) além da FK para o produto. Sem ela, `with check (user_id = auth.uid())` sozinho deixaria um cliente adulterado pendurar a **própria** linha no Wash Day de **outra pessoa**: a policy só olha o dono da linha nova, não a quem o hub pertence. Ninguém leria essa linha — nem a vítima — mas ela contaria quando `P8` agregasse por `wash_day_id`.
 
 **Por que o hub não tem colunas de conteúdo.** Cada coisa que descreve o dia — produtos, técnicas, e depois couro cabeludo, foto e clima — chega numa fatia diferente. Um hub magro aceita cada uma sem alterar as anteriores; um hub gordo obriga a mexer nele toda vez.
 
@@ -81,7 +83,7 @@ Hoje, quando ela conclui um cuidado, o app registra **que** aconteceu e **como e
 
 ## 9. API / Contracts
 
-`TODO` — um port novo (`WashDayPort`) com `getFor(careExecutionId)`, `setProducts`, `setTechniques`. Sem RPC **se** a idempotência couber no schema — ver OQ2.
+Um port novo (`WashDayPort`) com `getFor(careExecutionId)`, `setProducts`, `setTechniques`. **Sem RPC** (OQ2 resolvida): a `unique (care_execution_id)` torna o upsert do cliente idempotente sozinha.
 
 ## 10. Authorization
 
@@ -142,7 +144,7 @@ pgTAP para posse, isolamento, unicidade por execução e cascata da anulação �
 
 ## 20. Implementation Plan
 
-1. Banco: as duas tabelas, allowlist, pgTAP.
+1. Banco: as três tabelas, allowlist, pgTAP. ← **esta fatia**
 2. Core: vocabulário de técnicas e o port.
 3. App: o registro depois do cuidado concluído, com atalho para adicionar produto.
 4. Validação a 390px e fechamento do `F25`.
@@ -157,9 +159,9 @@ Reverter a PR e derrubar as duas tabelas. Nenhuma linha existente é alterada.
 
 ## 23. Open Questions
 
-- **OQ1 — IMPORTANT — técnicas: coluna `text[]` com `CHECK` ou tabela de junção.** O array é mais simples de escrever e ler; a junção agrega melhor e é o que `P8` vai consultar (*"técnica × produto × resultado"*). *Assunção:* **junção**, pela mesma razão que a SPEC existe — o modelo do Free é o que viabiliza o Premium, e um array é mais barato hoje e mais caro exatamente onde a promessa está.
-- **OQ2 — IMPORTANT — RPC ou tabela direta.** O hub precisa ser criado sob demanda ("marque um produto e o Wash Day passa a existir"), o que é um upsert por `care_execution_id` — e um índice único o torna idempotente sem função. *Assunção:* tabela direta, como `products`. *Gatilho para reabrir:* qualquer invariante que o schema não consiga expressar.
-- **OQ3 — IMPORTANT — a lista de técnicas.** Precisa ser fechada e neutra: nomes do que ela **faz**, nunca do que aquilo **provoca**. *"Umectação"* nomeia um procedimento; *"selar as cutículas"* é afirmação capilar e abriria o gate D-26. *Assunção:* uma lista curta e descritiva, revisada por esse critério antes de existir. **Se a lista escorregar para efeito, a capability sai do Free e entra no gate** — é a única parte desta SPEC com esse risco.
+- **OQ1 — RESOLVIDA: junção.** O array é mais simples de escrever e ler; a junção agrega melhor e é o que `P8` vai consultar (*"técnica × produto × resultado"*). *Assunção:* **junção**, pela mesma razão que a SPEC existe — o modelo do Free é o que viabiliza o Premium, e um array é mais barato hoje e mais caro exatamente onde a promessa está.
+- **OQ2 — RESOLVIDA: tabela direta.** O hub precisa ser criado sob demanda ("marque um produto e o Wash Day passa a existir"), o que é um upsert por `care_execution_id` — e um índice único o torna idempotente sem função. *Assunção:* tabela direta, como `products`. *Gatilho para reabrir:* qualquer invariante que o schema não consiga expressar.
+- **OQ3 — RESOLVIDA na fatia de banco: catorze valores, cada um passado pelo critério.** `pre_wash_oil` · `scalp_massage` · `double_cleanse` · `co_wash` · `left_on_longer` · `cold_rinse` · `detangled_with_fingers` · `wide_tooth_comb` · `air_dried` · `blow_dried` · `heat_protectant` · `scrunched` · `diffuser` · `protective_style`. **Todos nomeiam gesto, nenhum nomeia efeito** — e o teste recusa `selar_as_cuticulas` explicitamente, para a linha ficar desenhada e não só descrita. Acrescentar um valor é mudança de produto. *Texto original:* Precisa ser fechada e neutra: nomes do que ela **faz**, nunca do que aquilo **provoca**. *"Umectação"* nomeia um procedimento; *"selar as cutículas"* é afirmação capilar e abriria o gate D-26. *Assunção:* uma lista curta e descritiva, revisada por esse critério antes de existir. **Se a lista escorregar para efeito, a capability sai do Free e entra no gate** — é a única parte desta SPEC com esse risco.
 - **OQ4 — CAN DEFER — registro avulso**, fora de qualquer cuidado planejado. O Blueprint cita *"a vida real não pede licença ao cronograma"*, mas hoje `care_executions.scheduled_care_id` não é anulável (ver SPEC-020 OQ3). *Assunção:* fora desta fatia; entra quando execução ad hoc existir.
 - **OQ5 — CAN DEFER — ordem dos produtos.** *"Em que ordem"* está no Blueprint. Ordem é um dado a mais na junção e não tem consumidor hoje. *Assunção:* fora (D-47/D-48).
 
@@ -167,4 +169,5 @@ Reverter a PR e derrubar as duas tabelas. Nenhuma linha existente é alterada.
 
 | Data | Mudança | Autor |
 |---|---|---|
+| 2026-09-01 | v0.2 — **fatia 1 (banco) implementada; OQ1, OQ2 e OQ3 resolvidas.** Junção para técnicas, sem RPC, e a lista de catorze valores montada sob o critério "gesto, nunca efeito". **Achado ao escrever o pgTAP:** `with check` valida o dono da **linha**, não o dono do **hub** — sem FK composta, um cliente adulterado penduraria a própria linha no Wash Day alheio, invisível para todos e contável por `P8`. Fechado nas duas junções. | agente (§0.2) |
 | 2026-09-01 | v0.1 — Draft criada para o **F25**, depois da SPEC-023 porque o Wash Day consome os produtos. **Hub magro por decisão:** cada coisa que descreve o dia chega numa fatia diferente, e um hub sem colunas de conteúdo aceita cada uma sem mexer nas anteriores. A OQ3 é a única com risco de domínio — uma lista de técnicas que escorregue de *o que ela faz* para *o que aquilo provoca* tira a capability do Free e a joga no gate D-26. | agente (§0.4/D-97) |

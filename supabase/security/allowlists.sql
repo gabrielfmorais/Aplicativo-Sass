@@ -180,3 +180,17 @@ insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
   ('authenticated', 'products', 'SELECT', 'SPEC-023'),
   ('authenticated', 'products', 'INSERT', 'SPEC-023'),
   ('authenticated', 'products', 'UPDATE', 'SPEC-023');
+
+-- SPEC-024 §10: wash_days is the hub (SELECT/INSERT; it dies with the execution by cascade, so no
+-- DELETE). The two join tables also get DELETE: unchecking a product is her correcting what she
+-- marked, not erasing history — the day's record stays, without that line. No SECURITY DEFINER: the
+-- unique constraint on care_execution_id makes the client upsert idempotent on its own.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'wash_days', 'SELECT', 'SPEC-024'),
+  ('authenticated', 'wash_days', 'INSERT', 'SPEC-024'),
+  ('authenticated', 'wash_day_products', 'SELECT', 'SPEC-024'),
+  ('authenticated', 'wash_day_products', 'INSERT', 'SPEC-024'),
+  ('authenticated', 'wash_day_products', 'DELETE', 'SPEC-024'),
+  ('authenticated', 'wash_day_techniques', 'SELECT', 'SPEC-024'),
+  ('authenticated', 'wash_day_techniques', 'INSERT', 'SPEC-024'),
+  ('authenticated', 'wash_day_techniques', 'DELETE', 'SPEC-024');
