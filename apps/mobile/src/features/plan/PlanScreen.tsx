@@ -12,6 +12,8 @@ import { EntitlementService, buildPlan } from '@app/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
+import { Moment } from '@/design/Moment';
+import { Reveal } from '@/design/Reveal';
 import { Button, Card, Loading, Row, Screen, Stack, Text } from '@/design/primitives';
 import { CareTypeMark } from '@/features/care/CareTypeMark';
 import { reasonOf } from '@/shared/failure-detail';
@@ -188,9 +190,28 @@ export function PlanScreen({
     [draft],
   );
 
-  // Not `null`: a white screen is indistinguishable from a crash, and on a slow connection it is the
-  // first thing she would see (SPEC-016 FR4/EC5).
-  if (preferences === 'resolving') return <Loading label="Montando seu cronograma…" />;
+  /**
+   * SPEC-018 FR9 — a espera, contada como o que é.
+   *
+   * Não é `null` (tela branca indistinguível de crash, SPEC-016 FR4/EC5) e deixou de ser um spinner
+   * com legenda: **este é o único instante entre a última resposta dela e o cronograma dela**, e
+   * merece ser um momento. Sem porcentagem: nada aqui conta etapas de verdade, então qualquer número
+   * seria inventado (SPEC-018 §5).
+   *
+   * Só na **primeira** vez. Numa reavaliação (`onCancel` presente) ela já tem cronograma e está
+   * comparando, não descobrindo — ali um momento cerimonial atrapalharia a comparação.
+   */
+  if (preferences === 'resolving') {
+    return onCancel ? (
+      <Loading label="Montando seu cronograma…" />
+    ) : (
+      <Moment
+        overline="Quase lá"
+        title="Estamos montando o seu cronograma."
+        body="Com base em tudo o que você contou sobre o seu cabelo e a sua rotina."
+      />
+    );
+  }
 
   const confirmLabel = submitting
     ? 'Criando…'
@@ -219,9 +240,33 @@ export function PlanScreen({
         </Stack>
       }
     >
-      <Text variant="display" accessibilityRole="header">
-        Este é o seu cronograma
-      </Text>
+      {/**
+       * FR9 — a revelação. Uma reavaliação já viu isto antes e vem comparar: ali o título é
+       * descritivo e o `Reveal` seria cerimônia repetida. A primeira vez é a única em que este
+       * cronograma **passa a existir para ela**, e é a única que ganha a linha de abertura.
+       *
+       * O que a linha diz é de onde o cronograma veio — processo, não orientação capilar. Dizer
+       * *por que* um cuidado está ali é conteúdo capilar substantivo e tem SPEC própria (SPEC-017).
+       */}
+      {onCancel ? (
+        <Text variant="display" accessibilityRole="header">
+          Este é o seu cronograma
+        </Text>
+      ) : (
+        <Reveal>
+          <Stack gap="sm">
+            <Text variant="overline" tone="accent">
+              Pronto
+            </Text>
+            <Text variant="display" accessibilityRole="header" accessibilityLiveRegion="polite">
+              Este é o seu cronograma
+            </Text>
+            <Text tone="muted">
+              Montado a partir do que você respondeu. Você pode ajustar depois — nada aqui é definitivo.
+            </Text>
+          </Stack>
+        </Reveal>
+      )}
 
       <Assessment draft={draft} />
 

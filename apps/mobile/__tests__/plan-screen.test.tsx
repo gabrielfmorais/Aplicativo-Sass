@@ -133,3 +133,88 @@ describe('PlanScreen (SPEC-004 §5) — preview and confirmation only', () => {
     expect(generate.mock.calls.map((c) => c[0].clientRequestId)).toEqual(['req-1', 'req-1']);
   });
 });
+
+/**
+ * SPEC-018 fatia 4 (FR9). O único instante entre a última resposta dela e o cronograma dela, e o
+ * instante em que ele passa a existir. As duas coisas que este bloco protege: a espera não inventa
+ * progresso, e a cerimônia não aparece onde ela atrapalha.
+ */
+describe('PlanScreen — criação e revelação (SPEC-018 FR9)', () => {
+  /** Segura as leituras para que a espera fique na tela e possa ser observada. */
+  const pendingPorts = () => ({
+    entitlements: {
+      get: jest.fn(() => new Promise<readonly string[]>(() => {})),
+    } as unknown as EntitlementsPort,
+    planPreferences: {
+      get: jest.fn(() => new Promise(() => {})),
+      save: jest.fn(async () => undefined),
+    } as unknown as PlanPreferencesPort,
+  });
+
+  it('a espera diz o que está acontecendo, e não inventa porcentagem nem contagem', async () => {
+    const screen = await render(
+      <PlanScreen
+        profile={profile}
+        plans={makePort()}
+        today={TODAY}
+        newRequestId={() => 'req-1'}
+        onCreated={jest.fn()}
+        {...pendingPorts()}
+      />,
+    );
+
+    screen.getByText('Estamos montando o seu cronograma.');
+    // A recusa explícita da SPEC-018 §5: não temos progresso mensurável, então não há número honesto.
+    expect(screen.queryByText(/\d+\s*%|passo \d|etapa \d/i)).toBeNull();
+    // E nada para tocar: numa espera não há o que ela possa fazer.
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('a revelação acontece uma vez — a reavaliação vem comparar, não descobrir', async () => {
+    const first = await render(
+      <PlanScreen
+        profile={profile}
+        plans={makePort()}
+        today={TODAY}
+        newRequestId={() => 'req-1'}
+        onCreated={jest.fn()}
+        {...freePorts()}
+      />,
+    );
+    await waitFor(() => first.getByText('Este é o seu cronograma'));
+    first.getByText('Pronto');
+    // Diz de onde o cronograma veio — processo, não orientação capilar (BR2/D-26).
+    first.getByText(/Montado a partir do que você respondeu/);
+
+    const again = await render(
+      <PlanScreen
+        profile={profile}
+        plans={makePort()}
+        today={TODAY}
+        newRequestId={() => 'req-1'}
+        onCreated={jest.fn()}
+        onCancel={jest.fn()}
+        {...freePorts()}
+      />,
+    );
+    await waitFor(() => again.getByText('Este é o seu cronograma'));
+    expect(again.queryByText('Pronto')).toBeNull();
+    expect(again.queryByText(/Montado a partir do que você respondeu/)).toBeNull();
+  });
+
+  it('numa reavaliação a espera continua sendo uma espera comum', async () => {
+    const screen = await render(
+      <PlanScreen
+        profile={profile}
+        plans={makePort()}
+        today={TODAY}
+        newRequestId={() => 'req-1'}
+        onCreated={jest.fn()}
+        onCancel={jest.fn()}
+        {...pendingPorts()}
+      />,
+    );
+    screen.getByText('Montando seu cronograma…');
+    expect(screen.queryByText('Estamos montando o seu cronograma.')).toBeNull();
+  });
+});
