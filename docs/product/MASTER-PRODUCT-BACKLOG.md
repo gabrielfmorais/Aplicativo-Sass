@@ -73,8 +73,8 @@ Não há paywall na entrada. Nenhuma capability hoje gratuita pode virar premium
 | F22 | **Pausa do cronograma** | **BLOCKED** — SPEC-022 (Draft), OQ2 | Precisa de estado de plano novo + regra do que acontece com os cuidados na volta. **A regra da volta é decisão humana (§0.1):** move o cronograma dela e redefine o que "meu plano" significa depois de uma ausência. Free por decisão do dono — cobrar por parar é cobrar pela vida dela. |
 | F23 | **"Meu cabelo mudou"** | **IN PROGRESS** — SPEC-020 implementada, aguardando só a migration no DEV | Registrar eventos (química, coloração, descoloração, corte, calor, praia/piscina, tranças, pausa, mudança percebida). No Free, **dispara reavaliação**. |
 | F24 | **SOS básico** | **COMMITTED** | Depende de conteúdo com orientação capilar substantiva ⇒ **gate D-26/D-70**. |
-| F25 | **Wash Day básico** | **COMMITTED** | Estrutural (§6). Free **registra**. |
-| F26 | **Minha Prateleira** | **COMMITTED** | Cadastro dos produtos que ela possui e usa. Base de F27, P6 e da Hair Intelligence. |
+| F25 | **Wash Day básico** | **COMMITTED** | Estrutural (§6). Free **registra**. **Depois do F26** (SPEC-023): o Wash Day é o hub e consome os produtos. |
+| F26 | **Minha Prateleira** | **IN PROGRESS** — SPEC-023 (Draft) | Cadastro dos produtos que ela possui e usa. Base de F27, P6 e da Hair Intelligence. **Sequenciada antes do F25**: o Blueprint §9 diz que o Wash Day **consome** os produtos, e o hub desenhado sem o seu principal consumidor nasceria errado. |
 | F27 | **Cadastro dos produtos utilizados** | **COMMITTED** | Liga produto ↔ cuidado/Wash Day. Depende de F26. |
 | F28 | **Fotos básicas de evolução** | **COMMITTED** | Primeira capability com **mídia**: storage, privacidade, LGPD, custo. Dependência real de infraestrutura. |
 | F29 | **Resumo de ciclo** | **DONE** | SPEC-021: na visão de ciclo, as contagens **do `Progress`** (reusadas, nunca recontadas) fecham o mês e levam à oferta do próximo. Sem percentual, nota ou comparação. Alimenta `P12` e `P16`. |
