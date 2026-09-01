@@ -4,6 +4,7 @@ import type {
   CareTrackingPort,
   DeletionRequestPort,
   EntitlementsPort,
+  HairEventPort,
   HairPlanPort,
   HairProfilePort,
   Instant,
@@ -25,6 +26,7 @@ import { createDeletionRequestAdapter } from '@/infrastructure/supabase/deletion
 import { createDevSignIn } from '@/infrastructure/supabase/dev-sign-in';
 import { createCareTrackingAdapter } from '@/infrastructure/supabase/care-tracking-adapter';
 import { createEntitlementsAdapter } from '@/infrastructure/supabase/entitlements-adapter';
+import { createHairEventAdapter } from '@/infrastructure/supabase/hair-event-adapter';
 import { createHairPlanAdapter } from '@/infrastructure/supabase/hair-plan-adapter';
 import { createHairProfileAdapter } from '@/infrastructure/supabase/hair-profile-adapter';
 import { createNotificationPreferencesAdapter } from '@/infrastructure/supabase/notification-preferences-adapter';
@@ -43,6 +45,8 @@ type AuthContextValue = {
   entitlements: EntitlementsPort;
   notificationPreferences: NotificationPreferencesPort;
   planPreferences: PlanPreferencesPort;
+  /** SPEC-020 — o que ela declara que mudou no cabelo dela. */
+  hairEvents: HairEventPort;
   /** SPEC-018 — o nome escolhido por ela; a única coisa em `profiles`. */
   profile: ProfilePort;
   notificationScheduler: NotificationSchedulerPort;
@@ -113,6 +117,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const notificationScheduler = useMemo(() => createLocalNotificationAdapter(), []);
 
   const hairPlan = useMemo(() => createHairPlanAdapter(supabase), []);
+  // Sem `userId`: a leitura é decidida por RLS e toda escrita passa por RPC (SPEC-020 §10).
+  const hairEvents = useMemo(() => createHairEventAdapter(supabase), []);
   const careTracking = useMemo(() => createCareTrackingAdapter(supabase), []);
   const entitlements = useMemo(() => createEntitlementsAdapter(supabase), []);
   const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -148,6 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         entitlements,
         notificationPreferences,
         planPreferences,
+        hairEvents,
         profile,
         notificationScheduler,
         today: () => toLocalDate(systemClock.now(), timeZone()),

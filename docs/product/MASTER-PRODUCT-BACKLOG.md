@@ -71,7 +71,7 @@ Não há paywall na entrada. Nenhuma capability hoje gratuita pode virar premium
 | F20 | Calendário / ciclo | **DONE** | Faixa da semana (SPEC-016 fatia 2, #55), preview agrupado por semana (#60) e a **visão de ciclo** (SPEC-019): as quatro semanas do plano ativo com o que aconteceu em cada uma, semana corrente marcada em palavra, sem SQL e sem contrato novo. Alimenta o F29. |
 | F21 | **"Por que isso está no meu plano?"** | **IN PROGRESS** | SPEC-017 em Draft. Os `evidenceCodes` já existem e já aparecem no preview; falta trazê-los para a Hoje. **Não é por cuidado individual** — a evidência é do plano, e fingir o contrário seria inventar causalidade (SPEC-017 NG1/BR1). OQ1 BLOCKING: de onde vem a evidência do plano **ativo**, já que reavaliar-e-cancelar dessincroniza o perfil corrente. |
 | F22 | **Pausa do cronograma** | **COMMITTED** | Precisa de estado de plano novo (`paused`) + regra do que acontece com os cuidados na volta. Toca schema. |
-| F23 | **"Meu cabelo mudou"** | **COMMITTED** | Registrar eventos (química, coloração, descoloração, corte, calor, praia/piscina, tranças, pausa, mudança percebida). No Free, **dispara reavaliação**. |
+| F23 | **"Meu cabelo mudou"** | **IN PROGRESS** — SPEC-020 (Draft) | Registrar eventos (química, coloração, descoloração, corte, calor, praia/piscina, tranças, pausa, mudança percebida). No Free, **dispara reavaliação**. |
 | F24 | **SOS básico** | **COMMITTED** | Depende de conteúdo com orientação capilar substantiva ⇒ **gate D-26/D-70**. |
 | F25 | **Wash Day básico** | **COMMITTED** | Estrutural (§6). Free **registra**. |
 | F26 | **Minha Prateleira** | **COMMITTED** | Cadastro dos produtos que ela possui e usa. Base de F27, P6 e da Hair Intelligence. |

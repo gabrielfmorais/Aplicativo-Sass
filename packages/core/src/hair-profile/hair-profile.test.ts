@@ -1,4 +1,9 @@
-import { HairProfileInputSchema, hairProfileFromRow } from './index.ts';
+import {
+  HAIR_EVENT_TYPES,
+  HairEventTypeSchema,
+  HairProfileInputSchema,
+  hairProfileFromRow,
+} from './index.ts';
 
 const valid = {
   hairPattern: 'curly',
@@ -90,5 +95,29 @@ describe('hair-profile: reading a stored row (SPEC-002 §9)', () => {
     });
     expect(snap.chemicalTreatments).toEqual(['coloring']);
     expect(snap.currentConcerns).toEqual(['frizz', 'dryness']);
+  });
+});
+
+/**
+ * SPEC-020 — o enum de eventos. Espelha o `CHECK` de `public.hair_events`: o de cá recusa antes da
+ * chamada, o de lá recusa um cliente adulterado, e é o segundo que importa.
+ */
+describe('hair events (SPEC-020)', () => {
+  it('aceita exatamente a lista fechada e recusa o resto', () => {
+    for (const type of HAIR_EVENT_TYPES) {
+      expect(HairEventTypeSchema.safeParse(type).success).toBe(true);
+    }
+    expect(HairEventTypeSchema.safeParse('inventei_um_tipo').success).toBe(false);
+    expect(HairEventTypeSchema.safeParse('').success).toBe(false);
+  });
+
+  /**
+   * Os nove valores do Blueprint §6. Travados por contagem **e** por conteúdo: acrescentar um
+   * décimo é mudança de produto — cada valor é uma palavra que a interface mostra a ela.
+   */
+  it('é a lista que o produto aprovou, nem uma a mais', () => {
+    expect(HAIR_EVENT_TYPES).toHaveLength(9);
+    expect(HAIR_EVENT_TYPES).toContain('bleaching_or_highlights');
+    expect(HAIR_EVENT_TYPES).toContain('noticed_change');
   });
 });

@@ -96,6 +96,31 @@ ideia descartada: sem ela não há como comprovar base legal. Desenho abaixo é 
 
 Append-only por versão; permite comprovar base legal (LGPD).
 
+### 3.2b `hair_events` — o que ela declara que mudou (SPEC-020)
+
+O maior risco do produto, nomeado no Blueprint §6: ela descolore o cabelo numa sexta e o cronograma
+de segunda continua o mesmo, montado para um cabelo que não existe mais. Esta tabela é o registro
+de que ela contou.
+
+| Coluna | Tipo | Notas |
+|---|---|---|
+| id | uuid PK | |
+| user_id | uuid not null, FK `auth.users` on delete cascade | ownership direto (D-63) |
+| event_type | text not null, `CHECK` em 9 valores | química · coloração · descoloração/luzes · corte · calor intenso · praia/piscina · tranças · pausa · "percebi que mudou" |
+| occurred_on | date not null | dia civil dela; **não-futuro** validado pela RPC (ADR-008) |
+| client_event_id | uuid not null | idempotência por intenção; único por usuária |
+| voided_at | timestamptz null | anulado por engano; a linha fica (D-69/D-12) |
+| created_at | timestamptz not null | |
+
+- **Escrita só por RPC** (`record_hair_event`, `void_hair_event`, ambas `SECURITY DEFINER`): o dia
+  civil e a idempotência são invariantes de servidor, e `user_id` nunca é parâmetro. O cliente tem
+  **só SELECT** da própria linha. **Sem DELETE, para ninguém.**
+- **Sem texto livre**, de propósito: seria a primeira PII de forma livre do produto, sem consumidor.
+- **Sem FK para plano ou cuidado:** o evento é sobre o cabelo dela, e amarrá-lo a um plano o faria
+  desaparecer na próxima substituição — o oposto do objetivo.
+- **Nenhuma regra lê `event_type`.** É registro, não interpretação: é isso que mantém a capability
+  fora do gate de domínio (D-26/D-70).
+
 ### 3.3 `hair_profiles` — Hair Profile (append-only, implementado na SPEC-002)
 | Coluna | Tipo | Notas |
 |---|---|---|
@@ -317,6 +342,7 @@ texto livre**, e nenhum dos três existe.
 |---|---|---|---|---|---|
 | Email, provider ids, hash de senha | `auth.users` (Supabase Auth) | Identificação | Sim — é a conta | Até exclusão | Email sim |
 | **Nome ou apelido escolhido por ela** (opcional; pular é grátis) | `profiles.display_name` | **PII** — identificação | Sim (SPEC-018): o app fala com ela pelo nome | Até exclusão; ela pode apagar a qualquer momento (UPDATE para nulo) | Sim |
+| **O que mudou no cabelo dela** (escolha fechada + data) | `hair_events` | Pessoal, não sensível — mesma categoria de `hair_profiles` | Sim (SPEC-020): sem isso o cronograma segue feito para antes | Até exclusão; anulada por ela a qualquer momento (a linha fica) | Sim |
 | Características do cabelo (8 respostas de escolha fechada) | `hair_profiles` | Pessoal, não sensível | Sim — é o core | Até exclusão (append-only: os snapshots antigos ficam) | Sim |
 | Plano e cuidados planejados (datas, tipo de cuidado, status) | `hair_plans`, `scheduled_cares` | Comportamental | Sim | Até exclusão | Sim |
 | Execuções (o que ela fez e em que dia civil) | `care_executions` | Comportamental | Sim | Até exclusão; **nunca apagada** — desfazer marca `voided_at` | Sim |
