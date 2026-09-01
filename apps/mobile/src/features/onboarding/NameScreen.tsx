@@ -137,7 +137,16 @@ export function NameScreen({ profile, onDone }: { profile: ProfilePort; onDone: 
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  page: { paddingTop: space.xxl, gap: space.xl },
+  /**
+   * O bloco fica **opticamente centrado**, não empilhado no topo. Medido a 390×844: com o conteúdo
+   * ancorado no topo sobravam ~450pt de nada entre o campo e o rodapé — o que não lê como calma, lê
+   * como tela inacabada. Uma pergunta só, no meio da tela, é a composição que G4 pede.
+   *
+   * `flexGrow` e não `flex`: dentro do scroll, crescer para preencher é o que se quer; encolher
+   * (o que `flex: 1` também permite) espremeria o conteúdo em vez de deixá-lo rolar quando a fonte
+   * do sistema é grande ou a tela é de 320pt (EC1/EC5).
+   */
+  page: { flexGrow: 1, justifyContent: 'center', paddingTop: space.xxl, gap: space.xl },
   /**
    * Presente só no cumprimento, e menor que na abertura: aqui o protagonista é o nome dela. Altura
    * fixa, não `flex`, porque a tela rola — dentro de um scroll `flex: 1` não tem contra o que
