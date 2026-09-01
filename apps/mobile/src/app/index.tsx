@@ -20,6 +20,7 @@ import { Button, Card, Loading, Screen, Stack, Text } from '@/design/primitives'
 
 import { useAuth } from '@/bootstrap/auth';
 import { AccountScreen } from '@/features/account/AccountScreen';
+import { CycleScreen } from '@/features/care/CycleScreen';
 import { DevSignIn } from '@/features/auth/DevSignIn';
 import { SignInScreen } from '@/features/auth/SignInScreen';
 import { WelcomeScreen } from '@/features/auth/WelcomeScreen';
@@ -94,6 +95,8 @@ function AuthenticatedApp({
   const [profile, setProfile] = useState<Loadable<HairProfileSnapshot | null>>('loading');
   const [board, setBoard] = useState<Loadable<CareBoard | null>>('loading');
   const [showAccount, setShowAccount] = useState(false);
+  /** SPEC-019 — a visão de ciclo é um modo da mesma rota, como a conta: só leitura, e volta. */
+  const [showCycle, setShowCycle] = useState(false);
   /**
    * SPEC-014 — reassessment reuses the screens that already exist, so it is a mode rather than a
    * route: 'profile' asks the same questions again, 'preview' shows what she would get. Nothing is
@@ -292,6 +295,7 @@ function AuthenticatedApp({
       />
     );
   }
+  if (showCycle) return <CycleScreen board={board} today={today()} onBack={() => setShowCycle(false)} />;
   return (
     <TodayScreen
       board={board}
@@ -302,6 +306,7 @@ function AuthenticatedApp({
       newExecutionId={newRequestId}
       onChanged={loadBoard}
       onOpenAccount={() => setShowAccount(true)}
+      onOpenCycle={() => setShowCycle(true)}
       onReassess={() => setReassessing('profile')}
     />
   );

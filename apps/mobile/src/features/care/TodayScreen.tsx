@@ -367,6 +367,7 @@ export function TodayScreen({
   newExecutionId,
   onChanged,
   onOpenAccount,
+  onOpenCycle,
   onReassess,
 }: {
   board: CareBoard;
@@ -377,6 +378,8 @@ export function TodayScreen({
   newExecutionId: () => string;
   onChanged: () => void;
   onOpenAccount: () => void;
+  /** SPEC-019 — a forma do mês, a partir da tela que mostra o dia. */
+  onOpenCycle: () => void;
   /**
    * D-82 — the way out of a finished cycle. Present whenever there is an active plan, which is the
    * only situation this screen renders in; it is optional so a test can render the screen without
@@ -582,7 +585,12 @@ export function TodayScreen({
         </Text>
       ) : null}
 
-      <Button label="Sua conta" variant="ghost" onPress={onOpenAccount} />
+      {/* Duas saídas quietas, na mesma linha: a Hoje continua com uma única ação primária, que é
+          o cuidado do dia. Ver o ciclo nunca compete com fazer o cuidado. */}
+      <Row gap="sm">
+        <Button label="Ver meu ciclo" variant="ghost" onPress={onOpenCycle} />
+        <Button label="Sua conta" variant="ghost" onPress={onOpenAccount} />
+      </Row>
     </Screen>
   );
 }

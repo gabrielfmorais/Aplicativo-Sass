@@ -68,6 +68,7 @@ const renderScreen = (
       newExecutionId={newExecutionId}
       onChanged={onChanged}
       onOpenAccount={jest.fn()}
+      onOpenCycle={jest.fn()}
       onReassess={onReassess}
     />,
   );
