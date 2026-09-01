@@ -62,11 +62,11 @@ Não há paywall na entrada. Nenhuma capability hoje gratuita pode virar premium
 | F13 | Lembretes | **DONE** | SPEC-008 (#24) |
 | F14 | Check-in de cabelo | **DONE** | SPEC-006 (#21) |
 | F15 | Histórico | **DONE** | SPEC-005 (planejado ≠ executado, D-69) |
-| F16 | Progresso | **DONE** | SPEC-009 (#26); redesenhado em SPEC-016 fatia 3 |
+| F16 | Progresso | **DONE** | SPEC-009 (#26); redesenhado em SPEC-016 fatia 3 (#60) |
 | F17 | Reavaliação | **DONE** | SPEC-014 (#28) |
 | F18 | Novos ciclos | **DONE** | SPEC-014 + D-82 (#45) |
 | F19 | Preservação do histórico | **DONE** | SPEC-014 FR7 (contagem vitalícia atravessa a substituição de plano) |
-| F20 | Calendário / ciclo | **IN PROGRESS** | Week strip entregue (fatia 2). A visão de ciclo completa ainda não. |
+| F20 | Calendário / ciclo | **IN PROGRESS** | Week strip da semana corrente entregue (SPEC-016 fatia 2, #55) e o preview agrupado por semana (#60). Falta a visão de **ciclo** — as quatro semanas navegáveis com o que já aconteceu em cada uma. |
 | F21 | **"Por que isso está no meu plano?"** | **COMMITTED** | Os `evidenceCodes` já existem e já aparecem no preview; falta trazê-los para o **cuidado individual** na Hoje. Barato e de alto valor. |
 | F22 | **Pausa do cronograma** | **COMMITTED** | Precisa de estado de plano novo (`paused`) + regra do que acontece com os cuidados na volta. Toca schema. |
 | F23 | **"Meu cabelo mudou"** | **COMMITTED** | Registrar eventos (química, coloração, descoloração, corte, calor, praia/piscina, tranças, pausa, mudança percebida). No Free, **dispara reavaliação**. |
