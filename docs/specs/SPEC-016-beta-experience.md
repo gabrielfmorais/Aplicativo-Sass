@@ -125,7 +125,7 @@ Inalterados. O que muda: falha passa a ter forma — mensagem legível, retry vi
 Fatias pequenas, cada uma verificável e mergeável sozinha:
 1. ✅ **MERGED (#54)** — **Tokens + primitivas + Onboarding em etapas + SignIn.** A primeira impressão inteira, e o sistema nasce com consumidor.
 2. ✅ **DONE — validado no DEV real (2026-08-31).** — **Hoje + execução do cuidado + check-in.** A tela do dia a dia, onde a usuária mais volta. Cartão de foco (uma ação primária por tela, garantida por construção), week strip informativo, estado sempre em palavra. Nada acionável foi colapsado: SPEC-007 AC5 promete "Como fazer" em todo cuidado acionável.
-3. **Plano/preview + Progresso.** O momento "isto é meu" e a leitura de evolução.
+3. ✅ **Entregue (#60), validado no DEV real** — **Plano/preview + Progresso.** Avaliação em cartão de destaque, cronograma agrupado por semana (o ritmo passa a ser legível), ação primária única em rodapé fixado, e `Loading` com rótulo no lugar dos `return null` que devolviam branco.
 4. **Conta + Plan Customization/Premium.** Premium como evolução (G7).
 5. **Passada de consistência** e `improve --full` antes do beta.
 

@@ -66,6 +66,14 @@ Estende §0.1/§0.2 (não as repete). O agente é **diretor técnico e de produt
 - **Gate parcial não bloqueia a fase inteira:** se só uma parte de uma fase toca um gate, o agente faz todo o resto da fase primeiro e, no gate, pede **apenas a ação mínima** necessária (§0.2 "Gate não bloqueia o resto", agora explícito no nível de fase).
 - **Guardrails inalterados:** LEVEL 2, `improve` obrigatória, YAGNI/necessidade (D-47/D-48), gates de release (D-26/OQ-REL), domínio capilar (§2) e as proibições de §4 continuam valendo integralmente.
 
+### 0.4 MASTER PRODUCT SCOPE — o escopo é compromisso, a ordem é do agente (D-92, humano, 2026-08-31)
+**Fonte oficial: `docs/product/MASTER-PRODUCT-BACKLOG.md`.** Tudo listado lá é **COMMITTED** — faz parte do produto e **será construído**. Não é brainstorm, não é opcional, e **não depende de o dono pedir de novo**. Sai do escopo só por: evidência técnica de substituição por solução melhor · decisão comercial explícita do dono · impedimento legal/segurança/domain review. A pergunta nunca é *"isso vai ser feito?"* (é sim), e sim *"qual é o melhor momento e a melhor forma?"*.
+**Sequenciamento é responsabilidade do agente:** quando cada capability entra · dependências · divisão em SPECs e fatias · arquitetura · quais dados precisam existir antes · quando estabilizar em vez de empilhar camada · quando refatorar · quando adiar por dependência técnica real. Ao concluir uma fatia, **reavaliar o backlog e escolher a próxima de maior valor** por: dependências · estabilidade · jornada da usuária · valor Free/Premium · dados disponíveis · risco · complexidade · custo · domain review · maturidade da arquitetura. Estados: `COMMITTED`/`IN PROGRESS`/`DONE`/`BLOCKED`/`DEFERRED BY DEPENDENCY`. **"Future idea" não é estado**; `DEFERRED BY DEPENDENCY` = "vai ser construída, mas não agora", nunca "talvez". **Nenhuma capability COMMITTED some do roadmap até estar DONE.**
+🔒 **Duas restrições de ordem que NÃO são do agente.** (1) **O Assistente IA é obrigatoriamente a ÚLTIMA grande capability** — é COMMITTED e será construída, mas **até lá é proibido criar infraestrutura antecipada de IA**: embeddings, pgvector, RAG, agentes, chatbot, API de LLM, tabelas de chat, prompts de produção, abstrações de LLM. *A IA será construída sobre o sistema; o sistema não será construído em torno da IA.* (2) **Community fica `DEFERRED BY DEPENDENCY`** (escala, moderação, segurança, privacidade, massa crítica), **sem sair do roadmap** e **sem infraestrutura social prematura**.
+**Um único plano pago: PREMIUM.** Mensal e anual têm **exatamente as mesmas funcionalidades**. Referência comercial do dono: R$ 19,90/mês · R$ 149,90/ano · trial de 7 dias — **preço e período vêm da loja em runtime, nunca hard-coded** (D-83 inalterada).
+**Regras de conteúdo que atravessam várias capabilities:** Hair Intelligence começa **determinística** (dados → histórico → métricas → agregações → comparação → padrões → insights) e **nunca inventa causalidade nem dados**; recomendações preferem sempre **o que a usuária já possui** e **nunca inventam** produto, composição, indicação, preço, link ou benefício; clima/contexto começa observacional, **sem linguagem causal sem evidência**; Wash Day é **capability estrutural**, não tela de anotação — o modelo de dados decidido no Free é o que viabiliza Smart Shelf, padrões e Wash Day avançado depois.
+**Limites da autonomia (TRUE HUMAN GATES, reafirmados):** existência de Free + Premium · novos tiers · preço aprovado · estratégia de monetização material · lançamento em produção · contratos/custos · decisões legais · domínio clínico/profissional · mudança material de marca.
+
 ## 1. Antes de qualquer tarefa
 1. Ler este arquivo.
 2. Identificar o bounded context afetado → `docs/architecture/DOMAIN-MAP.md`.
@@ -121,6 +129,7 @@ Arquivos alterados · impacto em autorização/RLS · impacto em banco · testes
 | Tema | Arquivo |
 |---|---|
 | Produto | `docs/product/PRODUCT-BRIEF.md`, `docs/product/MVP-ROADMAP.md` |
+| **Escopo COMMITTED (D-92)** | **`docs/product/MASTER-PRODUCT-BACKLOG.md`** — o que o produto vai ter; a ordem é do agente (§0.4) |
 | Arquitetura | `docs/architecture/SYSTEM-ARCHITECTURE.md`, `DOMAIN-MAP.md`, `DATA-MODEL.md`, `REPOSITORY-STRUCTURE.md` |
 | Decisões pendentes | `docs/architecture/DECISION-REGISTER.md` (nunca resolver um item "HUMAN DECISION" por conta própria) |
 | Workflow | `docs/architecture/ENGINEERING-WORKFLOW.md`, `docs/specs/README.md` |
