@@ -155,3 +155,20 @@ insert into tests.security_definer_allowlist (function_signature, spec, justific
     'SPEC-020',
     'Only path that voids an event; the client holds no UPDATE on hair_events. Scoped to auth.uid() and to rows not already voided, so it can neither touch another user''s event nor re-void one. The row is preserved (voided_at) and never deleted (BR6/D-69). A foreign, missing or already-voided event all raise the same error, so the caller cannot probe for existence. search_path is pinned.'
   );
+
+-- SPEC-022 §10: plan_pauses — authenticated may only SELECT its own rows. Pausing and resuming
+-- change the schedule, and resuming moves several rows at once: that is a server transaction.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'plan_pauses', 'SELECT', 'SPEC-022');
+
+insert into tests.security_definer_allowlist (function_signature, spec, justification) values
+  (
+    'public.pause_plan(p_timezone text)',
+    'SPEC-022',
+    'Only way to open a pause; the client holds no INSERT on plan_pauses. user_id comes from auth.uid() via care_current_user(), never from a parameter, and the civil day comes from care_local_today, which validates and bounds the caller-supplied IANA timezone (T22). Idempotent: an already-open pause is returned rather than duplicated, and a partial unique index makes a second open pause impossible even under a race. Refuses when there is no active plan, so no orphan pause can exist. search_path is pinned.'
+  ),
+  (
+    'public.resume_plan(p_timezone text, p_commit boolean)',
+    'SPEC-022',
+    'Only way to close a pause and the only path that shifts planned dates; the client holds no UPDATE on plan_pauses or scheduled_cares. Scoped to auth.uid(); locks the open pause FOR UPDATE so two concurrent resumes cannot shift the schedule twice. p_commit=false is a dry run that computes and returns the outcome without writing, so the screen can tell her what will happen before she confirms (FR4) without a second copy of the shift rule living in TypeScript. Only cares that are still planned, unexecuted and on or after the pause date move; executions are never touched. search_path is pinned.'
+  );

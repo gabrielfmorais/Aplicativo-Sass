@@ -62,7 +62,21 @@ O produto hoje tem exatamente uma resposta para "não vou conseguir": pular, um 
 
 ## 8. Data Model Impact
 
-`TODO` — **decisão em aberto, ver OQ1.** Duas formas:
+**Resolvido (OQ1): tabela `public.plan_pauses`.**
+
+| Coluna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid PK | |
+| `user_id` | uuid not null, FK `auth.users` cascade | |
+| `plan_id` | uuid not null | FK composta `(plan_id, user_id)` → `hair_plans`: uma pausa nunca carrega dono diferente do plano |
+| `paused_on` / `resumed_on` | date / date null | dias civis dela; **`resumed_on` nulo é o que "pausado" significa** — não existe coluna de estado |
+| `created_at` | timestamptz not null | |
+
+Índice único parcial em `(user_id) where resumed_on is null`: **uma pausa aberta por usuária**, o que faz "pausar de novo" ser um no-op em vez de um estado impossível.
+
+**Deslocar altera `planned_date` no lugar, e isso não é reescrever histórico.** Só se movem cuidados `planned`, sem execução efetiva, a partir do dia da pausa: um cuidado futuro sem execução é uma **intenção**, não um fato. `care_executions` não é tocada. É deliberadamente diferente de `reschedule_care`, que cria linha nova porque ali **ela** moveu um cuidado específico e a intenção original quer dizer algo; aqui o tempo inteiro parou, e N linhas fantasma seriam ruído, não verdade. O movimento fica registrado nas duas datas da pausa. *(Decisão do agente sob D-97: técnica, reversível, e a alternativa é objetivamente pior em ruído sem ganhar nenhuma garantia.)*
+
+*Registro das formas consideradas:*
 
 - **(a) `plan_pauses`**, tabela append-only com `plan_id`, `paused_on`, `resumed_on`. O plano fica pausado enquanto houver linha sem `resumed_on`. Aditiva, preserva o histórico de pausas de graça, e não toca `hair_plans`.
 - **(b) `hair_plans.paused_at`**, uma coluna. Menor, mas guarda **uma** pausa e apaga a anterior a cada nova — perde exatamente o histórico que BR4 pede.
@@ -71,7 +85,17 @@ O produto hoje tem exatamente uma resposta para "não vou conseguir": pular, um 
 
 ## 9. API / Contracts
 
-`TODO` — duas RPCs `SECURITY DEFINER` (`pause_plan`, `resume_plan`), pela mesma razão de SPEC-020: o dia civil é do servidor, e **retomar move linhas transacionalmente** — meia retomada é um cronograma inconsistente. `CareBoard` ganha o estado da pausa; `buildTodayView` e `buildNotificationIntents` passam a recebê-lo.
+**Duas RPCs `SECURITY DEFINER`**, pela mesma razão de SPEC-020: o dia civil é do servidor, e **retomar move linhas transacionalmente** — meia retomada é um cronograma inconsistente. `CareBoard` ganha o estado da pausa; `buildTodayView` e `buildNotificationIntents` passam a recebê-lo (fatia 2).
+
+```sql
+pause_plan(p_timezone text) returns uuid
+resume_plan(p_timezone text, p_commit boolean default false)
+  returns table (action text, shift_days integer, care_count integer)
+```
+
+**`p_commit` é o que faz FR4 caber sem duplicar regra.** A alternativa seria a tela calcular a previsão por conta própria — e aí a regra de deslocamento existiria em SQL **e** em TypeScript, divergindo na primeira vez que qualquer um dos dois mudasse. Com o `dry run` há **uma** implementação: a tela pergunta, mostra a resposta, e confirma chamando a mesma função. `action` é `shifted` · `new_cycle` · `not_paused`.
+
+**O limite do ciclo, concretamente:** se o último cuidado ainda planejado, deslocado, passar de `starts_on + 27`, o deslocamento não cabe e a volta oferece um ciclo novo. Nada a deslocar cai no mesmo caminho — um ciclo sem intenção restante já acabou.
 
 ## 10. Authorization
 
@@ -132,7 +156,7 @@ Vitest para a derivação com plano pausado (atraso e lembretes) · pgTAP para p
 
 ## 20. Implementation Plan
 
-1. Banco: `plan_pauses`, as duas RPCs, allowlist, pgTAP.
+1. Banco: `plan_pauses`, as duas RPCs, allowlist, pgTAP. ← **esta fatia**
 2. Core: o estado da pausa em `CareBoard`, e a derivação de atraso e de lembretes conhecendo-o.
 3. App: Hoje pausada, pausar pela conta e pela Hoje, confirmação de retomada.
 4. Validação a 390px e fechamento do `F22`.
@@ -164,5 +188,6 @@ Reverter a PR e derrubar tabela e funções. O estado pausado deixa de existir; 
 
 | Data | Mudança | Autor |
 |---|---|---|
+| 2026-09-01 | v0.3 — **fatia 1 (banco) implementada.** `plan_pauses` com índice único parcial (uma pausa aberta por usuária), `pause_plan` idempotente e `resume_plan` com `p_commit` — o *dry run* que faz a previsão de FR4 caber **sem** uma segunda cópia da regra de deslocamento em TypeScript. 20 asserções pgTAP. Decidido sob D-97: deslocar altera `planned_date` no lugar, porque cuidado futuro sem execução é intenção, não fato. | agente (§0.2, D-97) |
 | 2026-09-01 | v0.2 — **OQ2 e OQ3 resolvidas pelo dono**, com a recomendação do agente: deslocar preservando os intervalos, e o fim do ciclo como limite natural — pausa curta preserva o plano, pausa longa reconhece que o cronograma envelheceu. O limite não é número inventado: é a fronteira que a SPEC-019 já desenhou. **APPROVED**, implementação autorizada. | dono + agente |
 | 2026-09-01 | v0.1 — Draft criada para o **F22**, seguindo o Blueprint §5. **Parada deliberadamente antes da implementação:** a OQ2 é BLOCKING e é decisão humana (§0.1) — o que acontece com os cuidados na volta move o cronograma dela e redefine o que "meu plano" significa depois de uma ausência. As bordas o Blueprint fecha; o meio, não. | agente |
