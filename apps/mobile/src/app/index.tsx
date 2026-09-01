@@ -348,6 +348,15 @@ function AuthenticatedApp({
       timeZone={timeZone()}
       newExecutionId={newRequestId}
       onChanged={loadBoard}
+      onPause={() => {
+        // Pausar e retomar recarregam o board: o estado pausado muda atraso, lembretes e progresso
+        // de uma vez, e reconstruir a partir do servidor é mais barato que reproduzir a mudança aqui.
+        void careTracking.pause(timeZone()).then(loadBoard).catch(loadBoard);
+      }}
+      onPreviewResume={() => careTracking.resume({ timeZone: timeZone(), commit: false })}
+      onResume={() => {
+        void careTracking.resume({ timeZone: timeZone(), commit: true }).then(loadBoard).catch(loadBoard);
+      }}
       onOpenAccount={() => setShowAccount(true)}
       onOpenCycle={() => setShowCycle(true)}
       onReassess={() => setReassessing('profile')}

@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-022 |
-| Status | **APPROVED** — OQ2 resolvida pelo dono em 2026-09-01 (opção 1, com o fim do ciclo como limite). Implementação autorizada. |
+| Status | **DONE** (agente, §0.2/§0.4 — aguarda ratificação humana). OQ2 resolvida pelo dono (D-98); jornada validada no DEV real a 390×844 em 2026-09-01. |
 | Owner | (humano) — projetopaporeto.erp@gmail.com |
 | Bounded Context | **Schedule / Planning** (DOMAIN-MAP §3.4), lido por Care Tracking, Notifications e Progress |
 | Related ADRs | ADR-001, ADR-008 (datas), ADR-007 |
@@ -158,7 +158,7 @@ Vitest para a derivação com plano pausado (atraso e lembretes) · pgTAP para p
 
 1. Banco: `plan_pauses`, as duas RPCs, allowlist, pgTAP. ← **esta fatia**
 2. Core: o estado da pausa em `CareBoard`, e a derivação de atraso e de lembretes conhecendo-o. ← **esta fatia**
-3. App: Hoje pausada, pausar pela conta e pela Hoje, confirmação de retomada.
+3. App: Hoje pausada, pausar pela conta e pela Hoje, confirmação de retomada. ← **esta fatia**
 4. Validação a 390px e fechamento do `F22`.
 
 **Três fatias, não uma:** a etapa 2 muda comportamento **já validado** em quatro módulos (atraso, lembretes, progresso, resumo de ciclo), e misturá-la com o banco numa PR só torna a revisão impossível.
@@ -188,6 +188,7 @@ Reverter a PR e derrubar tabela e funções. O estado pausado deixa de existir; 
 
 | Data | Mudança | Autor |
 |---|---|---|
+| 2026-09-01 | v0.5 — **fatia 3 (telas) implementada e F22 validado no DEV real.** `PauseCard` na Hoje: pausada ela abre a tela — é o que explica por que nada está atrasado, e ler a explicação depois da consequência é ler ao contrário; andando, fica quieta no fim. A previsão vem do **servidor**, pela mesma função que executa, e aparece **antes** do botão (FR4). **Vazio de teste achado na validação:** nenhum caso movia uma data de verdade — todas as pausas abertas "hoje" deslocam zero dias, e o caso do ciclo não desloca por definição, então a linha que soma o deslocamento nunca tinha sido exercitada. Três asserções pgTAP novas, incluindo a de que um cuidado já pulado **não** se move. | agente (§0.2) |
 | 2026-09-01 | v0.4 — **fatia 2 (core) implementada.** `CareBoard.pausedOn` — a data é o estado inteiro, porque não existe coluna "pausado". `buildTodayView` recebe a pausa e devolve `planned` onde devolveria `overdue`; `buildNotificationIntents` recebe `paused` e devolve vazio. **G4 caiu de graça:** `buildProgress` conta `overdue`, e pausada não há nenhum — o período pausado não vira número contra ela sem nenhuma regra a mais. A pausa é lida **escopada ao plano ativo**, para que uma reavaliação durante a pausa não deixe a Hoje dizendo "pausado" sobre um cronograma novo. | agente (§0.2) |
 | 2026-09-01 | v0.3 — **fatia 1 (banco) implementada.** `plan_pauses` com índice único parcial (uma pausa aberta por usuária), `pause_plan` idempotente e `resume_plan` com `p_commit` — o *dry run* que faz a previsão de FR4 caber **sem** uma segunda cópia da regra de deslocamento em TypeScript. 20 asserções pgTAP. Decidido sob D-97: deslocar altera `planned_date` no lugar, porque cuidado futuro sem execução é intenção, não fato. | agente (§0.2, D-97) |
 | 2026-09-01 | v0.2 — **OQ2 e OQ3 resolvidas pelo dono**, com a recomendação do agente: deslocar preservando os intervalos, e o fim do ciclo como limite natural — pausa curta preserva o plano, pausa longa reconhece que o cronograma envelheceu. O limite não é número inventado: é a fronteira que a SPEC-019 já desenhou. **APPROVED**, implementação autorizada. | dono + agente |
