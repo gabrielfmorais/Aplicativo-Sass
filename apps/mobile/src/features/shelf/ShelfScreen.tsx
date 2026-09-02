@@ -3,7 +3,18 @@ import { PRODUCT_CATEGORIES, PRODUCT_NAME_MAX_LENGTH } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
-import { Button, Card, Chip, Field, Loading, Row, Screen, Stack, Text } from '@/design/primitives';
+import {
+  Button,
+  Card,
+  Chip,
+  Field,
+  Loading,
+  Row,
+  Screen,
+  ScreenHeader,
+  Stack,
+  Text,
+} from '@/design/primitives';
 import { useAddProduct } from '@/features/shelf/use-add-product';
 import { reasonOf } from '@/shared/failure-detail';
 
@@ -91,17 +102,10 @@ export function ShelfScreen({ products, onBack }: { products: ProductPort; onBac
         </Stack>
       }
     >
-      <Stack gap="sm">
-        <Text variant="overline" tone="faint">
-          Seus produtos
-        </Text>
-        <Text variant="display" accessibilityRole="header">
-          Minha prateleira
-        </Text>
-        <Text tone="muted">
-          O que você já tem em casa, do jeito que você chama. Serve para o app não sugerir o que você não tem.
-        </Text>
-      </Stack>
+      <ScreenHeader eyebrow="Seus produtos" title="Minha prateleira" />
+      <Text tone="muted">
+        O que você já tem em casa, do jeito que você chama. Serve para o app não sugerir o que você não tem.
+      </Text>
 
       <Field
         value={add.draft}

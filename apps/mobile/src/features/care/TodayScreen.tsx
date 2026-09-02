@@ -7,17 +7,16 @@ import type {
   LocalDate,
   ResumeOutcome,
 } from '@app/core';
-import { CARE_GUIDES, CHECKIN_SCALE, buildProgress, buildTodayView, canCheckIn, canUndo } from '@app/core';
+import { CARE_GUIDES, CHECKIN_SCALE, buildTodayView, canCheckIn, canUndo } from '@app/core';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Button, Card, Row, Screen, Stack, Tag, Text } from '@/design/primitives';
+import { Button, Card, Row, Screen, ScreenHeader, Stack, Tag, Text } from '@/design/primitives';
 import { HIT_TARGET_MIN, color, radius, space } from '@/design/tokens';
 import { CareGuidePanel } from '@/features/care/CareGuidePanel';
 import { CareTypeMark } from '@/features/care/CareTypeMark';
 import { PauseCard } from '@/features/care/PauseCard';
 import { PlanRationale } from '@/features/care/PlanRationale';
-import { ProgressSummary } from '@/features/care/ProgressSummary';
 import { WeekStrip } from '@/features/care/WeekStrip';
 import { buildWeek } from '@/features/care/week';
 import { CARE_TYPE_LABEL, formatPlannedDate } from '@/features/plan/copy';
@@ -293,7 +292,7 @@ function FocusCard({
   const state = stateTagOf(item);
   const guide = CARE_GUIDES[item.careTypeCode];
   return (
-    <Card style={styles.focus}>
+    <Card tone="brand" style={styles.focus}>
       {state ? <Tag label={state.label} tone={state.tone} /> : <Tag label="Hoje" tone="accent" />}
       <CareTypeMark careTypeCode={item.careTypeCode} big />
       <Text variant="caption" tone="muted">
@@ -479,16 +478,33 @@ export function TodayScreen({
    * code and the message, on screen, without opening devtools. Never logged, never leaves the device.
    */
   const [failure, setFailure] = useState<string | null>(null);
+  /**
+   * SPEC-026 FR7 — o dia que a tela está mostrando. Começa em hoje e só muda por toque dela.
+   *
+   * **Escopo de sessão, e é o certo.** Persistir isto faria ela reabrir o app olhando uma quinta-feira
+   * de duas semanas atrás sem lembrar por quê. A Hoje se chama Hoje.
+   */
+  const [selected, setSelected] = useState<string>(today);
 
   const view = useMemo(
     () => buildTodayView(board.cares, board.executions, today, board.checkIns, board.pausedOn),
     [board, today],
   );
-  const progress = useMemo(() => buildProgress(view, board.lifetimeDoneCount), [view, board]);
   const renderedNow = now();
 
   const allItems = useMemo(() => [...view.overdue, ...view.today, ...view.upcoming, ...view.history], [view]);
-  const week = useMemo(() => buildWeek(allItems, today), [allItems, today]);
+  // Ancorada no dia selecionado: navegar para outra semana é selecionar um dia dela. `today`
+  // continua sendo quem decide o que é hoje e o que é passado (week.ts).
+  const week = useMemo(() => buildWeek(allItems, today, selected as LocalDate), [allItems, today, selected]);
+  const viewingToday = selected === today;
+  /**
+   * Os cuidados daquele dia. `rescheduled` fica de fora pela mesma razão que fica fora da faixa: um
+   * cuidado que saiu dali não está acontecendo ali, e desenhá-lo diria algo falso sobre o dia.
+   */
+  const dayItems = useMemo(
+    () => allItems.filter((i) => i.plannedDate === selected && i.outcome !== 'rescheduled'),
+    [allItems, selected],
+  );
 
   // The focus, in priority order: the care she just settled while it still has something to offer
   // (a check-in to answer, an undo still open), then the oldest overdue one (D-28 — the plan never
@@ -595,21 +611,54 @@ export function TodayScreen({
 
   return (
     <Screen>
-      <Stack gap="md">
-        <Text variant="overline" tone="faint">
-          {formatPlannedDate(today)}
-        </Text>
-        <Text variant="display" accessibilityRole="header">
-          Seus cuidados
-        </Text>
-      </Stack>
+      {/* A data é sempre a do dia que está na tela, e o título diz **em palavra** qual é (FR8):
+          um destaque na faixa é uma pista, e uma pista não é uma resposta. */}
+      <ScreenHeader
+        eyebrow={formatPlannedDate(selected as LocalDate)}
+        title={viewingToday ? 'Seus cuidados' : 'Esse dia'}
+      />
 
-      <WeekStrip week={week} />
+      <WeekStrip week={week} selected={selected} onSelect={setSelected} />
+
+      {/*
+        Outro dia: a tela inteira passa a ser sobre ele. Mostrar o dia selecionado **junto** com as
+        seções de hoje seria duas respostas para a mesma pergunta na mesma tela — e a segunda, a
+        errada, ficaria na parte de baixo, que é onde ninguém confere.
+
+        As ações continuam inteiras: concluir, pular e reagendar valem para o cuidado, não para a
+        data em que ela está olhando.
+      */}
+      {viewingToday ? null : (
+        <Stack gap="md">
+          {dayItems.length === 0 ? (
+            // EC3 — um dia sem nada é um fato, não uma tela em branco.
+            <Card tone="muted">
+              <Text tone="muted">Nada marcado nesse dia.</Text>
+            </Card>
+          ) : (
+            dayItems.map((item) => (
+              <CareCard
+                key={item.id}
+                item={item}
+                today={today}
+                now={renderedNow}
+                busy={busyId === item.id}
+                blocked={busyId !== null}
+                onAct={act}
+                washDay={washDay}
+              />
+            ))
+          )}
+          <Row gap="sm">
+            <Button label="Voltar para hoje" variant="ghost" onPress={() => setSelected(today)} />
+          </Row>
+        </Stack>
+      )}
 
       {/* Pausada, a pausa vem **antes** do cuidado do dia: é o que explica por que nada está
           atrasado, e ler a explicação depois da consequência é ler ao contrário. Andando, ela fica
           no fim, quieta, perto das outras saídas. */}
-      {paused ? (
+      {viewingToday && paused ? (
         <PauseCard
           pausedOn={board.pausedOn}
           busy={busyId !== null}
@@ -619,7 +668,7 @@ export function TodayScreen({
         />
       ) : null}
 
-      {focus ? (
+      {!viewingToday ? null : focus ? (
         <FocusCard
           item={focus}
           today={today}
@@ -642,93 +691,98 @@ export function TodayScreen({
         </Card>
       )}
 
-      {nothingLeft && onReassess ? (
-        <Card tone="accent">
-          <Text tone="muted">
-            Não sobrou nenhum cuidado no seu cronograma atual. Reavaliar seu cabelo monta as próximas semanas
-            a partir de como ele está agora — o que você já registrou continua salvo.
-          </Text>
-          <Button label="Reavaliar e montar o próximo" onPress={onReassess} />
-        </Card>
-      ) : null}
+      {/*
+        Tudo daqui para baixo é sobre **hoje** — o que está atrasado, o que vem, o histórico, a
+        pausa. Num outro dia isso não some por estética: seria uma segunda resposta, na mesma tela,
+        para a pergunta que a de cima já respondeu.
+      */}
+      {!viewingToday ? null : (
+        <>
+          {nothingLeft && onReassess ? (
+            <Card tone="accent">
+              <Text tone="muted">
+                Não sobrou nenhum cuidado no seu cronograma atual. Reavaliar seu cabelo monta as próximas
+                semanas a partir de como ele está agora — o que você já registrou continua salvo.
+              </Text>
+              <Button label="Reavaliar e montar o próximo" onPress={onReassess} />
+            </Card>
+          ) : null}
 
-      <Section
-        title="Atrasados"
-        items={restOverdue}
-        today={today}
-        now={renderedNow}
-        busyId={busyId}
-        onAct={act}
-        washDay={washDay}
-      />
-      <Section
-        title="Hoje"
-        items={restToday}
-        today={today}
-        now={renderedNow}
-        busyId={busyId}
-        onAct={act}
-        washDay={washDay}
-      />
-      <Section
-        title="Próximos"
-        items={view.upcoming}
-        today={today}
-        now={renderedNow}
-        busyId={busyId}
-        onAct={act}
-        washDay={washDay}
-      />
+          <Section
+            title="Atrasados"
+            items={restOverdue}
+            today={today}
+            now={renderedNow}
+            busyId={busyId}
+            onAct={act}
+            washDay={washDay}
+          />
+          <Section
+            title="Hoje"
+            items={restToday}
+            today={today}
+            now={renderedNow}
+            busyId={busyId}
+            onAct={act}
+            washDay={washDay}
+          />
+          <Section
+            title="Próximos"
+            items={view.upcoming}
+            today={today}
+            now={renderedNow}
+            busyId={busyId}
+            onAct={act}
+            washDay={washDay}
+          />
 
-      {/* After the actionable sections and before the detail: she settles the day first, then
-          sees the accumulated summary, which reads naturally as a preface to the history. */}
-      <ProgressSummary progress={progress} />
-
-      {/* SPEC-017 OQ2 — aqui, e não no cartão de foco: a explicação é leitura reflexiva, e no topo
+          {/* SPEC-017 OQ2 — aqui, e não no cartão de foco: a explicação é leitura reflexiva, e no topo
           competiria com a única ação primária da tela. Fechada por padrão (FR1). */}
-      <PlanRationale
-        hairProfile={hairProfile}
-        hairProfileId={board.hairProfileId}
-        startsOn={board.startsOn as LocalDate}
-        assessmentAlgorithmVersion={board.assessmentAlgorithmVersion}
-        scheduleAlgorithmVersion={board.scheduleAlgorithmVersion}
-      />
+          <PlanRationale
+            hairProfile={hairProfile}
+            hairProfileId={board.hairProfileId}
+            startsOn={board.startsOn as LocalDate}
+            assessmentAlgorithmVersion={board.assessmentAlgorithmVersion}
+            scheduleAlgorithmVersion={board.scheduleAlgorithmVersion}
+          />
 
-      <Section
-        title="Histórico"
-        items={history}
-        today={today}
-        now={renderedNow}
-        busyId={busyId}
-        onAct={act}
-        washDay={washDay}
-      />
+          <Section
+            title="Histórico"
+            items={history}
+            today={today}
+            now={renderedNow}
+            busyId={busyId}
+            onAct={act}
+            washDay={washDay}
+          />
 
-      {message ? (
-        <Text accessibilityLiveRegion="polite" tone="danger">
-          {message}
-        </Text>
-      ) : null}
-      {__DEV__ && failure ? (
-        <Text variant="caption" tone="faint">
-          {failure}
-        </Text>
-      ) : null}
+          {message ? (
+            <Text accessibilityLiveRegion="polite" tone="danger">
+              {message}
+            </Text>
+          ) : null}
+          {__DEV__ && failure ? (
+            <Text variant="caption" tone="faint">
+              {failure}
+            </Text>
+          ) : null}
 
-      {/* Uma saída quieta: a Hoje continua com uma única ação primária, que é o cuidado do dia. */}
-      {paused ? null : (
-        <PauseCard
-          pausedOn={null}
-          busy={busyId !== null}
-          onPause={onPause}
-          onPreviewResume={onPreviewResume}
-          onResume={onResume}
-        />
+          {/* Uma saída quieta: a Hoje continua com uma única ação primária, que é o cuidado do dia. */}
+          {paused ? null : (
+            <PauseCard
+              pausedOn={null}
+              busy={busyId !== null}
+              onPause={onPause}
+              onPreviewResume={onPreviewResume}
+              onResume={onResume}
+            />
+          )}
+
+          <Row gap="sm">
+            <Button label="Ver meu ciclo" variant="ghost" onPress={onOpenCycle} />
+          </Row>
+        </>
       )}
-
-      <Row gap="sm">
-        <Button label="Ver meu ciclo" variant="ghost" onPress={onOpenCycle} />
-      </Row>
     </Screen>
   );
 }

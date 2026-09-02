@@ -9,7 +9,7 @@ import type {
 } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
 
-import { Button, Card, Screen, Stack, Text } from '@/design/primitives';
+import { Button, Card, Screen, ScreenHeader, Stack, Text } from '@/design/primitives';
 import { NotificationSettings } from '@/features/account/NotificationSettings';
 import { PlanCustomizationSection } from '@/features/account/PlanCustomizationSection';
 import { SubscriptionSection } from '@/features/account/SubscriptionSection';
@@ -98,14 +98,7 @@ export function AccountScreen({
         Enquanto isto era uma tela alcançada por um botão no pé da Hoje, a ordem não custava nada;
         como aba permanente, a primeira coisa visível passa a ser o que a aba **significa**.
       */}
-      <Stack gap="sm">
-        <Text variant="overline" tone="faint">
-          Seu perfil e sua conta
-        </Text>
-        <Text variant="display" accessibilityRole="header">
-          Você
-        </Text>
-      </Stack>
+      <ScreenHeader eyebrow="Seu perfil e sua conta" title="Você" />
 
       {onOpenHairEvents ? (
         <Card>

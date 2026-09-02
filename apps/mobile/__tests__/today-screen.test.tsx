@@ -551,6 +551,71 @@ describe('TodayScreen — check-in (SPEC-006 §14)', () => {
  * dentro. Uma frase afirmando conteúdo mentiria no caso que a SPEC prevê — ela abre, desmarca tudo
  * e sai (EC4) — e um convite quando não há registro seria cobrança (AC8).
  */
+/**
+ * SPEC-026 fatia 2 (FR7/FR8) — a faixa da semana passou a comandar a tela.
+ *
+ * A SPEC-016 a deixou **deliberadamente** não clicável, e a razão estava escrita: um toque teria de
+ * significar navegar ou filtrar, e nenhum dos dois existia. Agora existe — e o que estes testes
+ * protegem é que a tela **inteira** passe a falar do dia escolhido, em vez de mostrar duas respostas
+ * para a mesma pergunta, com a errada na parte de baixo, que é onde ninguém confere.
+ */
+describe('TodayScreen — o calendário clicável (SPEC-026)', () => {
+  /** 2026-09-08 é a terça da mesma semana de 2026-09-10, e carrega o cuidado atrasado. */
+  const tapDay = async (s: Awaited<ReturnType<typeof render>>, label: RegExp) =>
+    fireEvent.press(s.getByLabelText(label));
+
+  it('tocar num dia mostra o conteúdo daquele dia, e diz qual dia é em palavra', async () => {
+    const s = await renderScreen(makePort());
+    await waitFor(() => s.getByText('Seus cuidados'));
+
+    await tapDay(s, /^Terça, 8 de setembro/);
+
+    // FR8 — o título muda: um destaque na faixa é uma pista, e uma pista não é uma resposta.
+    expect(s.getByText('Esse dia')).toBeTruthy();
+    expect(s.queryByText('Seus cuidados')).toBeNull();
+    // O cuidado daquele dia continua acionável: concluir vale para o cuidado, não para a data em
+    // que ela está olhando.
+    expect(s.getByText('Fiz hoje')).toBeTruthy();
+  });
+
+  it('num outro dia, some tudo o que falava de hoje', async () => {
+    const s = await renderScreen(makePort());
+    await waitFor(() => s.getByText('Seus cuidados'));
+    await tapDay(s, /^Terça, 8 de setembro/);
+
+    // Seções, explicação e saídas são sobre hoje. Mantê-las seria uma segunda resposta na mesma tela.
+    expect(s.queryByText('Próximos')).toBeNull();
+    expect(s.queryByText('Atrasados')).toBeNull();
+    expect(s.queryByText('Ver meu ciclo')).toBeNull();
+  });
+
+  /** EC3 — um dia sem nada é um fato, não uma tela em branco. */
+  it('um dia vazio diz que está vazio', async () => {
+    const s = await renderScreen(makePort());
+    await waitFor(() => s.getByText('Seus cuidados'));
+    await tapDay(s, /^Quarta, 9 de setembro/);
+    expect(s.getByText('Nada marcado nesse dia.')).toBeTruthy();
+  });
+
+  it('volta para hoje', async () => {
+    const s = await renderScreen(makePort());
+    await waitFor(() => s.getByText('Seus cuidados'));
+    await tapDay(s, /^Terça, 8 de setembro/);
+    await fireEvent.press(s.getByText('Voltar para hoje'));
+    expect(s.getByText('Seus cuidados')).toBeTruthy();
+  });
+
+  /**
+   * O resumo saiu daqui e virou a aba Progresso. Duas cópias do mesmo número não divergem — vêm da
+   * mesma fonte —, mas são ruído numa tela que existe para responder "o que eu faço agora".
+   */
+  it('não mostra mais o resumo de progresso, que agora é uma aba', async () => {
+    const s = await renderScreen(makePort());
+    await waitFor(() => s.getByText('Seus cuidados'));
+    expect(s.queryByText('Seu progresso')).toBeNull();
+  });
+});
+
 describe('TodayScreen — o Wash Day (SPEC-024)', () => {
   const done = (over: Partial<CareBoard> = {}) =>
     board({

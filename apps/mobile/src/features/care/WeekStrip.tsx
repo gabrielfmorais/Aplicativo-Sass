@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/design/primitives';
 import { HIT_TARGET_MIN, careColor, color, radius, space } from '@/design/tokens';
@@ -12,10 +12,14 @@ import type { WeekCare, WeekDay } from '@/features/care/week';
  * dates. Seven cells put it back: which days carry a care, which are already settled, which are
  * behind. It informs; the plan itself is unchanged, and no rule is evaluated here.
  *
- * Deliberately **not** pressable. Tapping a day would have to mean navigating or filtering, and
- * neither exists — an affordance that leads nowhere is worse than no affordance. Each cell is one
- * accessibility node reading the whole day as a sentence, because a row of dots is nothing to a
- * screen reader and colour is never the only carrier of state.
+ * **SPEC-026 FR7 — agora é clicável, e a razão de não ser mudou.** A versão da SPEC-016 dizia que
+ * um toque teria de significar navegar ou filtrar, e nenhum dos dois existia: uma affordance que não
+ * leva a lugar nenhum é pior que affordance nenhuma. Agora leva — tocar num dia mostra o conteúdo
+ * daquele dia. Nada mais mudou: a faixa continua sem decidir coisa alguma sobre cuidado.
+ *
+ * Cada célula é **um** nó de acessibilidade lendo o dia inteiro como frase, porque uma fileira de
+ * pontos não é nada para um leitor de tela, e cor nunca é o único portador de estado — o dia
+ * selecionado anuncia `selected`, além de mudar de forma.
  */
 
 const dotStyleOf = (care: WeekCare) => {
@@ -35,9 +39,24 @@ const dotStyleOf = (care: WeekCare) => {
   }
 };
 
-function DayCell({ day }: { day: WeekDay }) {
+function DayCell({
+  day,
+  selected,
+  onSelect,
+}: {
+  day: WeekDay;
+  selected: boolean;
+  onSelect: (date: string) => void;
+}) {
   return (
-    <View accessible accessibilityLabel={day.label} style={[styles.cell, day.isToday && styles.cellToday]}>
+    <Pressable
+      accessible
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={day.label}
+      onPress={() => onSelect(day.date)}
+      style={[styles.cell, day.isToday && styles.cellToday, selected && styles.cellSelected]}
+    >
       <Text variant="overline" tone={day.isToday ? 'accent' : 'faint'}>
         {day.initial}
       </Text>
@@ -54,15 +73,24 @@ function DayCell({ day }: { day: WeekDay }) {
           <View key={`${care.careTypeCode}-${index}`} style={[styles.dot, dotStyleOf(care)]} />
         ))}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
-export function WeekStrip({ week }: { week: readonly WeekDay[] }) {
+export function WeekStrip({
+  week,
+  selected,
+  onSelect,
+}: {
+  week: readonly WeekDay[];
+  /** O dia que a tela está mostrando. Começa em hoje e só muda por toque dela. */
+  selected: string;
+  onSelect: (date: string) => void;
+}) {
   return (
     <View style={styles.strip}>
       {week.map((day) => (
-        <DayCell key={day.date} day={day} />
+        <DayCell key={day.date} day={day} selected={day.date === selected} onSelect={onSelect} />
       ))}
     </View>
   );
@@ -80,6 +108,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   cellToday: { backgroundColor: color.accentSoft },
+  /**
+   * O selecionado se lê por **contorno**, e o hoje por preenchimento. Dois canais diferentes porque
+   * são dois fatos diferentes e podem coincidir: no dia em que ela abre o app, o selecionado **é** o
+   * hoje, e uma célula que usasse o mesmo recurso para os dois não saberia dizer isso.
+   */
+  cellSelected: { borderWidth: 1.5, borderColor: color.accent },
   // Fixed height so a day with no cares does not sit taller or shorter than its neighbours.
   dots: { flexDirection: 'row', gap: space.xs, height: space.sm, alignItems: 'center' },
   dot: { width: space.sm, height: space.sm, borderRadius: radius.pill, borderWidth: 1.5 },
