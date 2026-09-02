@@ -393,7 +393,9 @@ cuidado → produtos → técnicas → cabelo → couro cabeludo
 
 **Outputs.** Free: uma lista fiel. Premium: leituras do próprio histórico dela.
 
-**Dados conceitualmente necessários.** Uma noção de **produto da usuária** e o vínculo **produto ↔ uso ↔ resultado**. Um catálogo global controlado é assunto de `P18`, não daqui: no Free ela cadastra o que tem, do jeito que chama.
+**Dados conceitualmente necessários.** Uma noção de **produto da usuária** e o vínculo **produto ↔ uso ↔ resultado**. No Free ela cadastra o que tem, do jeito que chama.
+
+**O catálogo de produtos reais é COMMITTED, e é o `F32`.** Marcas e produtos reais — nome, linha, categoria, imagem de fonte autorizada, variante/tamanho — com busca e **"adicionar à minha prateleira"**, tendo o produto manual como **fallback** quando não encontrado; o `F33` acrescenta o scanner/EAN depois. Ele **não** substitui o cadastro manual: um catálogo que não encontra o vidro dela não pode virar um beco. E ele não vira loja — o que `§1.3` proíbe inventar continua proibido de ser inventado, e o que vier do catálogo tem de vir **de fonte autorizada**, não de palpite. A prateleira de hoje é a fundação evolutiva dos dois: a mesma linha em `products`, o mesmo vínculo com o Wash Day, ganhando identidade real por cima.
 
 **Regras importantes.**
 - **Não é loja e não é catálogo.** É a prateleira dela.
@@ -401,7 +403,9 @@ cuidado → produtos → técnicas → cabelo → couro cabeludo
 - Nunca inventar composição, indicação, preço ou benefício de um produto (§1.3).
 - Correlação exige **volume mínimo**; abaixo dele, silêncio.
 
-**Relações.** `F25` Wash Day é a origem do uso · `P2` Hair Intelligence consome · `P18`/`P19` recomendações preferem o que ela já tem — e é a Prateleira que sabe o que é isso.
+**Relações.** `F25` Wash Day é a origem do uso · `F32`/`F33` dão identidade real ao que ela cadastra · `P2` Hair Intelligence consome · `P18`/`P19` recomendações preferem o que ela já tem — e é a Prateleira que sabe o que é isso.
+
+**A cadeia inteira, e a ordem dela.** Minha Prateleira → Wash Day → Smart Shelf → Hair Intelligence → relatórios → cronograma adaptativo → recomendações. Cada elo lê o anterior: é por isso que o vocabulário do Wash Day é fechado e que a prateleira não guarda benefício nem preço. Um texto livre no meio dessa cadeia não quebra nada hoje e inviabiliza tudo o que vem depois.
 
 **Sem dados suficientes.** Prateleira vazia: convite claro para adicionar. Poucos usos: mostrar a lista, e dizer que os padrões aparecem com o tempo. **Nunca um ranking de dois registros.**
 

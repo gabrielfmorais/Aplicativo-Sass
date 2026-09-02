@@ -137,8 +137,37 @@ de que ela contou.
 - **Sem RPC e sem `DELETE`.** Não há invariante de servidor: a posse é RLS mais `with check`, e
   arquivar é `UPDATE`. A linha precisa sobreviver para o uso registrado pelo Wash Day (`F25`)
   continuar fazendo sentido.
-- **Não é catálogo** (`P18`) e não guarda composição, indicação, preço, marca, benefício ou link: o
-  app não sabe nada disso.
+- **Não é catálogo** (`F32`/`P18`) e não guarda composição, indicação, preço, marca, benefício ou
+  link: o app não sabe nada disso. O catálogo de produtos reais é COMMITTED e chega **por cima**
+  desta linha, sem substituí-la — o cadastro manual continua sendo o fallback.
+- `unique (id, user_id)` acrescentada pela SPEC-024: alvo da FK composta de posse de
+  `wash_day_products`, como `care_executions` ganhou a sua quando `checkins` precisou.
+
+### 3.2d `wash_days`, `wash_day_products`, `wash_day_techniques` — o Wash Day (SPEC-024)
+
+**O hub não tem coluna de conteúdo, e isso é a decisão.** `wash_days` é `id`, `user_id`,
+`care_execution_id` (**único**) e `created_at`. Tudo o que descreve o dia pendura nele: produtos e
+técnicas agora; couro cabeludo (`F31`), foto (`F28`) e clima (`P21`) depois. Cada um chega numa
+fatia diferente, e um hub magro aceita cada uma **sem mexer nas anteriores**.
+
+| Tabela | Chave | Notas |
+|---|---|---|
+| `wash_days` | PK `id`; `unique (care_execution_id)` | um registro por execução (FR4) — voltar ao cuidado **edita**. FK composta `(care_execution_id, user_id) → care_executions (id, user_id) on delete cascade`: anular a execução leva o registro junto, **sem regra de aplicação** (BR5). `unique (id, user_id)` é o alvo das FKs das junções |
+| `wash_day_products` | PK `(wash_day_id, product_id)` | junção pura — sem quantidade, sem ordem (OQ5), sem observação. FK composta para `products` **e** para `wash_days` |
+| `wash_day_techniques` | PK `(wash_day_id, technique)` | `CHECK` em **catorze** valores, cada um nomeando **gesto, nunca efeito**. Junção e não `text[]` (OQ1): `P8` consulta *técnica × produto × resultado*, e isso é `join` |
+
+- **Nenhum campo de texto livre, em lugar nenhum.** Texto livre não se compara nem se agrega e
+  destruiria `P5`, `P6`, `P7` e `P8`. A razão de privacidade e a de produto são a mesma decisão.
+- **Posse validada nas duas pontas.** `with check (user_id = auth.uid())` valida o dono da **linha**;
+  quem valida o dono do **hub** é a FK composta. Sem ela, um cliente adulterado penduraria a própria
+  linha no Wash Day de outra pessoa: ninguém leria — nem a vítima — mas ela contaria quando `P8`
+  agregasse por `wash_day_id`.
+- **`DELETE` nas junções, e só nelas.** Desmarcar é ela corrigindo o que marcou, não apagando
+  histórico. O hub não tem `DELETE`: morre com a execução, por cascade.
+- Um produto **arquivado** continua no registro em que foi usado (BR3): a leitura dos marcados é por
+  id e **sem** o filtro de `archived_at`, ao contrário da leitura da prateleira.
+- **Sem RPC.** Nada aqui é invariante de servidor — não há dia civil a decidir nem idempotência a
+  guardar. O hub nasce por `upsert ... on conflict do nothing` na primeira marcação.
 
 ### 3.3 `hair_profiles` — Hair Profile (append-only, implementado na SPEC-002)
 | Coluna | Tipo | Notas |
