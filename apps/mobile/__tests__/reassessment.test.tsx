@@ -79,7 +79,7 @@ describe('reassessment entry point (SPEC-014 AC1)', () => {
   it('is absent when there is no active plan', async () => {
     const p = accountPorts();
     const screen = await render(<AccountScreen {...p} onNotificationPreferencesChanged={jest.fn()} />);
-    await waitFor(() => screen.getByText('Sua conta'));
+    await waitFor(() => screen.getByText('Você'));
     expect(screen.queryByText('Reavaliar meu cabelo')).toBeNull();
   });
 });

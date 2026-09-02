@@ -37,7 +37,6 @@ export function AccountScreen({
   onNotificationPreferencesChanged,
   onReassess,
   onOpenHairEvents,
-  onOpenShelf,
   onCustomize,
   onBack,
 }: {
@@ -52,8 +51,6 @@ export function AccountScreen({
   onReassess?: () => void;
   /** SPEC-020 — contar o que mudou; ausente quando a capability não está disponível. */
   onOpenHairEvents?: () => void;
-  /** SPEC-023 — a prateleira; ausente quando a capability não está disponível. */
-  onOpenShelf?: () => void;
   /**
    * SPEC-015 — opens the preview of a plan built with her preferred weekdays. Absent while she has
    * no active plan: the preview is already the next screen she sees, so there is nothing to open.
@@ -95,37 +92,20 @@ export function AccountScreen({
         ? { footer: <Button label="Voltar aos cuidados" variant="secondary" onPress={onBack} /> }
         : {})}
     >
-      <Text variant="display" accessibilityRole="header">
-        Sua conta
-      </Text>
-
-      <SubscriptionSection entitlements={entitlements} />
-
-      <PlanCustomizationSection
-        entitlements={entitlements}
-        planPreferences={planPreferences}
-        {...(onCustomize ? { onApply: onCustomize } : {})}
-      />
-
-      <NotificationSettings
-        preferences={notificationPreferences}
-        scheduler={notificationScheduler}
-        onChanged={onNotificationPreferencesChanged}
-      />
-
-      {/* Antes da reavaliação, de propósito: contar o que aconteceu é o passo barato, e é o que
-          costuma tornar a reavaliação a decisão certa em vez de um palpite (SPEC-020 FR4). */}
-      {onOpenShelf ? (
-        <Card>
-          <Text variant="heading" accessibilityRole="header">
-            Minha prateleira
-          </Text>
-          <Text tone="muted">
-            Os produtos que você já tem em casa. Serve para o app não sugerir o que você não tem.
-          </Text>
-          <Button label="Ver minha prateleira" variant="secondary" onPress={onOpenShelf} />
-        </Card>
-      ) : null}
+      {/*
+        SPEC-026 FR6 — a aba não é "configurações": é **ela**. O cabelo dela vem antes da fatura,
+        e por isso "meu cabelo mudou" e "reavaliar" subiram para cima de assinatura e lembretes.
+        Enquanto isto era uma tela alcançada por um botão no pé da Hoje, a ordem não custava nada;
+        como aba permanente, a primeira coisa visível passa a ser o que a aba **significa**.
+      */}
+      <Stack gap="sm">
+        <Text variant="overline" tone="faint">
+          Seu perfil e sua conta
+        </Text>
+        <Text variant="display" accessibilityRole="header">
+          Você
+        </Text>
+      </Stack>
 
       {onOpenHairEvents ? (
         <Card>
@@ -152,6 +132,20 @@ export function AccountScreen({
           <Button label="Reavaliar" variant="secondary" onPress={onReassess} />
         </Card>
       ) : null}
+
+      <SubscriptionSection entitlements={entitlements} />
+
+      <PlanCustomizationSection
+        entitlements={entitlements}
+        planPreferences={planPreferences}
+        {...(onCustomize ? { onApply: onCustomize } : {})}
+      />
+
+      <NotificationSettings
+        preferences={notificationPreferences}
+        scheduler={notificationScheduler}
+        onChanged={onNotificationPreferencesChanged}
+      />
 
       {/* Last, and quiet on purpose: leaving and deleting are the two things she cannot undo by
           tapping again, so neither should sit where a thumb lands by accident. */}

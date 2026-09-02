@@ -422,7 +422,6 @@ export function TodayScreen({
   onPause,
   onPreviewResume,
   onResume,
-  onOpenAccount,
   onOpenCycle,
   onOpenWashDay,
   onReassess,
@@ -440,8 +439,13 @@ export function TodayScreen({
   onPause: () => void;
   onPreviewResume: () => Promise<ResumeOutcome>;
   onResume: () => void;
-  onOpenAccount: () => void;
-  /** SPEC-019 — a forma do mês, a partir da tela que mostra o dia. */
+  /**
+   * SPEC-019 — a forma do mês, a partir da tela que mostra o dia.
+   *
+   * SPEC-026: **"Sua conta" saiu daqui.** A conta virou uma aba permanente, e uma saída para ela no
+   * pé da Hoje passou a ser um caminho a mais para o mesmo lugar. Ver o ciclo continua, porque ler
+   * o mês a partir do dia é um gesto do dia — mas leva à aba Cuidados, e não a um beco.
+   */
   onOpenCycle: () => void;
   /**
    * SPEC-024 FR1 — abrir o registro do que ela usou naquela execução. A rota é quem monta a tela;
@@ -711,8 +715,7 @@ export function TodayScreen({
         </Text>
       ) : null}
 
-      {/* Duas saídas quietas, na mesma linha: a Hoje continua com uma única ação primária, que é
-          o cuidado do dia. Ver o ciclo nunca compete com fazer o cuidado. */}
+      {/* Uma saída quieta: a Hoje continua com uma única ação primária, que é o cuidado do dia. */}
       {paused ? null : (
         <PauseCard
           pausedOn={null}
@@ -725,7 +728,6 @@ export function TodayScreen({
 
       <Row gap="sm">
         <Button label="Ver meu ciclo" variant="ghost" onPress={onOpenCycle} />
-        <Button label="Sua conta" variant="ghost" onPress={onOpenAccount} />
       </Row>
     </Screen>
   );

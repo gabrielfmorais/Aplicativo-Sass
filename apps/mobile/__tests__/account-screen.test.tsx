@@ -109,7 +109,9 @@ describe('AccountScreen — the way back belongs to the screen', () => {
     expect(onBack).toHaveBeenCalled();
 
     const without = await renderScreen(ports());
-    await waitFor(() => without.getByText('Sua conta'));
+    // SPEC-026 — a aba se chama pelo que ela é: ela. "Sua conta" descrevia uma gaveta de
+    // configurações, e assinatura e lembretes deixaram de ser a primeira coisa que ela vê aqui.
+    await waitFor(() => without.getByText('Você'));
     expect(without.queryByText('Voltar aos cuidados')).toBeNull();
   });
 });

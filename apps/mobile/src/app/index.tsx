@@ -17,13 +17,16 @@ import type {
 } from '@app/core';
 import { DEFAULT_NOTIFICATION_PREFERENCES, buildNotificationIntents, buildTodayView } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Button, Card, Loading, Screen, Stack, Text } from '@/design/primitives';
+import { TabBar, type TabKey } from '@/design/TabBar';
 
 import { useAuth } from '@/bootstrap/auth';
 import { AccountScreen } from '@/features/account/AccountScreen';
+import { CareTabScreen } from '@/features/care/CareTabScreen';
 import { CycleScreen } from '@/features/care/CycleScreen';
+import { ProgressTabScreen } from '@/features/care/ProgressTabScreen';
 import { HairEventsScreen } from '@/features/hair-events/HairEventsScreen';
 import { ShelfScreen } from '@/features/shelf/ShelfScreen';
 import { WashDayScreen } from '@/features/care/WashDayScreen';
@@ -106,13 +109,18 @@ function AuthenticatedApp({
   const { auth, deletion, entitlements } = useAuth();
   const [profile, setProfile] = useState<Loadable<HairProfileSnapshot | null>>('loading');
   const [board, setBoard] = useState<Loadable<CareBoard | null>>('loading');
-  const [showAccount, setShowAccount] = useState(false);
-  /** SPEC-019 — a visão de ciclo é um modo da mesma rota, como a conta: só leitura, e volta. */
-  const [showCycle, setShowCycle] = useState(false);
-  /** SPEC-020 — contar o que mudou, alcançável da conta. */
-  const [showHairEvents, setShowHairEvents] = useState(false);
-  /** SPEC-023 — a prateleira, alcançável da conta como os outros registros dela. */
-  const [showShelf, setShowShelf] = useState(false);
+  /**
+   * SPEC-026 fatia 1 — a aba, e a tela empilhada sobre ela.
+   *
+   * Antes eram sete booleanos independentes, cada um com um "voltar" para a Hoje, e **duas
+   * capabilities de cuidado diário moravam dentro da tela de assinatura** porque não havia outro
+   * lugar. Agora há quatro categorias permanentes e uma pilha de um nível: quem abre a prateleira
+   * de Cuidados volta para **Cuidados** (FR4), e não para a Hoje.
+   */
+  const [tab, setTab] = useState<TabKey>('today');
+  const [stacked, setStacked] = useState<null | 'cycle' | 'shelf' | 'hairEvents'>(null);
+  const openStacked = (screen: 'cycle' | 'shelf' | 'hairEvents') => setStacked(screen);
+  const closeStacked = () => setStacked(null);
   /**
    * SPEC-024 — o registro do que ela usou, aberto a partir de um cuidado concluído. Guarda a
    * execução e o nome do cuidado porque a tela precisa dizer de que dia se trata, e um id sozinho
@@ -238,6 +246,23 @@ function AuthenticatedApp({
   }
   if (!profile) return <OnboardingScreen hairProfile={hairProfile} onSaved={setProfile} />;
 
+  /**
+   * A casca. A barra é permanente e **não** depende do que a aba conseguiu carregar: uma leitura
+   * que falha derruba o conteúdo daquela aba, nunca a navegação (§16).
+   */
+  const shell = (content: React.ReactNode) => (
+    <View style={styles.shell}>
+      <View style={styles.shellBody}>{content}</View>
+      <TabBar
+        active={tab}
+        onChange={(next) => {
+          setStacked(null);
+          setTab(next);
+        }}
+      />
+    </View>
+  );
+
   if (reassessing === 'profile') {
     return (
       <OnboardingScreen
@@ -268,7 +293,9 @@ function AuthenticatedApp({
     );
   }
 
-  if (showShelf) return <ShelfScreen products={products} onBack={() => setShowShelf(false)} />;
+  // Empilhadas: abrem sobre a aba de origem e voltam para ela (FR4). A barra continua visível —
+  // sair de uma tela nunca deve exigir encontrar o botão certo antes.
+  if (stacked === 'shelf') return shell(<ShelfScreen products={products} onBack={closeStacked} />);
 
   if (washDay) {
     return (
@@ -287,29 +314,28 @@ function AuthenticatedApp({
     );
   }
 
-  if (showHairEvents) {
-    return (
+  if (stacked === 'hairEvents') {
+    return shell(
       <HairEventsScreen
         events={hairEvents}
         today={today()}
         timeZone={timeZone}
         newEventId={newRequestId}
-        onBack={() => setShowHairEvents(false)}
+        onBack={closeStacked}
         {...(board && board !== 'loading' && board !== 'error'
           ? {
               onReassess: () => {
-                setShowHairEvents(false);
-                setShowAccount(false);
+                closeStacked();
                 setReassessing('profile');
               },
             }
           : {})}
-      />
+      />,
     );
   }
 
-  if (showAccount) {
-    return (
+  if (tab === 'you') {
+    return shell(
       <AccountScreen
         auth={auth}
         deletion={deletion}
@@ -318,35 +344,49 @@ function AuthenticatedApp({
         notificationPreferences={notificationPreferences}
         notificationScheduler={notificationScheduler}
         onNotificationPreferencesChanged={setPrefs}
-        onOpenHairEvents={() => setShowHairEvents(true)}
-        onOpenShelf={() => setShowShelf(true)}
-        onBack={() => setShowAccount(false)}
+        // "Meu cabelo mudou" fica: é sobre **ela**, e é aqui que ela mora. A **prateleira** saiu —
+        // é rotina, e rotina mora em Cuidados (FR6/AC2).
+        onOpenHairEvents={() => openStacked('hairEvents')}
+        // Sem `onBack`: a aba não é uma tela empilhada, e um "voltar aos cuidados" no pé de uma
+        // aba permanente ensinaria que ela está num lugar de onde precisa sair.
         {...(board && board !== 'loading' && board !== 'error'
           ? {
-              onReassess: () => {
-                setShowAccount(false);
-                setReassessing('profile');
-              },
-              onCustomize: () => {
-                setShowAccount(false);
-                setReassessing('preview');
-              },
+              onReassess: () => setReassessing('profile'),
+              onCustomize: () => setReassessing('preview'),
             }
           : {})}
-      />
+      />,
     );
   }
 
-  if (board === 'loading') return <Loading label="Carregando seus cuidados…" />;
+  if (board === 'loading') return shell(<Loading label="Carregando seus cuidados…" />);
   if (board === 'error') {
-    return (
+    return shell(
       <Retry
         text="Não foi possível carregar seus cuidados."
         {...(failure ? { detail: failure } : {})}
         onRetry={loadBoard}
-      />
+      />,
     );
   }
+
+  // Cuidados e Progresso funcionam **sem** plano ativo: dizem o que falta em vez de sumirem (EC1).
+  if (tab === 'care' && stacked !== 'cycle') {
+    return shell(
+      <CareTabScreen
+        hasPlan={board !== null}
+        onOpenCycle={() => openStacked('cycle')}
+        onOpenShelf={() => openStacked('shelf')}
+      />,
+    );
+  }
+  if (tab === 'progress') return shell(<ProgressTabScreen board={board} today={today()} />);
+
+  /**
+   * SPEC-018 — a criação do plano é uma **sequência**, não um lugar: sem plano, a barra sai do
+   * caminho (FR5). Pôr quatro abas em volta de "vamos montar seu cronograma" convidaria a sair
+   * dela antes de terminar.
+   */
   if (!board) {
     return (
       <PlanScreen
@@ -357,24 +397,24 @@ function AuthenticatedApp({
         entitlements={entitlements}
         planPreferences={planPreferences}
         onCreated={loadBoard}
-        onOpenAccount={() => setShowAccount(true)}
+        onOpenAccount={() => setTab('you')}
       />
     );
   }
-  if (showCycle) {
-    return (
+  if (stacked === 'cycle') {
+    return shell(
       <CycleScreen
         board={board}
         today={today()}
-        onBack={() => setShowCycle(false)}
+        onBack={closeStacked}
         onStartNext={() => {
-          setShowCycle(false);
+          closeStacked();
           setReassessing('profile');
         }}
-      />
+      />,
     );
   }
-  return (
+  return shell(
     <TodayScreen
       board={board}
       care={careTracking}
@@ -393,11 +433,13 @@ function AuthenticatedApp({
       onResume={() => {
         void careTracking.resume({ timeZone: timeZone(), commit: true }).then(loadBoard).catch(loadBoard);
       }}
-      onOpenAccount={() => setShowAccount(true)}
-      onOpenCycle={() => setShowCycle(true)}
+      onOpenCycle={() => {
+        setTab('care');
+        openStacked('cycle');
+      }}
       onOpenWashDay={setWashDay}
       onReassess={() => setReassessing('profile')}
-    />
+    />,
   );
 }
 
@@ -465,4 +507,7 @@ export default function IndexRoute() {
 
 const styles = StyleSheet.create({
   center: { flexGrow: 1, justifyContent: 'center' },
+  /** A casca: conteúdo que estica e a barra fixa embaixo dele. */
+  shell: { flex: 1 },
+  shellBody: { flex: 1 },
 });
