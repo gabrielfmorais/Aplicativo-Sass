@@ -88,7 +88,6 @@ const renderScreen = (
       onPause={jest.fn()}
       onPreviewResume={jest.fn(async () => ({ action: 'shifted' as const, shiftDays: 0, careCount: 0 }))}
       onResume={jest.fn()}
-      onOpenAccount={jest.fn()}
       onOpenCycle={jest.fn()}
       onReassess={onReassess}
     />,
@@ -314,7 +313,11 @@ describe('TodayScreen — empty states (AC15)', () => {
       }),
     );
     await waitFor(() => screen.getByText('Nenhum cuidado hoje.'));
-    screen.getByText('Sua conta');
+    // SPEC-026 — a saída para a conta saiu daqui: virou uma aba permanente, e um botão no pé da
+    // Hoje seria um segundo caminho para o mesmo lugar. Ver o ciclo fica, porque ler o mês a partir
+    // do dia é um gesto do dia.
+    screen.getByText('Ver meu ciclo');
+    expect(screen.queryByText('Sua conta')).toBeNull();
   });
 
   it('says the plan is over when nothing is left', async () => {
@@ -603,7 +606,6 @@ describe('TodayScreen — o Wash Day (SPEC-024)', () => {
         onPause={jest.fn()}
         onPreviewResume={jest.fn()}
         onResume={jest.fn()}
-        onOpenAccount={jest.fn()}
         onOpenCycle={jest.fn()}
       />,
     );
