@@ -118,6 +118,24 @@ function AuthenticatedApp({
    * de Cuidados volta para **Cuidados** (FR4), e não para a Hoje.
    */
   const [tab, setTab] = useState<TabKey>('today');
+  /**
+   * SPEC-026 fatia 3 — quantos produtos ativos ela tem. `null` enquanto não se sabe, e **`null`
+   * não é zero**: uma leitura que falhou não pode virar "sua prateleira está vazia".
+   *
+   * Lido em silêncio e fora do caminho: a Hoje não espera por isto, e um erro aqui apenas faz a
+   * sugestão não aparecer — uma oferta ausente não é um erro a mostrar.
+   */
+  const [productCount, setProductCount] = useState<number | null>(null);
+  useEffect(() => {
+    let active = true;
+    products
+      .list()
+      .then((rows) => active && setProductCount(rows.length))
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [products]);
   const [stacked, setStacked] = useState<null | 'cycle' | 'shelf' | 'hairEvents'>(null);
   const openStacked = (screen: 'cycle' | 'shelf' | 'hairEvents') => setStacked(screen);
   const closeStacked = () => setStacked(null);
@@ -438,6 +456,11 @@ function AuthenticatedApp({
         openStacked('cycle');
       }}
       onOpenWashDay={setWashDay}
+      productCount={productCount}
+      onOpenShelf={() => {
+        setTab('care');
+        openStacked('shelf');
+      }}
       onReassess={() => setReassessing('profile')}
     />,
   );

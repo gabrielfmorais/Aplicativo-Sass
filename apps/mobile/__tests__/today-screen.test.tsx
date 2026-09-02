@@ -85,6 +85,8 @@ const renderScreen = (
       onChanged={onChanged}
       hairProfile={hairProfilePort()}
       onOpenWashDay={jest.fn()}
+      productCount={null}
+      onOpenShelf={jest.fn()}
       onPause={jest.fn()}
       onPreviewResume={jest.fn(async () => ({ action: 'shifted' as const, shiftDays: 0, careCount: 0 }))}
       onResume={jest.fn()}
@@ -668,6 +670,8 @@ describe('TodayScreen — o Wash Day (SPEC-024)', () => {
         onChanged={jest.fn()}
         hairProfile={hairProfilePort()}
         onOpenWashDay={onOpenWashDay}
+        productCount={null}
+        onOpenShelf={jest.fn()}
         onPause={jest.fn()}
         onPreviewResume={jest.fn()}
         onResume={jest.fn()}
