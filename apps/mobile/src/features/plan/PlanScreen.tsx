@@ -39,7 +39,7 @@ function Schedule({ items, startsOn }: { items: readonly Item[]; startsOn: Local
     <Stack gap="md">
       {weeks.map((week) => (
         <Card key={week.number}>
-          <Text variant="overline" tone="muted" accessibilityRole="header">
+          <Text variant="overline" tone="accent" accessibilityRole="header">
             {`Semana ${week.number}`}
           </Text>
           <Stack gap="sm">
@@ -270,7 +270,7 @@ export function PlanScreen({
       <Assessment draft={draft} />
 
       <Stack gap="md">
-        <Text variant="overline" tone="muted" accessibilityRole="header">
+        <Text variant="overline" tone="accent" accessibilityRole="header">
           {`Próximas 4 semanas · ${items.length} ${items.length === 1 ? 'cuidado' : 'cuidados'}`}
         </Text>
         {/* The draft owns the start date, not this screen: grouping by `today` would silently

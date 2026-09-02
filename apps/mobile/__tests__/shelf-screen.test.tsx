@@ -12,8 +12,7 @@ const makePort = (overrides: Partial<ProductPort> = {}): jest.Mocked<ProductPort
     ...overrides,
   }) as unknown as jest.Mocked<ProductPort>;
 
-const renderScreen = (products: ProductPort) =>
-  render(<ShelfScreen products={products} onBack={jest.fn()} />);
+const renderScreen = (products: ProductPort) => render(<ShelfScreen products={products} />);
 
 /**
  * SPEC-023 (F26). É a prateleira dela: o app guarda o que ela digitou e mais nada. Não é loja, não

@@ -113,7 +113,7 @@ export function CycleScreen({
        */}
       {cycle.beyond.length > 0 ? (
         <Stack gap="md">
-          <Text variant="overline" tone="muted" accessibilityRole="header">
+          <Text variant="overline" tone="accent" accessibilityRole="header">
             Depois deste ciclo
           </Text>
           <Card>

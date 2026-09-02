@@ -52,6 +52,14 @@ export const color = {
   inkFaint: '#756A62',
   /** Text on a filled accent/ink surface. */
   onFilled: '#FFFFFF',
+  /**
+   * O subordinado **sobre** uma superfície de marca: um eyebrow, um rótulo secundário no painel
+   * escuro. Rosa claríssimo em vez de branco a 80% de opacidade — opacidade sobre um gradiente muda
+   * de cor conforme o ponto, e um valor fixo é a mesma cor em toda a superfície.
+   *
+   * Mede 9.4:1 sobre o vinho: subordinado é hierarquia, nunca permissão para ser ilegível.
+   */
+  onFilledMuted: '#EDC4D5',
 
   /** The accent. Deep plum: the action colour and the premium colour. */
   accent: '#7A2F52',

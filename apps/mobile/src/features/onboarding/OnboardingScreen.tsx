@@ -362,7 +362,7 @@ export function OnboardingScreen({
           </Stack>
         ) : (
           <Stack gap="xl">
-            <HunaFigure style={styles.ribbon} />
+            <HunaFigure frame="band" style={styles.ribbon} />
             <Stack gap="sm">
               <Text variant="overline" tone="accent">
                 {item.interlude.overline}

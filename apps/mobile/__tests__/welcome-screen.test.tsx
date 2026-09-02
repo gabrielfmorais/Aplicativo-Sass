@@ -1,6 +1,15 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
-import { HunaFigure, LOOSE, MASS } from '@/design/HunaFigure';
+import {
+  CROWN,
+  FILAMENTS,
+  FRONT_FALL,
+  HunaFigure,
+  MASS,
+  PROFILE,
+  SIDE_FALL,
+  STRANDS,
+} from '@/design/HunaFigure';
 import { WelcomeScreen } from '@/features/auth/WelcomeScreen';
 
 /**
@@ -55,13 +64,13 @@ describe('HunaFigure (SPEC-018 BR4 / SPEC-026 FR19)', () => {
   /**
    * FR19 — a barreira contra a volta do placeholder.
    *
-   * O hero anterior desenhava cabelo com `View` arredondada, o que é um **retângulo** — e a direção
-   * recusou explicitamente retângulos e listras como representação de cabelo. Um caminho SVG só é
-   * curva se tiver comando de Bézier: `C` ou `S`. Um `d` feito só de `M`, `L` e `Z` é um polígono
-   * com outro nome, e este teste existe para que ninguém volte a ele sem perceber.
+   * O hero de duas versões atrás desenhava cabelo com `View` arredondada, o que é um **retângulo** —
+   * e a direção recusou explicitamente retângulos e listras como representação de cabelo. Um caminho
+   * SVG só é curva se tiver comando de Bézier: `C` ou `S`. Um `d` feito só de `M`, `L` e `Z` é um
+   * polígono com outro nome, e este teste existe para que ninguém volte a ele sem perceber.
    */
   it('desenha o cabelo com curvas de Bézier, nunca com retas', () => {
-    const hair = [MASS, ...LOOSE];
+    const hair = [MASS, CROWN, SIDE_FALL, FRONT_FALL, ...STRANDS, ...FILAMENTS];
     expect(hair.length).toBeGreaterThan(3);
     for (const d of hair) {
       // Bézier de verdade: cúbica (`C`/`S`) em todo caminho de cabelo.
@@ -71,5 +80,29 @@ describe('HunaFigure (SPEC-018 BR4 / SPEC-026 FR19)', () => {
     }
     // A âncora: um polígono passaria na primeira asserção se ela fosse frouxa.
     expect('M0 0 L 10 0 L 10 10 Z').not.toMatch(/[CS]\s/);
+  });
+
+  /**
+   * SPEC-027 — a barreira contra a volta da figura **de frente**.
+   *
+   * A versão anterior era frontal e lia como **microfone** a 390px: de frente o cabelo só pode ser
+   * moldura atrás de um oval claro, e essa é literalmente a silhueta de um microfone. A correção foi
+   * a pose, não o traço — então o que precisa ficar travado é a pose.
+   *
+   * Um perfil não é verificável por pixel num teste unitário, mas é verificável por **estrutura**:
+   * uma silhueta de frente é simétrica em torno do eixo vertical, e um perfil não é. O nariz é o
+   * ponto mais à direita do contorno e fica **muito** além do centro do rosto; num desenho frontal
+   * nenhum ponto do contorno faria isso. É essa assimetria que o teste mede.
+   */
+  it('desenha o rosto de perfil, e não de frente', () => {
+    const xs = [...PROFILE.matchAll(/[-\d.]+\s+[-\d.]+/g)]
+      .map((m) => Number(m[0].split(/\s+/)[0]))
+      .filter((n) => Number.isFinite(n));
+    const min = Math.min(...xs);
+    const max = Math.max(...xs);
+    // O nariz: o extremo direito do contorno do rosto, bem à frente do meio da cabeça.
+    const nose = Math.max(...xs.filter((x) => x < 270));
+    const faceCentre = (min + max) / 2;
+    expect(nose - faceCentre).toBeGreaterThan(60);
   });
 });

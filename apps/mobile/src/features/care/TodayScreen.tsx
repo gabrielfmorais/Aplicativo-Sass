@@ -378,7 +378,7 @@ function Section({
     <Stack gap="md">
       {/* `muted`, not `faint`: this is a heading, and a heading belongs to the second tier of the
           ink scale — the third is for metadata that repeats something already on screen. */}
-      <Text variant="overline" tone="muted" accessibilityRole="header">
+      <Text variant="overline" tone="accent" accessibilityRole="header">
         {title}
       </Text>
       {items.map((item) => (
@@ -719,7 +719,14 @@ export function TodayScreen({
           washDay={washDay}
         />
       ) : (
-        <Card tone="muted" style={styles.focus}>
+        /*
+          SPEC-027 — o cartão de foco é **sempre** o cartão de marca, inclusive vazio. Ele era
+          `muted` quando não havia nada a fazer, e o resultado é que o maior bloco da tela mais
+          frequente do app era um retângulo cinza-bege: um dia sem cuidado parecia um dia em que o
+          produto tinha desligado. Dia livre é uma resposta, não uma ausência — e a resposta mora no
+          mesmo lugar, com a mesma cara, todos os dias.
+        */
+        <Card tone="brand" style={styles.focus}>
           <Text variant="title">
             {nothingLeft ? 'Seu cronograma chegou ao fim.' : 'Nenhum cuidado hoje.'}
           </Text>

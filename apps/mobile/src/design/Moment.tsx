@@ -35,7 +35,7 @@ export function Moment({
     <Screen style={[styles.page, style]} {...(footer ? { footer } : {})}>
       <Reveal style={styles.body}>
         <Stack gap="xl">
-          <HunaFigure style={styles.hero} />
+          <HunaFigure frame="band" style={styles.hero} />
           <Stack gap="sm">
             {overline ? (
               <Text variant="overline" tone="accent">

@@ -26,7 +26,7 @@ export function SuggestionsCard({
 
   return (
     <Stack gap="md">
-      <Text variant="overline" tone="muted" accessibilityRole="header">
+      <Text variant="overline" tone="accent" accessibilityRole="header">
         Sugestões para você
       </Text>
       {suggestions.map((suggestion) => (

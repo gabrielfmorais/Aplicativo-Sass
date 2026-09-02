@@ -75,7 +75,7 @@ export function ProgressTabScreen({
           */}
           {summary.ended ? <CycleSummary progress={summary.progress} ended /> : null}
           <Stack gap="md">
-            <Text variant="overline" tone="muted" accessibilityRole="header">
+            <Text variant="overline" tone="accent" accessibilityRole="header">
               O mês inteiro
             </Text>
             <Card>

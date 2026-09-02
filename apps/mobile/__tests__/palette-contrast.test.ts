@@ -65,6 +65,22 @@ describe('contraste da paleta (SPEC-026 AC8)', () => {
     }
   });
 
+  /**
+   * SPEC-027 — o subordinado sobre a superfície de marca. Ele existe para **não** disputar com o
+   * título, e é exatamente por isso que precisa ser medido: "secundário" é a desculpa mais comum
+   * para um valor ilegível. Aqui vale sobre as superfícies em que ele pode aparecer, não só sobre a
+   * que ele estreou.
+   */
+  it('o texto subordinado sobre a marca também passa AA, e continua abaixo do principal', () => {
+    for (const filled of ['wine', 'accent', 'violet'] as const) {
+      expect(contrast(color.onFilledMuted, color[filled])).toBeGreaterThanOrEqual(AA);
+      // Subordinado é hierarquia: se ele empatasse com `onFilled`, não haveria hierarquia nenhuma.
+      expect(contrast(color.onFilledMuted, color[filled])).toBeLessThan(
+        contrast(color.onFilled, color[filled]),
+      );
+    }
+  });
+
   it('as cores de cuidado continuam legíveis sobre o próprio tom claro e sobre o canvas', () => {
     for (const [fg, bg] of [
       [color.hydration, color.hydrationSoft],

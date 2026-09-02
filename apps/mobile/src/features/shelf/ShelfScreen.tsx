@@ -49,7 +49,18 @@ const CATEGORY_LABEL: Record<ProductCategory, string> = {
 
 type Loadable<T> = 'loading' | 'error' | T;
 
-export function ShelfScreen({ products, onBack }: { products: ProductPort; onBack: () => void }) {
+export function ShelfScreen({
+  products,
+  profile,
+}: {
+  products: ProductPort;
+  /**
+   * SPEC-027 — a prateleira virou aba, então ela ganha o mesmo cabeçalho das outras: o avatar é a
+   * porta de **Você**, e é a mesma porta em todas as abas. Uma aba sem avatar seria a única tela do
+   * app onde o perfil some.
+   */
+  profile?: { readonly name: string | null; readonly onPress: () => void };
+}) {
   const [list, setList] = useState<Loadable<readonly Product[]>>('loading');
   const [archiving, setArchiving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -96,13 +107,11 @@ export function ShelfScreen({ products, onBack }: { products: ProductPort; onBac
   return (
     <Screen
       footer={
-        <Stack gap="sm">
-          <Button label="Adicionar" onPress={add.submit} disabled={!add.ready} busy={add.busy} />
-          <Button label="Voltar" variant="ghost" onPress={onBack} disabled={busy} />
-        </Stack>
+        // Sem "Voltar": aba não volta, sai-se dela tocando outra aba (SPEC-027).
+        <Button label="Adicionar" onPress={add.submit} disabled={!add.ready} busy={add.busy} />
       }
     >
-      <ScreenHeader eyebrow="Seus produtos" title="Minha prateleira" />
+      <ScreenHeader eyebrow="Seus produtos" title="Minha prateleira" {...(profile ? { profile } : {})} />
       <Text tone="muted">
         O que você já tem em casa, do jeito que você chama. Serve para o app não sugerir o que você não tem.
       </Text>
@@ -142,7 +151,7 @@ export function ShelfScreen({ products, onBack }: { products: ProductPort; onBac
       ) : null}
 
       <Stack gap="md">
-        <Text variant="overline" tone="muted" accessibilityRole="header">
+        <Text variant="overline" tone="accent" accessibilityRole="header">
           Na sua prateleira
         </Text>
         {list === 'loading' ? (

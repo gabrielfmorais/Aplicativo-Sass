@@ -78,7 +78,7 @@ export function SignInScreen({ auth }: { auth: AuthPort }) {
     <Screen scroll={false}>
       {/* A faixa do hero volta aqui, menor: liga esta tela à abertura, para a marca não sumir
           justamente no momento em que ela pede o email dela. */}
-      <HunaFigure style={styles.ribbon} />
+      <HunaFigure frame="band" style={styles.ribbon} />
 
       <Stack gap="xs">
         <Text variant="overline" tone="accent">
