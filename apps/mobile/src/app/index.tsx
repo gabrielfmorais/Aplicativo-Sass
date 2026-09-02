@@ -136,8 +136,8 @@ function AuthenticatedApp({
       active = false;
     };
   }, [products]);
-  const [stacked, setStacked] = useState<null | 'cycle' | 'shelf' | 'hairEvents' | 'you'>(null);
-  const openStacked = (screen: 'cycle' | 'shelf' | 'hairEvents' | 'you') => setStacked(screen);
+  const [stacked, setStacked] = useState<null | 'cycle' | 'hairEvents' | 'you'>(null);
+  const openStacked = (screen: 'cycle' | 'hairEvents' | 'you') => setStacked(screen);
   const closeStacked = () => setStacked(null);
   /**
    * SPEC-024 — o registro do que ela usou, aberto a partir de um cuidado concluído. Guarda a
@@ -274,7 +274,10 @@ function AuthenticatedApp({
    * A casca. A barra é permanente e **não** depende do que a aba conseguiu carregar: uma leitura
    * que falha derruba o conteúdo daquela aba, nunca a navegação (§16).
    */
-  /** O acesso a **Você**, no cabeçalho de cada aba: o nome dela em vez de um rótulo. */
+  /**
+   * O avatar do cabeçalho é a **única** porta para Você (SPEC-027, decisão do dono): a quarta vaga
+   * da barra é da Prateleira, e duas entradas para o mesmo perfil seriam duas versões da mesma tela.
+   */
   const profileChip = { name: displayName, onPress: () => openStacked('you') };
 
   const shell = (content: React.ReactNode) => (
@@ -322,8 +325,6 @@ function AuthenticatedApp({
 
   // Empilhadas: abrem sobre a aba de origem e voltam para ela (FR4). A barra continua visível —
   // sair de uma tela nunca deve exigir encontrar o botão certo antes.
-  if (stacked === 'shelf') return shell(<ShelfScreen products={products} onBack={closeStacked} />);
-
   if (washDay) {
     return (
       <WashDayScreen
@@ -371,11 +372,10 @@ function AuthenticatedApp({
         notificationPreferences={notificationPreferences}
         notificationScheduler={notificationScheduler}
         onNotificationPreferencesChanged={setPrefs}
-        // "Meu cabelo mudou" fica: é sobre **ela**, e é aqui que ela mora. A **prateleira** saiu —
-        // é rotina, e rotina mora em Cuidados (FR6/AC2).
-        onOpenHairEvents={() => openStacked('hairEvents')}
-        // Empilhada sobre a aba de origem (fatia 7), então a saída é explícita: tocar numa aba
-        // também sai, mas obrigaria a **escolher um destino** para deixar uma tela que não é aba.
+        // SPEC-027: "Meu cabelo mudou" saiu daqui e foi para **Cuidados** — contar que fez química
+        // é rotina de cabelo, não configuração de conta. Aqui ficou o que é mesmo conta.
+        // Empilhada sobre a aba de origem, então a saída é explícita: tocar numa aba também sai, mas
+        // obrigaria a **escolher um destino** para deixar uma tela que não é aba.
         onBack={closeStacked}
         {...(board && board !== 'loading' && board !== 'error'
           ? {
@@ -386,6 +386,18 @@ function AuthenticatedApp({
       />,
     );
   }
+
+  /**
+   * SPEC-027 — a prateleira virou **aba**: o `ShelfScreen` deixa de ser empilhado e deixa de ter
+   * "voltar", porque uma aba não volta para lugar nenhum — sai-se dela tocando outra.
+   *
+   * ⚠️ **A ordem deste `if` é comportamento, não arrumação.** Ele tem de vir **depois** das telas
+   * empilhadas: colocado antes delas, tocar o avatar na Prateleira gravava `stacked = 'you'` e o
+   * ramo da aba vencia mesmo assim — o avatar virava um botão que não fazia nada, na única aba em
+   * que ele é a porta de Você. E tem de vir **antes** da leitura do board: a prateleira não depende
+   * de cronograma nenhum, e esperar por um seria fazê-la carregar por um dado que ela não usa.
+   */
+  if (tab === 'shelf') return shell(<ShelfScreen products={products} profile={profileChip} />);
 
   if (board === 'loading') return shell(<Loading label="Carregando seus cuidados…" />);
   if (board === 'error') {
@@ -405,7 +417,7 @@ function AuthenticatedApp({
         profile={profileChip}
         hasPlan={board !== null}
         onOpenCycle={() => openStacked('cycle')}
-        onOpenShelf={() => openStacked('shelf')}
+        onOpenHairEvents={() => openStacked('hairEvents')}
       />,
     );
   }
@@ -480,10 +492,8 @@ function AuthenticatedApp({
       onOpenWashDay={setWashDay}
       profile={profileChip}
       productCount={productCount}
-      onOpenShelf={() => {
-        setTab('care');
-        openStacked('shelf');
-      }}
+      // A prateleira é aba: a sugestão leva **para a aba**, e não para uma cópia empilhada dela.
+      onOpenShelf={() => setTab('shelf')}
       onReassess={() => setReassessing('profile')}
     />,
   );

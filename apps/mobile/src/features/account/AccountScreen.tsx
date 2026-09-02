@@ -36,7 +36,6 @@ export function AccountScreen({
   notificationScheduler,
   onNotificationPreferencesChanged,
   onReassess,
-  onOpenHairEvents,
   onCustomize,
   onBack,
 }: {
@@ -49,8 +48,6 @@ export function AccountScreen({
   onNotificationPreferencesChanged: (preferences: NotificationPreferences) => void;
   /** Absent while she has no active plan: there would be nothing to replace (SPEC-014). */
   onReassess?: () => void;
-  /** SPEC-020 — contar o que mudou; ausente quando a capability não está disponível. */
-  onOpenHairEvents?: () => void;
   /**
    * SPEC-015 — opens the preview of a plan built with her preferred weekdays. Absent while she has
    * no active plan: the preview is already the next screen she sees, so there is nothing to open.
@@ -89,7 +86,16 @@ export function AccountScreen({
   return (
     <Screen
       {...(onBack
-        ? { footer: <Button label="Voltar aos cuidados" variant="secondary" onPress={onBack} /> }
+        ? {
+            /*
+              SPEC-027 — "Voltar", e não "Voltar aos cuidados".
+              Esta tela é empilhada sobre a aba de onde ela foi aberta, e desde que o avatar aparece
+              em **quatro** abas, esse destino deixou de ser sempre "os cuidados": aberta da
+              Prateleira, o botão prometia um lugar e entregava outro. Um rótulo que nomeia o destino
+              errado é pior que um genérico — a aba destacada embaixo já diz para onde se volta.
+            */
+            footer: <Button label="Voltar" variant="secondary" onPress={onBack} />,
+          }
         : {})}
     >
       {/*
@@ -99,19 +105,6 @@ export function AccountScreen({
         como aba permanente, a primeira coisa visível passa a ser o que a aba **significa**.
       */}
       <ScreenHeader eyebrow="Seu perfil e sua conta" title="Você" />
-
-      {onOpenHairEvents ? (
-        <Card>
-          <Text variant="heading" accessibilityRole="header">
-            Meu cabelo mudou
-          </Text>
-          <Text tone="muted">
-            Química, coloração, corte, praia, uma pausa — contar o que aconteceu ajuda o app a não seguir com
-            um cronograma feito para antes.
-          </Text>
-          <Button label="Contar o que mudou" variant="secondary" onPress={onOpenHairEvents} />
-        </Card>
-      ) : null}
 
       {onReassess ? (
         <Card>
@@ -143,7 +136,7 @@ export function AccountScreen({
       {/* Last, and quiet on purpose: leaving and deleting are the two things she cannot undo by
           tapping again, so neither should sit where a thumb lands by accident. */}
       <Stack gap="md">
-        <Text variant="overline" tone="muted" accessibilityRole="header">
+        <Text variant="overline" tone="accent" accessibilityRole="header">
           Acesso e dados
         </Text>
         {/* Inline, not the full-page `Loading`: this is one sub-state inside a scrolling page, and

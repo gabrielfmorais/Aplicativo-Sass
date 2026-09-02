@@ -6,11 +6,16 @@ import { Button, Card, Screen, ScreenHeader, Text } from '@/design/primitives';
  * SPEC-026 fatia 1 (FR6) — **Cuidados**: tudo o que é rotina, num lugar só.
  *
  * O cronograma do dia continua na **Hoje**, que é onde ela age. Aqui mora o que ela consulta e
- * mantém: a forma do mês e a prateleira.
+ * mantém sobre o **cabelo**: a forma do mês e o que mudou nele.
  *
- * **A prateleira estava dentro da Conta** — a tela de assinatura, lembretes e exclusão de conta.
- * Não foi decisão: quando o `F26` chegou, não havia outro lugar para pendurá-lo. Uma capability de
- * cuidado diário na gaveta de configurações é uma capability que praticamente não existe.
+ * ⚠️ **SPEC-027 — a prateleira saiu daqui porque virou aba.** Ela não sumiu: ganhou a quarta vaga
+ * da barra, porque é o dado de onde saem o Wash Day, a Smart Shelf e a Hair Intelligence (§0.4).
+ * Deixar o cartão aqui criaria **duas portas para a mesma tela**, que é o que a direção recusa.
+ *
+ * ⚠️ **"Meu cabelo mudou" veio da Conta, e pelo mesmo motivo que a prateleira tinha vindo.** `F23`
+ * morava na tela de assinatura, lembretes e exclusão de conta — não por decisão, mas porque quando
+ * chegou não havia onde pendurá-lo. Contar que fez química não é configuração: é rotina de cabelo,
+ * e rotina de cabelo é aqui. Na Conta ficou o que é mesmo conta.
  *
  * Cartões, não uma lista de links: cada um diz **o que é** antes de oferecer o botão, porque um
  * menu de rótulos obriga a abrir para descobrir, e abrir para descobrir é uma decisão a mais por
@@ -18,12 +23,13 @@ import { Button, Card, Screen, ScreenHeader, Text } from '@/design/primitives';
  */
 export function CareTabScreen({
   onOpenCycle,
-  onOpenShelf,
+  onOpenHairEvents,
   hasPlan,
   profile,
 }: {
   onOpenCycle: () => void;
-  onOpenShelf: () => void;
+  /** SPEC-020 — contar o que mudou; ausente quando a capability não está disponível. */
+  onOpenHairEvents?: () => void;
   /**
    * EC1 — sem plano ativo o ciclo não existe, e um botão que abre uma tela vazia é pior que um
    * botão ausente: a tela diz o que falta em vez de fingir que há algo lá.
@@ -50,20 +56,23 @@ export function CareTabScreen({
         )}
       </Card>
 
-      <Card>
-        <Text variant="heading" accessibilityRole="header">
-          Minha prateleira
-        </Text>
-        <Text tone="muted">
-          Os produtos que você já tem em casa. Serve para o app não sugerir o que você não tem.
-        </Text>
-        <Button
-          label="Ver minha prateleira"
-          variant="secondary"
-          onPress={onOpenShelf}
-          style={styles.action}
-        />
-      </Card>
+      {onOpenHairEvents ? (
+        <Card>
+          <Text variant="heading" accessibilityRole="header">
+            Meu cabelo mudou
+          </Text>
+          <Text tone="muted">
+            Química, coloração, corte, praia, uma pausa — contar o que aconteceu ajuda o app a não seguir com
+            um cronograma feito para antes.
+          </Text>
+          <Button
+            label="Contar o que mudou"
+            variant="secondary"
+            onPress={onOpenHairEvents}
+            style={styles.action}
+          />
+        </Card>
+      ) : null}
     </Screen>
   );
 }

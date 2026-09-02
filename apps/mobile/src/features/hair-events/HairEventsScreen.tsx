@@ -213,7 +213,7 @@ export function HairEventsScreen({
       ) : null}
 
       <Stack gap="md">
-        <Text variant="overline" tone="muted" accessibilityRole="header">
+        <Text variant="overline" tone="accent" accessibilityRole="header">
           O que você já registrou
         </Text>
         {list === 'loading' ? (

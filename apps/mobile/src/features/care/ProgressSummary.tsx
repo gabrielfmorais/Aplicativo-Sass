@@ -15,7 +15,7 @@ export function ProgressSummary({ progress }: { progress: Progress }) {
 
   return (
     <Card tone="muted">
-      <Text variant="overline" tone="muted" accessibilityRole="header">
+      <Text variant="overline" tone="accent" accessibilityRole="header">
         Seu progresso
       </Text>
 

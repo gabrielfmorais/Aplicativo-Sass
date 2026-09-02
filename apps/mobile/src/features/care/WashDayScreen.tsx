@@ -330,7 +330,7 @@ export function WashDayScreen({
       ) : null}
 
       <Stack gap="md">
-        <Text variant="overline" tone="muted" accessibilityRole="header">
+        <Text variant="overline" tone="accent" accessibilityRole="header">
           Produtos
         </Text>
         {offered.length === 0 ? (
@@ -383,7 +383,7 @@ export function WashDayScreen({
         {/* SPEC-025 — **fora do caminho do check-in** (FR7): a pergunta de fios continua sendo um
             toque na Hoje, e esta mora aqui, onde nada é obrigatório. Sem "como estava?" com cara de
             avaliação: nenhum valor é melhor que outro (BR3/NG4). */}
-        <Text variant="overline" tone="muted" accessibilityRole="header">
+        <Text variant="overline" tone="accent" accessibilityRole="header">
           Seu couro cabeludo
         </Text>
         <Row>
@@ -399,7 +399,7 @@ export function WashDayScreen({
       </Stack>
 
       <Stack gap="md">
-        <Text variant="overline" tone="muted" accessibilityRole="header">
+        <Text variant="overline" tone="accent" accessibilityRole="header">
           Como você fez
         </Text>
         <Row>

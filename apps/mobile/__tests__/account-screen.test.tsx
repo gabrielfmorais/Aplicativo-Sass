@@ -101,17 +101,21 @@ describe('AccountScreen — premium reads as addition, never as subtraction (G7/
 });
 
 describe('AccountScreen — the way back belongs to the screen', () => {
+  /**
+   * SPEC-027 — o rótulo é genérico de propósito: a tela é empilhada sobre a aba de origem, e desde
+   * que o avatar aparece em quatro abas o destino não é sempre "os cuidados".
+   */
   it('offers it when the route provides one, and not otherwise', async () => {
     const onBack = jest.fn();
     const withBack = await renderScreen(ports(), { onBack });
-    await waitFor(() => withBack.getByText('Voltar aos cuidados'));
-    await fireEvent.press(withBack.getByText('Voltar aos cuidados'));
+    await waitFor(() => withBack.getByText('Voltar'));
+    await fireEvent.press(withBack.getByText('Voltar'));
     expect(onBack).toHaveBeenCalled();
 
     const without = await renderScreen(ports());
     // SPEC-026 — a aba se chama pelo que ela é: ela. "Sua conta" descrevia uma gaveta de
     // configurações, e assinatura e lembretes deixaram de ser a primeira coisa que ela vê aqui.
     await waitFor(() => without.getByText('Você'));
-    expect(without.queryByText('Voltar aos cuidados')).toBeNull();
+    expect(without.queryByText('Voltar')).toBeNull();
   });
 });
