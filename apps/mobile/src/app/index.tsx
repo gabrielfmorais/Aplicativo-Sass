@@ -410,7 +410,17 @@ function AuthenticatedApp({
     );
   }
   if (tab === 'progress')
-    return shell(<ProgressTabScreen board={board} today={today()} profile={profileChip} />);
+    return shell(
+      <ProgressTabScreen
+        board={board}
+        today={today()}
+        profile={profileChip}
+        onOpenCycle={() => {
+          setTab('care');
+          openStacked('cycle');
+        }}
+      />,
+    );
 
   /**
    * SPEC-018 — a criação do plano é uma **sequência**, não um lugar: sem plano, a barra sai do
