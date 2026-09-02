@@ -14,7 +14,14 @@ export function ProgressSummary({ progress }: { progress: Progress }) {
   const { elapsed, done, skipped, checkInCount, averageFeel, lifetimeDone } = progress;
 
   return (
-    <Card tone="muted">
+    /**
+     * SPEC-029 — o cartão de marca, e não o cinza.
+     *
+     * Este é o **conteúdo da aba Progresso**: o bloco que responde à pergunta que dá nome à tela.
+     * Ele estava em `muted`, que é a superfície mais apagada do sistema — a tela inteira lia como um
+     * documento em rascunho. A cor mora na superfície, nunca no texto (§14).
+     */
+    <Card tone="brand">
       <Text variant="overline" tone="accent" accessibilityRole="header">
         Seu progresso
       </Text>
@@ -26,19 +33,34 @@ export function ProgressSummary({ progress }: { progress: Progress }) {
           </Text>
         ) : (
           <>
-            <Text>{`Neste plano, você concluiu ${done} de ${elapsed} cuidados até aqui.`}</Text>
-            {skipped > 0 ? <Text tone="muted">{skipped > 1 ? `Pulou ${skipped}.` : 'Pulou 1.'}</Text> : null}
+            {/*
+              SPEC-029 — hierarquia, e **só** hierarquia.
+              As quatro linhas tinham o mesmo peso e o mesmo tamanho, então a resposta principal
+              ("concluiu 2 de 3") não se distinguia do detalhe. Isto é `heading`; o resto desce para
+              `caption`. ⚠️ **Nada aqui vira número grande, barra ou porcentagem** — a recusa da
+              SPEC-009 §2 continua inteira, e é por isso que a frase continua sendo uma frase: uma
+              fração em palavras é exata e não convida a conclusão que o dado não sustenta.
+            */}
+            <Text variant="heading">{`Neste plano, você concluiu ${done} de ${elapsed} cuidados até aqui.`}</Text>
+            {skipped > 0 ? (
+              <Text variant="caption" tone="muted">
+                {skipped > 1 ? `Pulou ${skipped}.` : 'Pulou 1.'}
+              </Text>
+            ) : null}
           </>
         )}
 
         {/* Only when it says something the line above did not: after a reassessment the plan-scoped
             number restarts, and this is what keeps her earlier work visible (SPEC-014 FR7/EC6). */}
         {lifetimeDone > done ? (
-          <Text tone="muted">{`Desde o início, você concluiu ${lifetimeDone} cuidados.`}</Text>
+          <Text
+            variant="caption"
+            tone="muted"
+          >{`Desde o início, você concluiu ${lifetimeDone} cuidados.`}</Text>
         ) : null}
 
         {checkInCount > 0 ? (
-          <Text tone="muted">
+          <Text variant="caption" tone="muted">
             {averageFeel === null
               ? `Você avaliou ${checkInCount} ${checkInCount > 1 ? 'cuidados' : 'cuidado'}.`
               : `Você avaliou ${checkInCount} cuidados · média ${averageFeel.toFixed(1).replace('.', ',')} de 5 (sua avaliação).`}
