@@ -425,6 +425,7 @@ export function TodayScreen({
   onResume,
   onOpenCycle,
   onOpenWashDay,
+  profile,
   productCount,
   onOpenShelf,
   onReassess,
@@ -465,6 +466,8 @@ export function TodayScreen({
    */
   productCount: number | null;
   onOpenShelf: () => void;
+  /** SPEC-026 fatia 7 — o acesso a **Você**, no cabeçalho. A tela só repassa. */
+  profile: { readonly name: string | null; readonly onPress: () => void };
   /**
    * D-82 — the way out of a finished cycle. Present whenever there is an active plan, which is the
    * only situation this screen renders in; it is optional so a test can render the screen without
@@ -652,6 +655,7 @@ export function TodayScreen({
       <ScreenHeader
         eyebrow={formatPlannedDate(selected as LocalDate)}
         title={viewingToday ? 'Seus cuidados' : 'Esse dia'}
+        profile={profile}
       />
 
       <WeekStrip week={week} selected={selected} onSelect={setSelected} />

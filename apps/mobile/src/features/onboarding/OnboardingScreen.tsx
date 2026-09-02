@@ -3,7 +3,7 @@ import { HairProfileInputSchema } from '@app/core';
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { HairFlow } from '@/design/HairFlow';
+import { HunaFigure } from '@/design/HunaFigure';
 import { Reveal } from '@/design/Reveal';
 import { Button, Chip, ProgressBar, Row, Screen, Stack, Text } from '@/design/primitives';
 import { space } from '@/design/tokens';
@@ -362,7 +362,7 @@ export function OnboardingScreen({
           </Stack>
         ) : (
           <Stack gap="xl">
-            <HairFlow style={styles.ribbon} />
+            <HunaFigure style={styles.ribbon} />
             <Stack gap="sm">
               <Text variant="overline" tone="accent">
                 {item.interlude.overline}

@@ -1,6 +1,6 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
-import { HairFlow } from '@/design/HairFlow';
+import { HunaFigure, LOOSE, MASS } from '@/design/HunaFigure';
 import { WelcomeScreen } from '@/features/auth/WelcomeScreen';
 
 /**
@@ -43,12 +43,33 @@ describe('WelcomeScreen (SPEC-018 FR1)', () => {
   });
 });
 
-describe('HairFlow (SPEC-018 BR4)', () => {
+describe('HunaFigure (SPEC-018 BR4 / SPEC-026 FR19)', () => {
   /** É decoração. Anunciá-la só colocaria ruído entre a usuária e a ação da tela. */
   it('é invisível para tecnologia assistiva', async () => {
-    const screen = await render(<HairFlow />);
+    const screen = await render(<HunaFigure />);
     expect(screen.queryByRole('image')).toBeNull();
     expect(screen.root?.props.accessibilityElementsHidden).toBe(true);
     expect(screen.root?.props.importantForAccessibility).toBe('no-hide-descendants');
+  });
+
+  /**
+   * FR19 — a barreira contra a volta do placeholder.
+   *
+   * O hero anterior desenhava cabelo com `View` arredondada, o que é um **retângulo** — e a direção
+   * recusou explicitamente retângulos e listras como representação de cabelo. Um caminho SVG só é
+   * curva se tiver comando de Bézier: `C` ou `S`. Um `d` feito só de `M`, `L` e `Z` é um polígono
+   * com outro nome, e este teste existe para que ninguém volte a ele sem perceber.
+   */
+  it('desenha o cabelo com curvas de Bézier, nunca com retas', () => {
+    const hair = [MASS, ...LOOSE];
+    expect(hair.length).toBeGreaterThan(3);
+    for (const d of hair) {
+      // Bézier de verdade: cúbica (`C`/`S`) em todo caminho de cabelo.
+      expect(d).toMatch(/[CS]\s/);
+      // E cada mecha tem **mais de uma**: um segmento só é um arco, e arco não é mecha.
+      expect((d.match(/C/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    }
+    // A âncora: um polígono passaria na primeira asserção se ela fosse frouxa.
+    expect('M0 0 L 10 0 L 10 10 Z').not.toMatch(/[CS]\s/);
   });
 });

@@ -136,8 +136,8 @@ function AuthenticatedApp({
       active = false;
     };
   }, [products]);
-  const [stacked, setStacked] = useState<null | 'cycle' | 'shelf' | 'hairEvents'>(null);
-  const openStacked = (screen: 'cycle' | 'shelf' | 'hairEvents') => setStacked(screen);
+  const [stacked, setStacked] = useState<null | 'cycle' | 'shelf' | 'hairEvents' | 'you'>(null);
+  const openStacked = (screen: 'cycle' | 'shelf' | 'hairEvents' | 'you') => setStacked(screen);
   const closeStacked = () => setStacked(null);
   /**
    * SPEC-024 — o registro do que ela usou, aberto a partir de um cuidado concluído. Guarda a
@@ -179,11 +179,17 @@ function AuthenticatedApp({
    * dobraria a espera antes do primeiro pixel.
    */
   const [askName, setAskName] = useState<boolean | null>(null);
+  /** SPEC-026 fatia 7 — o nome no avatar do cabeçalho. `null` quando ela pulou a pergunta. */
+  const [displayName, setDisplayName] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
     userProfile
       .get()
-      .then((p) => active && setAskName(p === null))
+      .then((p) => {
+        if (!active) return;
+        setAskName(p === null);
+        setDisplayName(p?.displayName ?? null);
+      })
       .catch(() => active && setAskName(false));
     return () => {
       active = false;
@@ -268,6 +274,9 @@ function AuthenticatedApp({
    * A casca. A barra é permanente e **não** depende do que a aba conseguiu carregar: uma leitura
    * que falha derruba o conteúdo daquela aba, nunca a navegação (§16).
    */
+  /** O acesso a **Você**, no cabeçalho de cada aba: o nome dela em vez de um rótulo. */
+  const profileChip = { name: displayName, onPress: () => openStacked('you') };
+
   const shell = (content: React.ReactNode) => (
     <View style={styles.shell}>
       <View style={styles.shellBody}>{content}</View>
@@ -352,7 +361,7 @@ function AuthenticatedApp({
     );
   }
 
-  if (tab === 'you') {
+  if (stacked === 'you') {
     return shell(
       <AccountScreen
         auth={auth}
@@ -365,8 +374,9 @@ function AuthenticatedApp({
         // "Meu cabelo mudou" fica: é sobre **ela**, e é aqui que ela mora. A **prateleira** saiu —
         // é rotina, e rotina mora em Cuidados (FR6/AC2).
         onOpenHairEvents={() => openStacked('hairEvents')}
-        // Sem `onBack`: a aba não é uma tela empilhada, e um "voltar aos cuidados" no pé de uma
-        // aba permanente ensinaria que ela está num lugar de onde precisa sair.
+        // Empilhada sobre a aba de origem (fatia 7), então a saída é explícita: tocar numa aba
+        // também sai, mas obrigaria a **escolher um destino** para deixar uma tela que não é aba.
+        onBack={closeStacked}
         {...(board && board !== 'loading' && board !== 'error'
           ? {
               onReassess: () => setReassessing('profile'),
@@ -392,13 +402,15 @@ function AuthenticatedApp({
   if (tab === 'care' && stacked !== 'cycle') {
     return shell(
       <CareTabScreen
+        profile={profileChip}
         hasPlan={board !== null}
         onOpenCycle={() => openStacked('cycle')}
         onOpenShelf={() => openStacked('shelf')}
       />,
     );
   }
-  if (tab === 'progress') return shell(<ProgressTabScreen board={board} today={today()} />);
+  if (tab === 'progress')
+    return shell(<ProgressTabScreen board={board} today={today()} profile={profileChip} />);
 
   /**
    * SPEC-018 — a criação do plano é uma **sequência**, não um lugar: sem plano, a barra sai do
@@ -415,7 +427,7 @@ function AuthenticatedApp({
         entitlements={entitlements}
         planPreferences={planPreferences}
         onCreated={loadBoard}
-        onOpenAccount={() => setTab('you')}
+        onOpenAccount={() => openStacked('you')}
       />
     );
   }
@@ -456,6 +468,7 @@ function AuthenticatedApp({
         openStacked('cycle');
       }}
       onOpenWashDay={setWashDay}
+      profile={profileChip}
       productCount={productCount}
       onOpenShelf={() => {
         setTab('care');

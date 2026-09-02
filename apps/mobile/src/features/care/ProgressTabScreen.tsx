@@ -17,7 +17,16 @@ import { ProgressSummary } from '@/features/care/ProgressSummary';
  * Uma fração é exata e não se lê a mais; "73%" de quatro cuidados convida a uma conclusão que o
  * dado não sustenta.
  */
-export function ProgressTabScreen({ board, today }: { board: CareBoard | null; today: LocalDate }) {
+export function ProgressTabScreen({
+  board,
+  today,
+  profile,
+}: {
+  board: CareBoard | null;
+  today: LocalDate;
+  /** SPEC-026 fatia 7 — o acesso a **Você**, no cabeçalho. A tela só repassa. */
+  profile: { readonly name: string | null; readonly onPress: () => void };
+}) {
   const progress = useMemo(() => {
     if (!board) return null;
     const view = buildTodayView(board.cares, board.executions, today, board.checkIns, board.pausedOn);
@@ -26,7 +35,7 @@ export function ProgressTabScreen({ board, today }: { board: CareBoard | null; t
 
   return (
     <Screen>
-      <ScreenHeader eyebrow="O que você já fez" title="Progresso" />
+      <ScreenHeader eyebrow="O que você já fez" title="Progresso" profile={profile} />
 
       {progress ? (
         <ProgressSummary progress={progress} />

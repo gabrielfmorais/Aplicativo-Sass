@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-026 |
-| Status | **Draft** |
+| Status | **In progress** — fatias 1 a 8 entregues |
 | Owner | (humano) — projetopaporeto.erp@gmail.com |
 | Bounded Context | **Nenhum — transversal de apresentação**, como a SPEC-016 e a SPEC-018. Vive em `apps/mobile` (DOMAIN-MAP §5), consumindo os contextos que já existem. |
 | Related ADRs | ADR-001 (a UI não decide nada), ADR-008 |
@@ -58,7 +58,7 @@ O segundo problema é o oposto do primeiro: resolver isso com sete abas seria tr
 ## 6. Functional Requirements
 
 ### Navegação
-- FR1 — Barra inferior permanente com **quatro** categorias: **HOJE · CUIDADOS · PROGRESSO · VOCÊ**.
+- FR1 — Barra inferior permanente com **três** categorias: **HOJE · CUIDADOS · PROGRESSO**, cada uma com ícone e palavra. **VOCÊ saiu da barra** e virou o avatar do cabeçalho (fatia 7): o nome dela é um convite, "Você" era um rótulo. A vaga liberada **fica vaga** — é da Community, e preenchê-la agora seria complexidade para preencher espaço.
 - FR2 — A aba ativa é evidente por **forma e palavra**, nunca só por cor.
 - FR3 — Trocar de aba **preserva** o estado da aba anterior dentro da sessão.
 - FR4 — Uma tela aberta a partir de uma aba (Wash Day, prateleira, ciclo) volta para **aquela** aba.
@@ -162,11 +162,15 @@ Nenhuma para as frentes 1–4. A frente 5 (hero) depende da **OQ1**.
 
 ## 20. Implementation Plan
 
-1. **Navegação** — as quatro abas, a redistribuição das capabilities, e a Conta deixando de ser gaveta.
-2. **Hoje + calendário clicável** — a semana no topo passa a comandar o conteúdo.
-3. **Sugestões para você** — derivadas de fato, dispensáveis, sem conteúdo capilar novo.
-4. **Identidade** — a paleta ampliada, com contraste verificado.
-5. **Hero** — depois da OQ1 resolvida.
+1. ✅ **Navegação** — as abas, a redistribuição das capabilities, e a Conta deixando de ser gaveta (#94).
+2. ✅ **Hoje + calendário clicável** — a semana no topo comanda o conteúdo (#95).
+3. ✅ **Sugestões para você** — derivadas de fato, dispensáveis, sem conteúdo capilar novo (#97).
+4. ✅ **Identidade** — a paleta ampliada, com contraste verificado (#96).
+5. ✅ **Hero** — `HunaFigure` em `react-native-svg` (D-101).
+6. ✅ **Ícones na barra** — quatro caminhos desenhados no projeto, não uma biblioteca.
+7. ✅ **Perfil no cabeçalho** — avatar com o nome dela; a barra cai para três.
+8. ✅ **Fundo Huna** — curvas de mecha em opacidade baixa, atrás de toda tela.
+9. Acabamento: a auditoria visual a 390px, e o que ela apontar.
 
 Cada fatia é validada a 390px no DEV real antes da seguinte (D-90).
 
@@ -180,7 +184,8 @@ Reverter a fatia. Nenhum dado é criado ou alterado, então rollback é `git rev
 
 ## 23. Open Questions
 
-- **OQ1 — BLOCKING para a frente 5 — a tecnologia do hero é dependência nova (§4 HUMAN GATE).** O dono pediu curvas reais e disse "não volte a tentar representar cabelo com retângulos" — e retângulo com `borderRadius` é literalmente tudo o que `View` sabe desenhar. As opções: **(a) `react-native-svg`** — curvas Bézier, gradientes e máscaras de verdade; é o pacote que o próprio Expo instala e suporta (`npx expo install`), funciona no preview web e anima com o `Animated` da plataforma; **(b) `@shopify/react-native-skia`** — muito mais poderoso (shaders, blur), muito mais pesado, e no web exige CanvasKit/WASM, o que quebraria o preview que hoje é o único jeito de validar a 390px; **(c) asset autoral** (`expo-image` + arquivo) — a melhor qualidade possível, e é a OQ1 da SPEC-018, que continua sem o asset existir; **(d) continuar com `View`** — é o placeholder atual, e é o que o dono acabou de recusar. *Recomendação:* **(a)**. *Assunção enquanto não houver decisão:* o hero atual continua como placeholder e as frentes 1–4 seguem sem ele.
+- **OQ1 — RESOLVIDA: `react-native-svg` (D-101).** O dono aprovou a dependência e, com ela, a regra: dependência reversível, compatível com a stack, sem custo e sem impacto irreversível deixou de ser human gate. Skia foi descartada por exigir CanvasKit/WASM no web, que **quebraria a validação a 390px** — o único jeito de ver o produto hoje. *Texto original:* O dono pediu curvas reais e disse "não volte a tentar representar cabelo com retângulos" — e retângulo com `borderRadius` é literalmente tudo o que `View` sabe desenhar. As opções: **(a) `react-native-svg`** — curvas Bézier, gradientes e máscaras de verdade; é o pacote que o próprio Expo instala e suporta (`npx expo install`), funciona no preview web e anima com o `Animated` da plataforma; **(b) `@shopify/react-native-skia`** — muito mais poderoso (shaders, blur), muito mais pesado, e no web exige CanvasKit/WASM, o que quebraria o preview que hoje é o único jeito de validar a 390px; **(c) asset autoral** (`expo-image` + arquivo) — a melhor qualidade possível, e é a OQ1 da SPEC-018, que continua sem o asset existir; **(d) continuar com `View`** — é o placeholder atual, e é o que o dono acabou de recusar. *Recomendação:* **(a)**. *Assunção enquanto não houver decisão:* o hero atual continua como placeholder e as frentes 1–4 seguem sem ele.
+- **OQ6 — CAN DEFER — a figura do hero é desenhada, não um asset autoral.** Cinco tentativas até uma leitura convincente, e o registro do que cada uma ensinou está no cabeçalho do `HunaFigure`. É uma figura conceitual honesta e muito melhor que o placeholder de retângulos — mas um asset autoral, ilustrado por alguém, continua sendo o teto desta tela (OQ1 da SPEC-018, ainda aberta). *Assunção:* o desenho atual fica.
 - **OQ2 — IMPORTANT — o nome da terceira aba.** "PROGRESSO" descreve bem `F16`/`F29` e mal o histórico do que ela registrou (Wash Days, eventos de cabelo), que também mora ali. *Assunção:* "PROGRESSO", porque é a palavra que o dono usou e porque o histórico é o que **produz** o progresso. *Gatilho para reabrir:* se a aba virar majoritariamente histórico em vez de leitura de evolução.
 - **OQ3 — CAN DEFER — persistir a aba entre sessões.** Reabrir na última aba é conveniente e também é uma forma de esconder a Hoje de quem fechou o app em outro lugar. *Assunção:* sempre abre em HOJE. *Gatilho:* pedido explícito.
 - **OQ4 — CAN DEFER — quantas sugestões cabem.** Depende de quantas se aplicam ao mesmo tempo, o que só se sabe com a tela montada. *Assunção:* no máximo **duas** visíveis, o resto sob "ver mais".
@@ -190,4 +195,5 @@ Reverter a fatia. Nenhum dado é criado ou alterado, então rollback é `git rev
 
 | Data | Mudança | Autor |
 |---|---|---|
+| 2026-09-02 | v0.2 — **fatias 1 a 8 entregues.** A barra caiu para **três** categorias: "Você" virou o avatar do cabeçalho, e a vaga liberada ficou **vaga** para a Community — preenchê-la seria complexidade para preencher espaço. Ícones desenhados no projeto em vez de biblioteca. Hero refeito em SVG depois de **cinco** tentativas, cada uma com um erro diferente registrado no arquivo (bulbo, vaso, listras, casulo). Fundo Huna atrás de toda tela. **Dois achados da auditoria visual:** o fundo entre 0.03 e 0.07 simplesmente não existia a 390px — sutil não é ausente —, e "Você", ao virar tela empilhada, tinha perdido a saída explícita. | agente (§0.2) |
 | 2026-09-02 | v0.1 — Draft criada a partir da direção do dono. **O diagnóstico que a justifica:** o app tem uma rota, sete modos booleanos e **duas capabilities de cuidado diário (`F26` prateleira e `F23` "meu cabelo mudou") morando dentro da tela de assinatura e exclusão de conta** — não por decisão, mas porque nenhuma SPEC anterior tinha um lugar para pendurá-las. A **OQ1 é o único gate**: curvas reais exigem uma dependência que o projeto não tem, e `View` só desenha retângulo — as frentes 1 a 4 não dependem dela e seguem primeiro (§0.2 "gate não bloqueia o resto"). | agente (§0.3/D-97) |

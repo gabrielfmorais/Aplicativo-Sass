@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { HairFlow } from '@/design/HairFlow';
+import { HunaFigure } from '@/design/HunaFigure';
 import { Button, Screen, Stack, Text } from '@/design/primitives';
 import { space } from '@/design/tokens';
 
@@ -43,7 +43,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
         </Text>
       </View>
 
-      <HairFlow style={styles.hero} />
+      <HunaFigure style={styles.hero} />
 
       <Stack gap="sm">
         <Text variant="title">Seu cabelo. Sua rotina. Sua evolução.</Text>
