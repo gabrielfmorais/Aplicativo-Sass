@@ -169,6 +169,33 @@ fatia diferente, e um hub magro aceita cada uma **sem mexer nas anteriores**.
 - **Sem RPC.** Nada aqui é invariante de servidor — não há dia civil a decidir nem idempotência a
   guardar. O hub nasce por `upsert ... on conflict do nothing` na primeira marcação.
 
+### 3.2e `wash_day_scalp` — como o couro cabeludo esteve (SPEC-025)
+
+| Coluna | Tipo | Notas |
+|---|---|---|
+| wash_day_id | uuid **PK** | a chave **é** o hub: uma resposta por Wash Day, e portanto por execução |
+| scalp_feel | text not null, `CHECK` em 3 valores | `oily_quickly` · `balanced` · `dry_tendency` — o vocabulário de `hair_profiles.scalp_tendency` (SPEC-002), sem o `unknown` |
+| user_id | uuid not null, FK `auth.users` cascade | |
+| created_at | timestamptz not null | |
+
+- FK composta `(wash_day_id, user_id) → wash_days (id, user_id) on delete cascade`. Anular a
+  execução leva a resposta junto, sem regra de aplicação.
+- **`UPDATE` no grant, e é a razão de a tabela existir separada.** Trocar de resposta é
+  `on conflict do update` — **uma** escrita —, e um delete+insert deixaria uma janela sem resposta
+  se a segunda metade falhasse.
+- **Por que não é uma coluna em `wash_days`.** A coluna exigiria `grant update (scalp_feel)`;
+  `tests.unapproved_grants()` lê `pg_class.relacl`, um grant de coluna vive em
+  `pg_attribute.attacl`, e **nenhum guardrail do projeto olha para lá** — o privilégio existiria
+  fora do alcance da allowlist. `UPDATE` na tabela `wash_days` inteira seria pior: deixaria o
+  cliente reapontar `care_execution_id` e mover o registro de um cuidado para outro.
+- **Por que não é uma coluna em `checkins`.** `checkins` é append-only e escrito só por
+  `submit_checkin`: a resposta teria de ser dada no mesmo instante do check-in, transformando um
+  toque em dois — ou ficaria impossível de completar depois.
+- ⚠️ **Sem sintoma clínico.** Coceira, descamação, dor, ferida e queda mudariam a natureza do dado
+  para **saúde**: exigem base legal com a tabela `consents`, que não existe (D-32), **e** sign-off
+  de domínio (D-26). Duas chaves, nenhuma do agente (SPEC-025 OQ2).
+- **Não é escala.** Nenhum valor é melhor que outro — um couro oleoso não é uma nota baixa.
+
 ### 3.3 `hair_profiles` — Hair Profile (append-only, implementado na SPEC-002)
 | Coluna | Tipo | Notas |
 |---|---|---|
@@ -390,6 +417,7 @@ texto livre**, e nenhum dos três existe.
 |---|---|---|---|---|---|
 | Email, provider ids, hash de senha | `auth.users` (Supabase Auth) | Identificação | Sim — é a conta | Até exclusão | Email sim |
 | **Nome ou apelido escolhido por ela** (opcional; pular é grátis) | `profiles.display_name` | **PII** — identificação | Sim (SPEC-018): o app fala com ela pelo nome | Até exclusão; ela pode apagar a qualquer momento (UPDATE para nulo) | Sim |
+| **Como o couro cabeludo esteve** naquele cuidado (escolha fechada) | `wash_day_scalp` | Rotina pessoal — **cosmética capilar, não saúde**: é o mesmo dado que `hair_profiles.scalp_tendency` já guarda | Sim (SPEC-025): sem a série, `P2` não enxerga metade da queixa | Até a exclusão da conta, ou até ela anular a execução | Sim |
 | **Os produtos que ela possui** (nome dado por ela + categoria fechada) | `products` | **PII** — inventário pessoal | Sim (SPEC-023): sem saber o que ela tem, o app recomendaria o que ela não tem | Até exclusão; ela arquiva quando quiser (a linha fica) | Sim |
 | **O que mudou no cabelo dela** (escolha fechada + data) | `hair_events` | Pessoal, não sensível — mesma categoria de `hair_profiles` | Sim (SPEC-020): sem isso o cronograma segue feito para antes | Até exclusão; anulada por ela a qualquer momento (a linha fica) | Sim |
 | Características do cabelo (8 respostas de escolha fechada) | `hair_profiles` | Pessoal, não sensível | Sim — é o core | Até exclusão (append-only: os snapshots antigos ficam) | Sim |
