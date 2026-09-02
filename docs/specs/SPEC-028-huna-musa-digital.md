@@ -1,9 +1,9 @@
-# SPEC-028 — A Musa Digital: o hero da Huna, refeito por outro método
+# SPEC-028 — O hero da Huna: placeholder técnico e a costura para o asset autoral
 
 | Campo | Valor |
 |---|---|
 | ID | SPEC-028 |
-| Status | **Proposta visual — aguarda aprovação do dono** |
+| Status | **Placeholder técnico** — o hero final vem de asset autoral externo (dono, 2026-09-02) |
 | Owner | dono (direção dada em sessão, 2026-09-02) |
 | Bounded Context | — (design system; nenhum contexto de domínio é tocado) |
 | Related ADRs | D-101 (dependência técnica reversível), D-97, D-90 (validação no real) |
@@ -145,3 +145,28 @@ Uma PR. Sem migration. Reverter a PR desfaz tudo; nenhum estado persistido depen
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-09-02 | v0.1 — o hero refeito **por outro método**, depois da reprovação visual do dono. Cinco correções vieram de olhar a tela, não do código: **(1)** o palco quase quadrado num aparelho de 844pt amplia pela altura e mostra 47% da largura — virou um túnel de fitas sem figura dentro; **(2)** as camadas eram `Svg` em fluxo normal e **empilhavam na vertical**, com o campo na metade de cima e a touca em cima da copy; **(3)** fitas simétricas para os dois lados leem **casulo**, não cabelo — cabelo comprido cai para um lado; **(4)** sem a touca, dezenove raízes convergem num bico; **(5)** ids de `defs` repetidos em sete `Svg`: no nativo são escopados, **na web não são**, e o desenho só estava certo porque as cópias eram idênticas. | agente (§0.2) |
+
+## 25. Encerramento da frente artística (dono, 2026-09-02)
+
+⛔ **O dono encerrou as tentativas de criar o hero final em SVG procedural.** Três versões foram
+reprovadas; a conclusão é que ilustração desta qualidade não sai daqui, e ela está aceita. O
+`HunaFigure` passa a ser **placeholder técnico**.
+
+**O que muda de responsabilidade.** Quando o asset autoral externo chegar, o trabalho é integração ·
+responsividade · composição · animação · performance · redução de movimento · validação real a
+390px. Nenhum deles é desenhar.
+
+**O que fica pronto para isso, e é a razão de esta PR existir mesmo com a arte encerrada:**
+
+1. **Uma porta só.** Quatro telas consomem `<HunaFigure frame style />` e nenhuma sabe como ele é
+   desenhado. O asset entra sem tocar em nenhuma delas.
+2. **Palco separado de arte.** Enquadramento duplo, máscara de dissolução, driver de movimento,
+   redução de movimento e acessibilidade vivem no componente e **sobrevivem** à troca. Some só o
+   desenho.
+3. **O contrato escrito:** `docs/design/HUNA-HERO-ASSET.md` — proporção de referência, área
+   reservada do wordmark, o terço inferior que a máscara dissolve, as sete camadas que o movimento
+   exige, os quatro formatos possíveis com o que cada um custa, e o orçamento de performance.
+4. **As correções que não eram arte ficam:** a camada em fluxo normal que empilhava na vertical, e
+   os ids de `defs` repetidos em sete `Svg` — escopados no nativo, **não** na web.
+
+⚠️ **AC6 continua sendo do dono, e continua não tendo teste.**

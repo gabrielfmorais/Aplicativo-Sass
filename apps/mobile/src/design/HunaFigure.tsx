@@ -17,7 +17,25 @@ import { ribbonPath, type Spine, type WidthProfile } from './ribbon';
 import { color } from './tokens';
 
 /**
- * SPEC-028 — a **Musa Digital** da Huna.
+ * SPEC-028 — o hero da Huna.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⛔ **ISTO É PLACEHOLDER TÉCNICO, NÃO DESIGN FINAL** (decisão do dono, 2026-09-02).
+ *
+ * O dono vai fornecer um **asset visual autoral externo** para o hero. Até ele chegar, este desenho
+ * segura a tela — e **não deve receber novas tentativas de refino artístico**. Três versões foram
+ * reprovadas visualmente; a conclusão do dono é que ilustração desta qualidade não sai de SVG
+ * procedural escrito por agente, e essa conclusão está aceita.
+ *
+ * **O que fazer quando o asset chegar:** `docs/design/HUNA-HERO-ASSET.md` tem o contrato de
+ * integração — o que o app garante, o que o asset precisa entregar, e exatamente o que se troca.
+ *
+ * **A costura, em uma frase:** trocam-se as constantes de desenho (`PROFILE`, `SHEEN`, `CAP`,
+ * `RIBBONS`) e o corpo do `return`. **Fica** tudo o que é palco e não é arte — os dois
+ * enquadramentos, a máscara de dissolução, o driver de movimento, a redução de movimento e as
+ * garantias de acessibilidade. As quatro telas que consomem este componente não sabem como ele é
+ * desenhado e **não mudam**.
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
  * ⚠️ **A decisão de tecnologia, tomada com o repositório aberto e não por preferência.**
  *
