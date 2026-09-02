@@ -2,27 +2,28 @@ import { StyleSheet, View } from 'react-native';
 
 import { HunaFigure } from '@/design/HunaFigure';
 import { Button, Screen, Stack, Text } from '@/design/primitives';
-import { color, radius, space } from '@/design/tokens';
+import { color, space } from '@/design/tokens';
 
 /**
- * SPEC-018 FR1 — a entrada da Huna.
+ * SPEC-018 FR1 + SPEC-028 — a entrada da Huna.
  *
  * O app abria numa tela chamada "Entrar". Uma pessoa que nunca ouviu falar do produto encontrava um
  * formulário antes de encontrar uma razão — e primeira impressão não se repete.
  *
- * **Uma ideia por tela, e a ideia é a marca.** Nome, três palavras sobre o que o produto faz, o
- * hero, e **uma** ação. Nada mais cabe aqui: cada elemento a mais rouba do único que importa.
+ * **Uma ideia por tela, e a ideia é a marca.** Nome, três palavras sobre o que o produto faz, a
+ * figura, e **uma** ação. Nada mais cabe aqui: cada elemento a mais rouba do único que importa.
  *
- * **SPEC-027 — o hero deixou de ser uma faixa e virou a tela.** Antes: creme no topo, uma faixa
- * escura no meio com bordas retas em cima e embaixo, creme de novo. Três blocos, e a marca escrita
- * em cinza sobre o creme — a tela de abertura de um produto premium parecendo um documento com uma
- * figura colada no meio. Agora o painel escuro **começa no topo** e o wordmark mora **dentro** dele,
- * em branco sobre ameixa. Uma emenda em vez de duas, e a primeira coisa que se vê é a cor da marca.
+ * ⚠️ **SPEC-028 — a figura deixou de ser um bloco e virou a tela.** A versão anterior era um painel
+ * vinho com canto arredondado ocupando o topo: uma imagem **dentro de um cartão**, com uma borda
+ * dizendo onde ela acaba. Agora a Musa ocupa a viewport inteira, atrás de tudo, e **se apaga** numa
+ * máscara em gradiente antes do pé da tela — não há emenda, não há moldura, e o cabelo sangra pela
+ * composição em vez de parar num raio de 28pt.
  *
- * ⚠️ **O texto fica sobre a parte vazia do painel, nunca sobre a figura.** A figura ocupa a direita
- * e o baixo; o wordmark ocupa o alto à esquerda, que é exatamente onde o cabelo não vai. Não há
- * caixa translúcida atrás do texto, porque caixa atrás de texto é o remendo de quem pôs o texto no
- * lugar errado.
+ * ⚠️ **O texto nunca disputa com a figura, e isso é layout e não sorte.** O wordmark fica no topo,
+ * sobre a parte profunda do campo, em branco. O bloco de copy e o botão ficam **abaixo da altura em
+ * que a máscara já zerou** — ali o fundo é o creme da Huna, e `ink` sobre creme mede 13:1 como em
+ * qualquer outra tela. Nenhuma caixa translúcida atrás de texto: caixa atrás de texto é o remendo de
+ * quem pôs o texto no lugar errado.
  *
  * **A copy não promete resultado.** "Seu cabelo. Sua rotina. Sua evolução." descreve o que o app
  * organiza, não o que o cabelo dela vai virar — promessa de resultado capilar seria conteúdo
@@ -43,19 +44,25 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
         </Stack>
       }
     >
-      <View style={styles.hero}>
-        <HunaFigure style={StyleSheet.absoluteFill} />
-        <View style={styles.brand}>
-          <Text variant="overline" style={styles.eyebrow}>
-            Cuidado capilar
-          </Text>
-          {/* O wordmark é tipográfico de propósito (OQ2): existe nome, ainda não existe marca
-              gráfica — e uma marca fácil de trocar é o que o dono pediu. */}
-          <Text variant="display" style={styles.wordmark} accessibilityRole="header">
-            Huna
-          </Text>
-        </View>
+      {/*
+        Fora do fluxo e atrás de tudo: a figura não empurra o texto, o texto se apoia nela. É o que
+        permite "figura parcialmente fora da área" sem que o layout precise saber disso.
+      */}
+      <HunaFigure style={styles.musa} />
+
+      <View style={styles.brand}>
+        <Text variant="overline" style={styles.eyebrow}>
+          Cuidado capilar
+        </Text>
+        {/* O wordmark é tipográfico de propósito (OQ2): existe nome, ainda não existe marca
+            gráfica — e uma marca fácil de trocar é o que o dono pediu. */}
+        <Text variant="display" style={styles.wordmark} accessibilityRole="header">
+          Huna
+        </Text>
       </View>
+
+      {/* O vão: é ele que reserva a metade de cima para a figura sem ninguém precisar medir nada. */}
+      <View style={styles.gap} />
 
       <Stack gap="sm" style={styles.copy}>
         <Text variant="title">Seu cabelo. Sua rotina. Sua evolução.</Text>
@@ -69,30 +76,23 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
 }
 
 const styles = StyleSheet.create({
+  /** Sem gutter e sem respiro no topo: a composição sangra até as bordas do aparelho. */
+  page: { paddingTop: 0, paddingHorizontal: 0, gap: 0 },
   /**
-   * Sem gutter e sem respiro no topo: o painel escuro sangra até a borda da tela nos três lados.
-   * O gutter volta só para o texto, logo abaixo.
+   * A figura cobre a viewport inteira e vive **atrás** do conteúdo. Ela se apaga sozinha antes do
+   * pé (a máscara está dentro dela), então não há corte, nem borda, nem cartão.
    */
-  page: { paddingTop: 0, paddingHorizontal: 0, gap: space.xl },
-  /**
-   * `flex: 1` em vez de altura fixa: numa tela de 320pt com fonte grande, o painel cede espaço ao
-   * texto em vez de empurrá-lo para fora (EC1). O mínimo garante que ele nunca vire uma faixa.
-   */
-  hero: {
-    flex: 1,
-    minHeight: 260,
-    justifyContent: 'flex-start',
-    /** O canto arredondado só embaixo: em cima ele encosta na borda do aparelho. */
-    borderBottomLeftRadius: radius.xl,
-    borderBottomRightRadius: radius.xl,
-    overflow: 'hidden',
-    backgroundColor: color.wine,
-  },
-  /** O respiro do topo é grande porque acomoda a barra de status por cima do painel. */
+  musa: { position: 'absolute', left: 0, right: 0, bottom: 0, top: -space.xxl },
+  /** O respiro do topo acomoda a barra de status por cima da parte profunda do campo. */
   brand: { paddingTop: space.xxxl + space.lg, paddingHorizontal: space.xl, gap: space.xs },
-  /** Sobre ameixa, o eyebrow é claro — a cor da marca migrou para o fundo. */
+  /** Sobre o campo profundo, o eyebrow é claro — a cor da marca migrou para o fundo. */
   eyebrow: { color: color.onFilledMuted },
   /** Maior que `display`: é a única palavra da tela que precisa ser lembrada. */
-  wordmark: { fontSize: 44, lineHeight: 50, letterSpacing: -0.5, color: color.onFilled },
-  copy: { paddingHorizontal: space.xl },
+  wordmark: { fontSize: 46, lineHeight: 52, letterSpacing: -0.6, color: color.onFilled },
+  /**
+   * `flex: 1` num vão vazio, e não altura fixa: numa tela de 320pt com fonte grande é o vão que
+   * encolhe, e o texto continua inteiro (EC1). O mínimo garante que a figura nunca vire uma faixa.
+   */
+  gap: { flex: 1, minHeight: 150 },
+  copy: { paddingHorizontal: space.xl, paddingBottom: space.lg },
 });

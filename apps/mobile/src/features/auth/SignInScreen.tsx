@@ -5,7 +5,7 @@ import { Platform, StyleSheet } from 'react-native';
 
 import { HunaFigure } from '@/design/HunaFigure';
 import { Button, Field, Screen, Stack, Text } from '@/design/primitives';
-import { space } from '@/design/tokens';
+import { radius, space } from '@/design/tokens';
 
 type Phase = 'idle' | 'busy' | 'waiting_for_otp';
 
@@ -163,5 +163,7 @@ export function SignInScreen({ auth }: { auth: AuthPort }) {
 
 const styles = StyleSheet.create({
   /** Faixa, não palco: aqui a marca acompanha, e quem manda é a entrada. */
-  ribbon: { height: space.xxxl * 2 },
+  // SPEC-028: cantos arredondados — sem a máscara do palco, a faixa terminaria num corte reto, e
+  // corte reto é a moldura que a direção tirou da abertura.
+  ribbon: { height: space.xxxl * 2, borderRadius: radius.lg, overflow: 'hidden' },
 });

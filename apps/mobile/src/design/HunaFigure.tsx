@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, {
-  Circle,
   Defs,
+  G,
   Ellipse,
   LinearGradient,
+  Mask,
   Path,
   RadialGradient,
   Rect,
@@ -12,148 +13,273 @@ import Svg, {
 } from 'react-native-svg';
 
 import { useReduceMotion } from './motion';
+import { ribbonPath, type Spine, type WidthProfile } from './ribbon';
 import { color } from './tokens';
 
 /**
- * SPEC-027 — o hero da Huna: uma figura **de perfil**, com o cabelo como protagonista.
+ * SPEC-028 — a **Musa Digital** da Huna.
  *
- * ⚠️ **O que veio antes, e por que foi reprovado olhando a tela.** A versão da SPEC-026 desenhava a
- * figura **de frente**: uma elipse ameixa grande, um círculo claro no meio e um retângulo de
- * pescoço. A 390px isso não lê como mulher nem como cabelo — lê como **microfone**. O erro não foi
- * o SVG, foi a pose: de frente, o cabelo só pode aparecer como moldura atrás da cabeça, e moldura
- * atrás de um oval claro é exatamente a silhueta de um microfone. Somam-se a isso duas linhas de
- * contorno que deveriam ser fios e leem como o contorno de um ovo.
+ * ⚠️ **A decisão de tecnologia, tomada com o repositório aberto e não por preferência.**
  *
- * **De perfil, o cabelo tem para onde ir.** É a diferença estrutural, não estética: com o rosto
- * virado, a massa de cabelo ganha uma **direção** — nasce na coroa, passa por trás da cabeça e cai
- * em diagonal atravessando o quadro. Aí ela pode ser longa, pode ter mechas por cima e pode se
- * mover, porque há um caminho a percorrer. De frente não havia.
+ * A direção autorizou trocar de tecnologia se o SVG fosse o limitador. Ele não é — e a medição é
+ * simples: `react-native-svg@15.15.4` traz `Mask`, `ClipPath`, gradientes lineares e radiais em
+ * espaço de usuário, e a suíte de filtros inteira. Nada do que esta figura precisa está fora dele.
  *
- * **A leitura, camada por camada** — e nenhuma delas é "um oval sobre outro":
+ * As alternativas foram avaliadas e **reprovadas por motivo concreto, não por contagem de
+ * dependências**:
  *
- * 1. `MASS` — a massa de cabelo, **atrás de tudo**, da coroa até fora do quadro embaixo à esquerda.
- * 2. `PROFILE` — testa, nariz, lábio, queixo, mandíbula, pescoço e ombro num **único contorno**.
- *    Um perfil é a silhueta humana mais reconhecível que existe, e é ela que impede a figura de
- *    virar mancha. É também o que dispensa rosto: não há olho, boca nem traço étnico desenhado.
- * 3. `CROWN` — a mecha que cobre o alto da cabeça e define a **linha do cabelo** na testa. Sem ela
- *    o crânio fica careca entre a massa de trás e a testa.
- * 4. `STRANDS` — mechas longas por cima, claras, que dão textura à massa sem recortá-la (o erro dos
- *    "gomos" registrado na versão anterior: volume vem de traço por cima, nunca de subdividir).
- * 5. `FILAMENTS` — dois fios luminosos com **nós de luz** ao longo do caminho. É a única pista de
- *    tecnologia, e é deliberadamente pequena: a direção pede "meio futurista", não robô. Um fio que
- *    brilha e tem pontos é cabelo e é dado ao mesmo tempo; uma placa de circuito seria nenhum dos
- *    dois.
+ * - **Rive** exige um `.riv` autorado no editor gráfico da Rive. Ninguém nesta sessão produz esse
+ *   arquivo, e o runtime é nativo — quebraria a validação a 390px, que é hoje o único jeito de ver o
+ *   produto (D-101 reprova exatamente por isso).
+ * - **Lottie** aceita JSON gerado por código, mas **a arte continua vindo de mim**: seria a mesma
+ *   ilustração, escrita num formato pior, mais uma dependência nativa e mais um risco no preview.
+ *   Trocar de formato não desenha melhor.
  *
- * **Continua servindo qualquer cabelo.** O argumento que criou o placeholder abstrato continua de
- * pé: o produto atende liso, ondulado, cacheado e crespo, e a primeira tela não pode dizer a
- * nenhuma delas que este lugar não é para ela. Por isso a massa é **volume sem textura declarada** —
- * não é liso escorrido nem cacho definido — e o perfil não tem traço facial algum.
+ * **O limitador real era o método.** As três versões anteriores foram escritas à mão, caminho por
+ * caminho, e isso tem um teto de quatro ou cinco formas — depois disso ninguém segura o conjunto na
+ * cabeça. Quatro formas opacas leem **flat**, por mais bem desenhadas que estejam: falta
+ * sobreposição para o olho construir profundidade.
  *
- * **O movimento.** As mechas e os filamentos vivem em camadas próprias, que giram alguns graus em
- * torno da **coroa** — é o pivô certo, porque cabelo balança preso ao couro cabeludo, não ao centro
- * da imagem. Períodos longos, não múltiplos entre si, e os filamentos entram com atraso: é o atraso
- * que faz o conjunto parecer massa em movimento em vez de uma imagem girando inteira.
+ * **Então o cabelo deixou de ser desenhado e passou a ser gerado.** `ribbon.ts` transforma uma
+ * espinha e um perfil de largura numa fita fechada em Bézier; aqui embaixo há **vinte** espinhas, em
+ * quatro planos de profundidade, com gradiente e transparência próprios. Não é o mesmo desenho
+ * polido: é outro objeto, feito de outro jeito.
  *
- * ⚠️ **Por que o giro está numa `Animated.View` e não em `<G originX/originY>`.** A versão anterior
- * animava `G` com `originX`/`originY`, e no preview web isso vira o atributo DOM inválido
- * `transform-origin` — dois erros vermelhos em cima da barra inferior, em toda tela que mostra o
- * hero. `transformOrigin` como **estilo** de View é suportado nas duas plataformas e não emite nada.
+ * **A figura.** Entre escultura digital e editorial de beleza: perfil liso, **sem olho, sem boca,
+ * sem sobrancelha**, numa superfície perolada que se dissolve antes de virar busto. O corpo existe
+ * só até onde a silhueta precisa dele e some num gradiente — o protagonista absoluto é o cabelo, e
+ * um torso desenhado por inteiro competiria com ele.
  *
- * **Redução de movimento (FR20):** nada anima antes de a preferência ser **conhecida** — o estado
- * inicial do hook é `null`, não `false`, e tratar `null` como "pode animar" é o defeito que a
- * SPEC-018 corrigiu.
+ * **Continua servindo qualquer cabelo.** O argumento que criou o placeholder abstrato da SPEC-018
+ * segue valendo: sem rosto, sem traço étnico, e fitas que não são liso escorrido nem cacho definido.
+ *
+ * **O movimento.** Quatro planos, períodos que não são múltiplos entre si, e o atraso crescendo do
+ * fundo para a frente: a massa vai primeiro, as fitas do meio respondem depois, e os fios finos são
+ * os últimos. É o atraso que faz o conjunto parecer cabelo em vez de uma imagem girando inteira —
+ * vento fraco, não animação.
+ *
+ * **Redução de movimento (FR2):** nada anima antes de a preferência ser **conhecida** — o estado
+ * inicial do hook é `null`, não `false`.
  *
  * Decorativo para tecnologia assistiva: não há aqui informação que alguém precise para agir.
  */
 
-/** O palco. Retrato largo: sobra quadro à esquerda, que é para onde o cabelo cai. */
-const W = 320;
-const H = 400;
-
-/** A coroa, em fração do palco. É o pivô do movimento e o centro do brilho. */
-const CROWN_X = 0.66;
-const CROWN_Y = 0.12;
-
 /**
- * A massa de cabelo. **Uma** forma cheia, da coroa até sair do quadro embaixo à esquerda.
- *
- * Ela passa por baixo do rosto de propósito: o contorno do perfil é desenhado depois e recorta o que
- * sobra. Modelar a massa "contornando" a face daria uma borda dupla no lugar exato onde o olho
- * procura o perfil.
+ * O palco. **Alto**, e a altura é o requisito: cabelo comprido precisa de percurso, e a primeira
+ * tentativa usou um palco quase quadrado num aparelho de 844pt — com `slice`, isso amplia pela
+ * altura e mostra 47% da largura. O resultado foi um túnel de fitas gigantes sem figura dentro.
+ * A proporção do palco tem de parecer com a proporção da tela.
  */
-export const MASS =
-  'M 206 34 C 254 34, 286 72, 288 124 C 290 172, 276 210, 262 244 C 248 278, 232 312, 210 340 C 186 372, 150 392, 108 398 L 20 398 C 22 356, 34 300, 50 250 C 66 200, 86 140, 118 92 C 142 56, 174 34, 206 34 Z';
+const W = 360;
+const H = 780;
+
+/** A coroa. Pivô do movimento e centro do brilho — cabelo balança preso ao couro cabeludo. */
+const CROWN = { x: 266, y: 96 };
 
 /**
- * O perfil: um caminho só, do alto da cabeça ao ombro. Testa, arco da sobrancelha, ponte, nariz,
- * filtro, lábio, queixo, mandíbula, pescoço, ombro — e a volta pelas costas, que fica escondida sob
- * a massa.
+ * O perfil: testa, ponte, nariz, lábio, queixo, mandíbula e pescoço num contorno só, e um ombro que
+ * **não fecha** — ele desce e o gradiente o dissolve antes que vire busto.
  *
- * ⚠️ **O nariz é a assinatura.** É o único trecho em que a curva sai da silhueta, e é ele que faz o
- * olho ler "perfil de uma pessoa" em vez de "forma clara". Achatá-lo devolve a mancha.
+ * ⚠️ **O nariz é a única saliência, e é de propósito.** É ele que faz o olho ler "perfil" em vez de
+ * "forma clara"; achatá-lo devolve a mancha. Todo o resto da superfície é liso: a direção pede
+ * escultura, e escultura não tem detalhe facial — não há olho, boca nem sobrancelha aqui.
  */
 export const PROFILE =
-  'M 158 128 C 154 88, 180 60, 208 62 C 234 64, 246 88, 246 112 C 246 119, 241 121, 240 126 C 244 132, 251 141, 251 147 C 251 152, 245 153, 240 152 C 241 157, 240 160, 237 163 C 242 167, 242 174, 237 180 C 232 187, 220 193, 202 196 C 200 210, 199 222, 198 234 C 198 250, 226 260, 262 272 C 282 281, 293 306, 296 400 L 40 400 C 44 330, 100 286, 144 276 C 160 268, 168 250, 170 234 L 170 200 C 156 190, 150 158, 158 128 Z';
+  'M 216 158 C 214 116, 234 86, 261 86 C 287 86, 303 110, 303 134 C 303 141, 298 143, 297 147 C 301 154, 309 162, 309 168 C 309 173, 303 174, 298 173 C 299 178, 298 181, 295 184 C 300 188, 300 195, 295 202 C 290 210, 280 215, 266 217 C 264 231, 263 244, 262 257 C 262 271, 280 279, 298 289 C 314 297, 322 318, 326 366 L 328 460 L 154 460 C 160 398, 186 350, 220 332 C 231 319, 234 301, 235 283 L 235 223 C 222 213, 214 188, 216 158 Z';
+
+/** Onde a luz encosta na testa. Uma só, larga e fraca: pérola, não brilho de plástico. */
+export const SHEEN =
+  'M 236 132 C 242 104, 260 90, 280 94 C 266 100, 252 116, 246 140 C 242 158, 240 176, 242 192 C 232 176, 230 152, 236 132 Z';
 
 /**
- * A mecha da coroa: cobre o alto da cabeça e desenha a linha do cabelo na testa. Crescente —
- * borda de fora acompanhando o crânio, borda de dentro descendo até a têmpora.
+ * A touca: a mecha que cobre o **couro cabeludo**, desenhada por cima de tudo.
+ *
+ * ⚠️ **Sem ela o hero vira um bulbo.** Vinte fitas que nascem perto da coroa convergem lá em cima, e
+ * um feixe convergindo num ponto é exatamente o defeito registrado desde a primeira versão: cabelo
+ * não sai de um bico, ele emoldura. A touca esconde as vinte raízes de uma vez e devolve a linha do
+ * cabelo na testa — é o último elemento desenhado, e por isso funciona.
  */
-export const CROWN =
-  'M 132 160 C 132 92, 170 44, 220 44 C 262 44, 292 82, 294 132 C 278 92, 252 70, 220 72 C 184 74, 158 106, 150 158 C 148 168, 133 170, 132 160 Z';
+export const CAP =
+  'M 204 214 C 200 132, 228 82, 268 82 C 312 82, 340 122, 342 186 C 332 148, 314 122, 290 118 C 254 112, 228 156, 226 216 C 222 230, 205 228, 204 214 Z';
 
 /**
- * As duas mechas que caem **na frente** do corpo, uma de cada lado. Elas fazem duas coisas que
- * nenhuma outra camada faz.
+ * As fitas. **Isto é o cabelo** — não há massa única atrás da cabeça, e é essa a diferença entre a
+ * silhueta capilar que a direção pediu e o capacete que ela recusou.
  *
- * **Profundidade.** Sem elas o cabelo termina atrás da figura e a composição vira "pessoa colada num
- * fundo". Com cabelo comprido, parte dele passa por cima do corpo — é isso que o olho espera.
+ * Cada uma declara por onde passa (`spine`), quão cheia é (`width`), de que cor (`paint`), quanto
+ * deixa passar (`opacity`) e em que plano vive (`layer`). Cruzamento e transparência são o que
+ * constroem profundidade: uma fita translúcida por cima de outra cria um terceiro tom que nenhuma
+ * das duas tem, e é aí que o desenho deixa de ser flat.
  *
- * **Peso.** Sem elas, pescoço e peito ocupavam um terço do quadro numa chapa clara e o cabelo
- * deixava de ser o protagonista por área. A mecha da direita cobre o ombro da frente e devolve o
- * equilíbrio, sem que nada precise encolher.
- *
- * ⚠️ **Nenhuma das duas encosta no rosto.** A primeira versão da mecha esquerda começava em
- * `160 160`, dentro da têmpora, e a ponta virava uma **cunha escura no meio da testa** — lia como
- * hematoma, não como cabelo. Uma mecha nasce da massa, nunca da pele.
+ * `front` passa **na frente do rosto e do corpo** — sem isso a figura fica colada num fundo.
  */
-export const SIDE_FALL =
-  'M 268 168 C 280 206, 284 250, 280 296 C 276 342, 268 374, 264 400 L 316 400 C 318 346, 310 280, 296 236 C 288 206, 278 182, 268 168 Z';
+type Ribbon = {
+  readonly spine: Spine;
+  readonly width: WidthProfile;
+  readonly paint: string;
+  readonly opacity: number;
+  readonly layer: 0 | 1 | 2 | 3;
+};
 
-export const FRONT_FALL =
-  'M 148 124 C 134 152, 124 186, 118 214 C 111 274, 107 358, 106 398 L 26 398 C 28 344, 40 280, 62 226 C 82 188, 116 146, 148 124 Z';
+const p = (x: number, y: number) => ({ x, y });
 
 /**
- * As mechas longas, por cima da massa. Traço aberto e claro: textura sem recorte.
+ * ⚠️ **A regra que salva o rosto, e ela é a diferença entre Musa e casulo.**
  *
- * Todas nascem perto da coroa e caem na mesma diagonal da massa. Uma mecha que corre contra a massa
- * lê como risco na tela, não como cabelo.
+ * A primeira distribuição espalhava as fitas para os dois lados a partir da coroa, simétricas e do
+ * mesmo comprimento. A 390px isso não lê como cabelo: lê como **casulo** — uma cúpula fechada com a
+ * figura enterrada dentro. Cabelo comprido de uma figura de perfil não envolve a cabeça: ele cai
+ * para **um lado**.
+ *
+ * Daí a regra: **nenhuma fita desenhada depois da figura nasce à direita de `x = 254`.** A direita é
+ * onde está o rosto, e uma fita que atravessa a testa apaga o perfil — que é a única coisa que
+ * impede o desenho de virar mancha. Quem define a silhueta do lado direito vive no plano 0, atrás
+ * da figura, e é o próprio contorno do rosto que a recorta.
  */
-export const STRANDS = [
-  'M 222 40 C 268 62, 288 112, 280 166 C 272 220, 246 272, 214 320',
-  'M 202 36 C 240 70, 250 124, 236 178 C 222 232, 190 288, 152 340',
-  'M 178 44 C 202 88, 200 144, 180 196 C 160 248, 126 308, 88 366',
-  'M 154 62 C 166 108, 152 162, 126 212 C 100 262, 66 322, 36 380',
-  'M 236 54 C 282 82, 298 132, 290 186 C 282 238, 258 288, 230 336',
-] as const;
+export const RIBBONS: readonly Ribbon[] = [
+  // --- plano 0: atrás da figura. Define a silhueta dos dois lados; o rosto recorta o que sobra.
+  {
+    spine: [p(282, 106), p(340, 214), p(354, 400), p(332, 594), p(300, 800)],
+    width: { max: 86 },
+    paint: 'deep',
+    opacity: 1,
+    layer: 0,
+  },
+  {
+    spine: [p(226, 112), p(156, 216), p(110, 398), p(106, 588), p(132, 800)],
+    width: { max: 104 },
+    paint: 'deep',
+    opacity: 1,
+    layer: 0,
+  },
+  {
+    spine: [p(250, 92), p(196, 196), p(160, 392), p(158, 592), p(184, 800)],
+    width: { max: 84 },
+    paint: 'wine',
+    opacity: 0.95,
+    layer: 0,
+  },
+  {
+    spine: [p(272, 94), p(310, 206), p(322, 400), p(304, 596), p(274, 800)],
+    width: { max: 64 },
+    paint: 'wine',
+    opacity: 0.95,
+    layer: 0,
+  },
 
-/**
- * Os dois fios luminosos. Mesmo caminho de mecha, traço mais fino e mais claro — e com nós de luz
- * pousados em cima, que são a única nota de tecnologia da figura.
- */
-export const FILAMENTS = [
-  'M 190 40 C 226 78, 232 132, 214 186 C 196 240, 162 296, 124 350',
-  'M 166 54 C 186 100, 176 154, 152 204 C 128 254, 96 312, 60 366',
-] as const;
+  // --- plano 1: o corpo do cabelo, todo caindo para a esquerda. É aqui que a marca aparece.
+  {
+    spine: [p(244, 100), p(178, 236), p(140, 428), p(142, 610), p(170, 790)],
+    width: { max: 62 },
+    paint: 'berry',
+    opacity: 0.9,
+    layer: 1,
+  },
+  {
+    spine: [p(250, 108), p(206, 248), p(178, 436), p(182, 614), p(208, 788)],
+    width: { max: 52 },
+    paint: 'plum',
+    opacity: 0.9,
+    layer: 1,
+  },
+  {
+    spine: [p(228, 98), p(152, 244), p(114, 440), p(118, 620), p(148, 792)],
+    width: { max: 46 },
+    paint: 'violet',
+    opacity: 0.85,
+    layer: 1,
+  },
+  {
+    spine: [p(238, 114), p(196, 254), p(172, 446), p(176, 620), p(200, 790)],
+    width: { max: 40 },
+    paint: 'berry',
+    opacity: 0.85,
+    layer: 1,
+  },
+  {
+    spine: [p(216, 104), p(132, 252), p(92, 448), p(98, 626), p(130, 794)],
+    width: { max: 42 },
+    paint: 'plum',
+    opacity: 0.8,
+    layer: 1,
+  },
 
-/** Os nós, em coordenadas do palco. Poucos e desalinhados: constelação, não régua. */
-const NODES = [
-  { cx: 222, cy: 110, r: 2.6 },
-  { cx: 214, cy: 190, r: 1.8 },
-  { cx: 176, cy: 266, r: 2.2 },
-  { cx: 182, cy: 140, r: 1.6 },
-  { cx: 110, cy: 330, r: 2.4 },
-] as const;
+  // --- plano 2: as da frente. Cruzam o pescoço e o ombro — nunca o rosto.
+  {
+    spine: [p(246, 118), p(214, 268), p(196, 452), p(202, 626), p(224, 792)],
+    width: { max: 34 },
+    paint: 'deep',
+    opacity: 0.88,
+    layer: 2,
+  },
+  {
+    spine: [p(232, 116), p(184, 272), p(158, 458), p(164, 630), p(190, 792)],
+    width: { max: 30 },
+    paint: 'wine',
+    opacity: 0.82,
+    layer: 2,
+  },
+  {
+    spine: [p(252, 132), p(230, 282), p(218, 464), p(222, 634), p(240, 790)],
+    width: { max: 24 },
+    paint: 'deep',
+    opacity: 0.8,
+    layer: 2,
+  },
+  // Passa **abaixo do queixo**, pelo pescoço: é ela que quebra a coluna clara do corpo sem tocar no rosto.
+  {
+    spine: [p(250, 150), p(262, 262), p(278, 372), p(258, 512), p(226, 700)],
+    width: { max: 28 },
+    paint: 'wine',
+    opacity: 0.72,
+    layer: 2,
+  },
+
+  // --- plano 3: os fios. Finos, claros, com o maior atraso: são eles que dizem "vivo".
+  {
+    spine: [p(240, 102), p(190, 244), p(162, 436), p(166, 612), p(190, 790)],
+    width: { max: 8 },
+    paint: 'lilac',
+    opacity: 0.7,
+    layer: 3,
+  },
+  {
+    spine: [p(248, 112), p(214, 252), p(194, 442), p(198, 616), p(220, 790)],
+    width: { max: 6 },
+    paint: 'pearl',
+    opacity: 0.6,
+    layer: 3,
+  },
+  {
+    spine: [p(226, 104), p(158, 250), p(124, 444), p(128, 618), p(156, 792)],
+    width: { max: 8 },
+    paint: 'lilac',
+    opacity: 0.65,
+    layer: 3,
+  },
+  {
+    spine: [p(254, 124), p(238, 262), p(228, 450), p(232, 622), p(248, 790)],
+    width: { max: 6 },
+    paint: 'pearl',
+    opacity: 0.55,
+    layer: 3,
+  },
+  {
+    spine: [p(210, 106), p(124, 256), p(84, 452), p(90, 624), p(122, 794)],
+    width: { max: 7 },
+    paint: 'pearl',
+    opacity: 0.5,
+    layer: 3,
+  },
+  // A única à direita do rosto: ela mora **fora** dele, encostada na silhueta de trás.
+  {
+    spine: [p(316, 134), p(350, 240), p(360, 416), p(340, 600), p(312, 796)],
+    width: { max: 6 },
+    paint: 'lilac',
+    opacity: 0.5,
+    layer: 3,
+  },
+];
 
 /** Um balanço lento, em loop, com atraso próprio. Devolve a rotação em graus, já interpolada. */
 const useSway = (enabled: boolean, seconds: number, degrees: number, delay: number) => {
@@ -186,20 +312,15 @@ const useSway = (enabled: boolean, seconds: number, degrees: number, delay: numb
 };
 
 /**
- * Os dois enquadramentos, e por que existem dois.
+ * Os dois enquadramentos do mesmo desenho.
  *
- * ⚠️ **O mesmo desenho não serve para um painel alto e para uma faixa baixa.** Com `slice`, o SVG
- * escala pela largura: numa faixa de 390×200 sobra só o topo do quadro, e o topo do quadro é o
- * **cabelo acima da cabeça** — a tela de login mostrava uma cúpula rosa sem rosto nenhum. Não era
- * bug de layout: era um recorte pedido para um formato que não é o dele.
- *
- * `portrait` é o quadro inteiro, para o painel da abertura. `band` recorta a **cabeça**, que é o
- * que ainda diz "Huna" em 200pt de altura. Um recorte, não um segundo desenho: os mesmos caminhos,
- * a mesma animação, outro `viewBox`.
+ * ⚠️ **Com `slice`, um SVG escala pela largura.** Numa faixa de 200pt de altura sobrava só o topo do
+ * quadro — que é o cabelo **acima** da testa. `band` recorta a cabeça, que é o que ainda diz "Huna"
+ * numa faixa baixa.
  */
 const FRAMES = {
   portrait: { viewBox: `0 0 ${W} ${H}`, align: 'xMidYMin' },
-  band: { viewBox: `0 26 ${W} 186`, align: 'xMidYMid' },
+  band: { viewBox: `60 58 ${W - 100} 186`, align: 'xMidYMid' },
 } as const;
 
 export type FigureFrame = keyof typeof FRAMES;
@@ -215,19 +336,71 @@ export function HunaFigure({
   // `null` é "ainda não sabemos". Não animar até saber.
   const moving = reduce === false;
 
-  const strands = useSway(moving, 17, 1.6, 0);
-  const filaments = useSway(moving, 11, 3.4, 1400);
+  /**
+   * Períodos primos entre si e atrasos crescentes: as camadas nunca voltam a se alinhar, e é o
+   * desalinhamento que faz o conjunto parecer cabelo. Amplitudes de poucos graus — vento fraco.
+   */
+  const sway = [
+    useSway(moving, 23, 0.9, 0),
+    useSway(moving, 17, 1.7, 700),
+    useSway(moving, 13, 2.6, 1500),
+    useSway(moving, 9, 4.2, 2300),
+  ] as const;
 
-  /** Todas as camadas compartilham palco e enquadramento — senão elas não se registram. */
-  const svgProps = {
+  /** Gerar vinte contornos custa; gerar uma vez por montagem não custa nada. */
+  const paths = useMemo(() => RIBBONS.map((r) => ({ ...r, d: ribbonPath(r.spine, r.width) })), []);
+
+  /**
+   * ⚠️ **`absoluteFill` em toda camada, e isto foi um defeito de verdade.** As camadas são vários
+   * `Svg` sobrepostos; sem posicionamento absoluto eles entram no fluxo e **empilham na vertical** —
+   * o campo ficava com a metade de cima da tela, a figura com a de baixo, e a touca ia parar em cima
+   * da copy. A 390px isso lê como um corte horizontal no meio da composição, que foi exatamente o
+   * que apareceu na primeira renderização.
+   */
+  const svg = {
     width: '100%',
     height: '100%',
+    style: StyleSheet.absoluteFill,
     viewBox: FRAMES[frame].viewBox,
     preserveAspectRatio: `${FRAMES[frame].align} slice`,
   } as const;
 
-  /** O pivô é a coroa: cabelo balança preso ao couro cabeludo, não ao centro da imagem. */
-  const pivot = { transformOrigin: `${CROWN_X * 100}% ${CROWN_Y * 100}%` } as const;
+  /** O pivô do giro é a coroa, em fração do palco. */
+  const pivot = { transformOrigin: `${(CROWN.x / W) * 100}% ${(CROWN.y / H) * 100}%` } as const;
+
+  /**
+   * ⚠️ **Cada camada é um `Svg` próprio, e cada `Svg` precisa das suas `defs` com ids próprios.**
+   *
+   * No nativo as definições são escopadas por raiz de SVG; **na web não são** — vários `<svg>` na
+   * mesma página compartilham o documento, e uma referência a `#deep` resolve para o **primeiro**
+   * `#deep` que o navegador achar. Com sete cópias do mesmo id o desenho continuava certo só porque
+   * as cópias eram idênticas: no dia em que alguém mudasse uma, a web usaria outra em silêncio. O
+   * prefixo por camada tira essa armadilha do caminho.
+   */
+  const layer = (which: 0 | 1 | 2 | 3, children: React.ReactNode) => {
+    const ns = `hf${which}`;
+    return (
+      <Animated.View
+        key={which}
+        style={[StyleSheet.absoluteFill, pivot, { transform: [{ rotate: sway[which] }] }]}
+      >
+        <Svg {...svg}>
+          <Defs>
+            <Paints ns={ns} />
+            <Fade ns={ns} />
+          </Defs>
+          <G mask={`url(#${ns}-fade)`}>{children}</G>
+        </Svg>
+      </Animated.View>
+    );
+  };
+
+  const ribbonsOf = (which: number) =>
+    paths
+      .filter((r) => r.layer === which)
+      .map((r, i) => (
+        <Path key={`${which}-${i}`} d={r.d} fill={`url(#hf${which}-${r.paint})`} opacity={r.opacity} />
+      ));
 
   return (
     <View
@@ -236,121 +409,168 @@ export function HunaFigure({
       importantForAccessibility="no-hide-descendants"
       pointerEvents="none"
     >
-      <Svg {...svgProps}>
+      {/* O campo: o gradiente da marca que **desaparece** antes do pé, para não haver emenda. */}
+      <Svg {...svg}>
         <Defs>
-          <LinearGradient id="stage" x1="0.1" y1="0" x2="0.9" y2="1">
-            <Stop offset="0" stopColor={color.violet} />
-            <Stop offset="0.55" stopColor={color.wine} />
-            <Stop offset="1" stopColor="#2E0F22" />
-          </LinearGradient>
-          {/*
-            O gradiente do cabelo **gira** na diagonal: um lado pega luz, o outro cai na sombra. É o
-            que dá volume a uma forma cheia — a alternativa seria recortar a massa em mechas, que na
-            versão anterior virou "casulo com gomos".
-
-            ⚠️ **`userSpaceOnUse`, e não é detalhe.** O padrão do SVG é `objectBoundingBox`: cada
-            caminho recebe o gradiente esticado sobre a **sua própria** caixa. A coroa e a massa
-            usavam o mesmo `url(#hair)` e mesmo assim discordavam da cor em cada ponto da tela,
-            porque as caixas têm tamanhos diferentes — e a discordância aparecia como uma **cunha
-            escura na têmpora**, que lia como buraco no meio do cabelo. Em coordenadas do palco, as
-            quatro formas de cabelo compartilham **um** gradiente e a emenda desaparece.
-          */}
-          <LinearGradient id="hair" gradientUnits="userSpaceOnUse" x1={W * 0.86} y1="0" x2={W * 0.06} y2={H}>
-            <Stop offset="0" stopColor="#D07EA0" />
-            <Stop offset="0.34" stopColor={color.berry} />
-            <Stop offset="0.72" stopColor={color.accent} />
-            <Stop offset="1" stopColor="#2C0E1E" />
-          </LinearGradient>
-          {/*
-            A mecha da frente é **mais escura** que a massa de trás. Invertido, ela sumiria; com o
-            contraste, o olho entende que uma passa por cima da outra — profundidade é diferença de
-            luminância, não de forma.
-          */}
-          <LinearGradient
-            id="hairFront"
-            gradientUnits="userSpaceOnUse"
-            x1={W * 0.9}
-            y1="0"
-            x2={W * 0.1}
-            y2={H}
-          >
-            <Stop offset="0" stopColor={color.accent} />
-            <Stop offset="0.5" stopColor={color.wine} />
-            <Stop offset="1" stopColor="#240B18" />
-          </LinearGradient>
-          {/* Pele: clara e quente, sem ser bege de retrato — presença, não pessoa específica. */}
-          <LinearGradient
-            id="skin"
-            gradientUnits="userSpaceOnUse"
-            x1={W * 0.85}
-            y1={H * 0.1}
-            x2={W * 0.3}
-            y2={H}
-          >
-            <Stop offset="0" stopColor="#FAE6EE" />
-            <Stop offset="0.55" stopColor="#EBC8D7" />
-            <Stop offset="1" stopColor="#C894AC" />
-          </LinearGradient>
-          <RadialGradient id="glow" cx={`${CROWN_X}`} cy={`${CROWN_Y + 0.12}`} r="0.62">
-            <Stop offset="0" stopColor="#F0B9CE" stopOpacity="0.42" />
-            <Stop offset="1" stopColor="#F0B9CE" stopOpacity="0" />
-          </RadialGradient>
+          <Field ns="hfField" />
+          <Fade ns="hfField" />
         </Defs>
-
-        <Rect x="0" y="0" width={W} height={H} fill="url(#stage)" />
-        <Ellipse cx={W * CROWN_X} cy={H * (CROWN_Y + 0.12)} rx={W * 0.62} ry={H * 0.5} fill="url(#glow)" />
-
-        {/* 1. A massa, atrás de tudo. */}
-        <Path d={MASS} fill="url(#hair)" />
-        {/* 2. O perfil por cima: é ele que recorta a massa e dá a leitura da figura. */}
-        <Path d={PROFILE} fill="url(#skin)" />
-        {/* 3. A coroa, fechando o alto da cabeça e marcando a linha do cabelo. */}
-        <Path d={CROWN} fill="url(#hair)" />
-        {/* 4. As mechas da frente, por cima do corpo: profundidade, e o peso de volta no cabelo. */}
-        <Path d={SIDE_FALL} fill="url(#hairFront)" />
-        <Path d={FRONT_FALL} fill="url(#hairFront)" />
+        <G mask="url(#hfField-fade)">
+          <Rect x="0" y="0" width={W} height={H} fill="url(#hfField-field)" />
+          <Ellipse cx={CROWN.x} cy={CROWN.y + 150} rx={W * 0.72} ry={H * 0.34} fill="url(#hfField-bloom)" />
+        </G>
       </Svg>
 
-      {/* 4. As mechas: textura por cima, nunca recorte. */}
-      <Animated.View style={[StyleSheet.absoluteFill, pivot, { transform: [{ rotate: strands }] }]}>
-        <Svg {...svgProps}>
-          {STRANDS.map((d, i) => (
-            <Path
-              key={d}
-              d={d}
-              fill="none"
-              stroke="#FBE2EC"
-              strokeWidth={i % 2 === 0 ? 1.5 : 1}
-              strokeLinecap="round"
-              opacity={i % 2 === 0 ? 0.34 : 0.2}
-            />
-          ))}
-        </Svg>
-      </Animated.View>
+      {layer(0, ribbonsOf(0))}
 
-      {/* 5. Os filamentos e seus nós, com o atraso maior. */}
-      <Animated.View style={[StyleSheet.absoluteFill, pivot, { transform: [{ rotate: filaments }] }]}>
-        <Svg {...svgProps}>
-          {FILAMENTS.map((d) => (
-            <Path
-              key={d}
-              d={d}
-              fill="none"
-              stroke="#FFF0F6"
-              strokeWidth={0.9}
-              strokeLinecap="round"
-              opacity={0.5}
-            />
-          ))}
-          {NODES.map((n) => (
-            <Circle key={`${n.cx}-${n.cy}`} cx={n.cx} cy={n.cy} r={n.r} fill="#FFF0F6" opacity={0.75} />
-          ))}
-        </Svg>
-      </Animated.View>
+      {/* A figura, entre o cabelo de trás e o da frente. */}
+      <Svg {...svg}>
+        <Defs>
+          <Paints ns="hfBody" />
+          <Fade ns="hfBody" />
+        </Defs>
+        <G mask="url(#hfBody-fade)">
+          <Path d={PROFILE} fill="url(#hfBody-skin)" />
+          <Path d={SHEEN} fill="url(#hfBody-pearl)" opacity={0.5} />
+        </G>
+      </Svg>
+
+      {layer(1, ribbonsOf(1))}
+      {layer(2, ribbonsOf(2))}
+      {layer(3, ribbonsOf(3))}
+
+      {/* A touca, por último: esconde as vinte raízes de uma vez e devolve a linha do cabelo. */}
+      <Svg {...svg}>
+        <Defs>
+          <Paints ns="hfCap" />
+          <Fade ns="hfCap" />
+        </Defs>
+        <G mask="url(#hfCap-fade)">
+          <Path d={CAP} fill="url(#hfCap-wine)" />
+        </G>
+      </Svg>
     </View>
   );
 }
 
+/**
+ * O gradiente do campo e o brilho. Não há retângulo de cor chapada em lugar nenhum: o topo é
+ * profundo, o pé é **transparente**, e a tela abaixo continua sendo o creme da Huna.
+ */
+function Field({ ns }: { ns: string }) {
+  return (
+    <>
+      <LinearGradient
+        id={`${ns}-field`}
+        gradientUnits="userSpaceOnUse"
+        x1={W * 0.8}
+        y1="0"
+        x2={W * 0.2}
+        y2={H}
+      >
+        <Stop offset="0" stopColor={color.violet} />
+        <Stop offset="0.42" stopColor="#3B1128" />
+        <Stop offset="0.78" stopColor={color.wine} stopOpacity="0.5" />
+        <Stop offset="1" stopColor={color.wine} stopOpacity="0" />
+      </LinearGradient>
+      <RadialGradient id={`${ns}-bloom`} cx="0.5" cy="0.42" r="0.6">
+        <Stop offset="0" stopColor="#F3B8CE" stopOpacity="0.34" />
+        <Stop offset="1" stopColor="#F3B8CE" stopOpacity="0" />
+      </RadialGradient>
+    </>
+  );
+}
+
+/**
+ * ⚠️ **Todos em `userSpaceOnUse`, e isso não é preferência.** O padrão do SVG é
+ * `objectBoundingBox`: cada caminho recebe o gradiente esticado sobre a **sua** caixa. Com vinte
+ * fitas de tamanhos diferentes compartilhando quatro gradientes, isso daria vinte iluminações
+ * discordantes — a mesma classe de defeito que, na versão anterior, virou uma cunha escura na
+ * têmpora. Em coordenadas do palco há **uma** luz, e todas as fitas obedecem a ela.
+ */
+function Paints({ ns }: { ns: string }) {
+  const axis = { gradientUnits: 'userSpaceOnUse', x1: W * 0.86, y1: 0, x2: W * 0.1, y2: H } as const;
+  return (
+    <>
+      <LinearGradient id={`${ns}-deep`} {...axis}>
+        <Stop offset="0" stopColor="#5E2340" />
+        <Stop offset="0.5" stopColor="#3A1226" />
+        <Stop offset="1" stopColor="#200A16" />
+      </LinearGradient>
+      <LinearGradient id={`${ns}-wine`} {...axis}>
+        <Stop offset="0" stopColor="#8E3358" />
+        <Stop offset="0.55" stopColor={color.wine} />
+        <Stop offset="1" stopColor="#2A0C1A" />
+      </LinearGradient>
+      <LinearGradient id={`${ns}-berry`} {...axis}>
+        <Stop offset="0" stopColor="#D77BA0" />
+        <Stop offset="0.45" stopColor={color.berry} />
+        <Stop offset="1" stopColor="#4A1730" />
+      </LinearGradient>
+      <LinearGradient id={`${ns}-plum`} {...axis}>
+        <Stop offset="0" stopColor="#B45F87" />
+        <Stop offset="0.5" stopColor={color.accent} />
+        <Stop offset="1" stopColor="#331036" />
+      </LinearGradient>
+      <LinearGradient id={`${ns}-violet`} {...axis}>
+        <Stop offset="0" stopColor="#9B7BC4" />
+        <Stop offset="0.5" stopColor={color.violet} />
+        <Stop offset="1" stopColor="#241040" />
+      </LinearGradient>
+      <LinearGradient id={`${ns}-lilac`} {...axis}>
+        <Stop offset="0" stopColor="#F0DCEE" />
+        <Stop offset="0.6" stopColor="#C9A6D8" />
+        <Stop offset="1" stopColor="#8E6BA8" />
+      </LinearGradient>
+      <LinearGradient id={`${ns}-pearl`} {...axis}>
+        <Stop offset="0" stopColor="#FFFFFF" />
+        <Stop offset="0.55" stopColor="#FBE9F1" />
+        <Stop offset="1" stopColor="#E2BCD0" />
+      </LinearGradient>
+      {/* A pele: perolada, quase translúcida, e some antes de virar busto. */}
+      <LinearGradient
+        id={`${ns}-skin`}
+        gradientUnits="userSpaceOnUse"
+        x1={W * 0.8}
+        y1={H * 0.09}
+        x2={W * 0.46}
+        y2={H * 0.56}
+      >
+        <Stop offset="0" stopColor="#FFF6FA" />
+        <Stop offset="0.4" stopColor="#F3D8E5" />
+        <Stop offset="0.64" stopColor="#D9A8C0" stopOpacity="0.72" />
+        <Stop offset="0.86" stopColor="#B98BA6" stopOpacity="0.18" />
+        <Stop offset="1" stopColor="#B98BA6" stopOpacity="0" />
+      </LinearGradient>
+    </>
+  );
+}
+
+/**
+ * A dissolução no pé.
+ *
+ * ⚠️ **É a máscara que substitui o retângulo vinho com canto arredondado.** Um painel com borda
+ * termina; uma máscara em gradiente **não termina** — a figura, o cabelo e o campo se apagam juntos
+ * na mesma altura e entregam a tela ao creme sem emenda. É a diferença entre um pôster dentro de um
+ * cartão e uma composição.
+ */
+function Fade({ ns }: { ns: string }) {
+  return (
+    <>
+      <LinearGradient id={`${ns}-fadeRamp`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2={H}>
+        <Stop offset="0" stopColor="#FFFFFF" />
+        <Stop offset="0.42" stopColor="#FFFFFF" />
+        <Stop offset="0.68" stopColor="#000000" />
+        <Stop offset="1" stopColor="#000000" />
+      </LinearGradient>
+      <Mask id={`${ns}-fade`} maskUnits="userSpaceOnUse" x="0" y="0" width={W} height={H}>
+        <Rect x="0" y="0" width={W} height={H} fill={`url(#${ns}-fadeRamp)`} />
+      </Mask>
+    </>
+  );
+}
+
 const styles = StyleSheet.create({
-  stage: { overflow: 'hidden', backgroundColor: color.wine },
+  // Sem cor de fundo: o campo é desenhado e some. Uma cor aqui recriaria a borda que a máscara tira.
+  stage: { overflow: 'hidden' },
 });

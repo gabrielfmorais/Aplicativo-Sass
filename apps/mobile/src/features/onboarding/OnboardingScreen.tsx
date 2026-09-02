@@ -6,7 +6,7 @@ import { StyleSheet, View } from 'react-native';
 import { HunaFigure } from '@/design/HunaFigure';
 import { Reveal } from '@/design/Reveal';
 import { Button, Chip, ProgressBar, Row, Screen, Stack, Text } from '@/design/primitives';
-import { space } from '@/design/tokens';
+import { radius, space } from '@/design/tokens';
 
 // UX labels (pt-BR) for the approved inputs (SPEC-002 §6). Values are the domain vocabulary.
 type Opt<T> = { value: T; label: string };
@@ -391,5 +391,11 @@ const styles = StyleSheet.create({
   fill: { flexGrow: 1 },
   pause: { flexGrow: 1, justifyContent: 'center' },
   /** Faixa, como no login: marca a pausa como um momento, sem competir com o texto. */
-  ribbon: { height: space.xxxl * 2, marginHorizontal: -space.xl },
+  // SPEC-028: cantos arredondados — sem a máscara do palco, a faixa terminaria num corte reto.
+  ribbon: {
+    height: space.xxxl * 2,
+    marginHorizontal: -space.xl,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+  },
 });
