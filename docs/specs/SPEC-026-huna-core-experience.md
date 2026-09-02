@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-026 |
-| Status | **In progress** — fatias 1 a 8 entregues |
+| Status | **Implemented** — as nove fatias entregues e navegadas a 390px no DEV real |
 | Owner | (humano) — projetopaporeto.erp@gmail.com |
 | Bounded Context | **Nenhum — transversal de apresentação**, como a SPEC-016 e a SPEC-018. Vive em `apps/mobile` (DOMAIN-MAP §5), consumindo os contextos que já existem. |
 | Related ADRs | ADR-001 (a UI não decide nada), ADR-008 |
@@ -170,7 +170,7 @@ Nenhuma para as frentes 1–4. A frente 5 (hero) depende da **OQ1**.
 6. ✅ **Ícones na barra** — quatro caminhos desenhados no projeto, não uma biblioteca.
 7. ✅ **Perfil no cabeçalho** — avatar com o nome dela; a barra cai para três.
 8. ✅ **Fundo Huna** — curvas de mecha em opacidade baixa, atrás de toda tela.
-9. Acabamento: a auditoria visual a 390px, e o que ela apontar.
+9. ✅ **Acabamento** — a auditoria visual a 390px, e o que ela apontou.
 
 Cada fatia é validada a 390px no DEV real antes da seguinte (D-90).
 
@@ -195,5 +195,6 @@ Reverter a fatia. Nenhum dado é criado ou alterado, então rollback é `git rev
 
 | Data | Mudança | Autor |
 |---|---|---|
+| 2026-09-02 | v0.3 — **fatia 9, a auditoria visual.** Três achados, todos de coisas que só a tela mostra: **(1)** a aba Progresso era um cartão e 60% de vazio — ganhou o acesso ao ciclo e o fecho do mês; **(2)** `ProgressSummary` e `CycleSummary` diziam **o mesmo fato** lado a lado ("concluiu 2 de 3, pulou 1, avaliou 2" nos dois cartões), e dois cartões repetindo o mesmo fato são ruído, não reforço — o fecho passou a aparecer só quando o ciclo fecha; **(3)** o fundo entre 0.03 e 0.07 não existia a 390px. A tela **Cuidados** continua com área vazia e **fica assim**: preenchê-la seria complexidade para preencher espaço, que é a única coisa que a direção proibiu nesta frente. | agente (§0.2) |
 | 2026-09-02 | v0.2 — **fatias 1 a 8 entregues.** A barra caiu para **três** categorias: "Você" virou o avatar do cabeçalho, e a vaga liberada ficou **vaga** para a Community — preenchê-la seria complexidade para preencher espaço. Ícones desenhados no projeto em vez de biblioteca. Hero refeito em SVG depois de **cinco** tentativas, cada uma com um erro diferente registrado no arquivo (bulbo, vaso, listras, casulo). Fundo Huna atrás de toda tela. **Dois achados da auditoria visual:** o fundo entre 0.03 e 0.07 simplesmente não existia a 390px — sutil não é ausente —, e "Você", ao virar tela empilhada, tinha perdido a saída explícita. | agente (§0.2) |
 | 2026-09-02 | v0.1 — Draft criada a partir da direção do dono. **O diagnóstico que a justifica:** o app tem uma rota, sete modos booleanos e **duas capabilities de cuidado diário (`F26` prateleira e `F23` "meu cabelo mudou") morando dentro da tela de assinatura e exclusão de conta** — não por decisão, mas porque nenhuma SPEC anterior tinha um lugar para pendurá-las. A **OQ1 é o único gate**: curvas reais exigem uma dependência que o projeto não tem, e `View` só desenha retângulo — as frentes 1 a 4 não dependem dela e seguem primeiro (§0.2 "gate não bloqueia o resto"). | agente (§0.3/D-97) |
