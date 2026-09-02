@@ -1,5 +1,6 @@
 import type { ScheduledCare } from '../../schedule/index.ts';
 import type { CareExecution, CheckIn } from '../domain/care-tracking.ts';
+import type { WashDayRecord, WashDayTechnique } from '../domain/wash-day.ts';
 
 /** Everything the daily screen needs, in one read: the active plan, its cares and their executions. */
 /**
@@ -49,6 +50,15 @@ export type CareBoard = {
   /** Check-ins for those executions (SPEC-006); empty until the user answers one. */
   readonly checkIns: readonly CheckIn[];
   /**
+   * SPEC-024 FR7 — as execuções que **têm** um registro de Wash Day. Só os ids: a Hoje precisa
+   * dizer que o registro existe, e nunca precisou saber o que tem dentro.
+   *
+   * Vem no board pela mesma razão que os check-ins vêm: é a mesma tela, a mesma leitura e o mesmo
+   * escopo — as execuções deste plano. Um segundo estado carregável na tela para uma frase seria
+   * mais código e mais um jeito de a tela mentir enquanto carrega.
+   */
+  readonly washDayExecutionIds: readonly string[];
+  /**
    * Effective executions across ALL her plans, superseded included (SPEC-014). Counted rather than
    * fetched: the summary needs the number, never the rows.
    */
@@ -94,5 +104,30 @@ export interface CareTrackingPort {
     careExecutionId: string;
     overallFeel: number;
     clientCheckinId: string;
+  }): Promise<void>;
+}
+
+/**
+ * SPEC-024 §9 — o registro do Wash Day. **Sem RPC:** a `unique (care_execution_id)` torna a criação
+ * do hub idempotente sozinha, e nenhum invariante aqui é do servidor — não há dia civil a decidir
+ * nem chave de idempotência a guardar (ao contrário de `complete_care` e `record_hair_event`).
+ *
+ * **Uma marcação por chamada**, e não `setProducts(ids)`. §16 pede que uma escrita que falha não
+ * derrube as outras e que a tela diga **qual** falhou: um `set` em lote devolve um erro só e deixa
+ * a tela adivinhando o que entrou. O par `(wash_day_id, product_id)` é PK, então marcar duas vezes
+ * é uma linha, e desmarcar é remover a linha da junção — ela está corrigindo o que marcou, não
+ * apagando histórico (§10).
+ *
+ * O hub é criado **na primeira marcação**, nunca em `getFor`: abrir a tela e não marcar nada não é
+ * um registro.
+ */
+export interface WashDayPort {
+  /** O registro daquela execução. `washDayId` nulo quando ela nunca marcou nada ali. */
+  getFor(careExecutionId: string): Promise<WashDayRecord>;
+  markProduct(input: { careExecutionId: string; productId: string; used: boolean }): Promise<void>;
+  markTechnique(input: {
+    careExecutionId: string;
+    technique: WashDayTechnique;
+    used: boolean;
   }): Promise<void>;
 }

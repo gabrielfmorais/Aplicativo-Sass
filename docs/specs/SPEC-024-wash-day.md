@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-024 |
-| Status | **Draft** |
+| Status | **Implemented** — `F25` e `F27` fechados, validados no DEV real a 390px |
 | Owner | (humano) — projetopaporeto.erp@gmail.com |
 | Bounded Context | **Care Tracking** (DOMAIN-MAP §3.5) — o registro é sobre a execução, e vive com ela |
 | Related ADRs | ADR-001, ADR-006, ADR-008 |
@@ -83,7 +83,11 @@ Hoje, quando ela conclui um cuidado, o app registra **que** aconteceu e **como e
 
 ## 9. API / Contracts
 
-Um port novo (`WashDayPort`) com `getFor(careExecutionId)`, `setProducts`, `setTechniques`. **Sem RPC** (OQ2 resolvida): a `unique (care_execution_id)` torna o upsert do cliente idempotente sozinha.
+`WashDayPort` com `getFor(careExecutionId)`, `markProduct` e `markTechnique`. **Sem RPC** (OQ2 resolvida): a `unique (care_execution_id)` torna o upsert do cliente idempotente sozinha.
+
+**Uma marcação por chamada, e não `setProducts(ids)` como esta seção dizia na v0.1.** §16 exige que uma escrita que falha não derrube as outras e que a tela diga **qual** falhou; um `set` em lote devolve um erro só e deixa a tela adivinhando o que entrou. A PK das junções absorve o toque repetido, então nada se perde na troca.
+
+`getFor` devolve os produtos **com nome**, não ids: um produto arquivado depois do uso continua no registro (BR3/AC4), e a prateleira ativa não sabe mais dele. O hub é criado na **primeira marcação**, nunca em `getFor` — abrir e não marcar não é um registro.
 
 ## 10. Authorization
 
@@ -144,10 +148,10 @@ pgTAP para posse, isolamento, unicidade por execução e cascata da anulação �
 
 ## 20. Implementation Plan
 
-1. Banco: as três tabelas, allowlist, pgTAP. ← **esta fatia**
-2. Core: vocabulário de técnicas e o port.
-3. App: o registro depois do cuidado concluído, com atalho para adicionar produto.
-4. Validação a 390px e fechamento do `F25`.
+1. ✅ Banco: as três tabelas, allowlist, pgTAP (#88).
+2. ✅ Core: vocabulário de técnicas e o port (#89).
+3. ✅ App: o registro depois do cuidado concluído, com atalho para adicionar produto (#89).
+4. ✅ Validação a 390px no DEV real e fechamento do `F25` **e do `F27`** — a junção produto ↔ execução é literalmente o `F27`, e separá-la teria criado um hub sem o consumidor que o justifica.
 
 ## 21. Migration Plan
 
@@ -169,5 +173,6 @@ Reverter a PR e derrubar as duas tabelas. Nenhuma linha existente é alterada.
 
 | Data | Mudança | Autor |
 |---|---|---|
+| 2026-09-01 | v0.3 — **fatia 2 (core + app) implementada; `F25` e `F27` DONE.** §9 corrigida para uma marcação por chamada (o `set` em lote contradizia §16). **BLOCKER da auditoria:** o registro esquecia o produto arquivado — `ProductPort.list()` devolve só os ativos, correto para a prateleira e errado para um registro do passado, e o vidro usado sumia dos chips enquanto a linha da junção seguia intacta no banco. Foi para guardar esse fato que `products` nasceu sem `DELETE` (SPEC-023 BR4). `WashDayRecord` passou a carregar os produtos com nome, lidos sem filtro de arquivado. **IMPORTANT:** marcar e desmarcar rápido podia inverter no banco, porque o PostgREST não promete ordem — uma fila por chip resolve. **Na tela a 390px:** "Você registrou o que usou" mentia no caso EC4 (abrir e desmarcar tudo), já que o board conhece a existência do registro e nunca o conteúdo — o rótulo do botão passou a ser o único portador do fato. | agente (§0.2) |
 | 2026-09-01 | v0.2 — **fatia 1 (banco) implementada; OQ1, OQ2 e OQ3 resolvidas.** Junção para técnicas, sem RPC, e a lista de catorze valores montada sob o critério "gesto, nunca efeito". **Achado ao escrever o pgTAP:** `with check` valida o dono da **linha**, não o dono do **hub** — sem FK composta, um cliente adulterado penduraria a própria linha no Wash Day alheio, invisível para todos e contável por `P8`. Fechado nas duas junções. | agente (§0.2) |
 | 2026-09-01 | v0.1 — Draft criada para o **F25**, depois da SPEC-023 porque o Wash Day consome os produtos. **Hub magro por decisão:** cada coisa que descreve o dia chega numa fatia diferente, e um hub sem colunas de conteúdo aceita cada uma sem mexer nas anteriores. A OQ3 é a única com risco de domínio — uma lista de técnicas que escorregue de *o que ela faz* para *o que aquilo provoca* tira a capability do Free e a joga no gate D-26. | agente (§0.4/D-97) |

@@ -14,6 +14,7 @@ import type {
   PlanPreferencesPort,
   ProductPort,
   ProfilePort,
+  WashDayPort,
 } from '@app/core';
 import { UNAUTHENTICATED, cryptoIdGenerator, systemClock, toLocalDate } from '@app/core';
 import * as Linking from 'expo-linking';
@@ -33,6 +34,7 @@ import { createHairProfileAdapter } from '@/infrastructure/supabase/hair-profile
 import { createNotificationPreferencesAdapter } from '@/infrastructure/supabase/notification-preferences-adapter';
 import { createPlanPreferencesAdapter } from '@/infrastructure/supabase/plan-preferences-adapter';
 import { createProductAdapter } from '@/infrastructure/supabase/product-adapter';
+import { createWashDayAdapter } from '@/infrastructure/supabase/wash-day-adapter';
 import { createProfileAdapter } from '@/infrastructure/supabase/profile-adapter';
 import { createLocalNotificationAdapter } from '@/infrastructure/notifications/local-notification-adapter';
 import { discardSessionIfFreshInstall } from '@/infrastructure/supabase/fresh-install';
@@ -51,6 +53,8 @@ type AuthContextValue = {
   hairEvents: HairEventPort;
   /** SPEC-023 — a prateleira dela. */
   products: ProductPort;
+  /** SPEC-024 — o que ela realmente usou num cuidado. */
+  washDays: WashDayPort;
   /** SPEC-018 — o nome escolhido por ela; a única coisa em `profiles`. */
   profile: ProfilePort;
   notificationScheduler: NotificationSchedulerPort;
@@ -135,6 +139,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ),
     [state],
   );
+  const washDays = useMemo(
+    () =>
+      createWashDayAdapter(supabase, () => {
+        if (state === 'loading' || state.status !== 'authenticated') throw new Error('not authenticated');
+        return state.session.userId;
+      }),
+    [state],
+  );
   const careTracking = useMemo(() => createCareTrackingAdapter(supabase), []);
   const entitlements = useMemo(() => createEntitlementsAdapter(supabase), []);
   const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -172,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         planPreferences,
         hairEvents,
         products,
+        washDays,
         profile,
         notificationScheduler,
         today: () => toLocalDate(systemClock.now(), timeZone()),

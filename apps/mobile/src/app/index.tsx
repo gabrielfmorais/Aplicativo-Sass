@@ -5,6 +5,7 @@ import type {
   HairEventPort,
   HairProfilePort,
   ProductPort,
+  WashDayPort,
   HairProfileSnapshot,
   Instant,
   LocalDate,
@@ -25,6 +26,7 @@ import { AccountScreen } from '@/features/account/AccountScreen';
 import { CycleScreen } from '@/features/care/CycleScreen';
 import { HairEventsScreen } from '@/features/hair-events/HairEventsScreen';
 import { ShelfScreen } from '@/features/shelf/ShelfScreen';
+import { WashDayScreen } from '@/features/care/WashDayScreen';
 import { DevSignIn } from '@/features/auth/DevSignIn';
 import { SignInScreen } from '@/features/auth/SignInScreen';
 import { WelcomeScreen } from '@/features/auth/WelcomeScreen';
@@ -75,6 +77,7 @@ function AuthenticatedApp({
   hairPlan,
   hairEvents,
   products,
+  washDays,
   careTracking,
   notificationPreferences,
   notificationScheduler,
@@ -89,6 +92,7 @@ function AuthenticatedApp({
   hairPlan: HairPlanPort;
   hairEvents: HairEventPort;
   products: ProductPort;
+  washDays: WashDayPort;
   careTracking: CareTrackingPort;
   notificationPreferences: NotificationPreferencesPort;
   notificationScheduler: NotificationSchedulerPort;
@@ -109,6 +113,12 @@ function AuthenticatedApp({
   const [showHairEvents, setShowHairEvents] = useState(false);
   /** SPEC-023 — a prateleira, alcançável da conta como os outros registros dela. */
   const [showShelf, setShowShelf] = useState(false);
+  /**
+   * SPEC-024 — o registro do que ela usou, aberto a partir de um cuidado concluído. Guarda a
+   * execução e o nome do cuidado porque a tela precisa dizer de que dia se trata, e um id sozinho
+   * não diz.
+   */
+  const [washDay, setWashDay] = useState<{ careExecutionId: string; careTitle: string } | null>(null);
   /**
    * SPEC-014 — reassessment reuses the screens that already exist, so it is a mode rather than a
    * route: 'profile' asks the same questions again, 'preview' shows what she would get. Nothing is
@@ -260,6 +270,23 @@ function AuthenticatedApp({
 
   if (showShelf) return <ShelfScreen products={products} onBack={() => setShowShelf(false)} />;
 
+  if (washDay) {
+    return (
+      <WashDayScreen
+        careExecutionId={washDay.careExecutionId}
+        careTitle={washDay.careTitle}
+        washDays={washDays}
+        products={products}
+        // Recarregar ao sair é o que faz a Hoje dizer "Você registrou o que usou" na volta (FR7):
+        // o board carrega quais execuções têm registro, e ela acabou de criar um.
+        onBack={() => {
+          setWashDay(null);
+          loadBoard();
+        }}
+      />
+    );
+  }
+
   if (showHairEvents) {
     return (
       <HairEventsScreen
@@ -368,6 +395,7 @@ function AuthenticatedApp({
       }}
       onOpenAccount={() => setShowAccount(true)}
       onOpenCycle={() => setShowCycle(true)}
+      onOpenWashDay={setWashDay}
       onReassess={() => setReassessing('profile')}
     />
   );
@@ -382,6 +410,7 @@ export default function IndexRoute() {
     hairPlan,
     hairEvents,
     products,
+    washDays,
     careTracking,
     notificationPreferences,
     notificationScheduler,
@@ -420,6 +449,7 @@ export default function IndexRoute() {
       hairPlan={hairPlan}
       hairEvents={hairEvents}
       products={products}
+      washDays={washDays}
       careTracking={careTracking}
       notificationPreferences={notificationPreferences}
       notificationScheduler={notificationScheduler}

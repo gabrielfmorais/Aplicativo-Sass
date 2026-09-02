@@ -133,6 +133,23 @@ export const createCareTrackingAdapter = (client: SupabaseClient): CareTrackingP
       }
 
       /**
+       * SPEC-024 FR7 — quais dessas execuções já têm um registro. Só os ids: a Hoje diz que o
+       * registro existe, e nunca precisou saber o que tem dentro. Mesmo escopo dos check-ins, pela
+       * mesma razão — um registro de um plano substituído não é deste board.
+       */
+      let washDayExecutionIds: string[] = [];
+      if (executionIds.length > 0) {
+        const { data: washDayRows, error: washDaysError } = await client
+          .from('wash_days')
+          .select('care_execution_id')
+          .in('care_execution_id', executionIds);
+        if (washDaysError) throw fail('care.board_read_failed', washDaysError);
+        washDayExecutionIds = (washDayRows ?? []).map(
+          (r) => (r as { care_execution_id: string }).care_execution_id,
+        );
+      }
+
+      /**
        * SPEC-022 — a pausa aberta, se houver. **Escopada ao plano ativo de propósito:** uma pausa
        * cujo plano foi substituído por uma reavaliação já não pausa nada, e mostrá-la faria a Hoje
        * dizer "pausado" sobre um cronograma novo em folha (EC5).
@@ -163,6 +180,7 @@ export const createCareTrackingAdapter = (client: SupabaseClient): CareTrackingP
         cares,
         executions,
         checkIns,
+        washDayExecutionIds,
         lifetimeDoneCount: count ?? 0,
       };
     },

@@ -45,6 +45,17 @@ type Action =
   | { kind: 'reschedule'; days: number }
   | { kind: 'checkin'; feel: number };
 
+/**
+ * SPEC-024 — tudo o que um cartão precisa saber sobre o registro do Wash Day: se aquela execução já
+ * tem um (FR7) e como abrir o dela. Nada além disso atravessa a tela — o conteúdo do registro é da
+ * `WashDayScreen`, e trazê-lo até aqui só para contar chips seria uma segunda verdade sobre o
+ * mesmo fato.
+ */
+type WashDayAccess = {
+  registered: (careExecutionId: string) => boolean;
+  open: (item: CareItem) => void;
+};
+
 /** The planned day, plus how late it is when it is late — the same sentence, wherever it appears. */
 const whenOf = (item: CareItem): string =>
   item.outcome === 'overdue'
@@ -124,6 +135,7 @@ function CareActions({
   blocked,
   emphasis,
   onAct,
+  washDay,
 }: {
   item: CareItem;
   today: LocalDate;
@@ -139,6 +151,8 @@ function CareActions({
   blocked: boolean;
   emphasis: 'focus' | 'list';
   onAct: (item: CareItem, action: Action) => void;
+  /** SPEC-024 — o registro do que ela usou, oferecido depois de concluir (FR1). */
+  washDay: WashDayAccess;
 }) {
   const [choosingDate, setChoosingDate] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
@@ -148,6 +162,18 @@ function CareActions({
   const guide = CARE_GUIDES[item.careTypeCode];
 
   if (item.outcome === 'done') {
+    /**
+     * SPEC-024 FR1/FR7 — o registro do que ela usou, **oferecido** e nunca exigido, e a evidência de
+     * que ele existe. Nunca bloqueado por uma transição em voo: é navegação, não escrita, como
+     * "Como fazer" (SPEC-007 EC3).
+     *
+     * **O rótulo é o fato, e não uma frase ao lado dele.** "Você registrou o que usou" seria falso
+     * no único caso que a SPEC prevê explicitamente: ela abre, desmarca tudo e sai (EC4). O board
+     * carrega quais execuções **têm** registro, nunca o que tem dentro — então afirmar conteúdo aqui
+     * seria afirmar o que esta tela não sabe. Dizer o contrário, um convite quando não há registro,
+     * seria cobrança, que AC8 proíbe.
+     */
+    const registered = item.execution !== null && washDay.registered(item.execution.id);
     return (
       <Stack gap="md">
         {item.checkIn ? (
@@ -155,8 +181,16 @@ function CareActions({
         ) : canCheckIn(item) ? (
           <CheckInPrompt blocked={blocked} onAnswer={(feel) => onAct(item, { kind: 'checkin', feel })} />
         ) : null}
-        {undoable ? (
-          <Row gap="sm">
+        <Row gap="sm">
+          {item.execution ? (
+            <Button
+              label={registered ? 'Ver o que usei' : 'O que você usou?'}
+              variant="ghost"
+              size="sm"
+              onPress={() => washDay.open(item)}
+            />
+          ) : null}
+          {undoable ? (
             <Button
               label="Desfazer"
               variant="ghost"
@@ -164,8 +198,8 @@ function CareActions({
               disabled={blocked}
               onPress={() => onAct(item, { kind: 'undo' })}
             />
-          </Row>
-        ) : null}
+          ) : null}
+        </Row>
       </Stack>
     );
   }
@@ -246,6 +280,7 @@ function FocusCard({
   busy,
   blocked,
   onAct,
+  washDay,
 }: {
   item: CareItem;
   today: LocalDate;
@@ -253,6 +288,7 @@ function FocusCard({
   busy: boolean;
   blocked: boolean;
   onAct: (item: CareItem, action: Action) => void;
+  washDay: WashDayAccess;
 }) {
   const state = stateTagOf(item);
   const guide = CARE_GUIDES[item.careTypeCode];
@@ -273,6 +309,7 @@ function FocusCard({
           blocked={blocked}
           emphasis="focus"
           onAct={onAct}
+          washDay={washDay}
         />
       </View>
     </Card>
@@ -288,6 +325,7 @@ function CareCard({
   busy,
   blocked,
   onAct,
+  washDay,
 }: {
   item: CareItem;
   today: LocalDate;
@@ -295,6 +333,7 @@ function CareCard({
   busy: boolean;
   blocked: boolean;
   onAct: (item: CareItem, action: Action) => void;
+  washDay: WashDayAccess;
 }) {
   const state = stateTagOf(item);
   return (
@@ -314,6 +353,7 @@ function CareCard({
         blocked={blocked}
         emphasis="list"
         onAct={onAct}
+        washDay={washDay}
       />
     </Card>
   );
@@ -330,6 +370,7 @@ function Section({
   now: Instant;
   busyId: string | null;
   onAct: (item: CareItem, action: Action) => void;
+  washDay: WashDayAccess;
 }) {
   if (items.length === 0) return null;
   return (
@@ -348,6 +389,7 @@ function Section({
           busy={rest.busyId === item.id}
           blocked={rest.busyId !== null}
           onAct={rest.onAct}
+          washDay={rest.washDay}
         />
       ))}
     </Stack>
@@ -382,6 +424,7 @@ export function TodayScreen({
   onResume,
   onOpenAccount,
   onOpenCycle,
+  onOpenWashDay,
   onReassess,
 }: {
   board: CareBoard;
@@ -400,6 +443,12 @@ export function TodayScreen({
   onOpenAccount: () => void;
   /** SPEC-019 — a forma do mês, a partir da tela que mostra o dia. */
   onOpenCycle: () => void;
+  /**
+   * SPEC-024 FR1 — abrir o registro do que ela usou naquela execução. A rota é quem monta a tela;
+   * daqui sai só o par (execução, nome do cuidado) que ela precisa ver para saber de que dia se
+   * trata.
+   */
+  onOpenWashDay: (input: { careExecutionId: string; careTitle: string }) => void;
   /**
    * D-82 — the way out of a finished cycle. Present whenever there is an active plan, which is the
    * only situation this screen renders in; it is optional so a test can render the screen without
@@ -447,6 +496,22 @@ export function TodayScreen({
     recent.execution !== null &&
     (canCheckIn(recent) || canUndo(recent.execution, renderedNow));
   const focus = recentHolds ? recent : (view.overdue[0] ?? view.today[0] ?? null);
+
+  /**
+   * SPEC-024 — o que os cartões precisam saber sobre o Wash Day, num objeto só: se aquela execução
+   * já tem registro (FR7) e como abrir o dela. Um objeto em vez de dois props porque a informação
+   * atravessa quatro componentes, e quatro assinaturas com dois campos cada envelhecem pior.
+   */
+  const washDay: WashDayAccess = {
+    registered: (executionId) => board.washDayExecutionIds.includes(executionId),
+    open: (item) => {
+      if (!item.execution) return;
+      onOpenWashDay({
+        careExecutionId: item.execution.id,
+        careTitle: CARE_TYPE_LABEL[item.careTypeCode],
+      });
+    },
+  };
 
   const notFocus = (item: CareItem) => item.id !== focus?.id;
   const restOverdue = view.overdue.filter(notFocus);
@@ -558,6 +623,7 @@ export function TodayScreen({
           busy={busyId === focus.id}
           blocked={busyId !== null}
           onAct={act}
+          washDay={washDay}
         />
       ) : (
         <Card tone="muted" style={styles.focus}>
@@ -589,8 +655,17 @@ export function TodayScreen({
         now={renderedNow}
         busyId={busyId}
         onAct={act}
+        washDay={washDay}
       />
-      <Section title="Hoje" items={restToday} today={today} now={renderedNow} busyId={busyId} onAct={act} />
+      <Section
+        title="Hoje"
+        items={restToday}
+        today={today}
+        now={renderedNow}
+        busyId={busyId}
+        onAct={act}
+        washDay={washDay}
+      />
       <Section
         title="Próximos"
         items={view.upcoming}
@@ -598,6 +673,7 @@ export function TodayScreen({
         now={renderedNow}
         busyId={busyId}
         onAct={act}
+        washDay={washDay}
       />
 
       {/* After the actionable sections and before the detail: she settles the day first, then
@@ -621,6 +697,7 @@ export function TodayScreen({
         now={renderedNow}
         busyId={busyId}
         onAct={act}
+        washDay={washDay}
       />
 
       {message ? (

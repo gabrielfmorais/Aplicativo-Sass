@@ -14,6 +14,7 @@ const board = (over: Partial<CareBoard> = {}): CareBoard => ({
   assessmentAlgorithmVersion: 'v1',
   scheduleAlgorithmVersion: 'v1',
   pausedOn: null,
+  washDayExecutionIds: [],
   cares: [
     {
       id: 'late',
@@ -83,6 +84,7 @@ const renderScreen = (
       newExecutionId={newExecutionId}
       onChanged={onChanged}
       hairProfile={hairProfilePort()}
+      onOpenWashDay={jest.fn()}
       onPause={jest.fn()}
       onPreviewResume={jest.fn(async () => ({ action: 'shifted' as const, shiftDays: 0, careCount: 0 }))}
       onResume={jest.fn()}
@@ -536,5 +538,79 @@ describe('TodayScreen — check-in (SPEC-006 §14)', () => {
     const screen = await renderScreen(makePort(), doneBoard());
     await waitFor(() => screen.getByText('Como ficou?'));
     screen.getByText('Desfazer');
+  });
+});
+
+/**
+ * SPEC-024 FR1/FR7 — o registro do Wash Day, oferecido depois de concluir e **nunca** exigido.
+ *
+ * O rótulo é o único portador do fato: o board sabe quais execuções têm registro, nunca o que tem
+ * dentro. Uma frase afirmando conteúdo mentiria no caso que a SPEC prevê — ela abre, desmarca tudo
+ * e sai (EC4) — e um convite quando não há registro seria cobrança (AC8).
+ */
+describe('TodayScreen — o Wash Day (SPEC-024)', () => {
+  const done = (over: Partial<CareBoard> = {}) =>
+    board({
+      cares: [
+        {
+          id: 'past',
+          careTypeCode: 'hydration',
+          plannedDate: '2026-09-09',
+          status: 'planned',
+          rescheduledToId: null,
+        },
+      ],
+      executions: [
+        {
+          id: 'e-past',
+          scheduledCareId: 'past',
+          executedAt: instantFromString('2026-09-09T10:00:00.000Z'),
+          executedOn: '2026-09-09',
+          voidedAt: null,
+        },
+      ],
+      checkIns: [],
+      ...over,
+    });
+
+  it('oferece registrar num cuidado concluído, e nunca exige', async () => {
+    const s = await renderScreen(makePort(), done());
+    expect(s.getByText('O que você usou?')).toBeTruthy();
+    // Nem cobrança, nem promessa: nada afirma que falta preencher.
+    expect(s.queryByText(/complete|falta|preencha/i)).toBeNull();
+  });
+
+  it('quando já existe registro, o rótulo muda — e nenhuma frase afirma o que tem dentro', async () => {
+    const s = await renderScreen(makePort(), done({ washDayExecutionIds: ['e-past'] }));
+    expect(s.getByText('Ver o que usei')).toBeTruthy();
+    expect(s.queryByText('O que você usou?')).toBeNull();
+    expect(s.queryByText(/Você registrou/)).toBeNull();
+  });
+
+  it('abre o registro daquela execução, com o nome do cuidado', async () => {
+    const onOpenWashDay = jest.fn();
+    const s = await render(
+      <TodayScreen
+        board={done()}
+        care={makePort()}
+        today={TODAY}
+        now={() => NOW}
+        timeZone="America/Sao_Paulo"
+        newExecutionId={() => 'exec-1'}
+        onChanged={jest.fn()}
+        hairProfile={hairProfilePort()}
+        onOpenWashDay={onOpenWashDay}
+        onPause={jest.fn()}
+        onPreviewResume={jest.fn()}
+        onResume={jest.fn()}
+        onOpenAccount={jest.fn()}
+        onOpenCycle={jest.fn()}
+      />,
+    );
+    await fireEvent.press(s.getByText('O que você usou?'));
+    expect(onOpenWashDay).toHaveBeenCalledWith({
+      careExecutionId: 'e-past',
+      careTitle: 'Hidratação',
+    });
   });
 });

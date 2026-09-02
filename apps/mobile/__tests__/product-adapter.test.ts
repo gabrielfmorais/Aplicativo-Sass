@@ -13,8 +13,11 @@ const readClient = (result: { data: unknown; error: unknown }) => {
   return { client: { from: jest.fn(() => ({ select })) } as unknown as SupabaseClient, is, order };
 };
 
-const writeClient = (result: { error: unknown }) => {
-  const insert = jest.fn(async () => result);
+const writeClient = (result: { error: unknown; data?: unknown }) => {
+  // `add` devolve o produto criado (SPEC-024 FR6), então o insert termina em `.select().single()`.
+  const single = jest.fn(async () => ({ data: result.data ?? null, error: result.error }));
+  const insertSelect = jest.fn(() => ({ single }));
+  const insert = jest.fn(() => ({ select: insertSelect }));
   const eq = jest.fn(async () => result);
   const update = jest.fn(() => ({ eq }));
   return {
@@ -61,13 +64,19 @@ describe('product adapter (SPEC-023)', () => {
     });
   });
 
-  it('cadastra na própria linha — o `with check` valida o user_id', async () => {
-    const { client, insert } = writeClient({ error: null });
-    await createProductAdapter(
-      client,
-      () => USER,
-      () => NOW,
-    ).add({ name: 'Máscara', category: 'mask' });
+  it('cadastra na própria linha — o `with check` valida o user_id — e devolve o produto criado', async () => {
+    const { client, insert } = writeClient({
+      error: null,
+      data: { id: 'p9', name: 'Máscara', category: 'mask' },
+    });
+    // O id de volta é o que deixa o Wash Day marcar o que ela acabou de cadastrar (SPEC-024 FR6).
+    await expect(
+      createProductAdapter(
+        client,
+        () => USER,
+        () => NOW,
+      ).add({ name: 'Máscara', category: 'mask' }),
+    ).resolves.toEqual({ id: 'p9', name: 'Máscara', category: 'mask' });
     expect(insert).toHaveBeenCalledWith({ user_id: USER, name: 'Máscara', category: 'mask' });
   });
 

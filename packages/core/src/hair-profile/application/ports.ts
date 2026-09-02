@@ -50,8 +50,14 @@ export interface HairEventPort {
 export interface ProductPort {
   /** Os ativos, mais recente primeiro. Arquivados não voltam por aqui. */
   list(): Promise<readonly Product[]>;
-  /** Rejeita com `hair_profile.product_duplicate` quando ela já tem esse nome ativo (EC2). */
-  add(input: { name: string; category: ProductCategory }): Promise<void>;
+  /**
+   * Rejeita com `hair_profile.product_duplicate` quando ela já tem esse nome ativo (EC2).
+   *
+   * Devolve o produto criado porque quem cadastra do **Wash Day** acabou de usá-lo (SPEC-024 FR6):
+   * sem o id de volta, marcar o que ela acabou de adicionar custaria um toque a mais, e o toque a
+   * mais é exatamente o que faz um registro não ser preenchido.
+   */
+  add(input: { name: string; category: ProductCategory }): Promise<Product>;
   rename(input: { id: string; name: string }): Promise<void>;
   /** Tira da prateleira. A linha continua no banco — o uso registrado precisa dela (BR4). */
   archive(id: string): Promise<void>;

@@ -1,9 +1,10 @@
 import type { Product, ProductCategory, ProductPort } from '@app/core';
-import { PRODUCT_CATEGORIES, PRODUCT_NAME_MAX_LENGTH, ProductNameSchema } from '@app/core';
+import { PRODUCT_CATEGORIES, PRODUCT_NAME_MAX_LENGTH } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { Button, Card, Chip, Field, Loading, Row, Screen, Stack, Text } from '@/design/primitives';
+import { useAddProduct } from '@/features/shelf/use-add-product';
 import { reasonOf } from '@/shared/failure-detail';
 
 /**
@@ -39,9 +40,7 @@ type Loadable<T> = 'loading' | 'error' | T;
 
 export function ShelfScreen({ products, onBack }: { products: ProductPort; onBack: () => void }) {
   const [list, setList] = useState<Loadable<readonly Product[]>>('loading');
-  const [draft, setDraft] = useState('');
-  const [category, setCategory] = useState<ProductCategory | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -63,36 +62,15 @@ export function ShelfScreen({ products, onBack }: { products: ProductPort; onBac
   }, [products]);
   useEffect(() => load(), [load]);
 
-  const parsed = ProductNameSchema.safeParse(draft);
-  const name = parsed.success ? parsed.data : null;
-
-  const add = () => {
-    if (busy || !name || !category) return;
-    setBusy(true);
-    setMessage(null);
-    setFailure(null);
-    products
-      .add({ name, category })
-      .then(() => {
-        setDraft('');
-        setCategory(null);
-        load();
-      })
-      .catch((error: unknown) => {
-        // Duplicata não é falha: é uma informação. Mostrar o erro cru faria ela achar que quebrou.
-        setMessage(
-          (error as { code?: string })?.code === 'hair_profile.product_duplicate'
-            ? 'Você já tem esse produto na prateleira.'
-            : 'Não foi possível adicionar agora. Tente novamente.',
-        );
-        setFailure(reasonOf(error));
-      })
-      .finally(() => setBusy(false));
-  };
+  // A mesma regra de cadastro que o Wash Day usa (SPEC-024 FR6). Uma cópia só: a normalização do
+  // nome e a tradução da duplicata divergiriam entre as duas telas na primeira mudança de qualquer
+  // uma delas, e a cópia esquecida mostraria o código cru do Postgres.
+  const add = useAddProduct(products, load);
+  const busy = add.busy || archiving;
 
   const archive = (id: string) => {
     if (busy) return;
-    setBusy(true);
+    setArchiving(true);
     setMessage(null);
     products
       .archive(id)
@@ -101,14 +79,14 @@ export function ShelfScreen({ products, onBack }: { products: ProductPort; onBac
         setMessage('Não foi possível remover agora. Tente novamente.');
         setFailure(reasonOf(error));
       })
-      .finally(() => setBusy(false));
+      .finally(() => setArchiving(false));
   };
 
   return (
     <Screen
       footer={
         <Stack gap="sm">
-          <Button label="Adicionar" onPress={add} disabled={!name || !category} busy={busy} />
+          <Button label="Adicionar" onPress={add.submit} disabled={!add.ready} busy={add.busy} />
           <Button label="Voltar" variant="ghost" onPress={onBack} disabled={busy} />
         </Stack>
       }
@@ -126,11 +104,8 @@ export function ShelfScreen({ products, onBack }: { products: ProductPort; onBac
       </Stack>
 
       <Field
-        value={draft}
-        onChangeText={(text) => {
-          setDraft(text);
-          setMessage(null);
-        }}
+        value={add.draft}
+        onChangeText={add.type}
         accessibilityLabel="Nome do produto"
         placeholder="Nome do produto"
         maxLength={PRODUCT_NAME_MAX_LENGTH}
@@ -144,21 +119,21 @@ export function ShelfScreen({ products, onBack }: { products: ProductPort; onBac
           <Chip
             key={value}
             label={CATEGORY_LABEL[value]}
-            selected={category === value}
-            onPress={() => setCategory(category === value ? null : value)}
+            selected={add.category === value}
+            onPress={() => add.toggleCategory(value)}
             disabled={busy}
           />
         ))}
       </Row>
 
-      {message ? (
+      {(add.message ?? message) ? (
         <Text tone="danger" accessibilityLiveRegion="polite">
-          {message}
+          {add.message ?? message}
         </Text>
       ) : null}
-      {__DEV__ && failure ? (
+      {__DEV__ && (add.failure ?? failure) ? (
         <Text variant="caption" tone="faint">
-          {failure}
+          {add.failure ?? failure}
         </Text>
       ) : null}
 

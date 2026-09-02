@@ -40,9 +40,16 @@ export const createProductAdapter = (
     return (data as Row[]).map((row) => ({ id: row.id, name: row.name, category: row.category }));
   },
 
-  async add({ name, category }): Promise<void> {
-    const { error } = await client.from(TABLE).insert({ user_id: userId(), name, category });
-    if (!error) return;
+  async add({ name, category }): Promise<Product> {
+    const { data, error } = await client
+      .from(TABLE)
+      .insert({ user_id: userId(), name, category })
+      .select('id, name, category')
+      .single();
+    if (!error) {
+      const row = data as Row;
+      return { id: row.id, name: row.name, category: row.category };
+    }
     /**
      * Um código de erro do Postgres não é uma mensagem para ela. Traduzido aqui, na fronteira, para
      * a tela poder dizer "você já tem esse produto" em vez de mostrar a falha crua — e para o
