@@ -1,4 +1,4 @@
-// care-tracking — public surface (SPEC-005, SPEC-006, SPEC-019).
+// care-tracking — public surface (SPEC-005, SPEC-006, SPEC-019, SPEC-024, SPEC-025).
 export {
   CHECKIN_SCALE,
   canCheckIn,
@@ -12,6 +12,9 @@ export type { CareExecution, CareItem, CareOutcome, CheckIn, TodayView } from '.
 export {
   WASH_DAY_TECHNIQUES,
   WashDayTechniqueSchema,
+  SCALP_FEELS,
+  ScalpFeelSchema,
+  type ScalpFeel,
   type WashDayRecord,
   type WashDayTechnique,
 } from './domain/wash-day.ts';

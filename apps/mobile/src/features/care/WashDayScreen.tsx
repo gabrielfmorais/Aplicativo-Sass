@@ -1,5 +1,12 @@
-import type { Product, ProductCategory, ProductPort, WashDayPort, WashDayTechnique } from '@app/core';
-import { PRODUCT_CATEGORIES, PRODUCT_NAME_MAX_LENGTH, WASH_DAY_TECHNIQUES } from '@app/core';
+import type {
+  Product,
+  ProductCategory,
+  ProductPort,
+  ScalpFeel,
+  WashDayPort,
+  WashDayTechnique,
+} from '@app/core';
+import { PRODUCT_CATEGORIES, PRODUCT_NAME_MAX_LENGTH, SCALP_FEELS, WASH_DAY_TECHNIQUES } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
@@ -47,6 +54,17 @@ const TECHNIQUE_LABEL: Record<WashDayTechnique, string> = {
   protective_style: 'Prendi o cabelo',
 };
 
+/**
+ * SPEC-025 BR3 — **nenhum é melhor que outro.** Não há ordem, não há escala e não há ícone de
+ * positivo ou negativo: um couro oleoso não é uma nota baixa. A ordem abaixo é a do vocabulário do
+ * perfil (SPEC-002), e existir uma ordem de leitura não é existir uma ordem de valor.
+ */
+const SCALP_LABEL: Record<ScalpFeel, string> = {
+  oily_quickly: 'Oleoso rápido',
+  balanced: 'Equilibrado',
+  dry_tendency: 'Ressecado',
+};
+
 const CATEGORY_LABEL: Record<ProductCategory, string> = {
   shampoo: 'Shampoo',
   conditioner: 'Condicionador',
@@ -57,7 +75,11 @@ const CATEGORY_LABEL: Record<ProductCategory, string> = {
   other: 'Outro',
 };
 
-type Marked = { products: readonly Product[]; techniques: readonly WashDayTechnique[] };
+type Marked = {
+  products: readonly Product[];
+  techniques: readonly WashDayTechnique[];
+  scalpFeel: ScalpFeel | null;
+};
 type Ready = { shelf: readonly Product[]; marked: Marked };
 type Loadable<T> = 'loading' | 'error' | T;
 
@@ -107,7 +129,14 @@ export function WashDayScreen({
     Promise.all([products.list(), washDays.getFor(careExecutionId)])
       .then(([shelf, record]) => {
         if (!active) return;
-        setState({ shelf, marked: { products: record.products, techniques: record.techniques } });
+        setState({
+          shelf,
+          marked: {
+            products: record.products,
+            techniques: record.techniques,
+            scalpFeel: record.scalpFeel,
+          },
+        });
       })
       .catch((error: unknown) => {
         if (!active) return;
@@ -165,6 +194,24 @@ export function WashDayScreen({
       () => washDays.markTechnique({ careExecutionId, technique, used }),
       () => setMarked((m) => ({ ...m, techniques: toggled(m.techniques, technique, !used) })),
       TECHNIQUE_LABEL[technique],
+    );
+  };
+
+  /**
+   * SPEC-025 — escolha única: tocar em outra troca, tocar na marcada tira. Uma escrita só nos dois
+   * casos, e a fila é a mesma das marcações — dois toques rápidos aqui têm o mesmo problema de
+   * ordem que dois toques num chip de produto.
+   */
+  const chooseScalp = (scalpFeel: ScalpFeel) => {
+    if (!isReady(state)) return;
+    const previous = state.marked.scalpFeel;
+    const next = previous === scalpFeel ? null : scalpFeel;
+    setMarked((m) => ({ ...m, scalpFeel: next }));
+    mark(
+      'scalp',
+      () => washDays.setScalpFeel({ careExecutionId, scalpFeel: next }),
+      () => setMarked((m) => ({ ...m, scalpFeel: previous })),
+      SCALP_LABEL[scalpFeel],
     );
   };
 
@@ -322,6 +369,25 @@ export function WashDayScreen({
             {add.failure}
           </Text>
         ) : null}
+      </Stack>
+
+      <Stack gap="md">
+        {/* SPEC-025 — **fora do caminho do check-in** (FR7): a pergunta de fios continua sendo um
+            toque na Hoje, e esta mora aqui, onde nada é obrigatório. Sem "como estava?" com cara de
+            avaliação: nenhum valor é melhor que outro (BR3/NG4). */}
+        <Text variant="overline" tone="muted" accessibilityRole="header">
+          Seu couro cabeludo
+        </Text>
+        <Row>
+          {SCALP_FEELS.map((feel) => (
+            <Chip
+              key={feel}
+              label={SCALP_LABEL[feel]}
+              selected={state.marked.scalpFeel === feel}
+              onPress={() => chooseScalp(feel)}
+            />
+          ))}
+        </Row>
       </Stack>
 
       <Stack gap="md">

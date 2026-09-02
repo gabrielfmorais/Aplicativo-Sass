@@ -40,6 +40,29 @@ export const WashDayTechniqueSchema = z.enum(WASH_DAY_TECHNIQUES);
 export type WashDayTechnique = z.infer<typeof WashDayTechniqueSchema>;
 
 /**
+ * SPEC-025 (F31) — como o couro cabeludo esteve naquele cuidado.
+ *
+ * **É o vocabulário de `hair_profiles.scalp_tendency` (SPEC-002), sem o `unknown`** — que ali
+ * significa "não sei descrever meu couro em geral" e aqui não teria uso: não responder já é a
+ * resposta. Reaproveitar um conjunto que **já passou pelo gate de domínio**, em vez de inventar um
+ * novo, é o que mantém a capability fora do D-26 (mesmo raciocínio do D-96 para o `F23`).
+ *
+ * ⚠️ **Nenhum sintoma clínico.** Coceira, descamação, dor, ferida e queda mudariam a natureza do
+ * dado para **saúde**, o que exige base legal e a tabela `consents` que não existe (D-32), além de
+ * sign-off de domínio (D-26). São duas chaves, e nenhuma delas é do agente — está registrado como
+ * OQ2 da SPEC-025, não improvisado.
+ *
+ * ⚠️ **Não é uma escala.** Ao contrário do check-in de fios (1 a 5), aqui **nenhum valor é melhor
+ * que outro**: um couro oleoso não é uma nota baixa. Qualquer ordenação, ícone de positivo/negativo
+ * ou cor de sucesso sobre estes valores é bug (BR3).
+ */
+export const SCALP_FEELS = ['oily_quickly', 'balanced', 'dry_tendency'] as const;
+
+export const ScalpFeelSchema = z.enum(SCALP_FEELS);
+
+export type ScalpFeel = z.infer<typeof ScalpFeelSchema>;
+
+/**
  * O registro de uma execução, como a tela o lê.
  *
  * `washDayId` nulo significa **nunca aberto** — não "vazio". A diferença importa uma vez: um
@@ -62,4 +85,6 @@ export type WashDayRecord = {
    */
   readonly products: readonly Product[];
   readonly techniques: readonly WashDayTechnique[];
+  /** SPEC-025 — como o couro esteve, ou `null` quando ela não quis dizer (um estado válido). */
+  readonly scalpFeel: ScalpFeel | null;
 };
