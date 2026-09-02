@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-025 |
-| Status | **Draft** |
+| Status | **Implemented** — `F31` fechado, validado no DEV real a 390px |
 | Owner | (humano) — projetopaporeto.erp@gmail.com |
 | Bounded Context | **Care Tracking** (DOMAIN-MAP §3.5) — é uma percepção ancorada numa execução, e vive com ela |
 | Related ADRs | ADR-001, ADR-006, ADR-008 |
@@ -146,10 +146,10 @@ pgTAP para posse, isolamento, unicidade por execução e cascata da anulação �
 
 ## 20. Implementation Plan
 
-1. Banco: `wash_day_scalp`, allowlist, pgTAP.
-2. Core: vocabulário e extensão do `WashDayPort`.
-3. App: a pergunta na tela do Wash Day, e a resposta no histórico.
-4. Validação a 390px no DEV real e fechamento do `F31`.
+1. ✅ Banco: `wash_day_scalp`, allowlist, pgTAP (#90).
+2. ✅ Core: vocabulário e extensão do `WashDayPort` (#91).
+3. ✅ App: a pergunta na tela do Wash Day (#91).
+4. ✅ Validação a 390px no DEV real e fechamento do `F31`.
 
 ## 21. Migration Plan
 
@@ -170,4 +170,5 @@ Sem dado de produção antes do release. Rollback é remover o que a OQ1 criar.
 
 | Data | Mudança | Autor |
 |---|---|---|
+| 2026-09-02 | v0.2 — **implementada e validada no DEV real; `F31` DONE.** Marcar → trocar (troca, não soma) → reload → persistido, a 390px. **Dois achados ao escrever os testes:** o duplo do adapter devolvia o mesmo resultado para o `upsert` do hub e o do couro, então o teste de falha passava pelo motivo errado; e a barreira de sintoma da tela casava com "Condicionador" e "Finalizador" (`dor` no fim da palavra) — uma barreira que acusa o vocabulário certo é tão inútil quanto uma que nunca acusa nada. **Um achado no pgTAP:** a FK composta estava sendo testada com a PK já ocupada, então o ataque falhava por `23505` e não por `23503` — as duas camadas agora são exercitadas separadamente. **Um achado ao ver a tela:** o título "O que você usou?" descrevia uma de três seções; virou "Seu registro". | agente (§0.2) |
 | 2026-09-01 | v0.1 — Draft criada para o **F31**, o último Free sem gate externo. **A decisão estrutural já está tomada e é a §8:** a resposta mora no hub do Wash Day e não em `checkins`, porque `checkins` é append-only e a alternativa seria transformar o check-in de um toque em dois — regressão no coração do produto. **A OQ1 já nasce resolvida por medição:** junção, e não coluna no hub, porque um `grant update (coluna)` vive em `pg_attribute.attacl` e **nenhum guardrail do projeto olha para lá** — o privilégio existiria calado, fora do alcance da allowlist. **A decisão de conteúdo é a §12/NG1:** o vocabulário é o `SCALP_TENDENCIES` que a SPEC-002 já usa e que já passou pelo gate; coceira e descamação mudariam a natureza do dado para saúde e ficam atrás de duas chaves que não são do agente (D-32 e D-26). | agente (§0.4/D-97) |

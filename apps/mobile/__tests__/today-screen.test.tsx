@@ -575,15 +575,15 @@ describe('TodayScreen — o Wash Day (SPEC-024)', () => {
 
   it('oferece registrar num cuidado concluído, e nunca exige', async () => {
     const s = await renderScreen(makePort(), done());
-    expect(s.getByText('O que você usou?')).toBeTruthy();
+    expect(s.getByText('Contar esse cuidado')).toBeTruthy();
     // Nem cobrança, nem promessa: nada afirma que falta preencher.
     expect(s.queryByText(/complete|falta|preencha/i)).toBeNull();
   });
 
   it('quando já existe registro, o rótulo muda — e nenhuma frase afirma o que tem dentro', async () => {
     const s = await renderScreen(makePort(), done({ washDayExecutionIds: ['e-past'] }));
-    expect(s.getByText('Ver o que usei')).toBeTruthy();
-    expect(s.queryByText('O que você usou?')).toBeNull();
+    expect(s.getByText('Ver o que contei')).toBeTruthy();
+    expect(s.queryByText('Contar esse cuidado')).toBeNull();
     expect(s.queryByText(/Você registrou/)).toBeNull();
   });
 
@@ -607,7 +607,7 @@ describe('TodayScreen — o Wash Day (SPEC-024)', () => {
         onOpenCycle={jest.fn()}
       />,
     );
-    await fireEvent.press(s.getByText('O que você usou?'));
+    await fireEvent.press(s.getByText('Contar esse cuidado'));
     expect(onOpenWashDay).toHaveBeenCalledWith({
       careExecutionId: 'e-past',
       careTitle: 'Hidratação',
