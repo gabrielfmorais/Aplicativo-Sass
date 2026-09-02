@@ -12,6 +12,8 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button, Card, Row, Screen, ScreenHeader, Stack, Tag, Text } from '@/design/primitives';
+import { SuggestionsCard } from '@/features/care/SuggestionsCard';
+import { buildSuggestions, type Suggestion, type SuggestionKey } from '@/features/care/suggestions';
 import { HIT_TARGET_MIN, color, radius, space } from '@/design/tokens';
 import { CareGuidePanel } from '@/features/care/CareGuidePanel';
 import { CareTypeMark } from '@/features/care/CareTypeMark';
@@ -423,6 +425,8 @@ export function TodayScreen({
   onResume,
   onOpenCycle,
   onOpenWashDay,
+  productCount,
+  onOpenShelf,
   onReassess,
 }: {
   board: CareBoard;
@@ -452,6 +456,15 @@ export function TodayScreen({
    * trata.
    */
   onOpenWashDay: (input: { careExecutionId: string; careTitle: string }) => void;
+  /**
+   * SPEC-026 fatia 3 — quantos produtos ativos ela tem, ou `null` enquanto não se sabe.
+   *
+   * **`null` não é zero.** Uma leitura que não voltou não pode virar "sua prateleira está vazia",
+   * que seria uma afirmação sobre ela feita a partir de nada. A rota lê isto em silêncio: se
+   * falhar, a sugestão simplesmente não aparece — uma oferta ausente não é um erro a mostrar.
+   */
+  productCount: number | null;
+  onOpenShelf: () => void;
   /**
    * D-82 — the way out of a finished cycle. Present whenever there is an active plan, which is the
    * only situation this screen renders in; it is optional so a test can render the screen without
@@ -485,6 +498,8 @@ export function TodayScreen({
    * de duas semanas atrás sem lembrar por quê. A Hoje se chama Hoje.
    */
   const [selected, setSelected] = useState<string>(today);
+  /** FR15 — dispensada some, e não volta na mesma sessão. Escopo de sessão, e nada a persistir. */
+  const [dismissed, setDismissed] = useState<readonly SuggestionKey[]>([]);
 
   const view = useMemo(
     () => buildTodayView(board.cares, board.executions, today, board.checkIns, board.pausedOn),
@@ -531,6 +546,27 @@ export function TodayScreen({
         careTitle: CARE_TYPE_LABEL[item.careTypeCode],
       });
     },
+  };
+
+  const suggestions = useMemo(
+    () =>
+      buildSuggestions({
+        view,
+        washDayExecutionIds: board.washDayExecutionIds,
+        productCount,
+        dismissed,
+      }),
+    [view, board.washDayExecutionIds, productCount, dismissed],
+  );
+
+  const actOnSuggestion = (suggestion: Suggestion) => {
+    if (suggestion.key === 'shelf_empty') return onOpenShelf();
+    if (suggestion.careExecutionId && suggestion.careTitle) {
+      onOpenWashDay({
+        careExecutionId: suggestion.careExecutionId,
+        careTitle: suggestion.careTitle,
+      });
+    }
   };
 
   const notFocus = (item: CareItem) => item.id !== focus?.id;
@@ -698,6 +734,12 @@ export function TodayScreen({
       */}
       {!viewingToday ? null : (
         <>
+          <SuggestionsCard
+            suggestions={suggestions}
+            onAct={actOnSuggestion}
+            onDismiss={(s) => setDismissed((current) => [...current, s.key])}
+          />
+
           {nothingLeft && onReassess ? (
             <Card tone="accent">
               <Text tone="muted">
