@@ -12,6 +12,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button, Card, Row, Screen, ScreenHeader, Stack, Tag, Text } from '@/design/primitives';
+import { HomeSection } from '@/features/care/HomeSection';
 import { SuggestionsCard } from '@/features/care/SuggestionsCard';
 import { buildSuggestions, type Suggestion, type SuggestionKey } from '@/features/care/suggestions';
 import { HIT_TARGET_MIN, color, radius, space } from '@/design/tokens';
@@ -327,6 +328,7 @@ function CareCard({
   blocked,
   onAct,
   washDay,
+  tone = 'surface',
 }: {
   item: CareItem;
   today: LocalDate;
@@ -335,10 +337,19 @@ function CareCard({
   blocked: boolean;
   onAct: (item: CareItem, action: Action) => void;
   washDay: WashDayAccess;
+  /**
+   * SPEC-030 — a escada tonal da Hoje, e ela **significa** alguma coisa.
+   *
+   * A tela tinha um bloco tingido no topo e cartão branco em todo o resto: quatro seções, um único
+   * tom, nenhuma pista de que uma é o passado. Agora a cor diz o estado — ameixa é a resposta do
+   * dia, roxo é oferta, branco é o que ela ainda pode fazer, e bege é o que já aconteceu. Nenhum
+   * elemento novo: a mesma quantidade de cartões, lendo em ordem.
+   */
+  tone?: 'surface' | 'muted';
 }) {
   const state = stateTagOf(item);
   return (
-    <Card>
+    <Card tone={tone}>
       <Row gap="sm" style={styles.cardHead}>
         <CareTypeMark careTypeCode={item.careTypeCode} />
         {state ? <Tag label={state.label} tone={state.tone} /> : null}
@@ -363,25 +374,49 @@ function CareCard({
 function Section({
   title,
   items,
+  showFirst,
+  cardTone = 'surface',
   ...rest
 }: {
   title: string;
   items: readonly CareItem[];
+  /**
+   * SPEC-030 — quantos itens a seção mostra antes de oferecer o resto.
+   *
+   * ⚠️ **Isto existe por uma medição.** A Hoje media **4,23 telas de rolagem** com um plano pequeno,
+   * e quase tudo era "Próximos": nove cartões praticamente idênticos, ~155px cada, repetindo os
+   * mesmos quatro botões para cuidados que só acontecem daqui a semanas. A pergunta que a seção
+   * responde — *o que vem?* — se responde com os três primeiros.
+   *
+   * ⚠️ **E a razão de ser "ver mais" em vez de linha compacta é uma SPEC, não uma preferência.**
+   * A primeira tentativa desta fatia trocou os cartões por linhas que abriam ao toque. Os testes
+   * reprovaram na hora, e com motivo: aquilo escondia **"Contar esse cuidado"** — a entrada do Wash
+   * Day (SPEC-024), que alimenta a Prateleira e a Hair Intelligence — e escondia **"Como fazer"**,
+   * que a SPEC-007 AC5 promete em **todo** cuidado acionável. A SPEC-016 já tinha registrado
+   * exatamente essa decisão: as seções ficam mais quietas, **nunca colapsadas**, por causa de AC5.
+   *
+   * Com "ver mais", cada cartão que aparece continua inteiro — nada muda no que um cuidado oferece.
+   * O que muda é **quantos** aparecem de uma vez, que é o problema medido.
+   */
+  showFirst?: number;
+  /** O tom dos cartões desta seção. O passado recua; o que ainda pode ser feito não. */
+  cardTone?: 'surface' | 'muted';
   today: LocalDate;
   now: Instant;
   busyId: string | null;
   onAct: (item: CareItem, action: Action) => void;
   washDay: WashDayAccess;
 }) {
+  const [expanded, setExpanded] = useState(false);
   if (items.length === 0) return null;
+
+  const limit = showFirst ?? items.length;
+  const hidden = Math.max(items.length - limit, 0);
+  const shown = expanded || hidden === 0 ? items : items.slice(0, limit);
+
   return (
-    <Stack gap="md">
-      {/* `muted`, not `faint`: this is a heading, and a heading belongs to the second tier of the
-          ink scale — the third is for metadata that repeats something already on screen. */}
-      <Text variant="overline" tone="accent" accessibilityRole="header">
-        {title}
-      </Text>
-      {items.map((item) => (
+    <HomeSection title={title}>
+      {shown.map((item) => (
         <CareCard
           key={item.id}
           item={item}
@@ -391,9 +426,26 @@ function Section({
           blocked={rest.busyId !== null}
           onAct={rest.onAct}
           washDay={rest.washDay}
+          tone={cardTone}
         />
       ))}
-    </Stack>
+      {hidden > 0 && !expanded ? (
+        /**
+         * ⚠️ **O rótulo diz o número, e isso não é enfeite.** "Ver mais" esconde quanto falta; "Ver
+         * mais 6" deixa ela decidir se vale a rolagem. E o contador é a prova de que nada sumiu — a
+         * seção declara o que está guardando.
+         */
+        <Button
+          label={`Ver mais ${hidden}`}
+          variant="ghost"
+          size="sm"
+          accessibilityLabel={`Ver mais ${hidden} em ${title}`}
+          accessibilityState={{ expanded: false }}
+          onPress={() => setExpanded(true)}
+          style={styles.sectionMore}
+        />
+      ) : null}
+    </HomeSection>
   );
 }
 
@@ -689,8 +741,16 @@ export function TodayScreen({
               />
             ))
           )}
+          {/*
+            SPEC-030 — a volta ganha peso, e **só** isso.
+            Olhando outro dia a tela terminava num link fantasma e sobrava meia tela de vazio. A
+            primeira tentativa de resolver foi pôr "Ver meu ciclo" aqui — e o teste da SPEC-026
+            reprovou, com razão: num outro dia **tudo o que fala de hoje some**, senão a tela dá
+            duas respostas para a mesma pergunta. O vazio não justifica reabrir uma decisão; o que
+            ele pede é que a saída pareça o fim da tela, e um botão secundário já é isso.
+          */}
           <Row gap="sm">
-            <Button label="Voltar para hoje" variant="ghost" onPress={() => setSelected(today)} />
+            <Button label="Voltar para hoje" variant="secondary" onPress={() => setSelected(today)} />
           </Row>
         </Stack>
       )}
@@ -735,6 +795,21 @@ export function TodayScreen({
               {`Próximo: ${CARE_TYPE_LABEL[nextUp.careTypeCode]} · ${formatPlannedDate(nextUp.plannedDate)}`}
             </Text>
           ) : null}
+          {/*
+            SPEC-030 — um dia livre também oferece um passo.
+            ⚠️ **E o passo é uma leitura, não uma tarefa.** O cartão vazio dizia o próximo cuidado e
+            parava ali: a resposta certa, num beco. Oferecer "faça outra coisa" seria inventar
+            tarefa num dia que o cronograma deixou livre — o que este produto recusa desde a
+            SPEC-019. Ver o ciclo é o único convite honesto: mostra onde ela está sem pedir nada.
+          */}
+          {nothingLeft ? null : (
+            <Button
+              label="Ver meu ciclo"
+              variant="secondary"
+              onPress={onOpenCycle}
+              style={styles.emptyAction}
+            />
+          )}
         </Card>
       )}
 
@@ -781,6 +856,7 @@ export function TodayScreen({
           />
           <Section
             title="Próximos"
+            showFirst={3}
             items={view.upcoming}
             today={today}
             now={renderedNow}
@@ -801,6 +877,8 @@ export function TodayScreen({
 
           <Section
             title="Histórico"
+            showFirst={3}
+            cardTone="muted"
             items={history}
             today={today}
             now={renderedNow}
@@ -831,9 +909,18 @@ export function TodayScreen({
             />
           )}
 
-          <Row gap="sm">
-            <Button label="Ver meu ciclo" variant="ghost" onPress={onOpenCycle} />
-          </Row>
+          {/*
+            SPEC-030 — **uma** porta para o ciclo, e ela muda de lugar conforme o dia.
+            Num dia livre a porta sobe para dentro do cartão de foco, que é onde a pergunta "e
+            agora?" acontece; num dia com cuidado ela fica aqui embaixo, quieta, para não competir
+            com a única ação primária da tela. Deixá-la nos dois lugares seria repetir o defeito
+            que a SPEC-027 acabou de corrigir na navegação: dois caminhos para o mesmo destino.
+          */}
+          {focus || nothingLeft ? (
+            <Row gap="sm">
+              <Button label="Ver meu ciclo" variant="ghost" onPress={onOpenCycle} />
+            </Row>
+          ) : null}
         </>
       )}
     </Screen>
@@ -841,6 +928,10 @@ export function TodayScreen({
 }
 
 const styles = StyleSheet.create({
+  /** Não ocupa a linha: num dia livre nada aqui é a ação primária da tela. */
+  emptyAction: { alignSelf: 'flex-start' },
+  /** Alinhado à esquerda: "ver mais" é uma oferta da seção, não a ação principal da tela. */
+  sectionMore: { alignSelf: 'flex-start' },
   cardHead: { alignItems: 'center', justifyContent: 'space-between' },
   focus: { padding: space.xl, gap: space.md },
   focusActions: { paddingTop: space.sm },

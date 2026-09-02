@@ -356,7 +356,7 @@ export function Card({
   style,
 }: {
   children: ReactNode;
-  tone?: 'surface' | 'muted' | 'accent' | 'brand';
+  tone?: 'surface' | 'muted' | 'accent' | 'brand' | 'violet';
   style?: StyleProp<ViewStyle>;
 }) {
   const tones = {
@@ -371,6 +371,19 @@ export function Card({
      * que o distingue de mais um cartão claro sem virar um retângulo colorido.
      */
     brand: { backgroundColor: color.brandTint, borderColor: color.wine },
+    /**
+     * SPEC-030 — o roxo suave, **sem borda**, para o bloco que **oferece**.
+     *
+     * ⚠️ **Ele nasceu de um defeito visto a 390px.** As sugestões viraram um painel só, e esse
+     * painel ficou logo abaixo do cartão de foco — que é `brand`. Dois retângulos tingidos, quase
+     * da mesma cor, um em cima do outro: o olho parava de distinguir **a resposta da tela** de
+     * **uma oferta**, que é a diferença mais importante da Hoje.
+     *
+     * Roxo separa os dois sem somar elemento, e a ausência de borda é o segundo canal: o foco tem
+     * contorno vinho porque é o assunto; a oferta não tem porque é um convite. A borda existe
+     * transparente para o layout não mudar de altura entre os dois tons.
+     */
+    violet: { backgroundColor: color.violetSoft, borderColor: color.violetSoft },
   } as const;
   return <View style={[styles.card, tones[tone], style]}>{children}</View>;
 }
