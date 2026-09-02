@@ -184,7 +184,7 @@ function CareActions({
         <Row gap="sm">
           {item.execution ? (
             <Button
-              label={registered ? 'Ver o que usei' : 'O que você usou?'}
+              label={registered ? 'Ver o que contei' : 'Contar esse cuidado'}
               variant="ghost"
               size="sm"
               onPress={() => washDay.open(item)}

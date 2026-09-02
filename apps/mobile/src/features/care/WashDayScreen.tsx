@@ -302,11 +302,19 @@ export function WashDayScreen({
         <Text variant="overline" tone="faint">
           {careTitle}
         </Text>
+        {/*
+          O título nomeia a **tela**, não a primeira seção. Enquanto o Wash Day só perguntava
+          produtos e técnicas, "O que você usou?" cobria tudo o que estava embaixo; com o couro
+          cabeludo (SPEC-025) ele passou a prometer um terço do que a tela pede. Um título que
+          descreve só a primeira seção não é questão de estilo — é impreciso, e só apareceu
+          olhando a tela inteira a 390px.
+        */}
         <Text variant="display" accessibilityRole="header">
-          O que você usou?
+          Seu registro
         </Text>
         <Text tone="muted">
-          Marque o que passou no cabelo e como você fez. Nada aqui é obrigatório, e dá para voltar depois.
+          Marque o que usou, como seu couro esteve e como você fez. Nada aqui é obrigatório, e dá para voltar
+          depois.
         </Text>
       </Stack>
 

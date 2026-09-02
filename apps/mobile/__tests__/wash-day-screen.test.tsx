@@ -43,7 +43,7 @@ const renderScreen = async (washDays: WashDayPort, products: ProductPort = makeP
       onBack={onBack}
     />,
   );
-  await waitFor(() => view.getByText('O que você usou?'));
+  await waitFor(() => view.getByText('Seu registro'));
   return { ...view, onBack };
 };
 
