@@ -52,6 +52,8 @@ const makeClient = (
   lifetime: { count: number | null; error: unknown } = { count: 0, error: null },
   // SPEC-022: a pausa aberta do plano ativo, ou nenhuma.
   pause: Result = { data: null, error: null },
+  // SPEC-024 FR7: quais execuções deste board já têm registro de Wash Day.
+  washDays: Result = { data: [], error: null },
 ) => {
   const rpc = jest.fn(async (_fn: string, _args: Record<string, unknown>) => ({
     data: null,
@@ -98,7 +100,9 @@ const makeClient = (
           ? thenable(cares)
           : table === 'care_executions'
             ? thenable(executions)
-            : thenable(checkIns),
+            : table === 'wash_days'
+              ? thenable(washDays)
+              : thenable(checkIns),
   );
   return { client: { from, rpc } as unknown as SupabaseClient, rpc, selects };
 };
@@ -107,10 +111,17 @@ const ok = (data: unknown): Result => ({ data, error: null });
 
 describe('care tracking adapter — reads (SPEC-005 §9)', () => {
   it('builds the board from the active plan, its cares and their executions', async () => {
-    const { client } = makeClient(ok(planRow), ok(careRows), ok(executionRows), null, ok(checkInRows), {
-      count: 7,
-      error: null,
-    });
+    const { client } = makeClient(
+      ok(planRow),
+      ok(careRows),
+      ok(executionRows),
+      null,
+      ok(checkInRows),
+      { count: 7, error: null },
+      { data: null, error: null },
+      // SPEC-024 FR7 — a execução 'e1' já tem registro; 'e2' não. A Hoje precisa da diferença.
+      ok([{ care_execution_id: 'e1' }]),
+    );
     const boardResult = await createCareTrackingAdapter(client).getBoard();
     expect(boardResult).toEqual({
       planId: 'plan-1',
@@ -119,6 +130,7 @@ describe('care tracking adapter — reads (SPEC-005 §9)', () => {
       assessmentAlgorithmVersion: 'v1',
       scheduleAlgorithmVersion: 'v1',
       pausedOn: null,
+      washDayExecutionIds: ['e1'],
       cares: [
         {
           id: 'c1',

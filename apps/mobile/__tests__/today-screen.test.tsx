@@ -14,6 +14,7 @@ const board = (over: Partial<CareBoard> = {}): CareBoard => ({
   assessmentAlgorithmVersion: 'v1',
   scheduleAlgorithmVersion: 'v1',
   pausedOn: null,
+  washDayExecutionIds: [],
   cares: [
     {
       id: 'late',
@@ -83,6 +84,7 @@ const renderScreen = (
       newExecutionId={newExecutionId}
       onChanged={onChanged}
       hairProfile={hairProfilePort()}
+      onOpenWashDay={jest.fn()}
       onPause={jest.fn()}
       onPreviewResume={jest.fn(async () => ({ action: 'shifted' as const, shiftDays: 0, careCount: 0 }))}
       onResume={jest.fn()}
