@@ -11,7 +11,7 @@ const SHELF: readonly Product[] = [
   { id: 'p2', name: 'Shampoo do mercado', category: 'shampoo' },
 ];
 
-const EMPTY: WashDayRecord = { washDayId: null, products: [], techniques: [] };
+const EMPTY: WashDayRecord = { washDayId: null, products: [], techniques: [], scalpFeel: null };
 
 /** BR3/AC4 — ela usou e depois tirou da prateleira. O registro é do passado, e o passado não muda. */
 const ARCHIVED: Product = { id: 'p-old', name: 'Creme que acabou', category: 'leave_in' };
@@ -28,6 +28,7 @@ const makeWashDays = (over: Partial<WashDayPort> = {}): WashDayPort => ({
   getFor: jest.fn(async () => EMPTY),
   markProduct: jest.fn(async () => undefined),
   markTechnique: jest.fn(async () => undefined),
+  setScalpFeel: jest.fn(async () => undefined),
   ...over,
 });
 
@@ -98,6 +99,7 @@ describe('WashDayScreen (SPEC-024)', () => {
         washDayId: 'w1',
         products: [SHELF[1] as Product],
         techniques: ['co_wash' as const],
+        scalpFeel: null,
       })),
     });
     const s = await renderScreen(washDays);
@@ -127,6 +129,7 @@ describe('WashDayScreen (SPEC-024)', () => {
         washDayId: 'w1',
         products: [ARCHIVED],
         techniques: [],
+        scalpFeel: null,
       })),
     });
     const s = await renderScreen(washDays);
@@ -212,6 +215,84 @@ describe('WashDayScreen (SPEC-024)', () => {
     expect(await s.findByText('Não foi possível abrir seu registro.')).toBeTruthy();
     expect(s.queryByText('Produtos')).toBeNull();
     expect(s.getByText('Tentar novamente')).toBeTruthy();
+  });
+
+  /**
+   * SPEC-025 — escolha única: tocar em outra troca, tocar na marcada tira. Uma escrita nos dois
+   * casos, nunca um apaga-e-escreve que deixaria uma janela sem resposta.
+   */
+  it('o couro cabeludo é escolha única: trocar substitui, tocar de novo tira', async () => {
+    const washDays = makeWashDays();
+    const s = await renderScreen(washDays);
+
+    await fireEvent.press(s.getByText('Oleoso rápido'));
+    await waitFor(() =>
+      expect(washDays.setScalpFeel).toHaveBeenCalledWith({
+        careExecutionId: EXECUTION,
+        scalpFeel: 'oily_quickly',
+      }),
+    );
+
+    await fireEvent.press(s.getByText('Ressecado'));
+    await waitFor(() => expect(washDays.setScalpFeel).toHaveBeenCalledTimes(2));
+    expect(jest.mocked(washDays.setScalpFeel).mock.calls[1]?.[0]).toEqual({
+      careExecutionId: EXECUTION,
+      scalpFeel: 'dry_tendency',
+    });
+
+    // Tocar na marcada tira a resposta — e não responder é um estado válido (EC2).
+    await fireEvent.press(s.getByText('Ressecado'));
+    await waitFor(() => expect(washDays.setScalpFeel).toHaveBeenCalledTimes(3));
+    expect(jest.mocked(washDays.setScalpFeel).mock.calls[2]?.[0]).toEqual({
+      careExecutionId: EXECUTION,
+      scalpFeel: null,
+    });
+  });
+
+  it('reabre com a resposta de couro que ela já tinha dado (AC3)', async () => {
+    const washDays = makeWashDays({
+      getFor: jest.fn(async () => ({
+        washDayId: 'w1',
+        products: [],
+        techniques: [],
+        scalpFeel: 'balanced' as const,
+      })),
+    });
+    const s = await renderScreen(washDays);
+    // Já marcada ao abrir, então o toque **tira**: a tela lê o registro, não um estado que inventou.
+    await fireEvent.press(s.getByText('Equilibrado'));
+    await waitFor(() =>
+      expect(washDays.setScalpFeel).toHaveBeenCalledWith({
+        careExecutionId: EXECUTION,
+        scalpFeel: null,
+      }),
+    );
+  });
+
+  /**
+   * BR3/NG4 — **não é uma escala.** O check-in de fios é 1 a 5 e tem resposta melhor; este não tem.
+   * Um couro oleoso não é uma nota baixa, e a tela não pode sugerir que seja.
+   */
+  it('não apresenta nenhuma opção de couro como melhor que outra', async () => {
+    const s = await renderScreen(makeWashDays());
+    for (const label of ['Oleoso rápido', 'Equilibrado', 'Ressecado']) {
+      expect(s.getByText(label)).toBeTruthy();
+    }
+    // Sem nota, sem escala, sem ideal, e sem o vocabulário de sintoma que muda a natureza do dado.
+    const forbidden = [/ideal|melhor|saud|normal|proble/i, /coceir|descama|caspa|ferida|queda|\bdor\b/i];
+    for (const pattern of forbidden) expect(s.queryByText(pattern)).toBeNull();
+
+    /**
+     * As amostras precisam casar — e as **legítimas** precisam NÃO casar. A primeira versão desta
+     * barreira usava `dor` com um lookahead frouxo e reprovava "Condicionador" e "Finalizador": uma
+     * barreira que acusa o vocabulário certo é tão inútil quanto uma que nunca acusa nada.
+     */
+    for (const sample of ['couro saudável', 'coceira', 'caspa', 'dor no couro', 'queda de fio']) {
+      expect(forbidden.some((p) => p.test(sample))).toBe(true);
+    }
+    for (const legit of ['Condicionador', 'Finalizador', 'Secador', 'Oleoso rápido', 'Ressecado']) {
+      expect(forbidden.some((p) => p.test(legit))).toBe(false);
+    }
   });
 
   /**

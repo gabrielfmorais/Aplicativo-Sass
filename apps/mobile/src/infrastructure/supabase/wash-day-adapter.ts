@@ -1,10 +1,18 @@
-import type { Product, ProductCategory, WashDayPort, WashDayRecord, WashDayTechnique } from '@app/core';
+import type {
+  Product,
+  ProductCategory,
+  ScalpFeel,
+  WashDayPort,
+  WashDayRecord,
+  WashDayTechnique,
+} from '@app/core';
 import { InfrastructureError } from '@app/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 const HUB = 'wash_days';
 const PRODUCTS = 'wash_day_products';
 const TECHNIQUES = 'wash_day_techniques';
+const SCALP = 'wash_day_scalp';
 
 const fail = (code: string, e: { message: string }) => new InfrastructureError(code, e.message);
 
@@ -74,15 +82,17 @@ export const createWashDayAdapter = (client: SupabaseClient, userId: () => strin
       if (error) throw fail('care.wash_day_read_failed', error);
       const washDayId = (hub as { id: string } | null)?.id ?? null;
       // Nunca aberto: nada a buscar, e o vazio aqui é ausência, não resposta.
-      if (!washDayId) return { washDayId: null, products: [], techniques: [] };
+      if (!washDayId) return { washDayId: null, products: [], techniques: [], scalpFeel: null };
       hubs.set(careExecutionId, washDayId);
 
-      const [marks, techniques] = await Promise.all([
+      const [marks, techniques, scalp] = await Promise.all([
         client.from(PRODUCTS).select('product_id').eq('wash_day_id', washDayId),
         client.from(TECHNIQUES).select('technique').eq('wash_day_id', washDayId),
+        client.from(SCALP).select('scalp_feel').eq('wash_day_id', washDayId).maybeSingle(),
       ]);
       if (marks.error) throw fail('care.wash_day_read_failed', marks.error);
       if (techniques.error) throw fail('care.wash_day_read_failed', techniques.error);
+      if (scalp.error) throw fail('care.wash_day_read_failed', scalp.error);
       const markedIds = (marks.data as { product_id: string }[]).map((r) => r.product_id);
 
       /**
@@ -109,6 +119,7 @@ export const createWashDayAdapter = (client: SupabaseClient, userId: () => strin
         washDayId,
         products,
         techniques: (techniques.data as { technique: WashDayTechnique }[]).map((r) => r.technique),
+        scalpFeel: (scalp.data as { scalp_feel: ScalpFeel } | null)?.scalp_feel ?? null,
       };
     },
 
@@ -146,6 +157,28 @@ export const createWashDayAdapter = (client: SupabaseClient, userId: () => strin
         .from(TECHNIQUES)
         .insert({ wash_day_id: washDayId, technique, user_id: userId() });
       if (error && error.code !== UNIQUE_VIOLATION) throw fail('care.wash_day_mark_failed', error);
+    },
+
+    async setScalpFeel({ careExecutionId, scalpFeel }): Promise<void> {
+      const washDayId = await hubFor(careExecutionId);
+      if (scalpFeel === null) {
+        const { error } = await client.from(SCALP).delete().eq('wash_day_id', washDayId);
+        if (error) throw fail('care.wash_day_scalp_failed', error);
+        return;
+      }
+      /**
+       * **Uma escrita, e não apaga-e-escreve.** `upsert` traduz para `on conflict do update`, então
+       * trocar de resposta nunca passa por um instante sem resposta — que é exatamente o que um
+       * `delete` seguido de `insert` deixaria acontecer se a segunda metade falhasse. É a razão de
+       * o `UPDATE` estar na allowlist desta tabela (SPEC-025 §10).
+       */
+      const { error } = await client
+        .from(SCALP)
+        .upsert(
+          { wash_day_id: washDayId, scalp_feel: scalpFeel, user_id: userId() },
+          { onConflict: 'wash_day_id' },
+        );
+      if (error) throw fail('care.wash_day_scalp_failed', error);
     },
   };
 };

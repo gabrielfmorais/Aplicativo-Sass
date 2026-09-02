@@ -1,6 +1,6 @@
 import type { ScheduledCare } from '../../schedule/index.ts';
 import type { CareExecution, CheckIn } from '../domain/care-tracking.ts';
-import type { WashDayRecord, WashDayTechnique } from '../domain/wash-day.ts';
+import type { ScalpFeel, WashDayRecord, WashDayTechnique } from '../domain/wash-day.ts';
 
 /** Everything the daily screen needs, in one read: the active plan, its cares and their executions. */
 /**
@@ -130,4 +130,12 @@ export interface WashDayPort {
     technique: WashDayTechnique;
     used: boolean;
   }): Promise<void>;
+  /**
+   * SPEC-025 — define como o couro esteve, ou tira a resposta com `null`.
+   *
+   * Uma escrita só, e não um par apaga-e-escreve: trocar de resposta cai num `on conflict do
+   * update`, então não existe instante em que ela ficou sem resposta porque a segunda metade
+   * falhou. `null` remove a linha — um registro sem resposta é um estado válido (EC2).
+   */
+  setScalpFeel(input: { careExecutionId: string; scalpFeel: ScalpFeel | null }): Promise<void>;
 }
