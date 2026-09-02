@@ -76,13 +76,22 @@ const weekdayIndexOf = (isoDate: string): number => {
 };
 
 /**
- * The seven days of the week containing `today`, each carrying the cares planned for it.
+ * The seven days of the week containing `anchor`, each carrying the cares planned for it.
  *
  * `items` is every care on the board — the four buckets of `TodayView` concatenated — so the strip
  * and the sections below it can never disagree about what happened on a day.
+ *
+ * **`anchor` and `today` are separate on purpose** (SPEC-026 FR7). The anchor decides *which seven
+ * days* are drawn; `today` decides which of them is today and which are past. Collapsing the two —
+ * as the first version did, when the strip could not be navigated — would make every week she
+ * browses believe it contains today.
  */
-export const buildWeek = (items: readonly CareItem[], today: LocalDate): readonly WeekDay[] => {
-  const start = addDays(today, -weekdayIndexOf(today));
+export const buildWeek = (
+  items: readonly CareItem[],
+  today: LocalDate,
+  anchor: LocalDate = today,
+): readonly WeekDay[] => {
+  const start = addDays(anchor, -weekdayIndexOf(anchor));
 
   const byDate = new Map<string, WeekCare[]>();
   for (const item of items) {
