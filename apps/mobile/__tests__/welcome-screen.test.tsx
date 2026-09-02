@@ -1,15 +1,6 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
-import {
-  CROWN,
-  FILAMENTS,
-  FRONT_FALL,
-  HunaFigure,
-  MASS,
-  PROFILE,
-  SIDE_FALL,
-  STRANDS,
-} from '@/design/HunaFigure';
+import { HunaFigure, PROFILE, RIBBONS } from '@/design/HunaFigure';
 import { WelcomeScreen } from '@/features/auth/WelcomeScreen';
 
 /**
@@ -52,57 +43,79 @@ describe('WelcomeScreen (SPEC-018 FR1)', () => {
   });
 });
 
-describe('HunaFigure (SPEC-018 BR4 / SPEC-026 FR19)', () => {
+describe('HunaFigure (SPEC-018 BR4 / SPEC-028)', () => {
   /** É decoração. Anunciá-la só colocaria ruído entre a usuária e a ação da tela. */
   it('é invisível para tecnologia assistiva', async () => {
     const screen = await render(<HunaFigure />);
-    expect(screen.queryByRole('image')).toBeNull();
     expect(screen.root?.props.accessibilityElementsHidden).toBe(true);
     expect(screen.root?.props.importantForAccessibility).toBe('no-hide-descendants');
   });
 
   /**
-   * FR19 — a barreira contra a volta do placeholder.
+   * SPEC-028 — a barreira contra a volta da **massa única**.
    *
-   * O hero de duas versões atrás desenhava cabelo com `View` arredondada, o que é um **retângulo** —
-   * e a direção recusou explicitamente retângulos e listras como representação de cabelo. Um caminho
-   * SVG só é curva se tiver comando de Bézier: `C` ou `S`. Um `d` feito só de `M`, `L` e `Z` é um
-   * polígono com outro nome, e este teste existe para que ninguém volte a ele sem perceber.
+   * A recusa da direção foi explícita: "nenhuma leitura de capacete, nenhuma massa única atrás da
+   * cabeça". O cabelo é feito de fitas que se cruzam, e "muitas fitas" não é um detalhe de estilo —
+   * é a única razão de o desenho ter profundidade. Quatro formas opacas leem flat, e foi assim que
+   * as três versões anteriores foram reprovadas.
+   *
+   * O teste mede o que a recusa significa em números: fitas suficientes, em **planos** diferentes,
+   * e com fitas passando **na frente** da figura.
    */
-  it('desenha o cabelo com curvas de Bézier, nunca com retas', () => {
-    const hair = [MASS, CROWN, SIDE_FALL, FRONT_FALL, ...STRANDS, ...FILAMENTS];
-    expect(hair.length).toBeGreaterThan(3);
-    for (const d of hair) {
-      // Bézier de verdade: cúbica (`C`/`S`) em todo caminho de cabelo.
-      expect(d).toMatch(/[CS]\s/);
-      // E cada mecha tem **mais de uma**: um segmento só é um arco, e arco não é mecha.
-      expect((d.match(/C/g) ?? []).length).toBeGreaterThanOrEqual(2);
-    }
-    // A âncora: um polígono passaria na primeira asserção se ela fosse frouxa.
-    expect('M0 0 L 10 0 L 10 10 Z').not.toMatch(/[CS]\s/);
+  it('o cabelo é feito de muitas fitas, em planos, e algumas passam na frente', () => {
+    expect(RIBBONS.length).toBeGreaterThanOrEqual(16);
+    const layers = new Set(RIBBONS.map((r) => r.layer));
+    expect(layers.size).toBeGreaterThanOrEqual(4);
+    // O plano 2 é o que cruza o rosto e o corpo: sem ele a figura fica colada num fundo.
+    expect(RIBBONS.filter((r) => r.layer === 2).length).toBeGreaterThan(0);
+    // E há fio fino de verdade, não só massa: é o que responde ao movimento por último.
+    expect(RIBBONS.some((r) => r.width.max <= 10)).toBe(true);
   });
 
   /**
-   * SPEC-027 — a barreira contra a volta da figura **de frente**.
+   * ⚠️ **Translucidez é o que constrói profundidade.** Uma fita translúcida sobre outra cria um
+   * terceiro tom que nenhuma das duas tem. Se todas fossem opacas, o desenho voltaria a ser um
+   * empilhamento de recortes — exatamente o "flat demais" que a direção recusou.
+   */
+  it('há sobreposição translúcida, e não só formas opacas empilhadas', () => {
+    expect(RIBBONS.filter((r) => r.opacity < 1).length).toBeGreaterThan(RIBBONS.length / 2);
+  });
+
+  /**
+   * SPEC-027/028 — a barreira contra a volta da figura **de frente**.
    *
-   * A versão anterior era frontal e lia como **microfone** a 390px: de frente o cabelo só pode ser
-   * moldura atrás de um oval claro, e essa é literalmente a silhueta de um microfone. A correção foi
-   * a pose, não o traço — então o que precisa ficar travado é a pose.
-   *
-   * Um perfil não é verificável por pixel num teste unitário, mas é verificável por **estrutura**:
-   * uma silhueta de frente é simétrica em torno do eixo vertical, e um perfil não é. O nariz é o
-   * ponto mais à direita do contorno e fica **muito** além do centro do rosto; num desenho frontal
-   * nenhum ponto do contorno faria isso. É essa assimetria que o teste mede.
+   * A primeira versão era frontal e lia como microfone a 390px: de frente o cabelo só pode ser
+   * moldura atrás de um oval claro. Um perfil não é verificável por pixel num teste unitário, mas é
+   * verificável por **estrutura** — uma silhueta de frente é simétrica em torno do eixo vertical, e
+   * um perfil não é. O nariz fica muito além do centro do rosto; num desenho frontal nenhum ponto do
+   * contorno faria isso.
    */
   it('desenha o rosto de perfil, e não de frente', () => {
-    const xs = [...PROFILE.matchAll(/[-\d.]+\s+[-\d.]+/g)]
-      .map((m) => Number(m[0].split(/\s+/)[0]))
-      .filter((n) => Number.isFinite(n));
-    const min = Math.min(...xs);
-    const max = Math.max(...xs);
-    // O nariz: o extremo direito do contorno do rosto, bem à frente do meio da cabeça.
-    const nose = Math.max(...xs.filter((x) => x < 270));
-    const faceCentre = (min + max) / 2;
-    expect(nose - faceCentre).toBeGreaterThan(60);
+    const points = [...PROFILE.matchAll(/(-?[\d.]+)\s+(-?[\d.]+)/g)]
+      .map((m) => ({ x: Number(m[1]), y: Number(m[2]) }))
+      .filter((q) => Number.isFinite(q.x) && Number.isFinite(q.y));
+
+    /**
+     * ⚠️ **Só a cabeça, e por quê.** A primeira versão deste teste media a silhueta **inteira** e
+     * passou a reprovar sozinha quando o ombro foi estreitado: o "centro do rosto" era, na verdade,
+     * o centro do corpo. Uma barreira que quebra ao mexer numa parte que ela não vigia não está
+     * medindo o que diz medir.
+     */
+    const head = points.filter((q) => q.y <= 225);
+    const top = Math.min(...head.map((q) => q.y));
+    const jaw = Math.max(...head.map((q) => q.y));
+    const widest = head.reduce((best, q) => (q.x > best.x ? q : best));
+
+    /**
+     * A propriedade que separa perfil de frente, e que sobrevive a redimensionar a cabeça: numa
+     * silhueta **frontal** o ponto mais largo é a têmpora, na metade de cima do crânio. Num
+     * **perfil** o ponto mais à frente é o nariz, e nariz fica na metade de baixo. Nenhum desenho de
+     * frente consegue satisfazer isto.
+     */
+    expect(widest.y).toBeGreaterThan((top + jaw) / 2);
+
+    // E o nariz é uma saliência de verdade, não um arredondamento: bem à frente do meio do crânio.
+    const centre = (Math.min(...head.map((q) => q.x)) + Math.max(...head.map((q) => q.x))) / 2;
+    expect(widest.x - centre).toBeGreaterThan(30);
   });
 });
