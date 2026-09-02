@@ -2,7 +2,7 @@
 -- Wash Day, o vocabulário fechado e a cascata da anulação.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(16);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values ('00000000-0000-4000-8000-000000000e11', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'e11@example.test'),
@@ -69,11 +69,14 @@ select is(
   (select count(*)::int from public.wash_day_scalp),
   0,
   'E22 não enxerga a resposta de E11');
--- `with check` valida o dono da **linha**; quem valida o dono do **hub** é a FK composta.
+-- Com o hub já respondido, quem barra primeiro é a **PK** — que é o `wash_day_id`. A FK composta
+-- nem chega a ser consultada, e escrever este teste esperando `23503` foi o que revelou isso: o
+-- ataque falha, mas por um motivo que não é o que se queria provar. As duas camadas são testadas,
+-- e a da FK só aparece com a PK livre (mais abaixo, depois de ela tirar a resposta).
 select throws_ok(
   $q$ insert into public.wash_day_scalp (wash_day_id, scalp_feel, user_id)
       values ('00000000-0000-4000-8000-000000000c21', 'balanced', '00000000-0000-4000-8000-000000000e22') $q$,
-  '23503', null, 'E22 não pendura resposta no Wash Day de E11: a FK composta recusa');
+  '23505', null, 'com o hub já respondido, a PK barra E22 antes de a FK ser consultada');
 -- E não alcança a linha alheia por UPDATE nem por DELETE: a RLS não a devolve para começo de conversa.
 select lives_ok(
   $q$ update public.wash_day_scalp set scalp_feel = 'balanced' $q$,
@@ -92,6 +95,18 @@ select is(
   (select count(*)::int from public.wash_days),
   1,
   'e o registro do dia continua lá — um Wash Day sem resposta é um estado válido');
+
+-- ------------------------------------------------------------------ a FK composta, sozinha (AC6)
+-- Agora a PK está livre, e a única coisa entre E22 e o Wash Day de E11 é a FK composta. É aqui que
+-- ela é realmente exercitada: `with check` valida o dono da **linha** (e o `user_id` de E22 é
+-- legítimo), enquanto quem valida o dono do **hub** é a FK — sem ela, E22 penduraria a própria
+-- resposta no registro de E11, invisível para os dois e contável por `P2`.
+select tests.as_user('00000000-0000-4000-8000-000000000e22');
+select throws_ok(
+  $q$ insert into public.wash_day_scalp (wash_day_id, scalp_feel, user_id)
+      values ('00000000-0000-4000-8000-000000000c21', 'balanced', '00000000-0000-4000-8000-000000000e22') $q$,
+  '23503', null, 'com a chave livre, é a FK composta que recusa E22');
+select tests.as_user('00000000-0000-4000-8000-000000000e11');
 
 -- ------------------------------------------------------------------ anular leva junto (BR4)
 insert into public.wash_day_scalp (wash_day_id, scalp_feel, user_id)
