@@ -11,9 +11,13 @@
  *   settings dialog. This one decision does more for "premium" than any other here.
  * - **Graphite instead of pure black.** #000 on a warm base looks like a browser default. A deep
  *   warm charcoal keeps the contrast and loses the harshness.
- * - **One saturated accent: deep plum.** Adult and feminine without the pink cliché the brief
- *   explicitly rules out. Used for the primary action and for premium — sparingly, so it still
- *   means something when it appears.
+ * - **Uma família, não um acento solto (SPEC-026 FR16).** A SPEC-016 tinha **uma** cor saturada,
+ *   usada com parcimônia deliberada. Com nove capabilities na tela, a parcimônia virou palidez: o
+ *   app ficou branco, e branco não é identidade. Agora são quatro tons da mesma família — vinho,
+ *   ameixa, berry e roxo profundo — e a ameixa continua sendo a **ação**. Os outros três pintam
+ *   superfície e hierarquia, nunca ação: se tudo é acento, nada é.
+ * - **Cor entra em superfície, não em texto pequeno.** É assim que se ganha personalidade sem
+ *   perder legibilidade — e todo par novo aqui foi **medido**, não estimado (FR18).
  * - **Care colours inform, they do not decorate.** Hydration, nutrition and reconstruction each own
  *   a hue, consistently, everywhere. Colour becomes a second way to read the plan at a glance.
  *
@@ -56,10 +60,42 @@ export const color = {
   accentSoft: '#F6E9EF',
   accentBorder: '#E0C2D1',
 
+  /**
+   * SPEC-026 FR16 — a família da marca. **Nenhuma delas é ação**: ação é `accent`, e continua
+   * sendo só ela. Estas pintam superfície, profundidade e hierarquia.
+   *
+   * Medidas sobre o canvas (`#FBF8F5`), porque a SPEC-016 já reprovou um token por 3.09:1 e a
+   * paleta nova não reabre isso: vinho **11.70:1** · ameixa 8.42:1 · berry **5.36:1** · roxo
+   * **11.13:1**. Com branco por cima: vinho 12.38:1 · berry 5.67:1 · roxo 11.77:1.
+   */
+  wine: '#5A1F3C',
+  berry: '#A8446B',
+  violet: '#4A2A5E',
+
+  /**
+   * As superfícies suaves da família. `ink` fica acima de 12:1 em todas, e `inkMuted` acima de
+   * 5:1 — o que significa que elas podem carregar texto de verdade, e não só decorar.
+   */
+  wineSoft: '#F3E7EC',
+  berrySoft: '#FAEBF0',
+  violetSoft: '#EDE8F4',
+  /**
+   * O creme **tingido**: a base quente com um sopro de ameixa. Existe para um bloco grande poder
+   * pertencer à marca sem virar um retângulo colorido — é a diferença entre um app com identidade e
+   * um app pintado.
+   */
+  brandTint: '#F6EDF0',
+
   /** Care types (FR5). Distinct hues, none of them the accent, so a plan is readable by colour. */
   hydration: '#2F6E7C',
   hydrationSoft: '#E4EFF1',
-  nutrition: '#A9661F',
+  /**
+   * Era `#A9661F`, e media **3.88:1** sobre o próprio tom claro e **4.31:1** sobre o
+   * canvas — abaixo de AA nos dois. Passou despercebido porque âmbar sobre creme *parece* legível, e
+   * porque até a SPEC-026 ninguém tinha calculado. Este mede 5.19:1 e 5.76:1, e continua sendo a
+   * mesma família: o cuidado se lê pela cor, e uma cor que não se lê não informa nada.
+   */
+  nutrition: '#8F5416',
   nutritionSoft: '#F7EBDD',
   reconstruction: '#6B4E9E',
   reconstructionSoft: '#EDE8F7',

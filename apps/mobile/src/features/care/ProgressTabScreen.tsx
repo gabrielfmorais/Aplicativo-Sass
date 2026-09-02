@@ -2,7 +2,7 @@ import type { CareBoard, LocalDate } from '@app/core';
 import { buildProgress, buildTodayView } from '@app/core';
 import { useMemo } from 'react';
 
-import { Card, Screen, Stack, Text } from '@/design/primitives';
+import { Card, Screen, ScreenHeader, Text } from '@/design/primitives';
 import { ProgressSummary } from '@/features/care/ProgressSummary';
 
 /**
@@ -26,14 +26,7 @@ export function ProgressTabScreen({ board, today }: { board: CareBoard | null; t
 
   return (
     <Screen>
-      <Stack gap="sm">
-        <Text variant="overline" tone="faint">
-          O que você já fez
-        </Text>
-        <Text variant="display" accessibilityRole="header">
-          Progresso
-        </Text>
-      </Stack>
+      <ScreenHeader eyebrow="O que você já fez" title="Progresso" />
 
       {progress ? (
         <ProgressSummary progress={progress} />

@@ -11,7 +11,7 @@ import { CARE_GUIDES, CHECKIN_SCALE, buildTodayView, canCheckIn, canUndo } from 
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Button, Card, Row, Screen, Stack, Tag, Text } from '@/design/primitives';
+import { Button, Card, Row, Screen, ScreenHeader, Stack, Tag, Text } from '@/design/primitives';
 import { HIT_TARGET_MIN, color, radius, space } from '@/design/tokens';
 import { CareGuidePanel } from '@/features/care/CareGuidePanel';
 import { CareTypeMark } from '@/features/care/CareTypeMark';
@@ -292,7 +292,7 @@ function FocusCard({
   const state = stateTagOf(item);
   const guide = CARE_GUIDES[item.careTypeCode];
   return (
-    <Card style={styles.focus}>
+    <Card tone="brand" style={styles.focus}>
       {state ? <Tag label={state.label} tone={state.tone} /> : <Tag label="Hoje" tone="accent" />}
       <CareTypeMark careTypeCode={item.careTypeCode} big />
       <Text variant="caption" tone="muted">
@@ -611,16 +611,12 @@ export function TodayScreen({
 
   return (
     <Screen>
-      <Stack gap="md">
-        {/* A data é sempre a do dia que está na tela, e o título diz **em palavra** qual é (FR8):
-            um destaque na faixa é uma pista, e uma pista não é uma resposta. */}
-        <Text variant="overline" tone="faint">
-          {formatPlannedDate(selected as LocalDate)}
-        </Text>
-        <Text variant="display" accessibilityRole="header">
-          {viewingToday ? 'Seus cuidados' : 'Esse dia'}
-        </Text>
-      </Stack>
+      {/* A data é sempre a do dia que está na tela, e o título diz **em palavra** qual é (FR8):
+          um destaque na faixa é uma pista, e uma pista não é uma resposta. */}
+      <ScreenHeader
+        eyebrow={formatPlannedDate(selected as LocalDate)}
+        title={viewingToday ? 'Seus cuidados' : 'Esse dia'}
+      />
 
       <WeekStrip week={week} selected={selected} onSelect={setSelected} />
 

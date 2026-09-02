@@ -349,15 +349,47 @@ export function Card({
   style,
 }: {
   children: ReactNode;
-  tone?: 'surface' | 'muted' | 'accent';
+  tone?: 'surface' | 'muted' | 'accent' | 'brand';
   style?: StyleProp<ViewStyle>;
 }) {
   const tones = {
     surface: { backgroundColor: color.surface, borderColor: color.border },
     muted: { backgroundColor: color.surfaceMuted, borderColor: color.border },
     accent: { backgroundColor: color.accentSoft, borderColor: color.accentBorder },
+    /**
+     * SPEC-026 FR16 — o creme **tingido**, para o bloco que carrega a tela.
+     *
+     * Não é o `accent` mais forte: `accentSoft` marca **seleção**, e usá-lo aqui faria o cartão
+     * de foco parecer algo que ela escolheu. Este é identidade, não estado — e a borda vinho é o
+     * que o distingue de mais um cartão claro sem virar um retângulo colorido.
+     */
+    brand: { backgroundColor: color.brandTint, borderColor: color.wine },
   } as const;
   return <View style={[styles.card, tones[tone], style]}>{children}</View>;
+}
+
+// -------------------------------------------------------------------------------- ScreenHeader
+
+/**
+ * SPEC-026 FR16 — o cabeçalho de uma aba.
+ *
+ * Cada tela abria com um overline e um título soltos no creme, e o resultado era quatro telas que
+ * se pareciam com quatro documentos. Uma superfície tingida no topo dá **lugar** ao título: a aba
+ * passa a ter uma cara antes de ter conteúdo, que é o que faz um app parecer um app.
+ *
+ * A cor mora na superfície, nunca no texto (§14): o título continua em `ink`, com 13:1.
+ */
+export function ScreenHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
+  return (
+    <View style={styles.screenHeader}>
+      <RNText style={[type.overline as TextStyle, styles.screenHeaderEyebrow]}>
+        {eyebrow.toUpperCase()}
+      </RNText>
+      <RNText style={[type.display as TextStyle, styles.screenHeaderTitle]} accessibilityRole="header">
+        {title}
+      </RNText>
+    </View>
+  );
 }
 
 // --------------------------------------------------------------------------------- ProgressBar
@@ -438,6 +470,16 @@ export function Row({
 }
 
 const styles = StyleSheet.create({
+  screenHeader: {
+    backgroundColor: color.wine,
+    borderRadius: radius.lg,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.xl,
+    gap: space.xs,
+  },
+  /** Branco sobre vinho: 12.38:1. O eyebrow é o canal quieto, e quieto não é ilegível. */
+  screenHeaderEyebrow: { color: color.onFilled, opacity: 0.82 },
+  screenHeaderTitle: { color: color.onFilled },
   center: { textAlign: 'center' },
   screen: { flex: 1, backgroundColor: color.canvas, alignItems: 'center' },
   loading: { justifyContent: 'center', gap: space.md },

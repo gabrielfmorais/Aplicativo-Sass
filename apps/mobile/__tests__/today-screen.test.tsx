@@ -561,7 +561,7 @@ describe('TodayScreen — check-in (SPEC-006 §14)', () => {
  */
 describe('TodayScreen — o calendário clicável (SPEC-026)', () => {
   /** 2026-09-08 é a terça da mesma semana de 2026-09-10, e carrega o cuidado atrasado. */
-  const tapDay = async (s: ReturnType<typeof render>, label: RegExp) =>
+  const tapDay = async (s: Awaited<ReturnType<typeof render>>, label: RegExp) =>
     fireEvent.press(s.getByLabelText(label));
 
   it('tocar num dia mostra o conteúdo daquele dia, e diz qual dia é em palavra', async () => {

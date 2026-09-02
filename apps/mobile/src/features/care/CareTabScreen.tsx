@@ -1,4 +1,4 @@
-import { Button, Card, Screen, Stack, Text } from '@/design/primitives';
+import { Button, Card, Screen, ScreenHeader, Text } from '@/design/primitives';
 
 /**
  * SPEC-026 fatia 1 (FR6) — **Cuidados**: tudo o que é rotina, num lugar só.
@@ -29,14 +29,7 @@ export function CareTabScreen({
 }) {
   return (
     <Screen>
-      <Stack gap="sm">
-        <Text variant="overline" tone="faint">
-          Sua rotina
-        </Text>
-        <Text variant="display" accessibilityRole="header">
-          Cuidados
-        </Text>
-      </Stack>
+      <ScreenHeader eyebrow="Sua rotina" title="Cuidados" />
 
       <Card>
         <Text variant="heading" accessibilityRole="header">
