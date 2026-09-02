@@ -16,12 +16,25 @@ import { color, space } from '@/design/tokens';
  * as one more block on the page: this panel opens in place, and the indent is the only thing saying
  * so once the card around it is scrolled past.
  */
-export function CareGuidePanel({ guide }: { guide: CareGuide }) {
+export function CareGuidePanel({
+  guide,
+  showDuration = true,
+}: {
+  guide: CareGuide;
+  /**
+   * SPEC-031 — a biblioteca já mostra a duração na linha que abre o guia, e o painel a repetia
+   * logo abaixo: "~20 min" duas vezes, uma sobre a outra. Quem já disse não precisa dizer de novo.
+   * Continua ligada por padrão, porque no cartão da Hoje o painel é a única coisa que a diz.
+   */
+  showDuration?: boolean;
+}) {
   return (
     <View style={styles.panel}>
-      <Text variant="caption" tone="faint">
-        ~{guide.durationMin} min
-      </Text>
+      {showDuration ? (
+        <Text variant="caption" tone="faint">
+          ~{guide.durationMin} min
+        </Text>
+      ) : null}
       <Text>{guide.whatItIs}</Text>
 
       <Stack gap="xs">

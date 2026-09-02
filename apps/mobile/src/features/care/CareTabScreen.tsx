@@ -1,6 +1,7 @@
 import { StyleSheet } from 'react-native';
 
 import { Button, Card, Screen, ScreenHeader, Text } from '@/design/primitives';
+import { CareGuideLibrary } from '@/features/care/CareGuideLibrary';
 
 /**
  * SPEC-026 fatia 1 (FR6) — **Cuidados**: tudo o que é rotina, num lugar só.
@@ -73,6 +74,16 @@ export function CareTabScreen({
           />
         </Card>
       ) : null}
+
+      {/*
+        SPEC-031 — os guias ganham lugar.
+        ⚠️ **A SPEC-026 tinha decidido que a área vazia desta aba ficaria vazia**, e a decisão
+        estava certa para o que existia então: preencher com atalho inventado seria complexidade
+        para preencher espaço. O que mudou não é a régua, é o achado — os guias da SPEC-007 só
+        eram alcançáveis por dentro de um cartão de cuidado agendado. Isto não preenche espaço:
+        dá endereço a uma capability que não tinha nenhum.
+      */}
+      <CareGuideLibrary />
     </Screen>
   );
 }
