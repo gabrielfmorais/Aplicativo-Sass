@@ -194,3 +194,17 @@ insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
   ('authenticated', 'wash_day_techniques', 'SELECT', 'SPEC-024'),
   ('authenticated', 'wash_day_techniques', 'INSERT', 'SPEC-024'),
   ('authenticated', 'wash_day_techniques', 'DELETE', 'SPEC-024');
+
+-- SPEC-025 §10: the scalp answer is one choice per Wash Day, so UPDATE is what makes changing it a
+-- single atomic write (`on conflict do update`) instead of a delete+insert with a window in which
+-- there is no answer. DELETE because taking the answer back is a valid state (EC2).
+--
+-- It is a join table rather than a column on `wash_days` for a security reason: a column-level
+-- `grant update (scalp_feel)` lives in `pg_attribute.attacl`, and this guard reads
+-- `pg_class.relacl` — the privilege would exist outside the allowlist's reach, which is worse than
+-- one it rejects.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'wash_day_scalp', 'SELECT', 'SPEC-025'),
+  ('authenticated', 'wash_day_scalp', 'INSERT', 'SPEC-025'),
+  ('authenticated', 'wash_day_scalp', 'UPDATE', 'SPEC-025'),
+  ('authenticated', 'wash_day_scalp', 'DELETE', 'SPEC-025');
