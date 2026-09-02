@@ -1,6 +1,7 @@
 import type { Product, ProductCategory, ProductPort, WashDayPort, WashDayTechnique } from '@app/core';
 import { PRODUCT_CATEGORIES, PRODUCT_NAME_MAX_LENGTH, WASH_DAY_TECHNIQUES } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
+import { StyleSheet } from 'react-native';
 
 import { Button, Card, Chip, Field, Loading, Row, Screen, Stack, Text } from '@/design/primitives';
 import { useAddProduct } from '@/features/shelf/use-add-product';
@@ -237,6 +238,7 @@ export function WashDayScreen({
         onPress={add.submit}
         disabled={!add.ready}
         busy={add.busy}
+        style={styles.inline}
       />
     </Stack>
   );
@@ -305,6 +307,7 @@ export function WashDayScreen({
               size="sm"
               accessibilityState={{ expanded: adding }}
               onPress={() => setAdding((v) => !v)}
+              style={styles.inline}
             />
             {adding ? productForm : null}
           </Stack>
@@ -343,3 +346,15 @@ export function WashDayScreen({
     </Screen>
   );
 }
+
+/**
+ * Um botão dentro do corpo **não** ocupa a linha inteira.
+ *
+ * Esticado e centralizado, "Usei um produto novo" lia como um cabeçalho de seção entre os chips e o
+ * formulário, e "Adicionar à prateleira" parecia um segundo campo vazio. Largura cheia é a forma da
+ * ação primária, que nesta tela mora no rodapé — e só lá. É o mesmo ajuste que "Tirar da prateleira"
+ * já tinha na SPEC-023.
+ */
+const styles = StyleSheet.create({
+  inline: { alignSelf: 'flex-start' },
+});

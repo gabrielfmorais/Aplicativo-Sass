@@ -166,6 +166,12 @@ function CareActions({
      * SPEC-024 FR1/FR7 — o registro do que ela usou, **oferecido** e nunca exigido, e a evidência de
      * que ele existe. Nunca bloqueado por uma transição em voo: é navegação, não escrita, como
      * "Como fazer" (SPEC-007 EC3).
+     *
+     * **O rótulo é o fato, e não uma frase ao lado dele.** "Você registrou o que usou" seria falso
+     * no único caso que a SPEC prevê explicitamente: ela abre, desmarca tudo e sai (EC4). O board
+     * carrega quais execuções **têm** registro, nunca o que tem dentro — então afirmar conteúdo aqui
+     * seria afirmar o que esta tela não sabe. Dizer o contrário, um convite quando não há registro,
+     * seria cobrança, que AC8 proíbe.
      */
     const registered = item.execution !== null && washDay.registered(item.execution.id);
     return (
@@ -175,7 +181,6 @@ function CareActions({
         ) : canCheckIn(item) ? (
           <CheckInPrompt blocked={blocked} onAnswer={(feel) => onAct(item, { kind: 'checkin', feel })} />
         ) : null}
-        {registered ? <Text tone="muted">Você registrou o que usou.</Text> : null}
         <Row gap="sm">
           {item.execution ? (
             <Button
