@@ -3,7 +3,7 @@ import { EmailSchema, OtpCodeSchema } from '@app/core';
 import { useState } from 'react';
 import { Platform, StyleSheet } from 'react-native';
 
-import { HairFlow } from '@/design/HairFlow';
+import { HunaFigure } from '@/design/HunaFigure';
 import { Button, Field, Screen, Stack, Text } from '@/design/primitives';
 import { space } from '@/design/tokens';
 
@@ -78,7 +78,7 @@ export function SignInScreen({ auth }: { auth: AuthPort }) {
     <Screen scroll={false}>
       {/* A faixa do hero volta aqui, menor: liga esta tela à abertura, para a marca não sumir
           justamente no momento em que ela pede o email dela. */}
-      <HairFlow style={styles.ribbon} />
+      <HunaFigure style={styles.ribbon} />
 
       <Stack gap="xs">
         <Text variant="overline" tone="accent">

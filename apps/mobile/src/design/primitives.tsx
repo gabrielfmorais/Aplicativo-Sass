@@ -13,6 +13,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { HunaBackdrop } from './HunaBackdrop';
 import { useReduceMotion } from './motion';
 import {
   CHIP_POP,
@@ -92,6 +93,12 @@ export function Screen({
   const body = <View style={[styles.content, !scroll && styles.contentFill, style]}>{children}</View>;
   return (
     <View style={styles.screen}>
+      {/*
+        SPEC-026 fatia 8 — a assinatura de fundo, atrás de **toda** tela e à frente de nenhuma.
+        Fica aqui, no `Screen`, e não em cada tela: um fundo que algumas telas têm e outras não é
+        pior que fundo nenhum, porque a inconsistência é o que se percebe.
+      */}
+      <HunaBackdrop />
       <View style={styles.column}>
         {scroll ? (
           <ScrollView
@@ -379,16 +386,58 @@ export function Card({
  *
  * A cor mora na superfície, nunca no texto (§14): o título continua em `ink`, com 13:1.
  */
-export function ScreenHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
+export function ScreenHeader({
+  eyebrow,
+  title,
+  profile,
+}: {
+  eyebrow: string;
+  title: string;
+  /**
+   * SPEC-026 fatia 7 — o acesso a **Você**, no cabeçalho.
+   *
+   * **Por que saiu da barra.** Um avatar com o nome dela é mais pessoal e mais descoberto que uma
+   * aba chamada "Você": "Ana" é um convite, "Você" é um rótulo. E libera a quarta vaga para
+   * **Community**, que é COMMITTED e chega depois (§0.4) — sem virar cinco abas.
+   *
+   * ⚠️ **A vaga liberada fica vaga.** As três categorias restantes cobrem o produto; pôr algo ali
+   * agora seria complexidade para preencher espaço, que é exatamente o que a direção proíbe.
+   */
+  profile?: { readonly name: string | null; readonly onPress: () => void };
+}) {
   return (
     <View style={styles.screenHeader}>
-      <RNText style={[type.overline as TextStyle, styles.screenHeaderEyebrow]}>
-        {eyebrow.toUpperCase()}
-      </RNText>
-      <RNText style={[type.display as TextStyle, styles.screenHeaderTitle]} accessibilityRole="header">
-        {title}
-      </RNText>
+      <View style={styles.screenHeaderRow}>
+        <View style={styles.screenHeaderText}>
+          <RNText style={[type.overline as TextStyle, styles.screenHeaderEyebrow]}>
+            {eyebrow.toUpperCase()}
+          </RNText>
+          <RNText style={[type.display as TextStyle, styles.screenHeaderTitle]} accessibilityRole="header">
+            {title}
+          </RNText>
+        </View>
+        {profile ? <ProfileChip name={profile.name} onPress={profile.onPress} /> : null}
+      </View>
     </View>
+  );
+}
+
+/**
+ * O avatar. Enquanto foto e avatar ilustrado não existem (COMMITTED, `F34`), a inicial do nome —
+ * e, sem nome, a inicial da marca. **Nunca um ícone genérico de pessoa:** um contorno cinzento no
+ * canto é o adereço mais comum de template, e o objetivo aqui é o oposto disso.
+ */
+function ProfileChip({ name, onPress }: { name: string | null; onPress: () => void }) {
+  const initial = (name ?? 'Huna').trim().charAt(0).toUpperCase();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={name ? `${name} — abrir seu perfil` : 'Abrir seu perfil'}
+      style={({ pressed }) => [styles.avatar, pressed && styles.avatarPressed]}
+    >
+      <RNText style={[type.bodyStrong as TextStyle, styles.avatarInitial]}>{initial}</RNText>
+    </Pressable>
   );
 }
 
@@ -478,8 +527,21 @@ const styles = StyleSheet.create({
     gap: space.xs,
   },
   /** Branco sobre vinho: 12.38:1. O eyebrow é o canal quieto, e quieto não é ilegível. */
+  screenHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  screenHeaderText: { flex: 1, gap: space.xs },
   screenHeaderEyebrow: { color: color.onFilled, opacity: 0.82 },
   screenHeaderTitle: { color: color.onFilled },
+  avatar: {
+    width: HIT_TARGET,
+    height: HIT_TARGET,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Clara sobre o vinho: o avatar é a única coisa do cabeçalho que se toca, e tem de parecer.
+    backgroundColor: color.brandTint,
+  },
+  avatarPressed: { opacity: 0.82 },
+  avatarInitial: { color: color.wine },
   center: { textAlign: 'center' },
   screen: { flex: 1, backgroundColor: color.canvas, alignItems: 'center' },
   loading: { justifyContent: 'center', gap: space.md },
