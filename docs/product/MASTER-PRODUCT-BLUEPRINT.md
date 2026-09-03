@@ -5,7 +5,7 @@
 | Autoridade | **Decisão humana do dono (D-94, 2026-08-31).** Complemento canônico do MASTER PRODUCT SCOPE (D-92). |
 | Responde | *"O que esta capability significa funcionalmente para a usuária?"* |
 | **Não** responde | *"Como implementar."* Isso é SPEC. |
-| Atualizado | 2026-08-31 |
+| Atualizado | 2026-09-02 (D-102) |
 
 ## 0. Por que este documento existe
 
@@ -86,11 +86,11 @@ Estas capabilities estão **DONE**. A SPEC é a fonte: ela tem as regras de neg�
 | F19 | Preservação do histórico | Free | SPEC-014 FR7 (contagem vitalícia atravessa a troca de plano) |
 | P1 | Plan Customization | **Premium** | SPEC-015 — a primeira capability paga |
 
-**F21 "Por que isso está no meu plano?"** está `IN PROGRESS` com SPEC-017 em Draft; sua intenção funcional está detalhada em §4 abaixo porque ainda não foi construída.
+**F20, F21, F22, F23, F25, F26, F27, F29 e F31 ficaram DONE depois desta tabela** (SPEC-017 a SPEC-025). As seções §3 a §10 abaixo continuam valendo como intenção — a SPEC de cada uma é a fonte do que foi de fato construído.
 
 ---
 
-# 3. Ciclo e calendário — `F20` (IN PROGRESS) · `F29` Resumo de ciclo
+# 3. Ciclo e calendário — `F20` · `F29` Resumo de ciclo
 
 **Objetivo da usuária.** Ver o desenho das quatro semanas dela e, ao fim delas, entender o que aconteceu — antes de decidir o próximo ciclo.
 
@@ -739,7 +739,116 @@ dados reais → agregações → métricas → comparações
 
 ---
 
-# 19. Como usar este documento
+# 19. Identidade dela: nome, avatar e foto — `F34` (Free) · `P24` (Premium)
+
+**Objetivo da usuária.** Que o app seja **dela** — que a área de perfil tenha a cara dela e não uma inicial num círculo.
+
+**Problema.** O avatar já está no cabeçalho de toda aba (SPEC-026 fatia 7) e hoje mostra a inicial do nome. Isso é um marcador, não uma identidade.
+
+**Tier (D-102).** **Free: os avatares próprios da Huna** — personalização de verdade, e é personalização que não custa infraestrutura. **Premium: foto própria.**
+
+**Fluxo funcional.** Ela abre Você pelo avatar do cabeçalho → edita o nome → escolhe um avatar da Huna → (Premium) troca por uma foto sua.
+
+**Regras importantes.**
+- ⚠️ **Foto é mídia**, e mídia arrasta a mesma dependência do `F28`: storage, custo, privacidade e base legal (D-32). É por isso que a foto **não** nasce junto com o avatar.
+- **Não é regressão de D-83/BR3:** foto de perfil nunca existiu no Free, então nada gratuito virou pago.
+- O conjunto de avatares é **da marca Huna**, coerente com a identidade visual — não é uma galeria genérica de ícones.
+
+**O que NÃO deve fazer.** Não pedir foto no onboarding. Não usar a imagem dela para nada além de mostrá-la a ela mesma. Não transformar o avatar em requisito.
+
+**Sucesso.** Ela reconhece a própria conta de relance, e a área de perfil deixa de parecer uma tela de configurações.
+
+**Estado.** `F34` **COMMITTED** · `P24` **DEFERRED BY DEPENDENCY** (mídia).
+
+---
+
+# 20. Avaliação capilar ampliada — `F35`
+
+**Objetivo da usuária.** Que o cronograma seja montado para o cabelo **dela**, e não para uma média.
+
+**Problema, medido antes de assumir.** A lista do dono (curvatura · condição atual · química · ressecamento · quebra · frizz · oleosidade · porosidade percebida · frequência de lavagem · objetivos · rotina/disponibilidade · mudanças ao longo do tempo) foi comparada com o que `hair_profiles` **já coleta** (8 inputs, D-62). **Quase tudo já está lá:** `hair_pattern` e `strand_thickness` (curvatura e espessura), `scalp_tendency` (oleosidade), `chemical_treatments`, `heat_usage`, `current_concerns` (ressecamento, quebra, embaraço, opacidade, frizz), `wash_frequency` e `primary_goal`. "Mudanças ao longo do tempo" já são `F17` (reavaliação) e `F23` (`hair_events`).
+
+**O que realmente falta:** **porosidade percebida** · **rotina e disponibilidade real de tempo**. E, se o dono quiser, o objetivo deixar de ser **único**.
+
+**Regras importantes.**
+- ⚠️ **Pergunta que o motor não usa é pergunta que só custa o tempo dela** (D-47/D-48). Esta capability entra **junto** com o `F36` — coletar antes de usar transforma o onboarding num formulário.
+- **É personalização, não diagnóstico** (D-26). "Porosidade percebida" é a percepção dela, e a palavra *percebida* não é decorativa: ninguém mede porosidade num app.
+- O snapshot continua **imutável por `id`** (D-64): ampliar a avaliação **acrescenta colunas**, nunca reescreve um snapshot existente, e os planos antigos continuam explicáveis pelo snapshot que os originou (`F21`).
+
+**O que NÃO deve fazer.** Não perguntar o que não muda nenhuma saída. Não nomear condição. Não transformar em quiz longo o que hoje ela responde em etapas curtas.
+
+**Estado.** **COMMITTED**, acoplada ao `F36`.
+
+---
+
+# 21. Cronograma por necessidade, e a Restauração — `F36`
+
+**Objetivo da usuária.** Que a frequência de cada tratamento venha **da necessidade do cabelo dela**, e não de uma sequência fixa igual para todas.
+
+**Fluxo funcional.** A avaliação (`F35`) alimenta o motor, que decide **necessidade e frequência** de: **Hidratação · Nutrição · Reconstrução · Restauração/recuperação quando fizer sentido**.
+
+**Regras importantes.**
+- ⚠️ **Isto é regra capilar, e é o gate D-26 no seu ponto mais claro.** "De quanto em quanto tempo este cabelo precisa de reconstrução" exige **sign-off de domínio**; nasce `candidate`, roda em dev/internal beta, e **PUBLIC RELEASE segue bloqueado** (OQ-REL).
+- **Nova versão de engine, nunca edição da liberada** (ADR-001 / CLAUDE.md §2): `schedule/engine/v2`.
+- **Restauração é vocabulário novo de `care_type`**, e esse vocabulário hoje atravessa CHECK do banco, os guias (`F8`) e as cores por tipo de cuidado. Qualquer decisão de UI tomada antes disso tem de continuar funcionando com **quatro** tipos — este é o efeito prático imediato de D-102 sobre a fase atual.
+- Nenhuma adaptação substantiva sem regra validada. O motor pode variar frequência; ele não pode **afirmar** por quê sem sign-off.
+
+**O que NÃO deve fazer.** Não inventar intervalo com cara de ciência. Não apresentar heurística como fato clínico. Não reescrever plano ativo — mudar de regra gera **novo ciclo**, não reescrita do histórico (D-69).
+
+**Estado.** **COMMITTED**, com o conteúdo **BLOQUEADO por D-26** para release.
+
+---
+
+# 22. Tratamento → Finalização — `F37` (o fluxo) · `F38` (a área)
+
+**Objetivo da usuária.** Terminar o Wash Day como ela realmente termina: **lavou, tratou, finalizou** — e só então contar como ficou.
+
+**Problema.** O `F25` registra o cuidado e os produtos, e para aí. Mas o que decide como o cabelo dela **fica** é em boa parte a finalização, e hoje ela não existe no modelo. Tratada como "mais um cuidado opcional", ela vira nota de rodapé de uma etapa que, para a maioria das usuárias, é parte natural do processo.
+
+**Fluxo funcional (D-102).**
+
+```
+LAVOU → TRATAMENTO (Hidratação/Nutrição/Reconstrução/Restauração) → FINALIZAÇÃO → RESULTADO/CHECK-IN
+```
+
+Depois do tratamento, a Huna **conduz naturalmente** até a finalização recomendada. **"Pular finalização" existe** — mas o padrão é que ela faz parte da rotina.
+
+**A área de Finalizações (`F38`).** Endereço próprio dentro de **Cuidados**, ao lado dos guias: definição · volume · redução de frizz · leveza · fitagem · técnicas por curvatura (ondulado, cacheado, crespo, liso) · day after · combinações com creme, leave-in, gelatina, óleo. A Huna prioriza **"Finalizações recomendadas para o seu cabelo"** — a partir de curvatura, objetivos e avaliação —, e ainda assim deixa **explorar o resto**: recomendar não pode virar esconder.
+
+**Regras importantes.**
+- **Tratamento e finalização são etapas diferentes**, com registro próprio. Fundi-las destrói o `P8`.
+- ⚠️ O texto das técnicas **e** o "para o seu cabelo" são **conteúdo capilar substantivo** ⇒ **gate D-26/D-70** para release.
+- **Vocabulário fechado**, como as catorze técnicas do `F25`: texto livre não se compara nem se agrega (SPEC-024).
+- Personalização **por resultado real dela** é outra coisa, e é Premium (`P5`/`P8`).
+
+**Relações.** `F25`/`F27` Wash Day · `F26` Prateleira (o óleo e o creme que ela usa na finalização são os dela) · `P8` padrões · `F14` check-in de resultado.
+
+**Estado.** `F37` **COMMITTED** · `F38` **COMMITTED**, conteúdo atrás do gate.
+
+---
+
+# 23. Óleo capilar com rotina própria — `F39`
+
+**Objetivo da usuária.** Lembrar do óleo. Simples assim.
+
+**Problema.** Óleo hoje só existe **escondido dentro de Nutrição**. Mas para muita gente ele é uma rotina paralela — nas pontas, entre lavagens, com frequência própria — e uma rotina que o app não conhece é uma rotina que ele não ajuda a manter.
+
+**Fluxo funcional.** Ela define uma rotina de óleo (frequência própria) → o app lembra no dia → ela marca **feito** ou **adia** → com o tempo, o óleo aparece no histórico como qualquer outro cuidado dela.
+
+> *"Hora do seu óleo — você programou óleo nas pontas para hoje."*
+
+**Regras importantes.**
+- Tecnicamente é um **quarto intent** no `NotificationScheduler` (SPEC-008 / D-22), que já tem opt-in duplo, teto diário, horizonte e id determinístico. **O domínio não conhece Expo Notifications** — isso não muda.
+- **Adiar é primeira classe**, não um fracasso: a mesma regra do D-28 (mostrar estado e pedir ação; nunca mover o cronograma sozinho).
+- Integração futura com a Prateleira (`F26`): o óleo lembrado é **o óleo que ela tem**, nunca um produto inventado (§8).
+- ⚠️ **Orientação de momento e forma de uso é conteúdo capilar** ⇒ **gate D-26**. O lembrete e o registro, não.
+
+**O que NÃO deve fazer.** Não notificar sem opt-in. Não passar do teto diário. Não prometer resultado.
+
+**Estado.** **COMMITTED**.
+
+---
+# 24. Como usar este documento
 
 **Ao escolher a próxima capability:** o [backlog](MASTER-PRODUCT-BACKLOG.md) diz o que falta e o que depende do quê; este documento diz o que a capability **significa**. Os dois juntos decidem; nenhum dos dois sozinho.
 
@@ -749,8 +858,9 @@ dados reais → agregações → métricas → comparações
 
 **Quando encontrar um caminho melhor:** use-o. Este documento fixa **o que resolver**, não como. Se a mudança alterar materialmente o objetivo ou a proposta de valor, aí é decisão material de produto ⇒ human gate.
 
-## 20. Change log
+## 25. Change log
 
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-08-31 | v0.1 — Blueprint criado (D-94) como complemento canônico do MASTER PRODUCT SCOPE (D-92). Tratamento funcional completo das capabilities **ainda não construídas**, que é onde a intenção corre risco de se perder; as **DONE** apontam para a SPEC, que já preserva a intenção com mais autoridade do que um resumo preservaria. Fixa em §1 os princípios inequívocos — Free executa e registra / Premium interpreta, um único tier pago, e as três proibições de honestidade (não inventar causalidade, não inventar dados, não diagnosticar). | agente (§0.3), a partir de decisão humana |
+| 2026-09-02 | v0.2 — **D-102 (dono).** Cinco seções novas: §19 identidade (avatares Huna no Free, foto própria no Premium), §20 avaliação capilar ampliada, §21 cronograma por necessidade com a **Restauração** como quarto tipo, §22 **Tratamento → Finalização** e a área de Finalizações, §23 óleo com rotina própria. §7 do backlog passa a fixar o fluxo `Lavou → Tratamento → Finalização → Resultado`. **O achado que muda o trabalho de hoje:** a avaliação que o dono pediu **já é quase toda coletada** — falta porosidade percebida e rotina/disponibilidade —, e o que realmente precisa de cuidado agora é não fechar porta para **um quarto tipo de cuidado**, uma **etapa de finalização** pendurada na execução, um **quarto intent** de notificação e uma **foto de perfil**. | agente (§0.3), a partir de decisão humana |
