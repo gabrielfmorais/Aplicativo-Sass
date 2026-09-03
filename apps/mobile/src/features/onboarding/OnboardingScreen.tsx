@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { HunaFigure } from '@/design/HunaFigure';
+import { FRAME_HEIGHT } from '@/design/huna-hero';
 import { Reveal } from '@/design/Reveal';
 import { Button, Chip, ProgressBar, Row, Screen, Stack, Text } from '@/design/primitives';
 import { radius, space } from '@/design/tokens';
@@ -362,7 +363,7 @@ export function OnboardingScreen({
           </Stack>
         ) : (
           <Stack gap="xl">
-            <HunaFigure frame="band" style={styles.ribbon} />
+            <HunaFigure frame="banner" style={styles.ribbon} />
             <Stack gap="sm">
               <Text variant="overline" tone="accent">
                 {item.interlude.overline}
@@ -390,11 +391,15 @@ const styles = StyleSheet.create({
    */
   fill: { flexGrow: 1 },
   pause: { flexGrow: 1, justifyContent: 'center' },
-  /** Faixa, como no login: marca a pausa como um momento, sem competir com o texto. */
-  // SPEC-028: cantos arredondados — sem a máscara do palco, a faixa terminaria num corte reto.
+  /**
+   * Faixa, como no login: marca a pausa como um momento, sem competir com o texto. É o **mesmo**
+   * banner — mesma altura, vinda do mesmo lugar (`FRAME_HEIGHT`) — porque "igual ao login" não pode
+   * depender de alguém repetir o número aqui.
+   *
+   * Cantos arredondados (SPEC-028): sem a máscara do palco, a faixa terminaria num corte reto.
+   */
   ribbon: {
-    height: space.xxxl * 2,
-    marginHorizontal: -space.xl,
+    height: FRAME_HEIGHT.banner,
     borderRadius: radius.lg,
     overflow: 'hidden',
   },

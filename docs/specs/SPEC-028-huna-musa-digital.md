@@ -1,9 +1,14 @@
-# SPEC-028 — O hero da Huna: placeholder técnico e a costura para o asset autoral
+# SPEC-028 — O hero da Huna: placeholder técnico e a costura para o asset autoral ⛔ SUPERSEDED
+
+> ⛔ **SUPERSEDED por [SPEC-036](SPEC-036-huna-hero-abstrato.md) (dono, 2026-09-03).** A musa digital
+> que este documento descreve é figura humana, e a frente de figura humana está **encerrada**. Duas
+> afirmações centrais daqui também deixaram de valer: o hero **não** é placeholder técnico, e o
+> asset autoral externo **não** é uma pendência. Registro histórico apenas.
 
 | Campo | Valor |
 |---|---|
 | ID | SPEC-028 |
-| Status | **Placeholder técnico** — o hero final vem de asset autoral externo (dono, 2026-09-02) |
+| Status | **Superseded por SPEC-036** (2026-09-03) |
 | Owner | dono (direção dada em sessão, 2026-09-02) |
 | Bounded Context | — (design system; nenhum contexto de domínio é tocado) |
 | Related ADRs | D-101 (dependência técnica reversível), D-97, D-90 (validação no real) |

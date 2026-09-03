@@ -15,7 +15,8 @@ export function ProgressSummary({ progress }: { progress: Progress }) {
 
   return (
     /**
-     * SPEC-029 — o cartão de marca, e não o cinza.
+     * SPEC-034 — o cartão de marca, e não o cinza. (A citação dizia SPEC-029, que é a personagem
+     * do hero — número emprestado por engano numa rodada sem SPEC própria, PR #104.)
      *
      * Este é o **conteúdo da aba Progresso**: o bloco que responde à pergunta que dá nome à tela.
      * Ele estava em `muted`, que é a superfície mais apagada do sistema — a tela inteira lia como um
@@ -43,7 +44,7 @@ export function ProgressSummary({ progress }: { progress: Progress }) {
         ) : (
           <>
             {/*
-              SPEC-029 — hierarquia, e **só** hierarquia.
+              SPEC-034 — hierarquia, e **só** hierarquia.
               As quatro linhas tinham o mesmo peso e o mesmo tamanho, então a resposta principal
               ("concluiu 2 de 3") não se distinguia do detalhe. Isto é `heading`; o resto desce para
               `caption`. ⚠️ **Nada aqui vira número grande, barra ou porcentagem** — a recusa da

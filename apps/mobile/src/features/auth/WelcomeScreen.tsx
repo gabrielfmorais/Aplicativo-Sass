@@ -85,7 +85,11 @@ const styles = StyleSheet.create({
   musa: { position: 'absolute', left: 0, right: 0, bottom: 0, top: -space.xxl },
   /** O respiro do topo acomoda a barra de status por cima da parte profunda do campo. */
   brand: { paddingTop: space.xxxl + space.lg, paddingHorizontal: space.xl, gap: space.xs },
-  /** Sobre o campo profundo, o eyebrow é claro — a cor da marca migrou para o fundo. */
+  /**
+   * ⚠️ **Claro, porque o topo do hero é escuro.** Esta cor já foi vinho, quando o hero era uma
+   * figura recortada sobre o creme — e sumiu no dia em que as mechas voltaram a cobrir o topo. A
+   * regra é uma só: o wordmark vive sobre a massa mais escura da composição, então ele é claro.
+   */
   eyebrow: { color: color.onFilledMuted },
   /** Maior que `display`: é a única palavra da tela que precisa ser lembrada. */
   wordmark: { fontSize: 46, lineHeight: 52, letterSpacing: -0.6, color: color.onFilled },

@@ -1,6 +1,7 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
-import { HunaFigure, PROFILE, RIBBONS } from '@/design/HunaFigure';
+import { HunaFigure } from '@/design/HunaFigure';
+import { SCENES } from '@/design/huna-hero';
 import { WelcomeScreen } from '@/features/auth/WelcomeScreen';
 
 /**
@@ -43,8 +44,10 @@ describe('WelcomeScreen (SPEC-018 FR1)', () => {
   });
 });
 
-describe('HunaFigure (SPEC-018 BR4 / SPEC-028)', () => {
-  /** É decoração. Anunciá-la só colocaria ruído entre a usuária e a ação da tela. */
+describe('HunaFigure (SPEC-018 BR4 / SPEC-036)', () => {
+  const scenes = Object.entries(SCENES);
+
+  /** É decoração. Anunciá-lo só colocaria ruído entre a usuária e a ação da tela. */
   it('é invisível para tecnologia assistiva', async () => {
     const screen = await render(<HunaFigure />);
     expect(screen.root?.props.accessibilityElementsHidden).toBe(true);
@@ -52,70 +55,53 @@ describe('HunaFigure (SPEC-018 BR4 / SPEC-028)', () => {
   });
 
   /**
-   * SPEC-028 — a barreira contra a volta da **massa única**.
+   * SPEC-036 — **poucas mechas grandes**, em toda cena, e a barreira é dos dois lados.
    *
-   * A recusa da direção foi explícita: "nenhuma leitura de capacete, nenhuma massa única atrás da
-   * cabeça". O cabelo é feito de fitas que se cruzam, e "muitas fitas" não é um detalhe de estilo —
-   * é a única razão de o desenho ter profundidade. Quatro formas opacas leem flat, e foi assim que
-   * as três versões anteriores foram reprovadas.
-   *
-   * O teste mede o que a recusa significa em números: fitas suficientes, em **planos** diferentes,
-   * e com fitas passando **na frente** da figura.
+   * O teto existe porque uma versão anterior tinha vinte fitas finas e a 390px o olho parava de
+   * seguir a curva para começar a contar listras — *"sem dezenas de fios"* é literal na direção. O
+   * piso de largura existe porque massa estreita não dá volume, dá risco.
    */
-  it('o cabelo é feito de muitas fitas, em planos, e algumas passam na frente', () => {
-    expect(RIBBONS.length).toBeGreaterThanOrEqual(16);
-    const layers = new Set(RIBBONS.map((r) => r.layer));
-    expect(layers.size).toBeGreaterThanOrEqual(4);
-    // O plano 2 é o que cruza o rosto e o corpo: sem ele a figura fica colada num fundo.
-    expect(RIBBONS.filter((r) => r.layer === 2).length).toBeGreaterThan(0);
-    // E há fio fino de verdade, não só massa: é o que responde ao movimento por último.
-    expect(RIBBONS.some((r) => r.width.max <= 10)).toBe(true);
+  it.each(scenes)('a cena %s é feita de poucas mechas grandes', (_name, scene) => {
+    expect(scene.strands.length).toBeGreaterThanOrEqual(3);
+    expect(scene.strands.length).toBeLessThanOrEqual(4);
+    expect(scene.strands.every((s) => s.width.max >= 50)).toBe(true);
   });
 
   /**
-   * ⚠️ **Translucidez é o que constrói profundidade.** Uma fita translúcida sobre outra cria um
-   * terceiro tom que nenhuma das duas tem. Se todas fossem opacas, o desenho voltaria a ser um
-   * empilhamento de recortes — exatamente o "flat demais" que a direção recusou.
+   * ⚠️ **As duas cenas são composições DIFERENTES, não a mesma recortada.** Enquadrar a composição
+   * vertical numa caixa larga foi tentado e reprovado: lia como imagem cortada, porque era. A
+   * barreira compara as espinhas — se um dia alguém "simplificar" reutilizando a mesma lista, o
+   * defeito volta em silêncio.
    */
-  it('há sobreposição translúcida, e não só formas opacas empilhadas', () => {
-    expect(RIBBONS.filter((r) => r.opacity < 1).length).toBeGreaterThan(RIBBONS.length / 2);
+  it('a abertura e o banner não compartilham as mesmas mechas', () => {
+    const key = (s: (typeof SCENES)['portrait']) => JSON.stringify(s.strands.map((r) => r.spine));
+    expect(key(SCENES.portrait)).not.toBe(key(SCENES.banner));
   });
 
   /**
-   * SPEC-027/028 — a barreira contra a volta da figura **de frente**.
-   *
-   * A primeira versão era frontal e lia como microfone a 390px: de frente o cabelo só pode ser
-   * moldura atrás de um oval claro. Um perfil não é verificável por pixel num teste unitário, mas é
-   * verificável por **estrutura** — uma silhueta de frente é simétrica em torno do eixo vertical, e
-   * um perfil não é. O nariz fica muito além do centro do rosto; num desenho frontal nenhum ponto do
-   * contorno faria isso.
+   * ⚠️ **Translucidez é o que impede a volta das "listras duras".** Massa opaca sobre massa opaca
+   * cria uma **borda**, e uma fileira de bordas paralelas lê como fita — foi assim que uma versão
+   * anterior virou cortina. No máximo uma massa por cena pode ser opaca: a que faz de fundo.
    */
-  it('desenha o rosto de perfil, e não de frente', () => {
-    const points = [...PROFILE.matchAll(/(-?[\d.]+)\s+(-?[\d.]+)/g)]
-      .map((m) => ({ x: Number(m[1]), y: Number(m[2]) }))
-      .filter((q) => Number.isFinite(q.x) && Number.isFinite(q.y));
+  it.each(scenes)('na cena %s, no máximo uma massa é opaca', (_name, scene) => {
+    expect(scene.strands.filter((s) => s.opacity === 1).length).toBeLessThanOrEqual(1);
+  });
 
+  /**
+   * ⚠️ **Movimento lento, e cada mecha no seu tempo.** Se duas dividissem período e atraso, elas
+   * andariam em bloco e o conjunto pareceria uma imagem girando inteira. O teto de amplitude guarda
+   * o "lento e elegante" que a direção pede.
+   */
+  it.each(scenes)('na cena %s cada mecha tem o seu próprio balanço, lento', (_name, scene) => {
+    const phases = scene.strands.map((s) => `${s.sway.seconds}:${s.sway.delay}`);
+    expect(new Set(phases).size).toBe(scene.strands.length);
     /**
-     * ⚠️ **Só a cabeça, e por quê.** A primeira versão deste teste media a silhueta **inteira** e
-     * passou a reprovar sozinha quando o ombro foi estreitado: o "centro do rosto" era, na verdade,
-     * o centro do corpo. Uma barreira que quebra ao mexer numa parte que ela não vigia não está
-     * medindo o que diz medir.
+     * ⚠️ **Amplitude simétrica em torno de zero é o que guarda um defeito que existiu.** O balanço
+     * ia de `0` a `1` e a rotação de `-graus` a `+graus`: parado — com redução de movimento
+     * ligada, ou no primeiro quadro de qualquer pessoa, antes de a preferência ser conhecida — o
+     * valor 0 punha cada mecha no **extremo** do arco, e a animação começava com um pulo.
      */
-    const head = points.filter((q) => q.y <= 225);
-    const top = Math.min(...head.map((q) => q.y));
-    const jaw = Math.max(...head.map((q) => q.y));
-    const widest = head.reduce((best, q) => (q.x > best.x ? q : best));
-
-    /**
-     * A propriedade que separa perfil de frente, e que sobrevive a redimensionar a cabeça: numa
-     * silhueta **frontal** o ponto mais largo é a têmpora, na metade de cima do crânio. Num
-     * **perfil** o ponto mais à frente é o nariz, e nariz fica na metade de baixo. Nenhum desenho de
-     * frente consegue satisfazer isto.
-     */
-    expect(widest.y).toBeGreaterThan((top + jaw) / 2);
-
-    // E o nariz é uma saliência de verdade, não um arredondamento: bem à frente do meio do crânio.
-    const centre = (Math.min(...head.map((q) => q.x)) + Math.max(...head.map((q) => q.x))) / 2;
-    expect(widest.x - centre).toBeGreaterThan(30);
+    expect(scene.strands.every((s) => s.sway.degrees > 0 && s.sway.degrees <= 3)).toBe(true);
+    expect(scene.strands.every((s) => s.sway.seconds >= 8)).toBe(true);
   });
 });
