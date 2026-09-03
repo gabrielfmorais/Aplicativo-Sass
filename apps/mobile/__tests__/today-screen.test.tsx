@@ -890,7 +890,23 @@ describe('produtos na execução, na Hoje (SPEC-041)', () => {
       />,
     );
 
-  it('oferece o painel no cuidado, e ele abre fechado', async () => {
+  /**
+   * ⚠️ **Conta os cartões, e não "existe pelo menos um".**
+   *
+   * A primeira versão deste teste passava com a prop chegando **só no cartão de foco**: a `Section`
+   * declarava `shelf` e não a repassava, então os cuidados de "Próximos" ficavam sem o painel — e o
+   * teste, que só perguntava se o rótulo existia em algum lugar, não via diferença. Quem viu foi o
+   * DEV real a 390px. Contar é o que torna o repasse observável.
+   */
+  it('oferece o painel em TODO cuidado acionável, não só no de foco', async () => {
+    const s = await renderWithShelf(true);
+    await waitFor(() => s.getAllByText('Meus produtos'));
+    const actionable = s.getAllByText('Fiz hoje').length;
+    expect(actionable).toBeGreaterThan(1);
+    expect(s.getAllByText('Meus produtos')).toHaveLength(actionable);
+  });
+
+  it('o painel começa fechado', async () => {
     const s = await renderWithShelf(true);
     await waitFor(() => s.getAllByText('Meus produtos'));
     expect(s.queryByText(/Na sua prateleira|Sua prateleira está vazia/)).toBeNull();

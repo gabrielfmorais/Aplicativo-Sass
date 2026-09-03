@@ -542,6 +542,7 @@ function Section({
           blocked={rest.busyId !== null}
           onAct={rest.onAct}
           washDay={rest.washDay}
+          shelf={rest.shelf}
           tone={cardTone}
         />
       ))}
