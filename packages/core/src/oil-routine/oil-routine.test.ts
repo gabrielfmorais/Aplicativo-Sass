@@ -132,3 +132,39 @@ describe('rotina de óleo — o que ela NÃO diz (SPEC-040 NG2/BR4/BR6)', () => 
     expect(view({ everyDays: 7, startedOn: '2026-09-10' }, [], '2026-09-10').daysLate).toBe(0);
   });
 });
+
+/**
+ * SPEC-040 EC7 — **medido no DEV real**, e não previsto quando a SPEC foi escrita.
+ *
+ * Ela adia hoje, desliga a rotina e liga de novo no mesmo dia. A rotina nova nasce com
+ * `startedOn = hoje`, mas o adiamento de hoje **continua valendo**: a próxima é amanhã.
+ *
+ * É o comportamento certo, e por isso está fixado aqui em vez de "corrigido": ela disse *hoje não*,
+ * e um religar no mesmo dia não desdiz aquilo — mostrar "é hoje" logo depois seria cobrar o que ela
+ * acabou de recusar. E não há vazamento do passado: um adiamento antigo tem `happenedOn + 1` menor
+ * que a data nova, então não empurra nada.
+ */
+describe('rotina de óleo — desligar e ligar de novo (SPEC-040 EC4/EC7)', () => {
+  it('o adiamento de HOJE sobrevive ao religar no mesmo dia', () => {
+    const v = view({ everyDays: 7, startedOn: '2026-09-03' }, [postponed('2026-09-03')], '2026-09-03');
+    expect(v.dueOn).toBe('2026-09-04');
+    expect(v.state).toBe('upcoming');
+  });
+
+  it('um adiamento antigo não empurra a rotina nova', () => {
+    const v = view({ everyDays: 7, startedOn: '2026-09-03' }, [postponed('2026-03-01')], '2026-09-03');
+    expect(v.dueOn).toBe('2026-09-03');
+    expect(v.state).toBe('due_today');
+  });
+
+  /** BR2 — depois de um feito, o adiamento do mesmo dia deixa de contar: a ocorrência foi resolvida. */
+  it('depois de um feito, o adiamento do mesmo dia não conta mais', () => {
+    const v = view(
+      { everyDays: 7, startedOn: '2026-09-03' },
+      [postponed('2026-09-03'), done('2026-09-03')],
+      '2026-09-03',
+    );
+    expect(v.dueOn).toBe('2026-09-10');
+    expect(v.lastDoneOn).toBe('2026-09-03');
+  });
+});

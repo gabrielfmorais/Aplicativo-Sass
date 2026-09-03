@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-040 |
-| Status | Em implementação |
+| Status | **DONE** — validada no DEV real a 390px em 2026-09-03 |
 | Owner | dono do produto |
 | Bounded Context | Oil Routine (`packages/core/src/oil-routine`) + Notifications + Hoje/Cuidados |
 | Related ADRs | ADR-008 (dia civil e tz), ADR-009 (id determinístico de intent), D-22, D-26/D-70, D-28, D-47/D-48 |
@@ -129,6 +129,12 @@ muda a próxima data (que deriva do último feito), não a história.
   me cobre esta semana*, e o aparelho não sabe distinguir qual cobrança ela quis suspender. A
   decisão é deliberada e está testada nos dois sentidos.
 - **EC6** Sem rotina, a Hoje não mostra nada e o intent não existe.
+- **EC7** ⚠️ **Medido no DEV real, e não previsto quando esta SPEC foi escrita.** Ela adia hoje,
+  desliga a rotina e liga de novo **no mesmo dia**: a rotina nova nasce com `started_on = hoje`, e o
+  adiamento **continua valendo** — a próxima é amanhã. É o comportamento certo e ficou **fixado em
+  teste** em vez de corrigido: ela disse *hoje não*, e religar no mesmo dia não desdiz aquilo; mostrar
+  "é hoje" logo depois seria cobrar o que ela acabou de recusar. Não há vazamento do passado — um
+  adiamento antigo tem `happenedOn + 1` menor que a data nova e não empurra nada.
 
 ## 9. Acceptance Criteria
 
@@ -139,9 +145,15 @@ muda a próxima data (que deriva do último feito), não a história.
   **mantém** os eventos.
 - **AC4** Dois toques rápidos e um retry produzem **um** evento (medido no banco).
 - **AC5** pgTAP: RLS ligada e forçada, grants exatos, cliente sem `INSERT`/`UPDATE` nas duas tabelas,
-  `user_id` de `auth.uid()`, isolamento entre usuárias, dia civil pelo fuso.
+  `user_id` de `auth.uid()`, isolamento entre usuárias, dia civil pelo fuso. **E medido contra o DEV
+  real**, pela porta do app: `INSERT` em `oil_routines` → `42501`; `INSERT` em `oil_events` →
+  `42501`; `UPDATE` em `oil_routines` → `42501`; `DELETE` em `oil_events` → `42501`; intervalo
+  fora da faixa → `23514`.
 - **AC6** O intent `oil_due` respeita opt-in, teto diário, horizonte e id determinístico, e **não
-  existe** sem rotina.
+  existe** sem rotina. ⚠️ **A parte da pausa não é observável no preview web** — o adapter de
+  notificação é fail-closed ali (D-80). A garantia é de camada de domínio e está testada nos dois
+  sentidos no core; e a rotina **não** some da tela quando o cronograma pausa, o que é estrutural:
+  `buildOilRoutineView` não recebe `paused` e portanto não pode escondê-la.
 - **AC7** Nenhum rótulo afirma o que o óleo faz, e nenhuma frequência é apresentada como recomendada
   — com barreira de teste.
 
@@ -157,3 +169,4 @@ muda a próxima data (que deriva do último feito), não a história.
 | Data | Mudança |
 |---|---|
 | 2026-09-03 | SPEC criada. A rotina existe; o que o óleo faz continua fora, atrás do gate. |
+| 2026-09-03 | Validada no DEV real a 390px: ligar · trocar intervalo · **Adiar** pelo botão (evento gravado com o dia civil dela) · desligar preservando o histórico · religar · a próxima andando o intervalo depois do feito (`qui, 10/09 · última vez em qui, 03/09`). Idempotência medida com **três chamadas da mesma chave, duas em paralelo** → o mesmo id e **uma** linha. Cliente hostil recusado nas quatro pontas. **EC7 descoberta na validação** e fixada em teste. |
