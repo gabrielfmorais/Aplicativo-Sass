@@ -93,4 +93,18 @@ describe('contraste da paleta (SPEC-026 AC8)', () => {
       expect(contrast(fg, color.canvas)).toBeGreaterThanOrEqual(AA);
     }
   });
+  /**
+   * SPEC-035 — **a pastilha da aba ativa tem de se ver.**
+   *
+   * ⚠️ Ela vinha em `accentSoft` sobre uma barra em `brandTint` e media **1,03:1**: dois cremes
+   * praticamente iguais. O canal existia no código e não existia na tela — a barra prometia quatro
+   * sinais de estado e entregava três, e ninguém percebeu porque "tem uma pastilha" é verdade no
+   * código-fonte. Um estado que não se enxerga não é um estado, e a única defesa contra isso voltar
+   * é um número.
+   */
+  it('a pastilha da aba ativa se distingue da barra', () => {
+    expect(contrast(color.accent, color.brandTint)).toBeGreaterThan(4.5);
+    /** E o ícone dentro dela precisa se ler sobre a própria pastilha. */
+    expect(contrast(color.onFilled, color.accent)).toBeGreaterThan(4.5);
+  });
 });

@@ -1,5 +1,6 @@
 import type {
   AuthPort,
+  ProfilePort,
   DeletionRequestPort,
   EntitlementsPort,
   NotificationPreferences,
@@ -8,8 +9,11 @@ import type {
   PlanPreferencesPort,
 } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
+import { Pressable, StyleSheet } from 'react-native';
 
-import { Button, Card, Screen, ScreenHeader, Stack, Text } from '@/design/primitives';
+import { Button, Card, Screen, Stack, Text } from '@/design/primitives';
+import { ProfileIdentity } from '@/features/account/ProfileIdentity';
+import { HIT_TARGET, space } from '@/design/tokens';
 import { NotificationSettings } from '@/features/account/NotificationSettings';
 import { PlanCustomizationSection } from '@/features/account/PlanCustomizationSection';
 import { SubscriptionSection } from '@/features/account/SubscriptionSection';
@@ -31,6 +35,9 @@ export function AccountScreen({
   auth,
   deletion,
   entitlements,
+  profile,
+  displayName,
+  onNameChanged,
   planPreferences,
   notificationPreferences,
   notificationScheduler,
@@ -42,6 +49,10 @@ export function AccountScreen({
   auth: AuthPort;
   deletion: DeletionRequestPort;
   entitlements: EntitlementsPort;
+  /** SPEC-035 — o nome dela é editável aqui: o dado já existia, faltava a porta. */
+  profile: ProfilePort;
+  displayName: string | null;
+  onNameChanged: (name: string | null) => void;
   planPreferences: PlanPreferencesPort;
   notificationPreferences: NotificationPreferencesPort;
   notificationScheduler: NotificationSchedulerPort;
@@ -84,68 +95,88 @@ export function AccountScreen({
       .catch(() => setMessage(fallback));
 
   return (
-    <Screen
-      {...(onBack
-        ? {
-            /*
-              SPEC-027 — "Voltar", e não "Voltar aos cuidados".
-              Esta tela é empilhada sobre a aba de onde ela foi aberta, e desde que o avatar aparece
-              em **quatro** abas, esse destino deixou de ser sempre "os cuidados": aberta da
-              Prateleira, o botão prometia um lugar e entregava outro. Um rótulo que nomeia o destino
-              errado é pior que um genérico — a aba destacada embaixo já diz para onde se volta.
-            */
-            footer: <Button label="Voltar" variant="secondary" onPress={onBack} />,
-          }
-        : {})}
-    >
+    <Screen>
       {/*
-        SPEC-026 FR6 — a aba não é "configurações": é **ela**. O cabelo dela vem antes da fatura,
-        e por isso "meu cabelo mudou" e "reavaliar" subiram para cima de assinatura e lembretes.
-        Enquanto isto era uma tela alcançada por um botão no pé da Hoje, a ordem não custava nada;
-        como aba permanente, a primeira coisa visível passa a ser o que a aba **significa**.
+        ⚠️ **A saída subiu para o topo, e isso conserta um rodapé duplo.** "Voltar" vivia no
+        `footer` fixo da tela — mas esta tela é **empilhada sobre uma aba**, então a barra de abas
+        continua embaixo: eram duas faixas de rodapé, uma em cima da outra, comendo 100pt da tela
+        num aparelho de 844. No topo, à esquerda, ele é o que uma tela empilhada tem: uma saída, e
+        não um rodapé.
       */}
-      {/*
-        SPEC-032 — "Você" continua sendo o título aqui, e é o único caso em que o nome da tela fica.
-        Nas quatro abas o título repetia a barra; esta **não é uma aba** — abre pelo avatar do
-        cabeçalho — então não há rodapé nenhum dizendo a mesma palavra.
-      */}
-      <ScreenHeader title="Você" />
-
-      {onReassess ? (
-        <Card>
-          <Text variant="heading" accessibilityRole="header">
-            Reavaliar meu cabelo
+      {onBack ? (
+        <Pressable
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
+          style={({ pressed }) => [styles.back, pressed && styles.backPressed]}
+        >
+          <Text variant="bodyStrong" tone="accent">
+            ‹ Voltar
           </Text>
-          <Text tone="muted">
-            Responda as perguntas de novo para receber um cronograma novo. O cronograma atual será
-            substituído; o que você já registrou continua salvo.
-          </Text>
-          <Button label="Reavaliar" variant="secondary" onPress={onReassess} />
-        </Card>
+        </Pressable>
       ) : null}
 
-      <SubscriptionSection entitlements={entitlements} />
+      {/*
+        SPEC-035 — a ordem **é** a mensagem, e antes ela não dizia nada.
 
-      <PlanCustomizationSection
-        entitlements={entitlements}
-        planPreferences={planPreferences}
-        {...(onCustomize ? { onApply: onCustomize } : {})}
-      />
+        Reavaliação, assinatura, dias preferidos, lembretes, exclusão e sair chegavam como seis
+        cartões brancos idênticos: tudo com o mesmo peso, cobrança e exclusão no mesmo plano do
+        cabelo dela. Agora há quatro blocos com pesos diferentes e uma regra explícita —
+        **identidade e cabelo antes de conta, cobrança e exclusão**.
+      */}
+      <ProfileIdentity profile={profile} name={displayName} onNameChanged={onNameChanged} />
 
-      <NotificationSettings
-        preferences={notificationPreferences}
-        scheduler={notificationScheduler}
-        onChanged={onNotificationPreferencesChanged}
-      />
+      {onReassess ? (
+        <Stack gap="md">
+          <Text variant="overline" tone="accent" accessibilityRole="header">
+            Seu cabelo
+          </Text>
+          <Card>
+            <Text variant="heading" accessibilityRole="header">
+              Reavaliar meu cabelo
+            </Text>
+            <Text tone="muted">
+              Responda as perguntas de novo para receber um cronograma novo. O cronograma atual será
+              substituído; o que você já registrou continua salvo.
+            </Text>
+            <Button label="Reavaliar" variant="secondary" onPress={onReassess} />
+          </Card>
+        </Stack>
+      ) : null}
 
-      {/* Last, and quiet on purpose: leaving and deleting are the two things she cannot undo by
-          tapping again, so neither should sit where a thumb lands by accident. */}
       <Stack gap="md">
         <Text variant="overline" tone="accent" accessibilityRole="header">
-          Acesso e dados
+          Suas preferências
         </Text>
-        {/* Inline, not the full-page `Loading`: this is one sub-state inside a scrolling page, and
-            a flex-1 screen dropped into a scroll view collapses. */}
+        <PlanCustomizationSection
+          entitlements={entitlements}
+          planPreferences={planPreferences}
+          {...(onCustomize ? { onApply: onCustomize } : {})}
+        />
+        <NotificationSettings
+          preferences={notificationPreferences}
+          scheduler={notificationScheduler}
+          onChanged={onNotificationPreferencesChanged}
+        />
+      </Stack>
+
+      <Stack gap="md">
+        <Text variant="overline" tone="accent" accessibilityRole="header">
+          Seu plano
+        </Text>
+        <SubscriptionSection entitlements={entitlements} />
+      </Stack>
+
+      {/*
+        Último, e quieto de propósito: sair e excluir são as duas coisas que ela não desfaz tocando
+        de novo, então nenhuma delas pode estar onde o polegar cai por acidente.
+      */}
+      <Stack gap="md">
+        <Text variant="overline" tone="faint" accessibilityRole="header">
+          Conta e dados
+        </Text>
+        {/* Inline, e não o `Loading` de página inteira: isto é um sub-estado dentro de uma página que
+            rola, e uma tela flex-1 dentro de um scroll view colapsa. */}
         {requestedAt === 'loading' ? (
           <Text tone="muted">Carregando sua conta…</Text>
         ) : requestedAt === 'error' ? (
@@ -189,3 +220,9 @@ export function AccountScreen({
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  /** Alvo confortável e alinhado à esquerda com o conteúdo — uma saída se procura no canto. */
+  back: { minHeight: HIT_TARGET, justifyContent: 'center', alignSelf: 'flex-start', paddingRight: space.md },
+  backPressed: { opacity: 0.7 },
+});

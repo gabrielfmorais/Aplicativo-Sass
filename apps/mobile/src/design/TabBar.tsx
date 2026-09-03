@@ -34,6 +34,12 @@ import { HIT_TARGET, color, radius, space, type } from '@/design/tokens';
  * palavra e a cor do ícone. Cor sozinha não é estado — é a mesma regra do `Tag` da SPEC-016, e vale
  * mais ainda aqui, onde a diferença entre duas abas é a única pista de onde ela está.
  *
+ * ⚠️ **A pastilha era invisível, e isso foi medido, não achado.** Ela vinha em `accentSoft`
+ * (#F6E9EF) sobre uma barra em `brandTint` (#F6EDF0): **1,03:1**. Dois cremes praticamente iguais —
+ * o canal existia no código e não existia na tela, e sobravam três. Agora a pastilha é **ameixa
+ * sólida** com o ícone em branco (8,91:1): o estado ativo passa a ter um bloco de cor, que é o que
+ * se enxerga de relance com o polegar em cima da barra.
+ *
  * ⚠️ **A pastilha substituiu o traço de cima.** O traço flutuava acima do ícone, encostava no
  * conteúdo da tela e lia como uma linha perdida entre o cartão e a barra. A pastilha **abraça** o
  * ícone: ela pertence à aba, e não ao espaço entre as duas coisas.
@@ -69,7 +75,7 @@ export function TabBar({ active, onChange }: { active: TabKey; onChange: (tab: T
             style={styles.tab}
           >
             <View style={[styles.pill, on && styles.pillOn]}>
-              <tab.Icon color={on ? color.accent : color.inkMuted} size={23} />
+              <tab.Icon color={on ? color.onFilled : color.inkMuted} size={24} />
             </View>
             <RNText
               numberOfLines={1}
@@ -118,14 +124,14 @@ const styles = StyleSheet.create({
    * aparece na ativa mudaria a altura da linha ao trocar de aba, e a barra inteira daria um pulo.
    */
   pill: {
-    minWidth: 52,
-    paddingHorizontal: space.md,
-    paddingVertical: space.xs,
+    minWidth: 56,
+    height: 32,
+    paddingHorizontal: space.lg,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pillOn: { backgroundColor: color.accentSoft },
+  pillOn: { backgroundColor: color.accent },
   /**
    * O rótulo é `caption` nos dois estados, com o peso mudando: `bodyStrong` na ativa somava dois
    * pontos de corpo e empurrava as outras três palavras, e "Progresso" a 13pt já usa a largura
