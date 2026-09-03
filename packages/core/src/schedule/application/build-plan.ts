@@ -50,17 +50,26 @@ export const isKnownScheduleVersion = (version: string): version is ScheduleVers
  * defeito real desta rodada — a constante passou a apontar para a v2 enquanto o padrão do
  * `buildPlan` continuava na v1, e o app gerava planos da versão que ninguém tinha escolhido.
  *
- * ⚠️ **SPEC-038 (F36): a v2 está pronta, testada e ligada ao despacho — e a versão corrente segue
- * sendo a v1.** Não é hesitação: **ligar a v2 exige duas ações de ambiente que não são do agente.**
+ * ⚠️ **SPEC-038 (F36): a v2 está pronta e a corrente segue sendo a v1 — e agora isso é MEDIDO, não
+ * precaução.** A troca foi ligada, exercida no DEV real e revertida, porque a medição mostrou a
+ * deriva que ela causa:
  *
- * 1. A migration `20260911000000_care_type_restoration.sql` precisa estar aplicada no ambiente,
- *    senão um plano com Restauração é recusado pelo CHECK de `scheduled_cares`.
- * 2. A Edge Function `generate-plan` precisa ser **redeployada** com este bundle. Sem isso o preview
- *    do cliente usa a v2 e o plano gravado usa a v1 — as duas leituras do mesmo cronograma passam a
- *    discordar, que é exatamente o que `buildPlan` como caminho único existe para impedir. Deploy é
- *    ação §4: decisão humana, nunca efeito colateral de um merge.
+ * ```
+ * preview do cliente (v2):  HID NUT HID REC NUT REC HID RES
+ * plano gravado (v1):       HID NUT HID NUT REC NUT HID NUT     ← engine=v1
+ * ```
  *
- * Feitas as duas, ligar é trocar esta linha para `SCHEDULE_ALGORITHM_VERSION_V2`.
+ * O app roda o bundle local; a Edge Function roda o **bundle deployado**. Enquanto os dois não
+ * forem a mesma coisa, ela confirma um cronograma e recebe outro — exatamente o que `buildPlan`
+ * como caminho único existe para impedir (SPEC-004 AC3).
+ *
+ * ⚠️ **E em produção isso não é transitório: é estrutural.** O app é binário de loja e a Edge
+ * Function versiona à parte, então uma usuária com app antigo sempre pode prever com uma engine e
+ * receber outra. **Ligar a v2 sem resolver isso é embutir a deriva no produto** — a decisão está em
+ * SPEC-038 OQ4, e a saída provável é o cliente **mandar a versão que ele previu** e o servidor
+ * validá-la contra esta mesma allowlist.
+ *
+ * As regras da v2 continuam `candidate`: **PUBLIC RELEASE segue bloqueado** (D-26/D-70/OQ-REL).
  */
 export const CURRENT_SCHEDULE_VERSION: ScheduleVersion = SCHEDULE_ALGORITHM_VERSION_V1;
 
