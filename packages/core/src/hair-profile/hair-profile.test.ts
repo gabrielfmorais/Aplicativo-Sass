@@ -2,6 +2,8 @@ import {
   HAIR_EVENT_TYPES,
   HairEventTypeSchema,
   HairProfileInputSchema,
+  PERCEIVED_POROSITIES,
+  ROUTINE_AVAILABILITIES,
   PRODUCT_CATEGORIES,
   PRODUCT_NAME_MAX_LENGTH,
   ProductCategorySchema,
@@ -18,6 +20,8 @@ const valid = {
   heatUsage: 'one_to_two_weekly',
   currentConcerns: ['frizz', 'dryness'],
   primaryGoal: 'definition_and_frizz_control',
+  perceivedPorosity: 'wets_and_dries_fast',
+  routineAvailability: 'minimal',
 } as const;
 
 describe('hair-profile: input validation at the trust boundary (SPEC-002 §6/BR6)', () => {
@@ -67,6 +71,33 @@ describe('hair-profile: input validation at the trust boundary (SPEC-002 §6/BR6
   it('rejects unknown fields (client cannot smuggle unsupported data — AC7)', () => {
     expect(HairProfileInputSchema.safeParse({ ...valid, porosity: 'high' }).success).toBe(false);
   });
+
+  /**
+   * SPEC-037 (F35) — as duas entradas novas, e **obrigatórias numa avaliação nova**.
+   *
+   * ⚠️ Opcional aqui teria sido o caminho fácil (nenhuma fixture quebraria) e teria criado um
+   * terceiro estado — ausente, `null` e `'unknown'` — para dizer duas coisas. Uma avaliação nova
+   * sempre responde; quem pode faltar é a **linha antiga**, e essa é a `HairProfileSnapshot`.
+   */
+  it('exige as duas entradas da avaliação ampliada', () => {
+    const { perceivedPorosity: _p, routineAvailability: _r, ...missing } = valid;
+    expect(HairProfileInputSchema.safeParse(missing).success).toBe(false);
+    expect(HairProfileInputSchema.safeParse({ ...valid, perceivedPorosity: null }).success).toBe(false);
+  });
+
+  /** Comportamento observado, não classe capilar: `low_porosity` é a tradução que a D-26 barra. */
+  it('recusa vocabulário de classificação de porosidade', () => {
+    expect(HairProfileInputSchema.safeParse({ ...valid, perceivedPorosity: 'low' }).success).toBe(false);
+    expect(HairProfileInputSchema.safeParse({ ...valid, perceivedPorosity: 'high_porosity' }).success).toBe(
+      false,
+    );
+    for (const v of PERCEIVED_POROSITIES) {
+      expect(HairProfileInputSchema.safeParse({ ...valid, perceivedPorosity: v }).success).toBe(true);
+    }
+    for (const v of ROUTINE_AVAILABILITIES) {
+      expect(HairProfileInputSchema.safeParse({ ...valid, routineAvailability: v }).success).toBe(true);
+    }
+  });
 });
 
 describe('hair-profile: reading a stored row (SPEC-002 §9)', () => {
@@ -81,12 +112,40 @@ describe('hair-profile: reading a stored row (SPEC-002 §9)', () => {
     heat_usage: 'one_to_two_weekly',
     current_concerns: ['frizz', 'dryness'],
     primary_goal: 'definition_and_frizz_control',
+    perceived_porosity: 'wets_and_dries_fast',
+    routine_availability: 'minimal',
   };
 
   it('maps every column to the snapshot', () => {
     const snap = hairProfileFromRow(row);
     expect(snap.hairProfileId).toBe('p1');
     expect(snap.currentConcerns).toEqual(['frizz', 'dryness']);
+    expect(snap.perceivedPorosity).toBe('wets_and_dries_fast');
+    expect(snap.routineAvailability).toBe('minimal');
+  });
+
+  /**
+   * SPEC-037 — ⚠️ **a barreira que separa "não perguntamos" de "ela não sabe".**
+   *
+   * `hair_profiles` é append-only e imutável (D-62): as avaliações anteriores a esta SPEC existem,
+   * não podem ser preenchidas e chegam com `null`. Se um dia alguém "simplificar" o mapper trocando
+   * `null` por `'unknown'` — ou pior, por um default —, o motor do F36 passaria a ler como resposta
+   * dela uma coisa que ela nunca disse, e nada avisaria. É isso que este teste trava.
+   */
+  it('uma avaliação anterior à pergunta chega como null, e null não vira "unknown"', () => {
+    const { perceived_porosity: _p, routine_availability: _r, ...old } = row;
+    const snap = hairProfileFromRow({ ...old, perceived_porosity: null, routine_availability: null });
+    expect(snap.perceivedPorosity).toBeNull();
+    expect(snap.routineAvailability).toBeNull();
+
+    // E o contrário também: "não sei dizer" é uma RESPOSTA, e continua sendo uma.
+    const said = hairProfileFromRow({ ...row, perceived_porosity: 'unknown' });
+    expect(said.perceivedPorosity).toBe('unknown');
+  });
+
+  it('recusa um valor fora do vocabulário nas colunas novas', () => {
+    expect(() => hairProfileFromRow({ ...row, perceived_porosity: 'low_porosity' })).toThrow();
+    expect(() => hairProfileFromRow({ ...row, routine_availability: 'muito' })).toThrow();
   });
 
   // A tampered client could bypass the zod uniqueness refine and store duplicates the DB CHECKs allow;

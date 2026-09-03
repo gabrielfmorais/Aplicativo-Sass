@@ -31,6 +31,8 @@ const profile: HairProfileSnapshot = {
   heatUsage: 'almost_never',
   currentConcerns: ['dryness'],
   primaryGoal: 'softness_and_hydration',
+  perceivedPorosity: 'absorbs_normally',
+  routineAvailability: 'moderate',
   createdAt: '2026-09-01T10:00:00.000Z',
 };
 

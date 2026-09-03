@@ -20,13 +20,14 @@
     "test": "pnpm -r --if-present test",
     "test:core": "pnpm --filter @app/core test",
     "check:entitlement-parity": "node scripts/check-entitlement-catalog-parity.mjs",
-    "verify": "pnpm check:node && pnpm format:check && pnpm lint && pnpm typecheck && pnpm dep-cruise && pnpm test && pnpm check:boundaries && pnpm check:docs-links && pnpm check:security-exceptions && pnpm check:entitlement-parity",
+    "verify": "pnpm check:node && pnpm format:check && pnpm lint && pnpm typecheck && pnpm dep-cruise && pnpm test && pnpm check:boundaries && pnpm check:docs-links && pnpm check:migration-versions && pnpm check:security-exceptions && pnpm check:entitlement-parity",
     "check:security-exceptions": "node scripts/check-security-exceptions.mjs",
     "check:remote-schema": "node scripts/check-remote-schema.mjs",
     "check:remote-functions": "node scripts/check-remote-functions.mjs",
     "check:remote": "pnpm check:remote-schema && pnpm check:remote-functions",
     "dev:bootstrap-sql": "node scripts/make-dev-bootstrap.mjs",
-    "edge:stage": "node scripts/stage-edge-bundle.mjs"
+    "edge:stage": "node scripts/stage-edge-bundle.mjs",
+    "check:migration-versions": "node scripts/check-migration-versions.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

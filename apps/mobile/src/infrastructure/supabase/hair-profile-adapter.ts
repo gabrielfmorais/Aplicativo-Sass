@@ -54,6 +54,10 @@ export const createHairProfileAdapter = (client: SupabaseClient, userId: () => s
         heat_usage: input.heatUsage,
         current_concerns: input.currentConcerns,
         primary_goal: input.primaryGoal,
+        // SPEC-037 (F35). Sempre presentes numa avaliação nova — `HairProfileInput` as exige, e é a
+        // linha antiga, que já existe e é imutável, que carrega `null`.
+        perceived_porosity: input.perceivedPorosity,
+        routine_availability: input.routineAvailability,
       })
       .select(HAIR_PROFILE_COLUMNS)
       .single();

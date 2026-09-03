@@ -9,11 +9,15 @@ export {
   HEAT_USAGES,
   CURRENT_CONCERNS,
   PRIMARY_GOALS,
+  PERCEIVED_POROSITIES,
+  ROUTINE_AVAILABILITIES,
   HAIR_PROFILE_COLUMNS,
   HairProfileRowSchema,
   hairProfileFromRow,
   type HairProfileInput,
   type HairProfileSnapshot,
+  type PerceivedPorosity,
+  type RoutineAvailability,
 } from './domain/hair-profile.ts';
 export {
   HAIR_EVENT_TYPES,

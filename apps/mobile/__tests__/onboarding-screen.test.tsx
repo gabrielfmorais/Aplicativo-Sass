@@ -14,6 +14,8 @@ const snapshot: HairProfileSnapshot = {
   heatUsage: 'almost_never',
   currentConcerns: ['frizz'],
   primaryGoal: 'maintain_healthy_hair',
+  perceivedPorosity: 'absorbs_normally',
+  routineAvailability: 'moderate',
 };
 
 const makePort = () =>
@@ -27,7 +29,7 @@ type Screen = Awaited<ReturnType<typeof render>>;
 const advance = async (s: Screen) => fireEvent.press(s.getByText('Continuar'));
 
 /**
- * Walks the eight steps of SPEC-002 (SPEC-016 FR3), answering each one, and stops **on** the last
+ * Walks the ten steps of SPEC-002 + SPEC-037 (SPEC-016 FR3), answering each one, and stops **on** the last
  * step without confirming. The answers are the same ones the single-scroll version used, so what
  * the port receives can be compared against exactly the same expectation (AC2).
  *
@@ -41,11 +43,15 @@ const answerEveryStep = async (s: Screen) => {
   await advance(s);
   await fireEvent.press(s.getByText('Equilibrado')); // scalpTendency = balanced
   await advance(s);
+  await fireEvent.press(s.getByText('Molha e seca normalmente')); // perceivedPorosity (SPEC-037)
+  await advance(s);
   await advance(s); // interlúdio "Seu cabelo"
   await fireEvent.press(s.getByText('2x por semana')); // washFrequency = twice_weekly
   await advance(s);
   await advance(s); // chemicalTreatments: none — the one optional step
   await fireEvent.press(s.getByText('Quase nunca')); // heatUsage = almost_never
+  await advance(s);
+  await fireEvent.press(s.getByText('De 15 a 40 minutos')); // routineAvailability (SPEC-037)
   await advance(s);
   await advance(s); // interlúdio "Sua rotina"
   await fireEvent.press(s.getByText('Com bastante frizz')); // currentConcerns = [frizz]
@@ -89,6 +95,10 @@ describe('OnboardingScreen (SPEC-002, stepped by SPEC-016)', () => {
         heatUsage: 'almost_never',
         currentConcerns: ['frizz'],
         primaryGoal: 'maintain_healthy_hair',
+        // SPEC-037 (F35). A asserção é sobre o objeto inteiro, então uma resposta que a tela
+        // colete e não envie reprova aqui em vez de sumir a caminho do banco.
+        perceivedPorosity: 'absorbs_normally',
+        routineAvailability: 'moderate',
       }),
     );
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(snapshot));
@@ -154,6 +164,8 @@ describe('OnboardingScreen — interstícios (SPEC-018 FR8)', () => {
     await advance(s);
     await fireEvent.press(s.getByText('Equilibrado'));
     await advance(s);
+    await fireEvent.press(s.getByText('Molha e seca normalmente'));
+    await advance(s);
   };
 
   it('faz uma pausa depois do bloco sobre o cabelo, e ela não é uma pergunta', async () => {
@@ -161,14 +173,14 @@ describe('OnboardingScreen — interstícios (SPEC-018 FR8)', () => {
     await toFirstInterlude(s);
 
     s.getByText('Essa parte já está registrada.');
-    // A barra continua em três de oito: uma pausa não inventa progresso que não houve — e não se
-    // apresenta como pergunta, então o rótulo "PERGUNTA n DE 8" some com ela.
-    expect(s.getByLabelText('Pergunta 3 de 8').props.accessibilityValue).toEqual({
+    // A barra continua em quatro de dez: uma pausa não inventa progresso que não houve — e não se
+    // apresenta como pergunta, então o rótulo "PERGUNTA n DE 10" some com ela.
+    expect(s.getByLabelText('Pergunta 4 de 10').props.accessibilityValue).toEqual({
       min: 0,
-      max: 8,
-      now: 3,
+      max: 10,
+      now: 4,
     });
-    expect(s.queryByText(/^PERGUNTA \d+ DE 8$/)).toBeNull();
+    expect(s.queryByText(/^PERGUNTA \d+ DE 10$/)).toBeNull();
     expect(s.queryByRole('radio')).toBeNull();
     // E seguir dela é sempre possível — não há o que responder.
     expect(s.getByText('Continuar').parent?.props.accessibilityState?.disabled).toBe(false);
@@ -179,8 +191,9 @@ describe('OnboardingScreen — interstícios (SPEC-018 FR8)', () => {
     await toFirstInterlude(s);
     await fireEvent.press(s.getByText('Voltar'));
 
-    s.getByText('Como é o seu couro cabeludo?');
-    expect(s.getByText('Equilibrado').props.accessibilityState?.checked ?? true).not.toBe(false);
+    // Voltar da pausa cai na última pergunta do bloco, que a SPEC-037 passou a ser a porosidade.
+    s.getByText('Quando você molha o cabelo, o que acontece?');
+    expect(s.getByText('Molha e seca normalmente').props.accessibilityState?.checked ?? true).not.toBe(false);
   });
 
   it('a segunda pausa chega depois do bloco da rotina, e o fluxo termina em pergunta', async () => {
@@ -188,7 +201,7 @@ describe('OnboardingScreen — interstícios (SPEC-018 FR8)', () => {
     await answerEveryStep(s);
     // Terminar numa pausa seria pedir confirmação sem pergunta à vista.
     s.getByText('Qual é o seu principal objetivo?');
-    s.getByText('PERGUNTA 8 DE 8');
+    s.getByText('PERGUNTA 10 DE 10');
   });
 
   /**
@@ -209,7 +222,40 @@ describe('OnboardingScreen — interstícios (SPEC-018 FR8)', () => {
     await advance(s);
     await fireEvent.press(s.getByText('Quase nunca'));
     await advance(s);
+    await fireEvent.press(s.getByText('De 15 a 40 minutos'));
+    await advance(s);
     s.getByText('Falta pouco.');
     expect(s.queryByText(forbidden)).toBeNull();
+  });
+
+  /**
+   * SPEC-037 — ⚠️ **a pausa conta perguntas, e a conta tem de bater com o roteiro.**
+   *
+   * As duas frases diziam *"são três perguntas"* e *"só faltam duas perguntas"* com o número
+   * digitado à mão. Eram verdade quando foram escritas e viraram mentira no minuto em que a SPEC-037
+   * acrescentou duas — sem quebrar teste nenhum, porque nenhum teste lia a frase.
+   *
+   * Contar é a única coisa que estas pausas prometem ser verdade verificável (BR3): se a frase que
+   * conta é a que erra, ela custa mais confiança do que compra. A barreira compara a promessa com o
+   * que a barra de progresso diz, que é a mesma fonte.
+   */
+  it('a pausa promete um número de perguntas que confere com o roteiro', async () => {
+    const s = await render(<OnboardingScreen hairProfile={makePort()} onSaved={jest.fn()} />);
+    await toFirstInterlude(s);
+
+    // Bloco da rotina: lavagem, química, calor e tempo disponível.
+    s.getByText(/São 4 perguntas\./);
+
+    await advance(s);
+    await fireEvent.press(s.getByText('2x por semana'));
+    await advance(s);
+    await advance(s);
+    await fireEvent.press(s.getByText('Quase nunca'));
+    await advance(s);
+    await fireEvent.press(s.getByText('De 15 a 40 minutos'));
+    await advance(s);
+
+    // Bloco final: o que incomoda e o objetivo.
+    s.getByText(/Só faltam 2 perguntas/);
   });
 });

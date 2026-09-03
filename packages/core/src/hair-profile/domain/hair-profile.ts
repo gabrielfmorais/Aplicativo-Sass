@@ -51,6 +51,40 @@ export const PRIMARY_GOALS = [
   'maintain_healthy_hair',
 ] as const;
 
+/**
+ * SPEC-037 (F35) — porosidade **percebida**, e a palavra "percebida" é o contrato inteiro.
+ *
+ * ⚠️ **Os valores descrevem o que ela OBSERVA, não o que o cabelo dela É.** Porosidade é uma
+ * propriedade capilar com definição técnica; classificar o cabelo de alguém como "alta porosidade" a
+ * partir de uma pergunta é diagnóstico, e diagnóstico é o que a D-26 impede. O que cabe aqui é o
+ * fato observável — quanto tempo o cabelo dela demora para molhar e para secar — que ela responde
+ * sem precisar saber o que é porosidade.
+ *
+ * Por isso os nomes são de comportamento (`slow_to_wet`) e não de classe (`low_porosity`): traduzir
+ * um no outro é uma **regra capilar** e não acontece aqui — acontece no motor, versionado, e nasce
+ * `candidate` até sign-off de domínio (D-26/ADR-007 A1).
+ */
+export const PERCEIVED_POROSITIES = [
+  'slow_to_wet',
+  'absorbs_normally',
+  'wets_and_dries_fast',
+  'unknown',
+] as const;
+
+/**
+ * SPEC-037 (F35) — quanto tempo ela **realmente** tem, que não é o mesmo que quanto ela gostaria.
+ *
+ * Um cronograma que pede 40 minutos de quem tem 10 não é personalizado: é ignorado. Esta é a única
+ * entrada do perfil que não fala do cabelo, e é a que decide se o plano cabe na vida dela.
+ *
+ * `varies` é resposta legítima e não é evasiva — para muita gente a semana não é igual, e forçar uma
+ * média inventaria um dado que ela não tem.
+ */
+export const ROUTINE_AVAILABILITIES = ['minimal', 'moderate', 'generous', 'varies'] as const;
+
+export type PerceivedPorosity = (typeof PERCEIVED_POROSITIES)[number];
+export type RoutineAvailability = (typeof ROUTINE_AVAILABILITIES)[number];
+
 const unique = <T>(a: readonly T[]) => new Set(a).size === a.length;
 
 /** Trust-boundary validation for the onboarding answers (SPEC-002 FR5/BR6). Mirrors the DB CHECKs. */
@@ -68,6 +102,8 @@ export const HairProfileInputSchema = z.strictObject({
     .refine(unique, 'no duplicates')
     .refine((a) => !a.includes('no_major_concern') || a.length === 1, 'no_major_concern is exclusive'),
   primaryGoal: z.enum(PRIMARY_GOALS),
+  perceivedPorosity: z.enum(PERCEIVED_POROSITIES),
+  routineAvailability: z.enum(ROUTINE_AVAILABILITIES),
 });
 
 export type HairProfileInput = z.infer<typeof HairProfileInputSchema>;
@@ -76,7 +112,22 @@ export type HairProfileInput = z.infer<typeof HairProfileInputSchema>;
  * An immutable snapshot as stored, identified by a stable id (SPEC-002 §9).
  * Downstream contract for SPEC-003 (Diagnostic): referenced by `hairProfileId`, never by an ordinal.
  */
-export type HairProfileSnapshot = HairProfileInput & {
+export type HairProfileSnapshot = Omit<HairProfileInput, 'perceivedPorosity' | 'routineAvailability'> & {
+  /**
+   * SPEC-037 — ⚠️ **`null` NÃO é `'unknown'`, e confundir os dois é o defeito que esta tipagem
+   * existe para impedir.**
+   *
+   * `'unknown'` é uma **resposta**: ela olhou a pergunta e disse que não sabe dizer. `null` é a
+   * **ausência da pergunta**: a avaliação é anterior à SPEC-037 e ninguém perguntou. A tabela é
+   * append-only e imutável (D-62), então essas linhas existem, não podem ser preenchidas
+   * retroativamente e não vão sumir.
+   *
+   * A diferença é operacional, não filosófica: uma regra pode tratar "ela não sabe" como entrada
+   * válida e escolher um caminho conservador; tratar "nunca perguntamos" da mesma forma inventaria
+   * uma resposta que ela nunca deu.
+   */
+  readonly perceivedPorosity: PerceivedPorosity | null;
+  readonly routineAvailability: RoutineAvailability | null;
   readonly hairProfileId: string;
   readonly createdAt: string;
 };
@@ -97,6 +148,10 @@ export const HairProfileRowSchema = z.object({
   heat_usage: z.enum(HEAT_USAGES),
   current_concerns: z.array(z.enum(CURRENT_CONCERNS)),
   primary_goal: z.enum(PRIMARY_GOALS),
+  // SPEC-037: nullable, e nao por conveniencia — as linhas anteriores a esta SPEC existem, sao
+  // imutaveis (D-62) e nunca responderam a estas duas perguntas. Ver HairProfileSnapshot.
+  perceived_porosity: z.enum(PERCEIVED_POROSITIES).nullable(),
+  routine_availability: z.enum(ROUTINE_AVAILABILITIES).nullable(),
 });
 
 /** Columns to select for `HairProfileRowSchema`, in one place. */
@@ -120,5 +175,7 @@ export const hairProfileFromRow = (row: unknown): HairProfileSnapshot => {
     heatUsage: r.heat_usage,
     currentConcerns: [...new Set(r.current_concerns)],
     primaryGoal: r.primary_goal,
+    perceivedPorosity: r.perceived_porosity,
+    routineAvailability: r.routine_availability,
   };
 };

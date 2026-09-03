@@ -15,6 +15,8 @@ const origem: HairProfileSnapshot = {
   heatUsage: 'almost_never',
   currentConcerns: ['dryness'],
   primaryGoal: 'softness_and_hydration',
+  perceivedPorosity: 'absorbs_normally',
+  routineAvailability: 'moderate',
 };
 
 /** O perfil corrente depois de uma reavaliação abandonada: outro objetivo, outra evidência. */

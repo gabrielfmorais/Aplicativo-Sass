@@ -13,6 +13,8 @@ const row = {
   heat_usage: 'one_to_two_weekly',
   current_concerns: ['frizz', 'dryness'],
   primary_goal: 'definition_and_frizz_control',
+  perceived_porosity: 'absorbs_normally',
+  routine_availability: 'moderate',
 };
 
 /** Minimal chainable fake of the PostgREST query builder used by the adapter. */
@@ -49,6 +51,8 @@ describe('hair-profile adapter (SPEC-002 §11)', () => {
       heatUsage: 'one_to_two_weekly',
       currentConcerns: ['frizz', 'dryness'],
       primaryGoal: 'definition_and_frizz_control',
+      perceivedPorosity: 'absorbs_normally',
+      routineAvailability: 'moderate',
     });
   });
 
@@ -64,6 +68,8 @@ describe('hair-profile adapter (SPEC-002 §11)', () => {
       heatUsage: 'one_to_two_weekly',
       currentConcerns: ['frizz', 'dryness'],
       primaryGoal: 'definition_and_frizz_control',
+      perceivedPorosity: 'slow_to_wet',
+      routineAvailability: 'varies',
     });
     expect(getInsertPayload()).toEqual({
       user_id: 'user-1',
@@ -75,6 +81,10 @@ describe('hair-profile adapter (SPEC-002 §11)', () => {
       heat_usage: 'one_to_two_weekly',
       current_concerns: ['frizz', 'dryness'],
       primary_goal: 'definition_and_frizz_control',
+      // SPEC-037 — o payload carrega as duas colunas novas. A asserção é `toEqual`, então uma
+      // coluna esquecida no adapter reprova aqui em vez de virar `null` silencioso no banco.
+      perceived_porosity: 'slow_to_wet',
+      routine_availability: 'varies',
     });
   });
 });

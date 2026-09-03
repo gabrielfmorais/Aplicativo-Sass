@@ -19,6 +19,9 @@ const base: HairProfileInput = {
   heatUsage: 'almost_never',
   currentConcerns: ['no_major_concern'],
   primaryGoal: 'maintain_healthy_hair',
+  // SPEC-037: presentes porque uma avaliacao nova sempre responde; o motor v1 nao os le.
+  perceivedPorosity: 'absorbs_normally',
+  routineAvailability: 'moderate',
 };
 
 const snapshot = (overrides: Partial<HairProfileInput> = {}): HairProfileSnapshot => ({
