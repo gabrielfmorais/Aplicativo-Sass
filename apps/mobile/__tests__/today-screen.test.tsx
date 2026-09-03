@@ -1,4 +1,11 @@
-import type { CareBoard, CareTrackingPort, HairProfilePort, Instant, LocalDate } from '@app/core';
+import type {
+  CareBoard,
+  CareTrackingPort,
+  HairProfilePort,
+  Instant,
+  LocalDate,
+  WashDayPort,
+} from '@app/core';
 import { CARE_GUIDES, ConflictError, instantFromString } from '@app/core';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
@@ -20,6 +27,7 @@ const board = (over: Partial<CareBoard> = {}): CareBoard => ({
   scheduleAlgorithmVersion: 'v1',
   pausedOn: null,
   washDayExecutionIds: [],
+  careFinishes: [],
   cares: [
     {
       id: 'late',
@@ -64,6 +72,22 @@ const makePort = (overrides: Partial<CareTrackingPort> = {}): jest.Mocked<CareTr
  * SPEC-017 — por padrão o perfil de origem some, e com ele a explicação. Os testes desta suíte são
  * sobre o loop diário; a explicação tem suíte própria.
  */
+/** SPEC-039 — a Hoje escreve a etapa de finalização; o resto do registro continua na sua tela. */
+const washDayPort = (over: Partial<WashDayPort> = {}): WashDayPort => ({
+  getFor: jest.fn(async () => ({
+    washDayId: null,
+    products: [],
+    techniques: [],
+    scalpFeel: null,
+    finishStatus: null,
+  })),
+  markProduct: jest.fn(async () => undefined),
+  markTechnique: jest.fn(async () => undefined),
+  setScalpFeel: jest.fn(async () => undefined),
+  setFinishStatus: jest.fn(async () => undefined),
+  ...over,
+});
+
 const hairProfilePort = (snapshot: unknown = null): HairProfilePort =>
   ({
     getById: jest.fn(async () => snapshot),
@@ -90,6 +114,7 @@ const renderScreen = (
       onChanged={onChanged}
       hairProfile={hairProfilePort()}
       onOpenWashDay={jest.fn()}
+      washDays={washDayPort()}
       profile={{ name: 'Ana', onPress: jest.fn() }}
       productCount={null}
       onOpenShelf={jest.fn()}
@@ -677,6 +702,7 @@ describe('TodayScreen — o Wash Day (SPEC-024)', () => {
         onChanged={jest.fn()}
         hairProfile={hairProfilePort()}
         onOpenWashDay={onOpenWashDay}
+        washDays={washDayPort()}
         profile={{ name: 'Ana', onPress: jest.fn() }}
         productCount={null}
         onOpenShelf={jest.fn()}
@@ -691,5 +717,139 @@ describe('TodayScreen — o Wash Day (SPEC-024)', () => {
       careExecutionId: 'e-past',
       careTitle: 'Hidratação',
     });
+  });
+});
+
+/**
+ * SPEC-039 (F37) — a etapa que faltava entre o tratamento e o resultado.
+ *
+ * O fluxo canônico é `LAVOU → TRATAMENTO → FINALIZAÇÃO → RESULTADO/CHECK-IN` (Blueprint §22), e
+ * até aqui a Hoje fazia a última pergunta antes da penúltima.
+ */
+describe('finalização na Hoje (SPEC-039)', () => {
+  const doneBoard = (over: Partial<CareBoard> = {}) =>
+    board({
+      executions: [
+        {
+          id: 'e1',
+          scheduledCareId: 'now',
+          executedAt: '2026-09-10T11:55:00.000Z',
+          executedOn: '2026-09-10',
+          voidedAt: null,
+        },
+      ],
+      ...over,
+    });
+
+  const renderDone = (washDays: WashDayPort, b: CareBoard = doneBoard(), onChanged = jest.fn()) =>
+    render(
+      <TodayScreen
+        board={b}
+        care={makePort()}
+        today={TODAY}
+        now={() => NOW}
+        timeZone="America/Sao_Paulo"
+        newExecutionId={() => 'exec-1'}
+        onChanged={onChanged}
+        hairProfile={hairProfilePort()}
+        onOpenWashDay={jest.fn()}
+        washDays={washDays}
+        profile={{ name: 'Ana', onPress: jest.fn() }}
+        productCount={null}
+        onOpenShelf={jest.fn()}
+        onPause={jest.fn()}
+        onPreviewResume={jest.fn()}
+        onResume={jest.fn()}
+        onOpenCycle={jest.fn()}
+      />,
+    );
+
+  it('pergunta a finalização ANTES do resultado (FR2)', async () => {
+    const s = await renderDone(washDayPort());
+    await waitFor(() => s.getByText('Você finalizou?'));
+
+    const tree = JSON.stringify(s.toJSON());
+    expect(tree.indexOf('Você finalizou?')).toBeLessThan(tree.indexOf('Como ficou?'));
+  });
+
+  it('grava a resposta pela porta, sem chave de idempotência (FR6)', async () => {
+    const washDays = washDayPort();
+    const onChanged = jest.fn();
+    const s = await renderDone(washDays, doneBoard(), onChanged);
+    await waitFor(() => s.getByText('Finalizei'));
+
+    await fireEvent.press(s.getByText('Finalizei'));
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+    expect(washDays.setFinishStatus).toHaveBeenCalledWith({
+      careExecutionId: 'e1',
+      finishStatus: 'done',
+    });
+  });
+
+  it('respondida, a pergunta não volta — e o título vira o nome da etapa (FR3/FR5)', async () => {
+    const s = await renderDone(
+      washDayPort(),
+      doneBoard({ careFinishes: [{ careExecutionId: 'e1', status: 'done' }] }),
+    );
+    await waitFor(() => s.getByText('Finalização'));
+    expect(s.queryByText('Você finalizou?')).toBeNull();
+  });
+
+  it('tocar na resposta marcada tira a resposta (FR8)', async () => {
+    const washDays = washDayPort();
+    const s = await renderDone(
+      washDays,
+      doneBoard({ careFinishes: [{ careExecutionId: 'e1', status: 'skipped' }] }),
+    );
+    await waitFor(() => s.getByText('Pulei dessa vez'));
+
+    await fireEvent.press(s.getByText('Pulei dessa vez'));
+    await waitFor(() =>
+      expect(washDays.setFinishStatus).toHaveBeenCalledWith({
+        careExecutionId: 'e1',
+        finishStatus: null,
+      }),
+    );
+  });
+
+  /**
+   * NG4 — **a ordem conduz; ela não tranca.** Pôr a etapa como pedágio transformaria em dois toques
+   * a pergunta que o produto inteiro fez questão de manter em um.
+   */
+  it('o check-in continua acessível com a finalização não respondida (NG4)', async () => {
+    const care = makePort();
+    const s = await render(
+      <TodayScreen
+        board={doneBoard()}
+        care={care}
+        today={TODAY}
+        now={() => NOW}
+        timeZone="America/Sao_Paulo"
+        newExecutionId={() => 'exec-1'}
+        onChanged={jest.fn()}
+        hairProfile={hairProfilePort()}
+        onOpenWashDay={jest.fn()}
+        washDays={washDayPort()}
+        profile={{ name: 'Ana', onPress: jest.fn() }}
+        productCount={null}
+        onOpenShelf={jest.fn()}
+        onPause={jest.fn()}
+        onPreviewResume={jest.fn()}
+        onResume={jest.fn()}
+        onOpenCycle={jest.fn()}
+      />,
+    );
+    await waitFor(() => s.getByText('Você finalizou?'));
+
+    await fireEvent.press(s.getByLabelText('4 de 5'));
+    await waitFor(() => expect(care.submitCheckIn).toHaveBeenCalled());
+  });
+
+  /** BR4 — nenhum rótulo desta etapa afirma nada sobre cabelo, e nenhum cobra. */
+  it('não afirma nada sobre cabelo e não cobra (BR4/NG5)', async () => {
+    const s = await renderDone(washDayPort());
+    await waitFor(() => s.getByText('Você finalizou?'));
+
+    expect(s.queryByText(/defini|frizz|volume|recomend|deveria|ideal|melhor/i)).toBeNull();
   });
 });

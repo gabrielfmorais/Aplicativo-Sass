@@ -2,16 +2,18 @@ import type {
   CareBoard,
   CareItem,
   CareTrackingPort,
+  FinishStatus,
   HairProfilePort,
   Instant,
   LocalDate,
   ResumeOutcome,
+  WashDayPort,
 } from '@app/core';
-import { CARE_GUIDES, CHECKIN_SCALE, buildTodayView, canCheckIn, canUndo } from '@app/core';
+import { CARE_GUIDES, CHECKIN_SCALE, FINISH_STATUSES, buildTodayView, canCheckIn, canUndo } from '@app/core';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Button, Card, Row, Screen, ScreenHeader, Stack, Tag, Text } from '@/design/primitives';
+import { Button, Card, Chip, Row, Screen, ScreenHeader, Stack, Tag, Text } from '@/design/primitives';
 import { HomeSection } from '@/features/care/HomeSection';
 import { SuggestionsCard } from '@/features/care/SuggestionsCard';
 import { buildSuggestions, type Suggestion, type SuggestionKey } from '@/features/care/suggestions';
@@ -45,7 +47,8 @@ const addDaysIso = (date: string, days: number): string => {
 type Action =
   | { kind: 'complete' | 'skip' | 'undo' }
   | { kind: 'reschedule'; days: number }
-  | { kind: 'checkin'; feel: number };
+  | { kind: 'checkin'; feel: number }
+  | { kind: 'finish'; status: FinishStatus | null };
 
 /**
  * SPEC-024 — tudo o que um cartão precisa saber sobre o registro do Wash Day: se aquela execução já
@@ -56,6 +59,12 @@ type Action =
 type WashDayAccess = {
   registered: (careExecutionId: string) => boolean;
   open: (item: CareItem) => void;
+  /**
+   * SPEC-039 — a etapa de finalização daquela execução, ou `null` para "ainda não disse". Vem junto
+   * porque a pergunta mora no cartão, e uma pergunta que volta depois do reload é o app esquecendo
+   * o que ela respondeu (FR5).
+   */
+  finishOf: (careExecutionId: string) => FinishStatus | null;
 };
 
 /** The planned day, plus how late it is when it is late — the same sentence, wherever it appears. */
@@ -122,6 +131,60 @@ function CheckInPrompt({ blocked, onAnswer }: { blocked: boolean; onAnswer: (fee
   );
 }
 
+// --------------------------------------------------------------------------------- finalização
+
+/**
+ * SPEC-039 (F37) — a etapa que faltava entre o tratamento e o resultado.
+ *
+ * O fluxo canônico é `LAVOU → TRATAMENTO → FINALIZAÇÃO → RESULTADO/CHECK-IN` (Blueprint §22), e até
+ * aqui a Hoje fazia a última pergunta antes da penúltima: o `CheckInPrompt` vinha primeiro e a
+ * finalização não existia em lugar nenhum.
+ *
+ * **A ordem conduz; ela não tranca** (NG4/BR2). O check-in continua acessível com a finalização não
+ * respondida — pôr a etapa como pedágio transformaria em dois toques a pergunta que o produto inteiro
+ * fez questão de manter em um.
+ *
+ * ⚠️ **Nenhum rótulo aqui afirma nada sobre cabelo** (BR4). "Finalizei" e "Pulei dessa vez" dizem o
+ * que ela fez. *Quais* finalizações e como fazê-las são o `F38`, atrás do gate D-26/D-70.
+ */
+const FINISH_LABEL: Record<FinishStatus, string> = {
+  done: 'Finalizei',
+  skipped: 'Pulei dessa vez',
+};
+
+function FinishPrompt({
+  status,
+  blocked,
+  onAnswer,
+}: {
+  status: FinishStatus | null;
+  blocked: boolean;
+  /** `null` tira a resposta: voltar a "ainda não disse" é um estado válido, e é dela (FR8). */
+  onAnswer: (status: FinishStatus | null) => void;
+}) {
+  return (
+    <Stack gap="sm">
+      {/*
+        Enquanto ela não respondeu, o título pergunta — é o que conduz. Respondida, ele vira o nome
+        neutro da etapa: o fato já está dito pelo chip marcado, e repetir a pergunta ao lado da
+        resposta pareceria cobrança de uma coisa que ela já fez (FR3/NG5).
+      */}
+      <Text variant="bodyStrong">{status === null ? 'Você finalizou?' : 'Finalização'}</Text>
+      <Row gap="sm">
+        {FINISH_STATUSES.map((value) => (
+          <Chip
+            key={value}
+            label={FINISH_LABEL[value]}
+            selected={status === value}
+            disabled={blocked}
+            onPress={() => onAnswer(status === value ? null : value)}
+          />
+        ))}
+      </Row>
+    </Stack>
+  );
+}
+
 // ------------------------------------------------------------------------------------- care body
 
 /**
@@ -178,6 +241,18 @@ function CareActions({
     const registered = item.execution !== null && washDay.registered(item.execution.id);
     return (
       <Stack gap="md">
+        {/*
+          SPEC-039 FR2 — a ordem canônica é `TRATAMENTO → FINALIZAÇÃO → RESULTADO`, e até aqui a
+          tela fazia a última pergunta antes da penúltima. A finalização vem **acima** do check-in
+          porque é isso que acontece no banheiro; e continua não bloqueando nada (NG4).
+        */}
+        {item.execution ? (
+          <FinishPrompt
+            status={washDay.finishOf(item.execution.id)}
+            blocked={blocked}
+            onAnswer={(status) => onAct(item, { kind: 'finish', status })}
+          />
+        ) : null}
         {item.checkIn ? (
           <Text tone="muted">{`Você marcou: ${item.checkIn.overallFeel}/5`}</Text>
         ) : canCheckIn(item) ? (
@@ -477,6 +552,7 @@ export function TodayScreen({
   onResume,
   onOpenCycle,
   onOpenWashDay,
+  washDays,
   profile,
   productCount,
   onOpenShelf,
@@ -509,6 +585,12 @@ export function TodayScreen({
    * trata.
    */
   onOpenWashDay: (input: { careExecutionId: string; careTitle: string }) => void;
+  /**
+   * SPEC-039 (F37) — a etapa de finalização é respondida **aqui**, no cartão do cuidado concluído,
+   * e não só dentro do registro: é ali que o fluxo passa. A tela só escreve a etapa; produtos,
+   * técnicas e couro continuam sendo da `WashDayScreen`.
+   */
+  washDays: WashDayPort;
   /**
    * SPEC-026 fatia 3 — quantos produtos ativos ela tem, ou `null` enquanto não se sabe.
    *
@@ -601,6 +683,8 @@ export function TodayScreen({
         careTitle: CARE_TYPE_LABEL[item.careTypeCode],
       });
     },
+    finishOf: (executionId) =>
+      board.careFinishes.find((f) => f.careExecutionId === executionId)?.status ?? null,
   };
 
   const suggestions = useMemo(
@@ -669,6 +753,18 @@ export function TodayScreen({
             })
             .then(() => keys.delete(`ck:${item.id}`));
         }
+        /**
+         * SPEC-039 — a etapa de finalização. **Sem chave de idempotência**, ao contrário do
+         * check-in: a PK é o hub, então o retry depois de uma resposta perdida cai na mesma linha
+         * em vez de criar a segunda (FR6). Uma chave aqui não teria o que proteger.
+         */
+        case 'finish':
+          return item.execution
+            ? washDays.setFinishStatus({
+                careExecutionId: item.execution.id,
+                finishStatus: action.status,
+              })
+            : Promise.resolve();
       }
     };
 

@@ -3,6 +3,7 @@ import type {
   CareExecution,
   CareTrackingPort,
   CheckIn,
+  FinishStatus,
   ResumeOutcome,
   ScheduledCare,
   ScheduledCareStatus,
@@ -138,15 +139,40 @@ export const createCareTrackingAdapter = (client: SupabaseClient): CareTrackingP
        * mesma razão — um registro de um plano substituído não é deste board.
        */
       let washDayExecutionIds: string[] = [];
+      /**
+       * SPEC-039 FR5 — as etapas de finalização já respondidas, para a pergunta não voltar depois
+       * do reload. Só as respondidas: uma execução ausente daqui é "ainda não disse", que não é
+       * `skipped` (BR1).
+       */
+      let careFinishes: { careExecutionId: string; status: FinishStatus }[] = [];
       if (executionIds.length > 0) {
         const { data: washDayRows, error: washDaysError } = await client
           .from('wash_days')
-          .select('care_execution_id')
+          .select('id, care_execution_id')
           .in('care_execution_id', executionIds);
         if (washDaysError) throw fail('care.board_read_failed', washDaysError);
-        washDayExecutionIds = (washDayRows ?? []).map(
-          (r) => (r as { care_execution_id: string }).care_execution_id,
-        );
+        const hubs = (washDayRows ?? []) as { id: string; care_execution_id: string }[];
+        washDayExecutionIds = hubs.map((r) => r.care_execution_id);
+
+        if (hubs.length > 0) {
+          const { data: finishRows, error: finishError } = await client
+            .from('wash_day_finish')
+            .select('wash_day_id, finish_status')
+            .in(
+              'wash_day_id',
+              hubs.map((r) => r.id),
+            );
+          if (finishError) throw fail('care.board_read_failed', finishError);
+          const executionOfHub = new Map(hubs.map((r) => [r.id, r.care_execution_id]));
+          careFinishes = (finishRows ?? []).flatMap((row) => {
+            const { wash_day_id, finish_status } = row as {
+              wash_day_id: string;
+              finish_status: FinishStatus;
+            };
+            const careExecutionId = executionOfHub.get(wash_day_id);
+            return careExecutionId ? [{ careExecutionId, status: finish_status }] : [];
+          });
+        }
       }
 
       /**
@@ -181,6 +207,7 @@ export const createCareTrackingAdapter = (client: SupabaseClient): CareTrackingP
         executions,
         checkIns,
         washDayExecutionIds,
+        careFinishes,
         lifetimeDoneCount: count ?? 0,
       };
     },

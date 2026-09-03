@@ -1,4 +1,5 @@
 import type {
+  FinishStatus,
   Product,
   ProductCategory,
   ProductPort,
@@ -6,7 +7,13 @@ import type {
   WashDayPort,
   WashDayTechnique,
 } from '@app/core';
-import { PRODUCT_CATEGORIES, PRODUCT_NAME_MAX_LENGTH, SCALP_FEELS, WASH_DAY_TECHNIQUES } from '@app/core';
+import {
+  FINISH_STATUSES,
+  PRODUCT_CATEGORIES,
+  PRODUCT_NAME_MAX_LENGTH,
+  SCALP_FEELS,
+  WASH_DAY_TECHNIQUES,
+} from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
@@ -65,6 +72,18 @@ const SCALP_LABEL: Record<ScalpFeel, string> = {
   dry_tendency: 'Ressecado',
 };
 
+/**
+ * SPEC-039 (F37) — a etapa, não a técnica.
+ *
+ * Os dois rótulos dizem **o que ela fez**; nenhum afirma nada sobre cabelo (BR4). "Pulei dessa vez"
+ * é uma resposta legítima e não uma falha: a etapa faz parte do processo da maioria, e nem por isso
+ * deixar de fazê-la vira cobrança (NG5).
+ */
+const FINISH_LABEL: Record<FinishStatus, string> = {
+  done: 'Finalizei',
+  skipped: 'Pulei dessa vez',
+};
+
 const CATEGORY_LABEL: Record<ProductCategory, string> = {
   shampoo: 'Shampoo',
   conditioner: 'Condicionador',
@@ -79,6 +98,8 @@ type Marked = {
   products: readonly Product[];
   techniques: readonly WashDayTechnique[];
   scalpFeel: ScalpFeel | null;
+  /** SPEC-039 — campo próprio, e não um valor dentro de `techniques`: a BR3 aparecendo no tipo. */
+  finishStatus: FinishStatus | null;
 };
 type Ready = { shelf: readonly Product[]; marked: Marked };
 type Loadable<T> = 'loading' | 'error' | T;
@@ -135,6 +156,7 @@ export function WashDayScreen({
             products: record.products,
             techniques: record.techniques,
             scalpFeel: record.scalpFeel,
+            finishStatus: record.finishStatus,
           },
         });
       })
@@ -212,6 +234,24 @@ export function WashDayScreen({
       () => washDays.setScalpFeel({ careExecutionId, scalpFeel: next }),
       () => setMarked((m) => ({ ...m, scalpFeel: previous })),
       SCALP_LABEL[scalpFeel],
+    );
+  };
+
+  /**
+   * SPEC-039 — a etapa de finalização, com a mesma mecânica do couro: tocar em outra troca, tocar na
+   * marcada tira (FR8). Uma escrita só nos dois casos, e a mesma fila — dois toques rápidos aqui
+   * teriam o mesmo problema de ordem que dois toques num chip de produto.
+   */
+  const chooseFinish = (finishStatus: FinishStatus) => {
+    if (!isReady(state)) return;
+    const previous = state.marked.finishStatus;
+    const next = previous === finishStatus ? null : finishStatus;
+    setMarked((m) => ({ ...m, finishStatus: next }));
+    mark(
+      'finish',
+      () => washDays.setFinishStatus({ careExecutionId, finishStatus: next }),
+      () => setMarked((m) => ({ ...m, finishStatus: previous })),
+      FINISH_LABEL[finishStatus],
     );
   };
 
@@ -393,6 +433,31 @@ export function WashDayScreen({
               label={SCALP_LABEL[feel]}
               selected={state.marked.scalpFeel === feel}
               onPress={() => chooseScalp(feel)}
+            />
+          ))}
+        </Row>
+      </Stack>
+
+      <Stack gap="md">
+        {/*
+          SPEC-039 FR4 — **seção própria, e acima de "Como você fez".** A separação não é estética:
+          a finalização é uma etapa do processo, e a técnica é uma maneira de fazer (BR3). Pô-la
+          entre os chips de técnica seria exatamente a fusão que a D-102 proibiu, e a lista de lá
+          aceitaria o valor sem erro nenhum — por isso a barreira do §8 é teste, não comentário.
+
+          Aqui não há vocabulário de finalização: **quais** finalizações e como fazê-las são o `F38`,
+          atrás do gate D-26/D-70.
+        */}
+        <Text variant="overline" tone="accent" accessibilityRole="header">
+          Finalização
+        </Text>
+        <Row>
+          {FINISH_STATUSES.map((value) => (
+            <Chip
+              key={value}
+              label={FINISH_LABEL[value]}
+              selected={state.marked.finishStatus === value}
+              onPress={() => chooseFinish(value)}
             />
           ))}
         </Row>

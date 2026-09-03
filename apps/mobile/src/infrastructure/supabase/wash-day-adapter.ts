@@ -1,4 +1,5 @@
 import type {
+  FinishStatus,
   Product,
   ProductCategory,
   ScalpFeel,
@@ -13,6 +14,7 @@ const HUB = 'wash_days';
 const PRODUCTS = 'wash_day_products';
 const TECHNIQUES = 'wash_day_techniques';
 const SCALP = 'wash_day_scalp';
+const FINISH = 'wash_day_finish';
 
 const fail = (code: string, e: { message: string }) => new InfrastructureError(code, e.message);
 
@@ -82,17 +84,20 @@ export const createWashDayAdapter = (client: SupabaseClient, userId: () => strin
       if (error) throw fail('care.wash_day_read_failed', error);
       const washDayId = (hub as { id: string } | null)?.id ?? null;
       // Nunca aberto: nada a buscar, e o vazio aqui é ausência, não resposta.
-      if (!washDayId) return { washDayId: null, products: [], techniques: [], scalpFeel: null };
+      if (!washDayId)
+        return { washDayId: null, products: [], techniques: [], scalpFeel: null, finishStatus: null };
       hubs.set(careExecutionId, washDayId);
 
-      const [marks, techniques, scalp] = await Promise.all([
+      const [marks, techniques, scalp, finish] = await Promise.all([
         client.from(PRODUCTS).select('product_id').eq('wash_day_id', washDayId),
         client.from(TECHNIQUES).select('technique').eq('wash_day_id', washDayId),
         client.from(SCALP).select('scalp_feel').eq('wash_day_id', washDayId).maybeSingle(),
+        client.from(FINISH).select('finish_status').eq('wash_day_id', washDayId).maybeSingle(),
       ]);
       if (marks.error) throw fail('care.wash_day_read_failed', marks.error);
       if (techniques.error) throw fail('care.wash_day_read_failed', techniques.error);
       if (scalp.error) throw fail('care.wash_day_read_failed', scalp.error);
+      if (finish.error) throw fail('care.wash_day_read_failed', finish.error);
       const markedIds = (marks.data as { product_id: string }[]).map((r) => r.product_id);
 
       /**
@@ -120,6 +125,8 @@ export const createWashDayAdapter = (client: SupabaseClient, userId: () => strin
         products,
         techniques: (techniques.data as { technique: WashDayTechnique }[]).map((r) => r.technique),
         scalpFeel: (scalp.data as { scalp_feel: ScalpFeel } | null)?.scalp_feel ?? null,
+        // SPEC-039 BR1 — linha ausente é "ainda não disse", que não é `skipped`.
+        finishStatus: (finish.data as { finish_status: FinishStatus } | null)?.finish_status ?? null,
       };
     },
 
@@ -179,6 +186,30 @@ export const createWashDayAdapter = (client: SupabaseClient, userId: () => strin
           { onConflict: 'wash_day_id' },
         );
       if (error) throw fail('care.wash_day_scalp_failed', error);
+    },
+
+    /**
+     * SPEC-039 (F37) — a etapa de finalização. Mesma forma do couro, pela mesma razão: uma escrita
+     * só, `on conflict do update`, e `null` remove a linha porque voltar a "ainda não disse" é um
+     * estado válido e é dela (FR8).
+     *
+     * ⚠️ **A tabela é outra, e isso é a SPEC.** Escrever isto em `wash_day_techniques` seria
+     * afirmar que finalizar é uma maneira de fazer o cuidado, quando é uma parte do processo (BR3).
+     */
+    async setFinishStatus({ careExecutionId, finishStatus }): Promise<void> {
+      const washDayId = await hubFor(careExecutionId);
+      if (finishStatus === null) {
+        const { error } = await client.from(FINISH).delete().eq('wash_day_id', washDayId);
+        if (error) throw fail('care.wash_day_finish_failed', error);
+        return;
+      }
+      const { error } = await client
+        .from(FINISH)
+        .upsert(
+          { wash_day_id: washDayId, finish_status: finishStatus, user_id: userId() },
+          { onConflict: 'wash_day_id' },
+        );
+      if (error) throw fail('care.wash_day_finish_failed', error);
     },
   };
 };
