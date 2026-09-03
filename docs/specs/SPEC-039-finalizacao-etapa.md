@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-039 |
-| Status | Em implementação |
+| Status | **DONE** — validada no DEV real a 390px em 2026-09-03, com a EC1 corrigida pela medição |
 | Owner | dono do produto |
 | Bounded Context | Care Tracking (`packages/core/src/care-tracking`) + banco (`wash_day_finish`) + Hoje/Wash Day |
 | Related ADRs | ADR-001 §2, ADR-006 (índice público entre contextos), D-26/D-70 (gate de domínio), D-47/D-48 (necessidade) |
@@ -93,7 +93,9 @@ seja uma decisão consciente em vez de um `push` numa lista que já aceita qualq
   é uma maneira de fazer, quando é uma parte do processo.
 - **BR4** Nenhum rótulo desta SPEC faz alegação capilar. "Finalizei" e "Pulei dessa vez" descrevem o
   que ela fez, não o que aquilo provoca.
-- **BR5** Anular a execução leva o registro junto, por cascade, como o resto do hub (SPEC-024 BR5).
+- **BR5** O registro da etapa segue a execução: some da tela quando ela é anulada, e é apagado de
+  verdade quando a execução é apagada de verdade. ⚠️ **As duas coisas são diferentes, e o EC1 diz
+  qual acontece em cada caso** — desfazer não apaga.
 
 ## 7. Dados, autorização e o lugar do `F48`
 
@@ -140,8 +142,14 @@ Três travas, porque a proibição existia só em prosa e a lista já aceitava o
 
 ## 9. Edge Cases
 
-- **EC1** Ela responde e desfaz o cuidado: a execução é anulada, o hub cai por cascade e a resposta
-  vai junto — o registro de um fato que deixou de existir não sobrevive a ele.
+- **EC1** Ela responde e **desfaz** o cuidado. ⚠️ **Medido no DEV real, e não é o que esta SPEC
+  dizia:** `void_execution` faz *soft delete* (`voided_at = now()`), então o `on delete cascade`
+  **não dispara num desfazer**. A linha da etapa continua no banco, presa a uma execução anulada, e
+  some da tela porque a execução deixa de contar. Refazer o cuidado cria uma execução nova, com hub
+  novo — a pergunta volta limpa, e a resposta antiga não reaparece em lugar nenhum. O cascade existe
+  e funciona (pgTAP), mas para o `DELETE` de verdade: exclusão de conta, por `auth.users`.
+  **É comportamento herdado, não introduzido aqui** — vale igual para produtos, técnicas e couro
+  (SPEC-024 BR5, SPEC-025 BR4, que afirmam o mesmo e são igualmente imprecisas). Registrado em OQ4.
 - **EC2** Ela toca "Finalizei" duas vezes rápido: `busyId` já barra a segunda, e a PK absorveria.
 - **EC3** A escrita falha: a resposta volta ao estado anterior e a tela diz que não deu, sem
   inventar que entrou.
@@ -159,7 +167,8 @@ Três travas, porque a proibição existia só em prosa e a lista já aceitava o
 - **AC5** O check-in continua acessível com a finalização não respondida (NG4).
 - **AC6** Os três testes do §8 estão verdes, e cada um falha se a fusão for tentada.
 - **AC7** pgTAP: posse nas duas pontas, RLS ligada e forçada, grants exatamente os do §7, hub de
-  outra pessoa recusado.
+  outra pessoa recusado. **E medido também contra o DEV real**, pela porta do app: `user_id` forjado
+  → `42501`; hub alheio → `23503`; reapontar o hub → `42501` (sem grant de `UPDATE`).
 - **AC8** Nenhum rótulo novo faz alegação capilar (BR4).
 
 ## 11. Open Questions
@@ -169,9 +178,15 @@ Três travas, porque a proibição existia só em prosa e a lista já aceitava o
   de o §8 existir.
 - **OQ3** A finalização vale para todos os quatro tipos de cuidado. Se algum dia ela deixar de valer
   para um deles, isso é regra capilar e não decisão de engenharia.
+- **OQ4** ⚠️ **O registro de uma execução anulada sobrevive a ela**, porque desfazer é `voided_at` e
+  não `DELETE` (EC1). Atravessa SPEC-024, SPEC-025 e esta, e **não é do escopo do `F37`** resolver:
+  apagar no desfazer destruiria dado dela num gesto que ela pode estar só corrigindo, e ignorar
+  deixa linhas órfãs que uma agregação futura (`P8`) precisa saber excluir. A decisão pede as três
+  SPECs na mesa e um consumidor real de agregação — hoje não existe nenhum.
 
 ## 12. Change Log
 
 | Data | Mudança |
 |---|---|
 | 2026-09-03 | SPEC criada. A etapa passa a existir; o conteúdo dela continua no `F38`, atrás do gate. |
+| 2026-09-03 | Validada no DEV real a 390px. **A EC1 estava errada** e foi corrigida pela medição: desfazer é `voided_at`, não `DELETE`, então o cascade não dispara — imprecisão herdada da SPEC-024/025, agora registrada em OQ4. Barreira e posse medidas contra o banco real, não só no CI. |
