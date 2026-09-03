@@ -400,11 +400,24 @@ export function Card({
  * A cor mora na superfície, nunca no texto (§14): o título continua em `ink`, com 13:1.
  */
 export function ScreenHeader({
-  eyebrow,
   title,
   profile,
 }: {
-  eyebrow: string;
+  /**
+   * SPEC-032 — **uma** linha, e ela diz o que a barra não diz.
+   *
+   * ⚠️ **O cabeçalho gastava altura repetindo o rodapé.** Ele tinha duas linhas: um eyebrow e um
+   * título grande. O título era, em três das quatro abas, **a mesma palavra que a aba** —
+   * "Cuidados" sobre a aba Cuidados, "Progresso" sobre Progresso. Na Hoje era pior: dizia *"Seus
+   * cuidados"* na aba chamada **Hoje**, colidindo com a aba **Cuidados** que fica ao lado.
+   *
+   * O eyebrow, esse sim, carregava significado — *"Sua rotina"*, *"O que você já fez"*, a data. A
+   * correção é a inversão: **sobra a linha informativa e sai a redundante.** Cada tela passa a
+   * frase que a barra não tem, e a Hoje passa a **data**, que é o assunto dela.
+   *
+   * O bloco vinho fica: ele é a cor da marca no alto de toda tela, e tirá-lo devolveria o app ao
+   * branco genérico. O que encolheu foi o que ele carregava — de 104px para 61px.
+   */
   title: string;
   /**
    * SPEC-026 fatia 7 — o acesso a **Você**, no cabeçalho.
@@ -422,10 +435,7 @@ export function ScreenHeader({
     <View style={styles.screenHeader}>
       <View style={styles.screenHeaderRow}>
         <View style={styles.screenHeaderText}>
-          <RNText style={[type.overline as TextStyle, styles.screenHeaderEyebrow]}>
-            {eyebrow.toUpperCase()}
-          </RNText>
-          <RNText style={[type.display as TextStyle, styles.screenHeaderTitle]} accessibilityRole="header">
+          <RNText style={[type.title as TextStyle, styles.screenHeaderTitle]} accessibilityRole="header">
             {title}
           </RNText>
         </View>
@@ -536,13 +546,10 @@ const styles = StyleSheet.create({
     backgroundColor: color.wine,
     borderRadius: radius.lg,
     paddingHorizontal: space.lg,
-    paddingVertical: space.xl,
-    gap: space.xs,
+    paddingVertical: space.lg,
   },
-  /** Branco sobre vinho: 12.38:1. O eyebrow é o canal quieto, e quieto não é ilegível. */
   screenHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  screenHeaderText: { flex: 1, gap: space.xs },
-  screenHeaderEyebrow: { color: color.onFilled, opacity: 0.82 },
+  screenHeaderText: { flex: 1 },
   screenHeaderTitle: { color: color.onFilled },
   avatar: {
     width: HIT_TARGET,

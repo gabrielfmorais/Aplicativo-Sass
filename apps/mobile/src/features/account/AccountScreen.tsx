@@ -104,7 +104,12 @@ export function AccountScreen({
         Enquanto isto era uma tela alcançada por um botão no pé da Hoje, a ordem não custava nada;
         como aba permanente, a primeira coisa visível passa a ser o que a aba **significa**.
       */}
-      <ScreenHeader eyebrow="Seu perfil e sua conta" title="Você" />
+      {/*
+        SPEC-032 — "Você" continua sendo o título aqui, e é o único caso em que o nome da tela fica.
+        Nas quatro abas o título repetia a barra; esta **não é uma aba** — abre pelo avatar do
+        cabeçalho — então não há rodapé nenhum dizendo a mesma palavra.
+      */}
+      <ScreenHeader title="Você" />
 
       {onReassess ? (
         <Card>
