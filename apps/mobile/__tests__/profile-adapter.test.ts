@@ -24,6 +24,7 @@ describe('profile adapter (SPEC-018)', () => {
     const client = readClient({ data: { display_name: 'Gabriela' }, error: null });
     await expect(createProfileAdapter(client, () => USER).get()).resolves.toEqual({
       displayName: 'Gabriela',
+      avatar: null,
     });
   });
 
@@ -31,6 +32,7 @@ describe('profile adapter (SPEC-018)', () => {
     const client = readClient({ data: { display_name: null }, error: null });
     await expect(createProfileAdapter(client, () => USER).get()).resolves.toEqual({
       displayName: null,
+      avatar: null,
     });
   });
 
@@ -70,6 +72,32 @@ describe('profile adapter (SPEC-018)', () => {
       createProfileAdapter(writeClient(upsert), () => USER).save('Gabriela'),
     ).rejects.toMatchObject({
       code: 'identity.profile_write_failed',
+    });
+  });
+});
+
+/**
+ * SPEC-042 (F34) — a marca da Huna que ela escolheu.
+ */
+describe('profile adapter — o avatar (SPEC-042)', () => {
+  it('lê a marca escolhida', async () => {
+    const client = readClient({ data: { display_name: 'Ana', avatar_key: 'flow_berry' }, error: null });
+    await expect(createProfileAdapter(client, () => USER).get()).resolves.toEqual({
+      displayName: 'Ana',
+      avatar: 'flow_berry',
+    });
+  });
+
+  /**
+   * ⚠️ Um app antigo depois de a lista crescer receberia uma chave que não sabe desenhar. Tratar
+   * como ausente devolve a inicial do nome — que é um estado válido e conhecido; deixar passar
+   * devolveria um círculo vazio, que não é nada.
+   */
+  it('uma marca desconhecida vira ausência, não um círculo vazio', async () => {
+    const client = readClient({ data: { display_name: 'Ana', avatar_key: 'flow_neon' }, error: null });
+    await expect(createProfileAdapter(client, () => USER).get()).resolves.toEqual({
+      displayName: 'Ana',
+      avatar: null,
     });
   });
 });
