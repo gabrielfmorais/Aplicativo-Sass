@@ -2,8 +2,9 @@ import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
 import { HunaFigure } from './HunaFigure';
 import { Reveal } from './Reveal';
+import { FRAME_HEIGHT } from './huna-hero';
 import { Screen, Stack, Text } from './primitives';
-import { space } from './tokens';
+import { radius, space } from './tokens';
 
 /**
  * SPEC-018 fatia 4 — a tela que não pergunta nada.
@@ -35,7 +36,7 @@ export function Moment({
     <Screen style={[styles.page, style]} {...(footer ? { footer } : {})}>
       <Reveal style={styles.body}>
         <Stack gap="xl">
-          <HunaFigure frame="band" style={styles.hero} />
+          <HunaFigure frame="banner" style={styles.hero} />
           <Stack gap="sm">
             {overline ? (
               <Text variant="overline" tone="accent">
@@ -61,6 +62,10 @@ const styles = StyleSheet.create({
   page: { flexGrow: 1, paddingTop: space.xxl },
   /** Centrado no que sobra, e ainda rolável quando não sobra nada (EC1/EC5). */
   body: { flexGrow: 1, justifyContent: 'center' },
-  /** Menor que na abertura: aqui o protagonista é a frase. */
-  hero: { height: 140, marginHorizontal: -space.xl },
+  /**
+   * Menor que a abertura: aqui o protagonista é a frase. É o mesmo banner do login, um degrau mais
+   * alto — esta tela não pede nada, então a figura pode ocupar um pouco mais sem disputar com um
+   * campo ou um botão. O degrau é um passo da escala, não um número escolhido a olho.
+   */
+  hero: { height: FRAME_HEIGHT.banner + space.lg, borderRadius: radius.lg, overflow: 'hidden' },
 });

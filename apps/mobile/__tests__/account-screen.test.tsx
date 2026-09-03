@@ -11,6 +11,10 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { AccountScreen } from '@/features/account/AccountScreen';
 
+/** SPEC-035 — a tela passou a editar o nome, então ela precisa da porta e do valor atual. */
+const profileStub = { get: async () => ({ displayName: null }), save: async () => undefined };
+const identity = { profile: profileStub, displayName: null, onNameChanged: () => undefined };
+
 const ports = (deletionOverrides: Partial<DeletionRequestPort> = {}) => ({
   auth: { signOut: jest.fn(async () => undefined) } as unknown as AuthPort,
   deletion: {
@@ -36,7 +40,9 @@ const ports = (deletionOverrides: Partial<DeletionRequestPort> = {}) => ({
 
 /** `render` resolves asynchronously in this setup, which is why every suite here awaits it. */
 const renderScreen = async (p: ReturnType<typeof ports>, extra: Record<string, unknown> = {}) =>
-  await render(<AccountScreen {...p} onNotificationPreferencesChanged={jest.fn()} {...extra} />);
+  await render(
+    <AccountScreen {...p} {...identity} onNotificationPreferencesChanged={jest.fn()} {...extra} />,
+  );
 
 describe('AccountScreen — the deletion read has to end somewhere (SPEC-016 FR4/AC4)', () => {
   /**
@@ -108,14 +114,16 @@ describe('AccountScreen — the way back belongs to the screen', () => {
   it('offers it when the route provides one, and not otherwise', async () => {
     const onBack = jest.fn();
     const withBack = await renderScreen(ports(), { onBack });
-    await waitFor(() => withBack.getByText('Voltar'));
-    await fireEvent.press(withBack.getByText('Voltar'));
+    await waitFor(() => withBack.getByLabelText('Voltar'));
+    await fireEvent.press(withBack.getByLabelText('Voltar'));
     expect(onBack).toHaveBeenCalled();
 
     const without = await renderScreen(ports());
     // SPEC-026 — a aba se chama pelo que ela é: ela. "Sua conta" descrevia uma gaveta de
     // configurações, e assinatura e lembretes deixaram de ser a primeira coisa que ela vê aqui.
-    await waitFor(() => without.getByText('Você'));
-    expect(without.queryByText('Voltar')).toBeNull();
+    // SPEC-035 — a âncora era o título "Você" do cabeçalho genérico; agora a tela abre pelo painel
+    // de identidade, e quem diz "esta é a tela" é ele.
+    await waitFor(() => without.getByText('Sua conta na Huna'));
+    expect(without.queryByLabelText('Voltar')).toBeNull();
   });
 });

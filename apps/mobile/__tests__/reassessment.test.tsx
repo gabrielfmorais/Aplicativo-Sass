@@ -17,6 +17,10 @@ import { AccountScreen } from '@/features/account/AccountScreen';
 import { ProgressSummary } from '@/features/care/ProgressSummary';
 import { PlanScreen } from '@/features/plan/PlanScreen';
 
+/** SPEC-035 — a tela passou a editar o nome, então ela precisa da porta e do valor atual. */
+const profileStub = { get: async () => ({ displayName: null }), save: async () => undefined };
+const identity = { profile: profileStub, displayName: null, onNameChanged: () => undefined };
+
 const profile: HairProfileSnapshot = {
   hairProfileId: 'hp-1',
   hairPattern: 'curly',
@@ -66,7 +70,12 @@ describe('reassessment entry point (SPEC-014 AC1)', () => {
     const p = accountPorts();
     const onReassess = jest.fn();
     const screen = await render(
-      <AccountScreen {...p} onNotificationPreferencesChanged={jest.fn()} onReassess={onReassess} />,
+      <AccountScreen
+        {...p}
+        {...identity}
+        onNotificationPreferencesChanged={jest.fn()}
+        onReassess={onReassess}
+      />,
     );
     await waitFor(() => screen.getByText('Reavaliar meu cabelo'));
     screen.getByText(/O cronograma atual será substituído; o que você já registrou continua salvo\./);
@@ -78,8 +87,10 @@ describe('reassessment entry point (SPEC-014 AC1)', () => {
   /** Without an active plan there is nothing to replace, so the option must not be there. */
   it('is absent when there is no active plan', async () => {
     const p = accountPorts();
-    const screen = await render(<AccountScreen {...p} onNotificationPreferencesChanged={jest.fn()} />);
-    await waitFor(() => screen.getByText('Você'));
+    const screen = await render(
+      <AccountScreen {...p} {...identity} onNotificationPreferencesChanged={jest.fn()} />,
+    );
+    await waitFor(() => screen.getByText('Sua conta na Huna'));
     expect(screen.queryByText('Reavaliar meu cabelo')).toBeNull();
   });
 });

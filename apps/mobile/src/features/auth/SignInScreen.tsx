@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { Platform, StyleSheet } from 'react-native';
 
 import { HunaFigure } from '@/design/HunaFigure';
+import { FRAME_HEIGHT } from '@/design/huna-hero';
 import { Button, Field, Screen, Stack, Text } from '@/design/primitives';
-import { radius, space } from '@/design/tokens';
+import { radius } from '@/design/tokens';
 
 type Phase = 'idle' | 'busy' | 'waiting_for_otp';
 
@@ -76,9 +77,9 @@ export function SignInScreen({ auth }: { auth: AuthPort }) {
 
   return (
     <Screen scroll={false}>
-      {/* A faixa do hero volta aqui, menor: liga esta tela à abertura, para a marca não sumir
-          justamente no momento em que ela pede o email dela. */}
-      <HunaFigure frame="band" style={styles.ribbon} />
+      {/* O medalhão liga esta tela à abertura, para a marca não sumir justamente no momento em que
+          ela pede o email dela. */}
+      <HunaFigure frame="banner" style={styles.ribbon} />
 
       <Stack gap="xs">
         <Text variant="overline" tone="accent">
@@ -162,8 +163,22 @@ export function SignInScreen({ auth }: { auth: AuthPort }) {
 }
 
 const styles = StyleSheet.create({
-  /** Faixa, não palco: aqui a marca acompanha, e quem manda é a entrada. */
-  // SPEC-028: cantos arredondados — sem a máscara do palco, a faixa terminaria num corte reto, e
-  // corte reto é a moldura que a direção tirou da abertura.
-  ribbon: { height: space.xxxl * 2, borderRadius: radius.lg, overflow: 'hidden' },
+  /**
+   * Faixa, não palco: aqui a marca acompanha, e quem manda é a entrada.
+   *
+   * ⚠️ **Duas tentativas antes desta, e as duas liam como imagem cortada a 390px.** Primeiro um
+   * recorte horizontal do hero vertical — numa caixa larga a personagem não cabe, então ou sobrava
+   * creme dos lados ou o corte comia a cabeça. Depois um medalhão pequeno, que resolveu o corte e
+   * criou outro problema: não tinha presença para segurar o topo de uma tela. O que resolve não é o
+   * tamanho, é a **composição**: o `banner` é desenhado para a proporção da faixa, com as mesmas
+   * cores e o mesmo gesto da abertura, e por isso não é recorte de nada.
+   *
+   * Cantos arredondados (SPEC-028): sem a máscara do palco, a faixa terminaria num corte reto, e
+   * corte reto é a moldura que a direção tirou da abertura.
+   */
+  ribbon: {
+    height: FRAME_HEIGHT.banner,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+  },
 });

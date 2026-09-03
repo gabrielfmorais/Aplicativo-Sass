@@ -55,8 +55,10 @@ diferença entre os dois é a primeira impressão inteira.
 
 ## 6. Functional Requirements
 
-- FR1 — O hero é uma figura feminina **de perfil**, conceitual, nem realista nem robô, com a massa de
-  cabelo atravessando o quadro e mechas que acompanham o movimento.
+- FR1 — ⛔ **REVOGADO por [SPEC-036](SPEC-036-huna-hero-abstrato.md) (dono, 2026-09-03).** O texto
+  original pedia uma *"figura feminina de perfil"*; a frente de figura humana está **encerrada** e o
+  hero é abstrato e editorial. O que sobrevive é a massa que **atravessa o quadro** e o movimento
+  por mecha. O resto da SPEC-027 — ícones, barra de quatro, porta única de Você — continua vigente.
 - FR2 — O hero respeita redução de movimento e **nada anima antes de a preferência ser conhecida**
   (o estado inicial do hook é `null`, não `false` — herdado da SPEC-018).
 - FR3 — O hero tem **dois enquadramentos** do mesmo desenho: `portrait` para o painel da abertura e
@@ -137,8 +139,9 @@ continuam os das SPECs que os criaram.
 - AC4 — Dada a aba Prateleira, quando se toca o avatar do cabeçalho, então **Você** abre.
 - AC5 — Dada a aba Cuidados, então não há botão que abra a prateleira.
 - AC6 — Dado qualquer par de cor novo, então ele mede ≥ 4.5:1 sobre as superfícies em que aparece.
-- AC7 — Dado o hero, então todo caminho de cabelo tem curva de Bézier, e o contorno do rosto é
-  assimétrico o bastante para não poder ser uma figura de frente.
+- AC7 — Dado o hero, então todo caminho tem curva de Bézier. ⛔ A segunda metade original — *"e o
+  contorno do rosto é assimétrico o bastante para não poder ser uma figura de frente"* — foi
+  **revogada por [SPEC-036](SPEC-036-huna-hero-abstrato.md)**: não há rosto.
 
 ## 18. Testing Strategy
 

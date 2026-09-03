@@ -82,7 +82,7 @@ O segundo problema é o oposto do primeiro: resolver isso com sete abas seria tr
 - FR16 — Paleta ampliada: vinho, ameixa, berry e roxo profundo, com superfícies suaves derivadas. Creme continua a base.
 - FR17 — Todo valor novo continua em `apps/mobile/src/design/tokens.ts` — literal em tela de produto continua bug (SPEC-016 FR2).
 - FR18 — Contraste: nenhum par texto/fundo abaixo de **4.5:1**. A SPEC-016 já reprovou um token por 3.09:1; a paleta nova não reabre isso.
-- FR19 — Hero com **curvas reais**: figura feminina futurista/conceitual, meio digital meio androide, não humana realista e não robô mecânico, com o **cabelo como protagonista** e fios acompanhando o movimento.
+- FR19 — ⛔ **REVOGADO por [SPEC-036](SPEC-036-huna-hero-abstrato.md) (dono, 2026-09-03).** O texto original — *"figura feminina futurista/conceitual, meio digital meio androide… com o cabelo como protagonista"* — descrevia a direção de personagem, que foi **encerrada**. O hero é abstrato e editorial; nenhuma figura humana. O que sobrevive deste requisito é **curvas reais** (`react-native-svg`, não retângulo).
 - FR20 — O hero respeita redução de movimento: **estático** quando ela está ativa, e nada anima antes de a preferência ser conhecida (SPEC-018: o estado inicial do hook é `null`, não `false`).
 
 ## 7. Business Rules

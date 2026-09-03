@@ -367,6 +367,9 @@ function AuthenticatedApp({
         auth={auth}
         deletion={deletion}
         entitlements={entitlements}
+        profile={userProfile}
+        displayName={displayName}
+        onNameChanged={setDisplayName}
         planPreferences={planPreferences}
         notificationPreferences={notificationPreferences}
         notificationScheduler={notificationScheduler}

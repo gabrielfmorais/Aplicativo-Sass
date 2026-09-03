@@ -1,10 +1,20 @@
 # O hero da Huna — contrato de integração do asset autoral
 
-**Status:** aguardando o asset. O `HunaFigure` que está no código é **placeholder técnico**, não
-design final (decisão do dono, 2026-09-02).
+**Status (dono, 2026-09-03 — [SPEC-036](../specs/SPEC-036-huna-hero-abstrato.md)):** o hero da Huna é
+**abstrato e editorial** — fluxo, mechas, movimento capilar, identidade da marca. A composição que
+está no app é a **versão aprovada**: não é placeholder, não é provisória, e trocá-la não é pendência.
 
-Este documento existe para que a troca do placeholder pelo asset real seja **integração**, e não
-retrabalho. Ele diz duas coisas: o que o app garante ao asset, e o que o asset precisa entregar.
+⛔ **A frente de personagem está encerrada.** Sem personagem, sem mulher, sem rosto, sem cabeça, sem
+corpo, sem androide — quatro tentativas de figura humana foram reprovadas, sempre pelo mesmo motivo.
+Um asset autoral que traga figura humana **não satisfaz** a SPEC-036 e não pode entrar por este
+contrato. Reabrir o conceito exige decisão nova e explícita do dono.
+
+⚠️ **O método é o que sobreviveu de tudo isso**, e continua valendo para qualquer troca: a geometria
+é dado puro em `apps/mobile/src/design/huna-hero.ts`, o que permite renderizá-la **fora do app** e
+olhar a cada passo. Toda versão reprovada foi julgada só depois de pronta.
+
+Este documento diz duas coisas: o que o app garante ao asset, e o que um asset autoral **abstrato**
+precisaria entregar se um dia substituir o desenho atual.
 
 ---
 
@@ -31,8 +41,13 @@ O que o componente garante, e que o asset **herda de graça**: decorativo para l
 `pointerEvents="none"` · redução de movimento respeitada · dissolução no canvas · os dois
 enquadramentos.
 
-**O que se troca por dentro:** as constantes de desenho (`PROFILE`, `CAP`, `SHEEN`, `RIBBONS`) e o
-corpo do `return`. O palco — enquadramento, máscara, driver de animação, hooks — fica.
+**O que se troca por dentro:** o módulo de geometria `apps/mobile/src/design/huna-hero.ts` inteiro —
+`PROFILE`, `SHEEN`, `SHADE`, `CAP`, `COLLAR`, `NODE`, `RIBBONS`, `PAINTS`. O palco
+(`HunaFigure.tsx`) — enquadramento, máscara, driver de animação, hooks — **fica**.
+
+⚠️ **A separação é o contrato.** `huna-hero.ts` é TypeScript puro: sem React, sem SVG, sem
+`react-native`. Quem trocar o desenho troca dados, não componente — e pode renderizar esses dados
+fora do app para olhar antes de decidir, que é o passo que faltava nas versões reprovadas.
 
 ---
 
@@ -53,26 +68,26 @@ corpo do `return`. O palco — enquadramento, máscara, driver de animação, ho
 
 ### 3.1 Composição
 
-- Figura **de perfil**, ocupando a **direita** do quadro.
+- Composição **abstrata**: massas em curva longa, sem figura humana de nenhum tipo (SPEC-036 §2).
 - O canto **superior esquerdo** é área reservada do wordmark: aproximadamente os **56% de largura ×
   30% de altura** iniciais precisam ser fundo (escuro ou vazio), sem detalhe que o texto branco
   tenha de disputar.
-- O **terço inferior** deve ser cabelo/fundo — é ali que a máscara dissolve. Nada de rosto, mão ou
-  detalhe importante abaixo de ~65% da altura.
+- O **terço inferior** dissolve na máscara: nenhum detalhe importante abaixo de ~65% da altura, ou
+  ele desaparece.
 - Proporção de referência: **360 × 780** (≈ 1:2,17). Sangria de 5% em cada lado é bem-vinda: o
   recorte varia com o aparelho.
 
 ### 3.2 Camadas (o que faz o movimento ser possível)
 
-Entregar **em camadas separadas**, não achatado. O mínimo que o movimento atual usa:
+Entregar **em camadas separadas**, não achatado. O que o movimento atual usa:
 
-1. fundo / campo de cor
-2. cabelo **atrás** da figura
-3. figura (rosto e corpo)
-4. cabelo **do meio**
-5. cabelo **da frente**, passando por cima do corpo
-6. fios finos / mechas soltas
-7. couro cabeludo / touca (por cima, escondendo as raízes)
+1. cabelo **atrás** da figura (as duas massas maiores)
+2. figura — cabeça e corpo, **parados**
+3. cabelo **da frente**: as mechas restantes, uma camada por mecha
+4. couro cabeludo (por cima de tudo, escondendo as raízes) e os detalhes de luz
+
+⚠️ **Não há mais camada de fundo.** A figura é **recortada**: o campo de cor saiu na SPEC-029, por
+pedido literal do dono ("fundo transparente ou neutro").
 
 Cada camada balança com período e **atraso** próprios — é o atraso entre elas que faz o cabelo
 parecer vivo em vez de uma imagem girando inteira. Um asset achatado só pode se mover inteiro, e aí
@@ -92,7 +107,7 @@ componente sai. As outras garantias (enquadramento, dissolução, redução de m
 
 ### 3.4 Conteúdo
 
-- **Sem detalhe facial**: sem olho, sem boca, sem sobrancelha. Além de ser a direção estética, é o
+- **Sem detalhe facial**: sem olho, sem boca, sem sobrancelha, sem orelha. Além de ser a direção estética, é o
   que mantém a figura fora de "esta pessoa não se parece comigo".
 - **Sem textura capilar declarada**: nem liso escorrido, nem cacho definido. O produto atende liso,
   ondulado, cacheado e crespo, e a primeira tela não pode excluir nenhuma delas.
@@ -101,7 +116,8 @@ componente sai. As outras garantias (enquadramento, dissolução, redução de m
 
 ### 3.5 Performance
 
-- Alvo: **60fps** num aparelho intermediário. Sete camadas animadas é o limite atual.
+- Alvo: **60fps** num aparelho intermediário. O desenho atual anima **seis** mechas, cada uma no seu
+  próprio `Svg`; sete camadas animadas é o teto.
 - SVG: manter a contagem de caminhos na casa das dezenas, não das centenas.
 - Raster: somar menos de ~1,5 MB para o conjunto completo, já comprimido.
 

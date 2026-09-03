@@ -406,42 +406,77 @@ export function ScreenHeader({
   /**
    * SPEC-032 — **uma** linha, e ela diz o que a barra não diz.
    *
-   * ⚠️ **O cabeçalho gastava altura repetindo o rodapé.** Ele tinha duas linhas: um eyebrow e um
-   * título grande. O título era, em três das quatro abas, **a mesma palavra que a aba** —
-   * "Cuidados" sobre a aba Cuidados, "Progresso" sobre Progresso. Na Hoje era pior: dizia *"Seus
-   * cuidados"* na aba chamada **Hoje**, colidindo com a aba **Cuidados** que fica ao lado.
+   * ⚠️ **O cabeçalho gastava 200px repetindo o rodapé.** Ele tinha duas linhas: um eyebrow e um
+   * título grande. O título era, em três das quatro abas, **a mesma palavra que a aba** — "Cuidados"
+   * sobre a aba Cuidados, "Progresso" sobre Progresso. Na Hoje era pior: dizia *"Seus cuidados"* na
+   * aba chamada **Hoje**, colidindo com a aba **Cuidados** que fica ao lado.
    *
    * O eyebrow, esse sim, carregava significado — *"Sua rotina"*, *"O que você já fez"*, a data. A
-   * correção é a inversão: **sobra a linha informativa e sai a redundante.** Cada tela passa a
-   * frase que a barra não tem, e a Hoje passa a **data**, que é o assunto dela.
+   * correção é a inversão: **sobra a linha informativa e sai a redundante.** Cada tela passa a frase
+   * que a barra não tem, e a Hoje passa a **data**, que é o assunto dela.
    *
    * O bloco vinho fica: ele é a cor da marca no alto de toda tela, e tirá-lo devolveria o app ao
-   * branco genérico. O que encolheu foi o que ele carregava — de 104px para 61px.
+   * branco genérico. O que encolheu foi o que ele carregava.
    */
   title: string;
   /**
-   * SPEC-026 fatia 7 — o acesso a **Você**, no cabeçalho.
+   * SPEC-035 — o acesso a **Você** mudou de lugar. Que ele seja a **única** porta do perfil é
+   * decisão da SPEC-027 e continua valendo; o que esta rodada move é onde ele fica.
    *
-   * **Por que saiu da barra.** Um avatar com o nome dela é mais pessoal e mais descoberto que uma
-   * aba chamada "Você": "Ana" é um convite, "Você" é um rótulo. E libera a quarta vaga para
-   * **Community**, que é COMMITTED e chega depois (§0.4) — sem virar cinco abas.
+   * **Por que não está na barra.** Um avatar com o nome dela é mais pessoal e mais descoberto que
+   * uma aba chamada "Você": "Ana" é um convite, "Você" é um rótulo. E o avatar do cabeçalho é a
+   * **única** porta do perfil — duas entradas para o mesmo destino são o começo da confusão.
    *
-   * ⚠️ **A vaga liberada fica vaga.** As três categorias restantes cobrem o produto; pôr algo ali
-   * agora seria complexidade para preencher espaço, que é exatamente o que a direção proíbe.
+   * ⚠️ **Por que saiu de dentro do bloco vinho.** Ele vivia como um botão claro no canto direito do
+   * cartão do título, e ali ele era **um controle da tela**: mesma caixa do título, mesma superfície,
+   * alinhado com o assunto da aba. Identidade não é um controle da tela — é quem está usando o app.
+   * Fora do bloco, à esquerda e sobre o creme, a linha vira o primeiro que se lê e não disputa com o
+   * título; e a saudação ao lado faz o avatar parecer **ela**, não um ícone de configurações.
    */
   profile?: { readonly name: string | null; readonly onPress: () => void };
 }) {
   return (
-    <View style={styles.screenHeader}>
-      <View style={styles.screenHeaderRow}>
-        <View style={styles.screenHeaderText}>
-          <RNText style={[type.title as TextStyle, styles.screenHeaderTitle]} accessibilityRole="header">
-            {title}
-          </RNText>
-        </View>
-        {profile ? <ProfileChip name={profile.name} onPress={profile.onPress} /> : null}
+    <Stack gap="md">
+      {profile ? <IdentityRow name={profile.name} onPress={profile.onPress} /> : null}
+      <View style={styles.screenHeader}>
+        <RNText style={[type.title as TextStyle, styles.screenHeaderTitle]} accessibilityRole="header">
+          {title}
+        </RNText>
       </View>
-    </View>
+    </Stack>
+  );
+}
+
+/**
+ * A linha de identidade: o avatar e, quando há nome, uma saudação curta.
+ *
+ * ⚠️ **Tudo é um alvo só.** Avatar e nome pertencem à mesma ideia; separá-los daria dois alvos para
+ * o mesmo destino no espaço de um centímetro — e um deles seria pequeno demais.
+ *
+ * ⚠️ **Sem nome, a linha ganha um rótulo quieto — e não uma saudação inventada.** "Oi," seguido de
+ * nada é pior que nada, e escolher um apelido por quem preferiu não dizer o nome é responder por
+ * ela. Mas o avatar **sozinho** no canto lê como um elemento perdido: sem texto ao lado, o círculo
+ * pequeno não diz o que é nem que se toca. "Seu perfil", quieto, resolve as duas coisas.
+ */
+function IdentityRow({ name, onPress }: { name: string | null; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={name ? `${name} — abrir seu perfil` : 'Abrir seu perfil'}
+      style={({ pressed }) => [styles.identityRow, pressed && styles.avatarPressed]}
+    >
+      <Avatar name={name} size={40} />
+      {name ? (
+        <RNText numberOfLines={1} style={[type.bodyStrong as TextStyle, styles.identityName]}>
+          Oi, {name}
+        </RNText>
+      ) : (
+        <RNText numberOfLines={1} style={[type.caption as TextStyle, styles.identityHint]}>
+          Seu perfil
+        </RNText>
+      )}
+    </Pressable>
   );
 }
 
@@ -449,18 +484,24 @@ export function ScreenHeader({
  * O avatar. Enquanto foto e avatar ilustrado não existem (COMMITTED, `F34`), a inicial do nome —
  * e, sem nome, a inicial da marca. **Nunca um ícone genérico de pessoa:** um contorno cinzento no
  * canto é o adereço mais comum de template, e o objetivo aqui é o oposto disso.
+ *
+ * ⚠️ **É um círculo de marca, não um botão.** Fundo em creme tingido, borda em ameixa e a inicial em
+ * vinho: as cores da identidade, não as de um controle. No dia em que a foto existir, é só esta
+ * função que muda — quem a usa passa `name` e `size`, e nada mais.
  */
-function ProfileChip({ name, onPress }: { name: string | null; onPress: () => void }) {
+export function Avatar({ name, size = 40 }: { name: string | null; size?: number }) {
   const initial = (name ?? 'Huna').trim().charAt(0).toUpperCase();
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={name ? `${name} — abrir seu perfil` : 'Abrir seu perfil'}
-      style={({ pressed }) => [styles.avatar, pressed && styles.avatarPressed]}
-    >
-      <RNText style={[type.bodyStrong as TextStyle, styles.avatarInitial]}>{initial}</RNText>
-    </Pressable>
+    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}>
+      <RNText
+        style={[
+          styles.avatarInitial,
+          { fontSize: Math.round(size * 0.42), lineHeight: Math.round(size * 0.5) },
+        ]}
+      >
+        {initial}
+      </RNText>
+    </View>
   );
 }
 
@@ -548,20 +589,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     paddingVertical: space.lg,
   },
-  screenHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  screenHeaderText: { flex: 1 },
   screenHeaderTitle: { color: color.onFilled },
+  /**
+   * A linha de identidade fica **fora** do bloco do título e alinhada à esquerda com ele. A altura
+   * mínima é a de um alvo confortável: a linha inteira é tocável, não só o círculo.
+   */
+  identityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    minHeight: HIT_TARGET,
+    alignSelf: 'flex-start',
+    paddingRight: space.md,
+  },
+  identityName: { color: color.ink, flexShrink: 1 },
+  identityHint: { color: color.inkMuted, flexShrink: 1 },
   avatar: {
-    width: HIT_TARGET,
-    height: HIT_TARGET,
-    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    // Clara sobre o vinho: o avatar é a única coisa do cabeçalho que se toca, e tem de parecer.
     backgroundColor: color.brandTint,
+    borderWidth: 1.5,
+    borderColor: color.accentBorder,
   },
-  avatarPressed: { opacity: 0.82 },
-  avatarInitial: { color: color.wine },
+  avatarPressed: { opacity: 0.7 },
+  avatarInitial: { color: color.wine, fontWeight: '700' },
   center: { textAlign: 'center' },
   screen: { flex: 1, backgroundColor: color.canvas, alignItems: 'center' },
   loading: { justifyContent: 'center', gap: space.md },
