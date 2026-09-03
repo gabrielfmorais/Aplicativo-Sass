@@ -1,7 +1,7 @@
 import type { Product, ProductCategory, ProductPort } from '@app/core';
 import { PRODUCT_CATEGORIES, PRODUCT_NAME_MAX_LENGTH } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import {
   Button,
@@ -15,6 +15,7 @@ import {
   Stack,
   Text,
 } from '@/design/primitives';
+import { HIT_TARGET_MIN, color, space } from '@/design/tokens';
 import { useAddProduct } from '@/features/shelf/use-add-product';
 import { reasonOf } from '@/shared/failure-detail';
 
@@ -65,6 +66,19 @@ export function ShelfScreen({
   const [archiving, setArchiving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  /**
+   * SPEC-033 — o cadastro é uma **ação**, não o topo permanente da tela.
+   *
+   * ⚠️ **A tela chamada "Prateleira" mostrava, antes de qualquer produto, ~470px de formulário
+   * vazio** — campo mais sete categorias. O que ela tem em casa, que é o assunto, começava abaixo
+   * da dobra. E o "Adicionar" ficava fixo no rodapé, permanentemente desabilitado enquanto o
+   * formulário estivesse vazio: um botão primário morto no pé de toda visita.
+   *
+   * ⚠️ **Aberto por padrão quando a prateleira está vazia**, e isso não é exceção — é o mesmo
+   * princípio: mostrar primeiro o que a tela é sobre. Sem nenhum produto, o formulário **é** o
+   * conteúdo, e escondê-lo atrás de um toque seria esconder a única coisa que há para fazer.
+   */
+  const [adding, setAdding] = useState(false);
 
   const load = useCallback(() => {
     setList('loading');
@@ -104,40 +118,75 @@ export function ShelfScreen({
       .finally(() => setArchiving(false));
   };
 
+  /**
+   * ⚠️ **`length === 0` só conta quando a leitura voltou.** `list` é `'loading' | 'error' | Product[]`
+   * — tratar qualquer um dos dois primeiros como "vazia" abriria o formulário por cima de um estado
+   * que ainda não sabe de nada, e é a mesma armadilha que o `productCount: null` das sugestões evita.
+   */
+  const empty = Array.isArray(list) && list.length === 0;
+  const formOpen = adding || empty;
+
   return (
     <Screen
       footer={
         // Sem "Voltar": aba não volta, sai-se dela tocando outra aba (SPEC-027).
-        <Button label="Adicionar" onPress={add.submit} disabled={!add.ready} busy={add.busy} />
+        formOpen ? (
+          <Stack gap="sm">
+            <Button label="Adicionar" onPress={add.submit} disabled={!add.ready} busy={add.busy} />
+            {/* Só quando há para onde voltar: com a prateleira vazia, fechar deixaria a tela sem nada. */}
+            {empty ? null : (
+              <Button label="Cancelar" variant="ghost" onPress={() => setAdding(false)} disabled={add.busy} />
+            )}
+          </Stack>
+        ) : (
+          /**
+           * ⚠️ **Uma vaga primária só, que muda de sentido.** Fechado, ela **abre** o formulário;
+           * aberto, ela **envia**. Dois botões primários ao mesmo tempo — um para abrir e outro para
+           * enviar — seriam duas ações principais na mesma tela, que é a definição de nenhuma.
+           */
+          <Button label="Adicionar produto" onPress={() => setAdding(true)} />
+        )
       }
     >
       <ScreenHeader title="Seus produtos" {...(profile ? { profile } : {})} />
-      <Text tone="muted">
-        O que você já tem em casa, do jeito que você chama. Serve para o app não sugerir o que você não tem.
-      </Text>
 
-      <Field
-        value={add.draft}
-        onChangeText={add.type}
-        accessibilityLabel="Nome do produto"
-        placeholder="Nome do produto"
-        maxLength={PRODUCT_NAME_MAX_LENGTH}
-        autoCapitalize="sentences"
-        autoCorrect={false}
-        editable={!busy}
-      />
+      {/*
+        A explicação aparece quando ela importa: cadastrando, ou sem nada cadastrado. Com a
+        prateleira cheia, ela já sabe o que é a prateleira — e três linhas repetindo isso em toda
+        visita empurram para baixo justamente o que ela veio ver.
+      */}
+      {formOpen ? (
+        <Text tone="muted">
+          O que você já tem em casa, do jeito que você chama. Serve para o app não sugerir o que você não tem.
+        </Text>
+      ) : null}
 
-      <Row>
-        {PRODUCT_CATEGORIES.map((value) => (
-          <Chip
-            key={value}
-            label={CATEGORY_LABEL[value]}
-            selected={add.category === value}
-            onPress={() => add.toggleCategory(value)}
-            disabled={busy}
+      {formOpen ? (
+        <>
+          <Field
+            value={add.draft}
+            onChangeText={add.type}
+            accessibilityLabel="Nome do produto"
+            placeholder="Nome do produto"
+            maxLength={PRODUCT_NAME_MAX_LENGTH}
+            autoCapitalize="sentences"
+            autoCorrect={false}
+            editable={!busy}
           />
-        ))}
-      </Row>
+
+          <Row>
+            {PRODUCT_CATEGORIES.map((value) => (
+              <Chip
+                key={value}
+                label={CATEGORY_LABEL[value]}
+                selected={add.category === value}
+                onPress={() => add.toggleCategory(value)}
+                disabled={busy}
+              />
+            ))}
+          </Row>
+        </>
+      ) : null}
 
       {(add.message ?? message) ? (
         <Text tone="danger" accessibilityLiveRegion="polite">
@@ -165,25 +214,35 @@ export function ShelfScreen({
           // Convite, não cobrança (FR6/EC1).
           <Text tone="muted">Nada aqui ainda. Comece pelo que você mais usa.</Text>
         ) : (
-          list.map((product) => (
-            <Card key={product.id}>
-              <Row gap="sm" style={styles.line}>
-                <Text variant="bodyStrong">{product.name}</Text>
-                <Text variant="caption" tone="muted">
-                  {CATEGORY_LABEL[product.category]}
-                </Text>
-              </Row>
-              <Button
-                label="Tirar da prateleira"
-                variant="ghost"
-                size="sm"
-                disabled={busy}
-                accessibilityLabel={`Tirar ${product.name} da prateleira`}
-                onPress={() => archive(product.id)}
-                style={styles.archive}
-              />
-            </Card>
-          ))
+          /**
+           * ⚠️ **Uma linha por produto, num cartão só.** Cada produto era um `Card` inteiro com nome,
+           * categoria e um botão de remover — ~200px cada. Uma prateleira de dez vidros virava uma
+           * rolagem de duas telas para ler dez nomes. Aqui a linha diz tudo o que a lista precisa
+           * dizer, e a ação continua à vista: nada ficou atrás de um toque.
+           */
+          <Card style={styles.list}>
+            {list.map((product, index) => (
+              <View key={product.id} style={[styles.row, index < list.length - 1 && styles.divided]}>
+                <View style={styles.text}>
+                  {/* Uma linha só: um nome comprido corta, e nunca empurra a categoria para fora. */}
+                  <Text variant="bodyStrong" numberOfLines={1}>
+                    {product.name}
+                  </Text>
+                  <Text variant="caption" tone="muted">
+                    {CATEGORY_LABEL[product.category]}
+                  </Text>
+                </View>
+                <Button
+                  label="Tirar"
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  accessibilityLabel={`Tirar ${product.name} da prateleira`}
+                  onPress={() => archive(product.id)}
+                />
+              </View>
+            ))}
+          </Card>
         )}
       </Stack>
     </Screen>
@@ -191,6 +250,17 @@ export function ShelfScreen({
 }
 
 const styles = StyleSheet.create({
-  line: { alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap' },
-  archive: { alignSelf: 'flex-start' },
+  /** Sem respiro no cartão: quem respira é a linha, e o filete precisa atravessar de borda a borda. */
+  list: { paddingVertical: 0, paddingHorizontal: 0, gap: 0, overflow: 'hidden' },
+  divided: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.border },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+    minHeight: HIT_TARGET_MIN,
+  },
+  /** `flex: 1` deixa o nome encolher e mantém o botão colado à direita, sempre no mesmo lugar. */
+  text: { flex: 1, gap: space.xs },
 });
