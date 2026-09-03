@@ -4,6 +4,7 @@ import type {
   HairProfilePort,
   Instant,
   LocalDate,
+  ProductPort,
   WashDayPort,
 } from '@app/core';
 import { CARE_GUIDES, ConflictError, instantFromString } from '@app/core';
@@ -85,6 +86,7 @@ const washDayPort = (over: Partial<WashDayPort> = {}): WashDayPort => ({
   markTechnique: jest.fn(async () => undefined),
   setScalpFeel: jest.fn(async () => undefined),
   setFinishStatus: jest.fn(async () => undefined),
+  lastUsedFor: jest.fn(async () => []),
   ...over,
 });
 
@@ -851,5 +853,76 @@ describe('finalização na Hoje (SPEC-039)', () => {
     await waitFor(() => s.getByText('Você finalizou?'));
 
     expect(s.queryByText(/defini|frizz|volume|recomend|deveria|ideal|melhor/i)).toBeNull();
+  });
+});
+
+/**
+ * SPEC-041 FR2 (F48) — o painel "Meus produtos" no cartão do cuidado: a um toque, e nunca
+ * empurrando a ação primária para baixo da dobra.
+ */
+describe('produtos na execução, na Hoje (SPEC-041)', () => {
+  const shelfPorts = {
+    washDays: washDayPort({ lastUsedFor: jest.fn(async () => []) }),
+    products: { list: jest.fn(async () => []) } as unknown as ProductPort,
+  };
+
+  const renderWithShelf = (withShelf: boolean) =>
+    render(
+      <TodayScreen
+        board={board()}
+        care={makePort()}
+        today={TODAY}
+        now={() => NOW}
+        timeZone="America/Sao_Paulo"
+        newExecutionId={() => 'exec-1'}
+        onChanged={jest.fn()}
+        hairProfile={hairProfilePort()}
+        onOpenWashDay={jest.fn()}
+        washDays={shelfPorts.washDays}
+        {...(withShelf ? { products: shelfPorts.products } : {})}
+        profile={{ name: 'Ana', onPress: jest.fn() }}
+        productCount={null}
+        onOpenShelf={jest.fn()}
+        onPause={jest.fn()}
+        onPreviewResume={jest.fn()}
+        onResume={jest.fn()}
+        onOpenCycle={jest.fn()}
+      />,
+    );
+
+  /**
+   * ⚠️ **Conta os cartões, e não "existe pelo menos um".**
+   *
+   * A primeira versão deste teste passava com a prop chegando **só no cartão de foco**: a `Section`
+   * declarava `shelf` e não a repassava, então os cuidados de "Próximos" ficavam sem o painel — e o
+   * teste, que só perguntava se o rótulo existia em algum lugar, não via diferença. Quem viu foi o
+   * DEV real a 390px. Contar é o que torna o repasse observável.
+   */
+  it('oferece o painel em TODO cuidado acionável, não só no de foco', async () => {
+    const s = await renderWithShelf(true);
+    await waitFor(() => s.getAllByText('Meus produtos'));
+    const actionable = s.getAllByText('Fiz hoje').length;
+    expect(actionable).toBeGreaterThan(1);
+    expect(s.getAllByText('Meus produtos')).toHaveLength(actionable);
+  });
+
+  it('o painel começa fechado', async () => {
+    const s = await renderWithShelf(true);
+    await waitFor(() => s.getAllByText('Meus produtos'));
+    expect(s.queryByText(/Na sua prateleira|Sua prateleira está vazia/)).toBeNull();
+  });
+
+  it('abrir mostra o que ela tem', async () => {
+    const s = await renderWithShelf(true);
+    await waitFor(() => s.getAllByText('Meus produtos'));
+    await fireEvent.press(s.getAllByText('Meus produtos')[0] as never);
+    await waitFor(() => s.getByText(/Sua prateleira está vazia/));
+  });
+
+  /** Sem a prateleira, o cartão continua inteiro — a capability é opcional (FR4/NG5). */
+  it('sem a prateleira, o cartão não oferece o painel e nada quebra', async () => {
+    const s = await renderWithShelf(false);
+    await waitFor(() => s.getAllByText('Fiz hoje'));
+    expect(s.queryByText('Meus produtos')).toBeNull();
   });
 });

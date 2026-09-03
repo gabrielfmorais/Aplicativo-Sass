@@ -6,6 +6,7 @@ import type {
   HairProfilePort,
   Instant,
   LocalDate,
+  ProductPort,
   ResumeOutcome,
   WashDayPort,
 } from '@app/core';
@@ -19,6 +20,7 @@ import { SuggestionsCard } from '@/features/care/SuggestionsCard';
 import { buildSuggestions, type Suggestion, type SuggestionKey } from '@/features/care/suggestions';
 import { HIT_TARGET_MIN, color, radius, space } from '@/design/tokens';
 import { CareGuidePanel } from '@/features/care/CareGuidePanel';
+import { CareProductsPanel } from '@/features/care/CareProductsPanel';
 import { CareTypeMark } from '@/features/care/CareTypeMark';
 import { PauseCard } from '@/features/care/PauseCard';
 import { PlanRationale } from '@/features/care/PlanRationale';
@@ -201,6 +203,7 @@ function CareActions({
   emphasis,
   onAct,
   washDay,
+  shelf,
 }: {
   item: CareItem;
   today: LocalDate;
@@ -218,9 +221,15 @@ function CareActions({
   onAct: (item: CareItem, action: Action) => void;
   /** SPEC-024 — o registro do que ela usou, oferecido depois de concluir (FR1). */
   washDay: WashDayAccess;
+  /**
+   * SPEC-041 (F48) — as portas para mostrar o que ela já tem, **no momento do cuidado**. Ausente
+   * quando a capability não está disponível: o cartão continua inteiro sem ela.
+   */
+  shelf?: { readonly washDays: WashDayPort; readonly products: ProductPort } | undefined;
 }) {
   const [choosingDate, setChoosingDate] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [showProducts, setShowProducts] = useState(false);
   const undoable = item.execution !== null && canUndo(item.execution, now);
   // A care type the app has no guide for cannot happen today (the DB CHECK pins the set, and the
   // guides are exhaustive by type). If it ever did, the card simply loses the button (SPEC-007 EC1).
@@ -306,6 +315,21 @@ function CareActions({
             onPress={() => setShowGuide((v) => !v)}
           />
         ) : null}
+        {/*
+          SPEC-041 FR2 (F48) — o que ela **já tem**, no momento do cuidado. Painel que abre, como
+          "Como fazer": a informação está a um toque e não empurra as ações para baixo da dobra.
+
+          ⚠️ Nunca bloqueado por uma transição em voo: é leitura, não escrita (mesma regra do guia).
+        */}
+        {shelf ? (
+          <Button
+            label="Meus produtos"
+            variant="ghost"
+            size="sm"
+            accessibilityState={{ expanded: showProducts }}
+            onPress={() => setShowProducts((v) => !v)}
+          />
+        ) : null}
         <Button
           label="Reagendar"
           variant="ghost"
@@ -340,6 +364,13 @@ function CareActions({
         </Row>
       ) : null}
       {showGuide && guide ? <CareGuidePanel guide={guide} /> : null}
+      {showProducts && shelf ? (
+        <CareProductsPanel
+          careTypeCode={item.careTypeCode}
+          washDays={shelf.washDays}
+          products={shelf.products}
+        />
+      ) : null}
     </Stack>
   );
 }
@@ -358,6 +389,7 @@ function FocusCard({
   blocked,
   onAct,
   washDay,
+  shelf,
 }: {
   item: CareItem;
   today: LocalDate;
@@ -366,6 +398,8 @@ function FocusCard({
   blocked: boolean;
   onAct: (item: CareItem, action: Action) => void;
   washDay: WashDayAccess;
+  /** SPEC-041 (F48) — repassado até o cartão, que é onde o painel abre. */
+  shelf?: { readonly washDays: WashDayPort; readonly products: ProductPort } | undefined;
 }) {
   const state = stateTagOf(item);
   const guide = CARE_GUIDES[item.careTypeCode];
@@ -387,6 +421,7 @@ function FocusCard({
           emphasis="focus"
           onAct={onAct}
           washDay={washDay}
+          shelf={shelf}
         />
       </View>
     </Card>
@@ -403,6 +438,7 @@ function CareCard({
   blocked,
   onAct,
   washDay,
+  shelf,
   tone = 'surface',
 }: {
   item: CareItem;
@@ -412,6 +448,8 @@ function CareCard({
   blocked: boolean;
   onAct: (item: CareItem, action: Action) => void;
   washDay: WashDayAccess;
+  /** SPEC-041 (F48) — repassado até o cartão, que é onde o painel abre. */
+  shelf?: { readonly washDays: WashDayPort; readonly products: ProductPort } | undefined;
   /**
    * SPEC-030 — a escada tonal da Hoje, e ela **significa** alguma coisa.
    *
@@ -441,6 +479,7 @@ function CareCard({
         emphasis="list"
         onAct={onAct}
         washDay={washDay}
+        shelf={shelf}
       />
     </Card>
   );
@@ -481,6 +520,8 @@ function Section({
   busyId: string | null;
   onAct: (item: CareItem, action: Action) => void;
   washDay: WashDayAccess;
+  /** SPEC-041 (F48) — repassado até o cartão, que é onde o painel abre. */
+  shelf?: { readonly washDays: WashDayPort; readonly products: ProductPort } | undefined;
 }) {
   const [expanded, setExpanded] = useState(false);
   if (items.length === 0) return null;
@@ -501,6 +542,7 @@ function Section({
           blocked={rest.busyId !== null}
           onAct={rest.onAct}
           washDay={rest.washDay}
+          shelf={rest.shelf}
           tone={cardTone}
         />
       ))}
@@ -553,6 +595,7 @@ export function TodayScreen({
   onOpenCycle,
   onOpenWashDay,
   washDays,
+  products,
   profile,
   productCount,
   onOpenShelf,
@@ -591,6 +634,11 @@ export function TodayScreen({
    * técnicas e couro continuam sendo da `WashDayScreen`.
    */
   washDays: WashDayPort;
+  /**
+   * SPEC-041 (F48) — a prateleira dela, para o painel "Meus produtos" no cartão do cuidado.
+   * Opcional: sem ela o cartão não oferece o painel, e o resto da tela segue igual.
+   */
+  products?: ProductPort;
   /**
    * SPEC-026 fatia 3 — quantos produtos ativos ela tem, ou `null` enquanto não se sabe.
    *
@@ -674,6 +722,12 @@ export function TodayScreen({
    * já tem registro (FR7) e como abrir o dela. Um objeto em vez de dois props porque a informação
    * atravessa quatro componentes, e quatro assinaturas com dois campos cada envelhecem pior.
    */
+  /**
+   * SPEC-041 (F48) — as duas portas juntas, montadas uma vez: o painel precisa das duas, e passar
+   * cada uma separada por três níveis de cartão seria dois prop-drillings em vez de um.
+   */
+  const shelf = products ? { washDays, products } : undefined;
+
   const washDay: WashDayAccess = {
     registered: (executionId) => board.washDayExecutionIds.includes(executionId),
     open: (item) => {
@@ -836,6 +890,7 @@ export function TodayScreen({
                 blocked={busyId !== null}
                 onAct={act}
                 washDay={washDay}
+                shelf={shelf}
               />
             ))
           )}
@@ -875,6 +930,7 @@ export function TodayScreen({
           blocked={busyId !== null}
           onAct={act}
           washDay={washDay}
+          shelf={shelf}
         />
       ) : (
         /*
@@ -942,6 +998,7 @@ export function TodayScreen({
             busyId={busyId}
             onAct={act}
             washDay={washDay}
+            shelf={shelf}
           />
           <Section
             title="Hoje"
@@ -951,6 +1008,7 @@ export function TodayScreen({
             busyId={busyId}
             onAct={act}
             washDay={washDay}
+            shelf={shelf}
           />
           <Section
             title="Próximos"
@@ -961,6 +1019,7 @@ export function TodayScreen({
             busyId={busyId}
             onAct={act}
             washDay={washDay}
+            shelf={shelf}
           />
 
           {/* SPEC-017 OQ2 — aqui, e não no cartão de foco: a explicação é leitura reflexiva, e no topo
@@ -983,6 +1042,7 @@ export function TodayScreen({
             busyId={busyId}
             onAct={act}
             washDay={washDay}
+            shelf={shelf}
           />
 
           {message ? (
