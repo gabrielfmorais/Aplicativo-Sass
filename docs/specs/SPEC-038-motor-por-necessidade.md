@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-038 |
-| Status | **Fatias 1 e 2 implementadas** — o motor v2 existe, está testado e ligado ao despacho. **Ativação pendente de duas ações de ambiente** (ver §19) |
+| Status | **Fatias 1 e 2 DONE** — quarto tipo validado no DEV real; motor v2 pronto e testado. **A versão corrente segue v1 por OQ4** (deriva medida em §19.1) |
 | Owner | dono do produto |
 | Bounded Context | Schedule (`packages/core/src/schedule`) + Content + design tokens |
 | Related ADRs | **ADR-001 §2** (versão liberada é imutável), **ADR-007 A1** (registro de regras), D-26, D-67, D-102 |
@@ -114,7 +114,18 @@ Nenhum dado novo é coletado.
 - AC4 — O v2 é invariante a `routineAvailability` e `perceivedPorosity`. **Teste, fatia 2** — é a
   barreira do NG1/NG2.
 - AC5 — Regras do v2 registradas e `candidate`; `assertProductionRules` **lança**. **Teste.**
-- AC6 — Validação a 390px no DEV real: o app segue íntegro com o quarto tipo no vocabulário e com o v2 no repositório.
+- AC6 — Validação a 390px no DEV real (2026-09-03, migration e deploy feitos pelo dono):
+  - **Quarto tipo em todas as superfícies:** Cuidados lista quatro guias — Hidratação ~20 · Nutrição
+    ~20 · Reconstrução ~25 · **Restauração ~30** — com quatro cores distintas. ✅
+  - **v2 exercido:** perfil com os três sinais de dano produziu, no preview real,
+    `HID NUT HID REC NUT REC HID RES` — a Restauração aparece, e a evidência nomeia só os sinais
+    que existem. ✅
+  - **Compatibilidade com plano antigo:** o plano `engine=v1` continua se explicando na Hoje, com a
+    evidência reproduzida pela engine que o gerou. ✅
+  - **Deriva medida** (§19.1) e a v2 **não foi ligada** por causa dela. ⚠️
+- AC7 — Nenhuma regra atravessou o gate D-26/D-70: as **8** regras do v2 são `candidate`, nenhuma
+  `validated` existe fora do próprio teste de governança, e o v2 **não lê** porosidade nem
+  disponibilidade — menciona as duas só em comentário, e há teste de invariância. ✅
 
 ## 19. Ativação — o que falta, e por que não é do agente
 
@@ -130,13 +141,31 @@ ações de ambiente que a governança não dá ao agente.
 
 Feitas as duas, ligar é **uma linha** em `build-plan.ts`.
 
+## 19.1 A deriva, medida no DEV real (2026-09-03)
+
+As duas ações de ambiente foram feitas pelo dono — migration aplicada, `deploy-dev-functions`
+executado — e a v2 foi **ligada, exercida e revertida**. O que a medição mostrou:
+
+```
+preview do cliente (v2):  HID NUT HID REC NUT REC HID RES   ← com Restauração
+plano gravado:            HID NUT HID NUT REC NUT HID NUT   ← engine=v1
+```
+
+⚠️ **O deploy saiu da `main`, que ainda não tem a v2.** O app roda o bundle local; a Edge Function
+roda o bundle deployado. Enquanto os dois não forem a mesma coisa, ela **confirma um cronograma e
+recebe outro** — a quebra exata do SPEC-004 AC3.
+
+**Isso não é acidente de ordem: é estrutural em produção.** O app é binário de loja e a Edge
+Function versiona à parte; uma usuária com app antigo sempre poderá prever com uma engine e receber
+outra. Por isso a v2 **não foi ligada** neste merge, e ligar depende de OQ4.
+
 ## 20. Compatibilidade histórica — o que a troca teria quebrado
 
 A SPEC-017 reproduzia a evidência exigindo que o plano fosse da versão **corrente**. Com uma segunda
 versão no repositório, isso apagaria a explicação de **todo plano gerado pela v1** — a tela se
 calaria corretamente, mas por um motivo evitável.
 
-Corrigido antes de a troca acontecer:  aceita a versão, e a tela reproduz com **a engine
+Corrigido antes de a troca acontecer: `buildPlan` aceita a versão, e a tela reproduz com **a engine
 que gerou aquele plano**. Uma versão que o app não conhece continua calando a seção.
 
 ## 23. Open Questions
@@ -147,6 +176,12 @@ que gerou aquele plano**. Uma versão que o app não conhece continua calando a 
 - OQ2 — **Quando trocar `CURRENT_SCHEDULE_VERSION` para v2** é decisão de produto, não técnica: muda
   o cronograma de quem gerar plano novo. Fica como gate do dono.
 - OQ3 — **PUBLIC RELEASE bloqueado** (D-26/D-70/OQ-REL) enquanto as regras forem `candidate`.
+- OQ4 — ⚠️ **BLOQUEIA A TROCA DE VERSÃO, e foi medido (§19.1).** Cliente e Edge Function versionam
+  separado, então preview e plano gravado podem discordar — no DEV foi observado, e em produção é
+  estrutural, porque o app é binário de loja. Saída provável: o cliente **manda a versão que
+  previu** e o servidor a valida contra `isKnownScheduleVersion`, de modo que o que ela confirma
+  seja sempre o que ela recebe. É mudança de contrato de servidor: decisão a tomar **antes** de
+  ligar a v2, não depois.
 
 ## 24. Change Log
 
