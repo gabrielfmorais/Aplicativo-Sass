@@ -22,7 +22,7 @@ import { PauseCard } from '@/features/care/PauseCard';
 import { PlanRationale } from '@/features/care/PlanRationale';
 import { WeekStrip } from '@/features/care/WeekStrip';
 import { buildWeek } from '@/features/care/week';
-import { CARE_TYPE_LABEL, formatPlannedDate } from '@/features/plan/copy';
+import { CARE_TYPE_LABEL, formatLongDate, formatPlannedDate } from '@/features/plan/copy';
 import { reasonOf } from '@/shared/failure-detail';
 
 /**
@@ -704,11 +704,13 @@ export function TodayScreen({
     <Screen>
       {/* A data é sempre a do dia que está na tela, e o título diz **em palavra** qual é (FR8):
           um destaque na faixa é uma pista, e uma pista não é uma resposta. */}
-      <ScreenHeader
-        eyebrow={formatPlannedDate(selected as LocalDate)}
-        title={viewingToday ? 'Seus cuidados' : 'Esse dia'}
-        profile={profile}
-      />
+      {/*
+        SPEC-032 — o título é a **data**, e não "Seus cuidados".
+        O nome da tela já está na barra, e "Seus cuidados" ainda colidia com a aba **Cuidados** ao
+        lado. O que esta tela tem de único é o dia que ela está mostrando — e ele responde sozinho
+        se ela está em hoje ou em outro dia, sem precisar de uma segunda frase para dizer isso.
+      */}
+      <ScreenHeader title={formatLongDate(selected as LocalDate)} profile={profile} />
 
       <WeekStrip week={week} selected={selected} onSelect={setSelected} />
 

@@ -61,7 +61,7 @@ export function ProgressTabScreen({
 
   return (
     <Screen>
-      <ScreenHeader eyebrow="O que você já fez" title="Progresso" profile={profile} />
+      <ScreenHeader title="O que você já fez" profile={profile} />
 
       {summary ? (
         <>

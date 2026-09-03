@@ -5,6 +5,11 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { TodayScreen } from '@/features/care/TodayScreen';
 
 const TODAY = '2026-09-10' as LocalDate;
+/**
+ * SPEC-032 — o título da Hoje é a **data por extenso**, e não mais "Seus cuidados".
+ * Como âncora de carregamento ela é tão determinística quanto era: `TODAY` é fixo.
+ */
+const TODAY_LONG = 'Quinta, 10 de setembro';
 const NOW = instantFromString('2026-09-10T12:00:00.000Z');
 
 const board = (over: Partial<CareBoard> = {}): CareBoard => ({
@@ -120,7 +125,7 @@ describe('TodayScreen (SPEC-005 §14)', () => {
    */
   it('leads with the overdue care and keeps today and upcoming distinguishable', async () => {
     const screen = await renderScreen(makePort());
-    await waitFor(() => screen.getByText('Seus cuidados'));
+    await waitFor(() => screen.getByText(TODAY_LONG));
 
     // The focus card is the overdue one, and it says so in words as well as in colour.
     screen.getByText('Atrasado');
@@ -134,7 +139,7 @@ describe('TodayScreen (SPEC-005 §14)', () => {
 
   it('reads the week around today, in words as well as in dots', async () => {
     const screen = await renderScreen(makePort());
-    await waitFor(() => screen.getByText('Seus cuidados'));
+    await waitFor(() => screen.getByText(TODAY_LONG));
 
     // 2026-09-10 is a Thursday; its week runs Sunday 06 → Saturday 12.
     screen.getByLabelText('Quinta, 10 de setembro. hoje. Nutrição: planejada');
@@ -148,7 +153,7 @@ describe('TodayScreen (SPEC-005 §14)', () => {
     const care = makePort();
     const onChanged = jest.fn();
     const screen = await renderScreen(care, board(), onChanged);
-    await waitFor(() => screen.getByText('Seus cuidados'));
+    await waitFor(() => screen.getByText(TODAY_LONG));
 
     await fireEvent.press(screen.getAllByText('Fiz hoje')[0]!);
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
@@ -169,7 +174,7 @@ describe('TodayScreen (SPEC-005 §14)', () => {
     let release: () => void = () => {};
     const care = makePort({ complete: jest.fn(() => new Promise<void>((r) => (release = r))) });
     const screen = await renderScreen(care);
-    await waitFor(() => screen.getByText('Seus cuidados'));
+    await waitFor(() => screen.getByText(TODAY_LONG));
 
     await fireEvent.press(screen.getAllByText('Fiz hoje')[0]!);
     // The pressed button is now busy: its label is gone, and the other two are still on screen.
@@ -202,7 +207,7 @@ describe('TodayScreen (SPEC-005 §14)', () => {
       () => NOW,
       () => `exec-${++issued}`,
     );
-    await waitFor(() => screen.getByText('Seus cuidados'));
+    await waitFor(() => screen.getByText(TODAY_LONG));
 
     await fireEvent.press(screen.getAllByText('Fiz hoje')[0]!);
     await waitFor(() => screen.getByText('Não foi possível registrar. Tente novamente.'));
@@ -219,7 +224,7 @@ describe('TodayScreen (SPEC-005 §14)', () => {
     const care = makePort({ skip } as Partial<CareTrackingPort>);
     const onChanged = jest.fn();
     const screen = await renderScreen(care, board(), onChanged);
-    await waitFor(() => screen.getByText('Seus cuidados'));
+    await waitFor(() => screen.getByText(TODAY_LONG));
 
     await fireEvent.press(screen.getAllByText('Pular')[0]!);
     await waitFor(() => screen.getByText('Esse cuidado mudou. Atualizamos a tela.'));
@@ -229,7 +234,7 @@ describe('TodayScreen (SPEC-005 §14)', () => {
   it('reschedules through a quick option inside the allowed window', async () => {
     const care = makePort();
     const screen = await renderScreen(care);
-    await waitFor(() => screen.getByText('Seus cuidados'));
+    await waitFor(() => screen.getByText(TODAY_LONG));
 
     await fireEvent.press(screen.getAllByText('Reagendar')[0]!);
     await fireEvent.press(screen.getByText(/Em 3 dias/));
@@ -356,7 +361,7 @@ describe('TodayScreen — the end of a cycle offers the way forward (D-82)', () 
   /** While there is still something to do, the offer would be noise pulling her out of the loop. */
   it('is absent while she still has cares to act on', async () => {
     const screen = await renderScreen(makePort());
-    await waitFor(() => screen.getByText('Seus cuidados'));
+    await waitFor(() => screen.getByText(TODAY_LONG));
     expect(screen.queryByText('Reavaliar e montar o próximo')).toBeNull();
   });
 });
@@ -366,7 +371,7 @@ describe('TodayScreen — "Como fazer" (SPEC-007 §14)', () => {
 
   it('offers the guide on every actionable care and shows it in full when opened (AC5)', async () => {
     const screen = await renderScreen(makePort());
-    await waitFor(() => screen.getByText('Seus cuidados'));
+    await waitFor(() => screen.getByText(TODAY_LONG));
 
     // overdue + today + upcoming — all three are still actionable
     expect(screen.getAllByText('Como fazer')).toHaveLength(3);
@@ -385,7 +390,7 @@ describe('TodayScreen — "Como fazer" (SPEC-007 §14)', () => {
 
   it('closes again on a second press (AC6)', async () => {
     const screen = await renderScreen(makePort());
-    await waitFor(() => screen.getByText('Seus cuidados'));
+    await waitFor(() => screen.getByText(TODAY_LONG));
 
     await fireEvent.press(screen.getAllByText('Como fazer')[0]!);
     screen.getByText(hydration.whatItIs);
@@ -396,7 +401,7 @@ describe('TodayScreen — "Como fazer" (SPEC-007 §14)', () => {
 
   it('opens only the care that was pressed, not every row', async () => {
     const screen = await renderScreen(makePort());
-    await waitFor(() => screen.getByText('Seus cuidados'));
+    await waitFor(() => screen.getByText(TODAY_LONG));
 
     await fireEvent.press(screen.getAllByText('Como fazer')[0]!);
     // Both overdue and upcoming are hydration; only one panel may be open.
@@ -407,7 +412,7 @@ describe('TodayScreen — "Como fazer" (SPEC-007 §14)', () => {
     const care = makePort();
     const onChanged = jest.fn();
     const screen = await renderScreen(care, board(), onChanged);
-    await waitFor(() => screen.getByText('Seus cuidados'));
+    await waitFor(() => screen.getByText(TODAY_LONG));
 
     await fireEvent.press(screen.getAllByText('Como fazer')[0]!);
 
@@ -424,7 +429,7 @@ describe('TodayScreen — "Como fazer" (SPEC-007 §14)', () => {
       complete: jest.fn(() => new Promise<void>((resolve) => (release = resolve))),
     });
     const screen = await renderScreen(care, board());
-    await waitFor(() => screen.getByText('Seus cuidados'));
+    await waitFor(() => screen.getByText(TODAY_LONG));
 
     await fireEvent.press(screen.getAllByText('Fiz hoje')[0]!); // row is now busy
     await fireEvent.press(screen.getAllByText('Como fazer')[0]!);
@@ -496,7 +501,7 @@ describe('TodayScreen — check-in (SPEC-006 §14)', () => {
 
   it('never asks on a care that is not done (AC13)', async () => {
     const screen = await renderScreen(makePort());
-    await waitFor(() => screen.getByText('Seus cuidados'));
+    await waitFor(() => screen.getByText(TODAY_LONG));
     expect(screen.queryByText('Como ficou?')).toBeNull();
   });
 
@@ -569,13 +574,14 @@ describe('TodayScreen — o calendário clicável (SPEC-026)', () => {
 
   it('tocar num dia mostra o conteúdo daquele dia, e diz qual dia é em palavra', async () => {
     const s = await renderScreen(makePort());
-    await waitFor(() => s.getByText('Seus cuidados'));
+    await waitFor(() => s.getByText(TODAY_LONG));
 
     await tapDay(s, /^Terça, 8 de setembro/);
 
     // FR8 — o título muda: um destaque na faixa é uma pista, e uma pista não é uma resposta.
-    expect(s.getByText('Esse dia')).toBeTruthy();
-    expect(s.queryByText('Seus cuidados')).toBeNull();
+    // SPEC-032 — e a resposta agora é a **data**, não uma frase sobre ela.
+    expect(s.getByText('Terça, 8 de setembro')).toBeTruthy();
+    expect(s.queryByText(TODAY_LONG)).toBeNull();
     // O cuidado daquele dia continua acionável: concluir vale para o cuidado, não para a data em
     // que ela está olhando.
     expect(s.getByText('Fiz hoje')).toBeTruthy();
@@ -583,7 +589,7 @@ describe('TodayScreen — o calendário clicável (SPEC-026)', () => {
 
   it('num outro dia, some tudo o que falava de hoje', async () => {
     const s = await renderScreen(makePort());
-    await waitFor(() => s.getByText('Seus cuidados'));
+    await waitFor(() => s.getByText(TODAY_LONG));
     await tapDay(s, /^Terça, 8 de setembro/);
 
     // Seções, explicação e saídas são sobre hoje. Mantê-las seria uma segunda resposta na mesma tela.
@@ -595,17 +601,17 @@ describe('TodayScreen — o calendário clicável (SPEC-026)', () => {
   /** EC3 — um dia sem nada é um fato, não uma tela em branco. */
   it('um dia vazio diz que está vazio', async () => {
     const s = await renderScreen(makePort());
-    await waitFor(() => s.getByText('Seus cuidados'));
+    await waitFor(() => s.getByText(TODAY_LONG));
     await tapDay(s, /^Quarta, 9 de setembro/);
     expect(s.getByText('Nada marcado nesse dia.')).toBeTruthy();
   });
 
   it('volta para hoje', async () => {
     const s = await renderScreen(makePort());
-    await waitFor(() => s.getByText('Seus cuidados'));
+    await waitFor(() => s.getByText(TODAY_LONG));
     await tapDay(s, /^Terça, 8 de setembro/);
     await fireEvent.press(s.getByText('Voltar para hoje'));
-    expect(s.getByText('Seus cuidados')).toBeTruthy();
+    expect(s.getByText(TODAY_LONG)).toBeTruthy();
   });
 
   /**
@@ -614,7 +620,7 @@ describe('TodayScreen — o calendário clicável (SPEC-026)', () => {
    */
   it('não mostra mais o resumo de progresso, que agora é uma aba', async () => {
     const s = await renderScreen(makePort());
-    await waitFor(() => s.getByText('Seus cuidados'));
+    await waitFor(() => s.getByText(TODAY_LONG));
     expect(s.queryByText('Seu progresso')).toBeNull();
   });
 });

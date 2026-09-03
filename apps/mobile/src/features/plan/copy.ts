@@ -31,6 +31,36 @@ export const EVIDENCE_LABEL: Record<string, string> = {
 
 const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'] as const;
 
+const WEEKDAYS_LONG = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'] as const;
+
+const MONTHS = [
+  'janeiro',
+  'fevereiro',
+  'março',
+  'abril',
+  'maio',
+  'junho',
+  'julho',
+  'agosto',
+  'setembro',
+  'outubro',
+  'novembro',
+  'dezembro',
+] as const;
+
+/**
+ * A data por extenso, para quando ela é o **título** da tela e não uma etiqueta.
+ *
+ * ⚠️ **Mesma regra de fuso do formato curto:** a string ISO já **é** o dia civil dela (ADR-008),
+ * então é lida como números puros e nunca por um Wed, Sep  2, 2026  9:36:24 PM com deslocamento. Um
+ * aqui traria o fuso do aparelho de volta para dentro de um dado que já não tem fuso.
+ */
+export const formatLongDate = (isoDate: string): string => {
+  const [y, m, d] = isoDate.split('-').map(Number) as [number, number, number];
+  const weekday = WEEKDAYS_LONG[new Date(Date.UTC(y, m - 1, d)).getUTCDay()] ?? '';
+  return `${weekday}, ${d} de ${MONTHS[m - 1] ?? ''}`;
+};
+
 /**
  * Formats an ISO `YYYY-MM-DD` civil date without touching timezones: the string already IS the
  * user's local day (ADR-008), so it is parsed as plain numbers, never through a Date-with-offset.

@@ -41,7 +41,7 @@ export function CareTabScreen({
 }) {
   return (
     <Screen>
-      <ScreenHeader eyebrow="Sua rotina" title="Cuidados" profile={profile} />
+      <ScreenHeader title="Sua rotina" profile={profile} />
 
       <Card>
         <Text variant="heading" accessibilityRole="header">

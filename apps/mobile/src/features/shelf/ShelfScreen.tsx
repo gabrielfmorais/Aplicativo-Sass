@@ -111,7 +111,7 @@ export function ShelfScreen({
         <Button label="Adicionar" onPress={add.submit} disabled={!add.ready} busy={add.busy} />
       }
     >
-      <ScreenHeader eyebrow="Seus produtos" title="Minha prateleira" {...(profile ? { profile } : {})} />
+      <ScreenHeader title="Seus produtos" {...(profile ? { profile } : {})} />
       <Text tone="muted">
         O que você já tem em casa, do jeito que você chama. Serve para o app não sugerir o que você não tem.
       </Text>
