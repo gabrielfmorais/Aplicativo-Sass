@@ -73,8 +73,8 @@ seja uma decisão consciente em vez de um `push` numa lista que já aceita qualq
 - **FR2** No cartão de um cuidado concluído, a Hoje pergunta a finalização **acima** do check-in.
 - **FR3** Respondida, a pergunta vira o fato ("Você finalizou" / "Você pulou a finalização"), com a
   resposta continuando tocável para trocar ou tirar.
-- **FR4** O registro (`WashDayScreen`) ganha uma seção **Finalização** própria, separada de "Como
-  você fez" — a separação é visível, não só estrutural.
+- **FR4** O registro (`WashDayScreen`) ganha uma seção **Finalização** própria, **logo depois** de
+  "Como você fez": é encostada nas catorze técnicas que a separação precisa ficar visível.
 - **FR5** A resposta persiste: depois do reload, a pergunta **não volta**.
 - **FR6** Idempotência: a PK é o hub e a escrita é `upsert`. Toque repetido, retry depois de resposta
   perdida e dois aparelhos produzem **uma** linha.
@@ -155,7 +155,7 @@ Três travas, porque a proibição existia só em prosa e a lista já aceitava o
   check-in → responder → reload → a resposta continua lá e a pergunta não volta.
 - **AC2** Trocar `Finalizei` para `Pulei dessa vez` grava uma linha só, medida no banco.
 - **AC3** Tocar na resposta marcada tira a resposta, e o estado volta a "ainda não disse".
-- **AC4** O `WashDayScreen` mostra **Finalização** como seção própria, fora de "Como você fez".
+- **AC4** O `WashDayScreen` mostra **Finalização** como seção própria, logo depois de "Como você fez".
 - **AC5** O check-in continua acessível com a finalização não respondida (NG4).
 - **AC6** Os três testes do §8 estão verdes, e cada um falha se a fusão for tentada.
 - **AC7** pgTAP: posse nas duas pontas, RLS ligada e forçada, grants exatamente os do §7, hub de

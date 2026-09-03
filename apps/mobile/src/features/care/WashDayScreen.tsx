@@ -353,8 +353,8 @@ export function WashDayScreen({
           Seu registro
         </Text>
         <Text tone="muted">
-          Marque o que usou, como seu couro esteve e como você fez. Nada aqui é obrigatório, e dá para voltar
-          depois.
+          Marque o que usou, como seu couro esteve, como você fez e se finalizou. Nada aqui é obrigatório, e
+          dá para voltar depois.
         </Text>
       </Stack>
 
@@ -439,31 +439,6 @@ export function WashDayScreen({
       </Stack>
 
       <Stack gap="md">
-        {/*
-          SPEC-039 FR4 — **seção própria, e acima de "Como você fez".** A separação não é estética:
-          a finalização é uma etapa do processo, e a técnica é uma maneira de fazer (BR3). Pô-la
-          entre os chips de técnica seria exatamente a fusão que a D-102 proibiu, e a lista de lá
-          aceitaria o valor sem erro nenhum — por isso a barreira do §8 é teste, não comentário.
-
-          Aqui não há vocabulário de finalização: **quais** finalizações e como fazê-las são o `F38`,
-          atrás do gate D-26/D-70.
-        */}
-        <Text variant="overline" tone="accent" accessibilityRole="header">
-          Finalização
-        </Text>
-        <Row>
-          {FINISH_STATUSES.map((value) => (
-            <Chip
-              key={value}
-              label={FINISH_LABEL[value]}
-              selected={state.marked.finishStatus === value}
-              onPress={() => chooseFinish(value)}
-            />
-          ))}
-        </Row>
-      </Stack>
-
-      <Stack gap="md">
         <Text variant="overline" tone="accent" accessibilityRole="header">
           Como você fez
         </Text>
@@ -480,6 +455,32 @@ export function WashDayScreen({
               />
             );
           })}
+        </Row>
+      </Stack>
+
+      <Stack gap="md">
+        {/*
+          SPEC-039 FR4 — **seção própria, logo depois de "Como você fez".** A vizinhança é
+          deliberada: é encostada nas catorze técnicas que a separação precisa ficar visível. Uma
+          técnica responde *como*; a etapa responde *se aconteceu* (BR3), e fundi-las é o que a
+          D-102 proibiu — a lista de lá aceitaria o valor sem erro nenhum, e é por isso que a
+          barreira do §8 é teste e não comentário.
+
+          Aqui não há vocabulário de finalização: **quais** finalizações e como fazê-las são o `F38`,
+          atrás do gate D-26/D-70.
+        */}
+        <Text variant="overline" tone="accent" accessibilityRole="header">
+          Finalização
+        </Text>
+        <Row>
+          {FINISH_STATUSES.map((value) => (
+            <Chip
+              key={value}
+              label={FINISH_LABEL[value]}
+              selected={state.marked.finishStatus === value}
+              onPress={() => chooseFinish(value)}
+            />
+          ))}
         </Row>
       </Stack>
     </Screen>

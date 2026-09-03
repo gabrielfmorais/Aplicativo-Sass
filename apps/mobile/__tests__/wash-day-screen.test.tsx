@@ -352,12 +352,12 @@ describe('WashDayScreen (SPEC-024)', () => {
  * mora no core (`finish-step.test.ts`).
  */
 describe('WashDayScreen — a finalização (SPEC-039)', () => {
-  it('é uma seção própria, separada de "Como você fez"', async () => {
+  it('é uma seção própria, logo depois de "Como você fez"', async () => {
     const s = await renderScreen(makeWashDays());
     await waitFor(() => s.getByText('Finalização'));
 
     const tree = JSON.stringify(s.toJSON());
-    expect(tree.indexOf('Finalização')).toBeLessThan(tree.indexOf('Como você fez'));
+    expect(tree.indexOf('Como você fez')).toBeLessThan(tree.indexOf('Finalização'));
     s.getByText('Finalizei');
     s.getByText('Pulei dessa vez');
   });

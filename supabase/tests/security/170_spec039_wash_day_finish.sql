@@ -2,7 +2,7 @@
 -- contra a fusão com as técnicas.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(16);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values ('00000000-0000-4000-8000-000000000f11', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'f11@example.test'),
