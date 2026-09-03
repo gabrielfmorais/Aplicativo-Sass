@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-041 |
-| Status | Em implementação |
+| Status | **DONE** — validada no DEV real a 390px em 2026-09-03 |
 | Owner | dono do produto |
 | Bounded Context | Care Tracking (leitura) + Hoje |
 | Related ADRs | D-26/D-70 (gate de domínio), D-47/D-48 (necessidade), D-104 |
@@ -102,3 +102,4 @@ substantiva e cai no gate D-26/D-70 (D-104).
 | Data | Mudança |
 |---|---|
 | 2026-09-03 | SPEC criada. Leitura sobre dados existentes, sem migration e sem gate. |
+| 2026-09-03 | Validada no DEV real a 390px: marcar produto no registro → o próximo cuidado do mesmo tipo mostra "da última vez". **Achado que só o DEV viu:** a `Section` declarava `shelf` e não repassava, então o painel chegava só ao cartão de foco — e o teste perguntava "existe?" em vez de "em quantos?". Corrigido nos dois. |
