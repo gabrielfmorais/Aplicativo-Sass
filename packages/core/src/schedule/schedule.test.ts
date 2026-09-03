@@ -33,8 +33,9 @@ const snapshot = (overrides: Partial<HairProfileInput> = {}): HairProfileSnapsho
 });
 
 const types = (s: HairProfileSnapshot): CareTypeCode[] =>
-  buildPlan(s, STARTS_ON).cares.map((c) => c.careTypeCode);
-const dates = (s: HairProfileSnapshot): string[] => buildPlan(s, STARTS_ON).cares.map((c) => c.plannedDate);
+  buildPlan(s, STARTS_ON, undefined, 'v1').cares.map((c) => c.careTypeCode);
+const dates = (s: HairProfileSnapshot): string[] =>
+  buildPlan(s, STARTS_ON, undefined, 'v1').cares.map((c) => c.plannedDate);
 
 describe('schedule engine v1 — golden fixtures (SPEC-004 AC1/AC12, D-67)', () => {
   it('sessions/week come from wash frequency and drive the offsets (§5/§9)', () => {
@@ -109,7 +110,7 @@ describe('schedule engine v1 — golden fixtures (SPEC-004 AC1/AC12, D-67)', () 
 
   it('reconstruction replaces exactly one care, the first on/after day 14 (§8)', () => {
     const s = snapshot({ chemicalTreatments: ['bleaching_or_highlights'], heatUsage: 'almost_daily' });
-    const plan = buildPlan(s, STARTS_ON);
+    const plan = buildPlan(s, STARTS_ON, undefined, 'v1');
     expect(plan.assessment.includeReconstruction).toBe(true);
 
     const reconstructions = plan.cares.filter((c) => c.careTypeCode === 'reconstruction');
@@ -124,13 +125,15 @@ describe('schedule engine v1 — golden fixtures (SPEC-004 AC1/AC12, D-67)', () 
 
   it('is deterministic and reads no clock: same input + version ⇒ same plan (AC1/AC3)', () => {
     const s = snapshot({ washFrequency: 'three_to_four_weekly', primaryGoal: 'softness_and_hydration' });
-    expect(buildPlan(s, STARTS_ON)).toEqual(buildPlan(s, STARTS_ON));
+    expect(buildPlan(s, STARTS_ON, undefined, 'v1')).toEqual(buildPlan(s, STARTS_ON, undefined, 'v1'));
     // startsOn is an input: a different day only shifts the dates.
-    expect(buildPlan(s, localDateFromString('2026-09-02')).cares[0]?.plannedDate).toBe('2026-09-02');
+    expect(buildPlan(s, localDateFromString('2026-09-02'), undefined, 'v1').cares[0]?.plannedDate).toBe(
+      '2026-09-02',
+    );
   });
 
   it('stamps both algorithm versions and the profile id as the plan provenance (AC8/§11)', () => {
-    const { plan } = buildPlan(snapshot(), STARTS_ON);
+    const { plan } = buildPlan(snapshot(), STARTS_ON, undefined, 'v1');
     expect(plan).toEqual({
       hairProfileId: '11111111-1111-4111-8111-111111111111',
       startsOn: '2026-09-01',
@@ -140,7 +143,12 @@ describe('schedule engine v1 — golden fixtures (SPEC-004 AC1/AC12, D-67)', () 
   });
 
   it('exposes the schedule rationale next to the assessment one, deduplicated (§11)', () => {
-    const { evidenceCodes } = buildPlan(snapshot({ primaryGoal: 'softness_and_hydration' }), STARTS_ON);
+    const { evidenceCodes } = buildPlan(
+      snapshot({ primaryGoal: 'softness_and_hydration' }),
+      STARTS_ON,
+      undefined,
+      'v1',
+    );
     expect(evidenceCodes).toEqual(['goal_hydration', 'wash_frequency_baseline']);
   });
 });
@@ -158,6 +166,8 @@ describe('schedule rules governance (ADR-007 A1 / D-26 / D-67)', () => {
   });
 
   it('exposes the version stamped on every plan', () => {
+    // SPEC-038: a versao corrente passou a ser a v2. Este bloco continua sendo sobre o v1, e por isso
+    // todos os goldens acima nomeiam 'v1' explicitamente em vez de depender do padrao.
     expect(CURRENT_SCHEDULE_VERSION).toBe('v1');
   });
 });
@@ -184,13 +194,22 @@ describe('schedule engine v1 — imutável mesmo com o vocabulário maior (SPEC-
       { washFrequency: 'varies' },
       { primaryGoal: 'recover_chemical_or_heat_damage', chemicalTreatments: ['bleaching_or_highlights'] },
       { heatUsage: 'almost_daily', currentConcerns: ['breakage'] },
+      // Os três sinais de uma vez: é o perfil em que o v2 emite restauração, e é justamente por
+      // isso que ele precisa estar aqui — a barreira só vale se testar o caso que a violaria.
+      {
+        chemicalTreatments: ['bleaching_or_highlights'],
+        heatUsage: 'almost_daily',
+        currentConcerns: ['breakage'],
+      },
       { hairPattern: 'coily', currentConcerns: ['dryness', 'frizz'] },
       { perceivedPorosity: 'wets_and_dries_fast', routineAvailability: 'minimal' },
       { perceivedPorosity: 'slow_to_wet', routineAvailability: 'generous' },
     ];
 
     for (const over of combos) {
-      const types = new Set(buildPlan(snapshot(over), STARTS_ON).cares.map((c) => c.careTypeCode));
+      const types = new Set(
+        buildPlan(snapshot(over), STARTS_ON, undefined, 'v1').cares.map((c) => c.careTypeCode),
+      );
       expect([...types].sort()).not.toContain('restoration');
     }
   });
@@ -201,10 +220,15 @@ describe('schedule engine v1 — imutável mesmo com o vocabulário maior (SPEC-
    * quebra antes de a tela mentir.
    */
   it('porosidade e disponibilidade não mexem no plano do v1', () => {
-    const plain = buildPlan(snapshot({}), STARTS_ON);
+    const plain = buildPlan(snapshot({}), STARTS_ON, undefined, 'v1');
     for (const perceivedPorosity of ['slow_to_wet', 'wets_and_dries_fast', 'unknown'] as const) {
       for (const routineAvailability of ['minimal', 'generous', 'varies'] as const) {
-        const other = buildPlan(snapshot({ perceivedPorosity, routineAvailability }), STARTS_ON);
+        const other = buildPlan(
+          snapshot({ perceivedPorosity, routineAvailability }),
+          STARTS_ON,
+          undefined,
+          'v1',
+        );
         expect(other.cares).toEqual(plain.cares);
         expect(other.evidenceCodes).toEqual(plain.evidenceCodes);
       }

@@ -1,5 +1,5 @@
 import type { EvidenceCode, HairProfilePort, LocalDate } from '@app/core';
-import { CURRENT_ASSESSMENT_VERSION, CURRENT_SCHEDULE_VERSION, buildPlan } from '@app/core';
+import { CURRENT_ASSESSMENT_VERSION, buildPlan, isKnownScheduleVersion } from '@app/core';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -24,7 +24,7 @@ import { EVIDENCE_LABEL } from '@/features/plan/copy';
  * que ela não tem.
  *
  * **E quando não dá para explicar, não explica** (FR4). Snapshot ausente, leitura falha ou plano
- * gerado por uma versão de engine que não é a atual: a seção some. Uma explicação plausível e errada
+ * gerado por uma versão de engine que este app não conhece: a seção some. Uma explicação plausível e errada
  * é pior que nenhuma.
  */
 
@@ -50,17 +50,26 @@ export function PlanRationale({
   useEffect(() => {
     let active = true;
     /**
-     * A versão é conferida **antes** da leitura: reproduzir a avaliação com a engine de hoje um
-     * plano gerado por outra daria uma explicação coerente e falsa. Hoje só existe a v1, então isto
-     * nunca dispara — e é exatamente por isso que precisa estar escrito agora, enquanto é barato.
+     * A versão é conferida **antes** da leitura: reproduzir com a engine de hoje um plano gerado
+     * por outra daria uma explicação coerente e falsa.
+     *
+     * ⚠️ **SPEC-038 — e agora existe mais de uma versão, então a checagem mudou de forma.** Antes
+     * ela exigia que o plano fosse da versão **corrente**; com a v2 no repositório, isso apagaria a
+     * explicação de todo plano gerado pela v1 — a tela se calaria, corretamente, mas por um motivo
+     * evitável. O certo não é comparar com a versão de hoje: é **reproduzir com a versão que gerou
+     * o plano**, que é justamente o dado que o plano guarda (SPEC-004 §11).
+     *
+     * Uma versão que este app não conhece continua calando a seção: explicação plausível e errada é
+     * pior que nenhuma (FR4), e uma engine que não está aqui não pode reproduzir nada.
      */
     if (
       assessmentAlgorithmVersion !== CURRENT_ASSESSMENT_VERSION ||
-      scheduleAlgorithmVersion !== CURRENT_SCHEDULE_VERSION
+      !isKnownScheduleVersion(scheduleAlgorithmVersion)
     ) {
       setState('unavailable');
       return;
     }
+    const engineOfThisPlan = scheduleAlgorithmVersion;
     hairProfile
       .getById(hairProfileId)
       .then((snapshot) => {
@@ -73,7 +82,9 @@ export function PlanRationale({
          *
          * Sem preferências: elas mudam **onde** os cuidados caem (SPEC-015), nunca a evidência.
          */
-        setState(snapshot ? buildPlan(snapshot, startsOn).evidenceCodes : 'unavailable');
+        setState(
+          snapshot ? buildPlan(snapshot, startsOn, undefined, engineOfThisPlan).evidenceCodes : 'unavailable',
+        );
       })
       // Falhar em explicar não é falhar em nada que ela precise para agir: a seção some, e a Hoje
       // continua inteira. Nenhum "tentar novamente" para algo que ninguém pediu.

@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-038 |
-| Status | **Fatia 1 implementada** (o quarto tipo no vocabulário) · fatia 2 (motor v2) em curso |
+| Status | **Fatias 1 e 2 implementadas** — o motor v2 existe, está testado e ligado ao despacho. **Ativação pendente de duas ações de ambiente** (ver §19) |
 | Owner | dono do produto |
 | Bounded Context | Schedule (`packages/core/src/schedule`) + Content + design tokens |
 | Related ADRs | **ADR-001 §2** (versão liberada é imutável), **ADR-007 A1** (registro de regras), D-26, D-67, D-102 |
@@ -98,8 +98,8 @@ Nenhum dado novo é coletado.
 
 ## 15. Edge Cases
 
-- EC1 — **Plano gerado pelo v1.** Continua legível e reproduzível; a SPEC-017 já se cala quando a
-  versão do plano não é a atual.
+- EC1 — **Plano gerado pelo v1.** Continua legível e **reproduzível pela engine que o gerou** (§20);
+  a SPEC-017 só se cala quando a versão do plano é desconhecida deste app.
 - EC2 — **Perfil sem sinal de dano.** Zero reconstruções e zero restaurações no ciclo.
 - EC3 — **Ciclo de 4 vagas** (lavagem 1x/semana) com necessidade alta: as vagas são poucas, então a
   distribuição arredonda — e o cuidado forte não pode ocupar todas.
@@ -114,7 +114,30 @@ Nenhum dado novo é coletado.
 - AC4 — O v2 é invariante a `routineAvailability` e `perceivedPorosity`. **Teste, fatia 2** — é a
   barreira do NG1/NG2.
 - AC5 — Regras do v2 registradas e `candidate`; `assertProductionRules` **lança**. **Teste.**
-- AC6 — Validação a 390px no DEV real.
+- AC6 — Validação a 390px no DEV real: o app segue íntegro com o quarto tipo no vocabulário e com o v2 no repositório.
+
+## 19. Ativação — o que falta, e por que não é do agente
+
+⚠️ **A v2 está pronta e a versão corrente segue sendo a v1.** Não é hesitação: ligar exige duas
+ações de ambiente que a governança não dá ao agente.
+
+1. **A migration `20260911000000_care_type_restoration.sql` precisa estar aplicada** no ambiente
+   alvo. Sem ela, um plano com Restauração é recusado pelo CHECK de `scheduled_cares`.
+2. **A Edge Function `generate-plan` precisa ser redeployada** com este bundle. Sem isso o preview
+   do cliente usa a v2 e o plano gravado usa a v1 — **as duas leituras do mesmo cronograma passam a
+   discordar**, que é exatamente o que `buildPlan` como caminho único existe para impedir. Deploy é
+   ação §4: decisão humana, nunca efeito colateral de merge (o próprio workflow diz isso).
+
+Feitas as duas, ligar é **uma linha** em `build-plan.ts`.
+
+## 20. Compatibilidade histórica — o que a troca teria quebrado
+
+A SPEC-017 reproduzia a evidência exigindo que o plano fosse da versão **corrente**. Com uma segunda
+versão no repositório, isso apagaria a explicação de **todo plano gerado pela v1** — a tela se
+calaria corretamente, mas por um motivo evitável.
+
+Corrigido antes de a troca acontecer:  aceita a versão, e a tela reproduz com **a engine
+que gerou aquele plano**. Uma versão que o app não conhece continua calando a seção.
 
 ## 23. Open Questions
 
@@ -130,3 +153,4 @@ Nenhum dado novo é coletado.
 | Data | Mudança |
 |---|---|
 | 2026-09-03 | v0.1 — fatia 1: o quarto tipo no vocabulário, sem tocar no comportamento do v1. |
+| 2026-09-03 | v0.2 — fatia 2: motor v2 por necessidade. **Dois defeitos achados ao imprimir o plano e olhar**, não pelos testes: a quota de condicionamento era calculada e ignorada (a ênfase não mudava proporção nenhuma), e a escolha empatada abria pelo eixo errado. Barreira acrescentada. **Um terceiro achado ao ligar a versão:** escolha e despacho estavam em módulos diferentes, e a constante apontou para a v2 enquanto o padrão do `buildPlan` seguia na v1. |
