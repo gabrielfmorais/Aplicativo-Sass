@@ -945,7 +945,77 @@ Publicar sozinho. Pôr dado que ela não escolheu. Vazar identificador interno. 
 
 **Estado.** `F45`/`F46` **COMMITTED** (`F45` **INEGOCIÁVEL**) · `F47`/`P25` **DEFERRED BY DEPENDENCY**.
 
-# 26. Como usar este documento
+---
+
+# 26. Produtos na execução, e as sugestões — `F48` · `P18`/`P19`/`P20`
+
+**Objetivo da usuária.** Na hora de fazer o cuidado, ver **o que ela tem** para aquele momento — sem procurar, sem lembrar de cabeça.
+
+**Problema.** Hoje o produto entra **depois**: o `F25` registra o que ela usou quando o cuidado já acabou. No momento em que ela vai fazer, a tela não sabe nada sobre o vidro que está na mão dela.
+
+## Três responsabilidades diferentes, que não podem virar uma
+
+| | quando | o quê |
+|---|---|---|
+| `F25` Wash Day | **depois** | registra o que ela usou |
+| `F48` Produtos na execução | **durante** | mostra o que ela **já tem** para aquele momento |
+| `P18` Recomendações | — | **sugere** o que ela poderia usar |
+
+⚠️ **Fundir as três é o erro fácil.** Mostrar o que é dela não é recomendar; recomendar não é registrar. Cada uma tem regra e gate diferentes — e a do meio é a única que não precisa de revisão de domínio, porque **não decide nada por ela**.
+
+**Onde vale (`F48`), progressivamente.** Hidratação · Nutrição · Reconstrução · **Restauração** · **Finalização** (`F37`) · **Óleo** (`F39`) — e as etapas seguintes onde produto realmente faz parte da execução.
+
+**O que mostra.** Nome, marca, imagem do produto, o contexto daquela execução, e a seleção vinda da **Minha Prateleira** (`F26`). O vínculo com Wash Day e histórico vem depois, pela mesma linha.
+
+## Regras importantes
+
+- ⚠️ **O que ela já possui vem antes de sugerir compra** (§8, regra 1). Sempre.
+- ⚠️ **Não se cria regra capilar substantiva só para escolher produto.** Associar produto a tipo de cuidado por composição ou indicação é conteúdo de domínio ⇒ **gate D-26/D-70**. O `F48` mostra **a escolha dela**; ele não decide por ela.
+- **A sugestão (`P18`/`P19`/`P20`) considera:** perfil · objetivo · **execução atual** · histórico · produtos já possuídos · resultados anteriores · orçamento quando aplicável.
+- **Nada é inventado:** produto, composição, indicação, preço, link, benefício ou disponibilidade (D-100).
+
+**Relações.** `F32` catálogo · `F26` prateleira · `F25`/`F27` Wash Day · `F37`/`F38` finalização · `F39` óleo · `P6` Smart Shelf · `P8` padrões · `T2` afiliados.
+
+**Estado.** `F48` **COMMITTED** · `P18`/`P19`/`P20` **DEFERRED BY DEPENDENCY**.
+
+---
+
+# 27. Afiliados e parceria comercial — `T2`
+
+**Objetivo do negócio.** Monetizar sugestões de produtos reais sem gastar a única coisa que faz a sugestão valer alguma coisa: **a confiança dela**.
+
+⚠️ **Transversal, como a Community.** Não é tier, não cria plano novo, e **não altera a D-83**: continua existindo **um** plano pago, o PREMIUM. Afiliado é receita, não capability paga.
+
+**Formas previstas.** Afiliados · parceiros · comissão por venda · comissão por conversão/clique quando aplicável.
+
+## As cinco obrigações — elas são a capability, não o contorno dela
+
+1. **Comissão nunca torna um produto "melhor recomendado" em silêncio.** A ordem de preferência de §8 é a ordem, com ou sem afiliado.
+2. **Recomendação pessoal e monetização continuam distinguíveis** para ela.
+3. **Conteúdo patrocinado/afiliado é transparente**, sempre.
+4. **Utilidade para ela vem primeiro.**
+5. **Não empurrar compra quando ela já tem produto adequado** — é a regra 1 de §8, agora com dinheiro do outro lado, e é por isso que ela fica mais difícil de cumprir e mais importante de escrever.
+
+> **A confiança da recomendação vale mais que a comissão.** Quando as duas colidirem, a comissão cede.
+
+## O que NÃO deve fazer
+
+⛔ Virar **marketplace genérico**. Reordenar por comissão. Esconder que um link é afiliado. Sugerir compra para quem já tem o produto. Deixar o catálogo (`F32`) virar vitrine — ele existe para ela **cadastrar o vidro dela mais rápido**, não para vender.
+
+**Depende de.** `F32` catálogo real + `P18` recomendações existirem, e de **contrato/parceria real** ⇒ **TRUE HUMAN GATE** (custo, contrato, obrigação legal).
+
+## A cadeia, inteira
+
+```
+CATÁLOGO REAL (F32) → MINHA PRATELEIRA (F26) → EXECUÇÃO DO PLANO (F48) → WASH DAY (F25/F27)
+   → HISTÓRICO → SMART SHELF (P6) → HAIR INTELLIGENCE (P2) → RECOMENDAÇÕES (P18) → AFILIADOS (T2)
+```
+
+Cada elo só existe porque o anterior existe — e é essa cadeia que justifica o **vocabulário fechado** em toda a base. **Scanner/EAN (`F33`)** continua COMMITTED para etapa posterior ao `F32`.
+
+**Estado.** **COMMITTED**, com dependência de contrato real.
+
+# 28. Como usar este documento
 
 **Ao escolher a próxima capability:** o [backlog](MASTER-PRODUCT-BACKLOG.md) diz o que falta e o que depende do quê; este documento diz o que a capability **significa**. Os dois juntos decidem; nenhum dos dois sozinho.
 
@@ -955,10 +1025,11 @@ Publicar sozinho. Pôr dado que ela não escolheu. Vazar identificador interno. 
 
 **Quando encontrar um caminho melhor:** use-o. Este documento fixa **o que resolver**, não como. Se a mudança alterar materialmente o objetivo ou a proposta de valor, aí é decisão material de produto ⇒ human gate.
 
-## 27. Change log
+## 29. Change log
 
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-08-31 | v0.1 — Blueprint criado (D-94) como complemento canônico do MASTER PRODUCT SCOPE (D-92). Tratamento funcional completo das capabilities **ainda não construídas**, que é onde a intenção corre risco de se perder; as **DONE** apontam para a SPEC, que já preserva a intenção com mais autoridade do que um resumo preservaria. Fixa em §1 os princípios inequívocos — Free executa e registra / Premium interpreta, um único tier pago, e as três proibições de honestidade (não inventar causalidade, não inventar dados, não diagnosticar). | agente (§0.3), a partir de decisão humana |
 | 2026-09-02 | v0.2 — **D-102 (dono).** Cinco seções novas: §19 identidade (avatares Huna no Free, foto própria no Premium), §20 avaliação capilar ampliada, §21 cronograma por necessidade com a **Restauração** como quarto tipo, §22 **Tratamento → Finalização** e a área de Finalizações, §23 óleo com rotina própria. §7 do backlog passa a fixar o fluxo `Lavou → Tratamento → Finalização → Resultado`. **O achado que muda o trabalho de hoje:** a avaliação que o dono pediu **já é quase toda coletada** — falta porosidade percebida e rotina/disponibilidade —, e o que realmente precisa de cuidado agora é não fechar porta para **um quarto tipo de cuidado**, uma **etapa de finalização** pendurada na execução, um **quinto intent** de notificação e uma **foto de perfil**. | agente (§0.3), a partir de decisão humana |
 | 2026-09-03 | **D-103 (dono).** Duas frentes novas COMMITTED, registradas sem interromper o F36 e sem implementação: **Jornada Huna** (`F40` pontos/progressão/níveis · `F41` sequência · `F42` marcos e conquistas · `F43` desafios · `F44` ranking) e **Social Sharing** (`F45` fundação **INEGOCIÁVEL** · `F46` momentos · `F47` recap anual · `P25` cards Premium). **A regra que define a gamificação:** recompensa **consistência com o plano**, nunca quantidade de tratamentos — sequência **não diária**, pausa congela, Free participa, Premium sem multiplicador. **Share é transversal e Free**, com `preview → ela decide → share` e sem `user_id` em card nenhum. **Achado ao registrar:** existe barreira de teste viva na Progresso reprovando `score`/`nota`/`pontuação`/`aderência`/`%` — não é contradição (o recusado é pontuar **cabelo e ciclo**; a Jornada mede **aderência**), mas obriga a Jornada a ter **superfície própria**. | agente (§0.3), a partir de decisão humana |
+| 2026-09-03 | **D-104 (dono).** Adendo de produtos reais e monetização, registrado sem mudar a prioridade. **Auditado antes de criar:** o catálogo pedido já era o `F32` inteiro, o scanner o `F33`, e a camada de sugestão a `P18`/`P19`/`P20` — expandidos, não duplicados. Novas por responsabilidade distinta: **`F48` produtos na execução** (mostra no momento do cuidado o que ela já tem — não é o `F25`, que registra depois, nem a `P18`, que recomenda) e **`T2` afiliados e parceria comercial** (transversal, não é tier, não altera a D-83). §8 ganhou as **cinco obrigações numeradas** de monetização. A cadeia estrutural ficou registrada inteira, com o catálogo na frente e os afiliados no fim. | agente (§0.3), a partir de decisão humana |
