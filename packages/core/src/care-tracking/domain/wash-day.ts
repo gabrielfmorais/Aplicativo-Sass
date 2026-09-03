@@ -63,6 +63,30 @@ export const ScalpFeelSchema = z.enum(SCALP_FEELS);
 export type ScalpFeel = z.infer<typeof ScalpFeelSchema>;
 
 /**
+ * SPEC-039 (F37) — a etapa de finalização daquela execução.
+ *
+ * O fluxo canônico é `LAVOU → TRATAMENTO → FINALIZAÇÃO → RESULTADO/CHECK-IN` (Blueprint §22), e até
+ * aqui ele existia no Blueprint e em mais nenhum lugar.
+ *
+ * ⚠️ **Isto NÃO é vocabulário de finalização.** `done` e `skipped` dizem **se a etapa aconteceu** —
+ * o mesmo tipo de fato que "fiz o cuidado". **Quais** finalizações, como fazer e "recomendadas para
+ * o seu cabelo" são conteúdo capilar substantivo e são o `F38`, atrás do gate D-26/D-70.
+ *
+ * ⚠️ **Finalização não é técnica (BR3), e a diferença não é de gosto:** uma técnica responde *como*;
+ * a etapa responde *se aconteceu*. Pôr `finalizei` em {@link WASH_DAY_TECHNIQUES} afirmaria que
+ * finalizar é uma maneira de fazer, quando é uma parte do processo — e a lista de lá aceitaria o
+ * valor sem erro nenhum, que é exatamente por que a barreira do §8 é teste e não comentário.
+ *
+ * `skipped` é uma **resposta**; a ausência (`null`) é "ainda não disse" (BR1). São coisas
+ * diferentes, e nenhuma delas se preenche por default.
+ */
+export const FINISH_STATUSES = ['done', 'skipped'] as const;
+
+export const FinishStatusSchema = z.enum(FINISH_STATUSES);
+
+export type FinishStatus = z.infer<typeof FinishStatusSchema>;
+
+/**
  * O registro de uma execução, como a tela o lê.
  *
  * `washDayId` nulo significa **nunca aberto** — não "vazio". A diferença importa uma vez: um
@@ -87,4 +111,10 @@ export type WashDayRecord = {
   readonly techniques: readonly WashDayTechnique[];
   /** SPEC-025 — como o couro esteve, ou `null` quando ela não quis dizer (um estado válido). */
   readonly scalpFeel: ScalpFeel | null;
+  /**
+   * SPEC-039 — a etapa de finalização: feita, pulada, ou `null` para "ainda não disse".
+   *
+   * Campo próprio, e não um valor dentro de `techniques`: é a separação da BR3 aparecendo no tipo.
+   */
+  readonly finishStatus: FinishStatus | null;
 };

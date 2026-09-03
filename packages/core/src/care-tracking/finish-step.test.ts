@@ -1,0 +1,96 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  FINISH_STATUSES,
+  FinishStatusSchema,
+  WASH_DAY_TECHNIQUES,
+  WashDayTechniqueSchema,
+} from './domain/wash-day.ts';
+
+/**
+ * SPEC-039 §8 (F37) — **a barreira estrutural contra a fusão.**
+ *
+ * A D-102 diz, em prosa, que finalização e técnica são etapas diferentes e que fundi-las destrói o
+ * `P8`. Prosa não reprova commit. E a fusão não é hipotética: **seis das catorze técnicas já são
+ * movimentos de finalização** (`air_dried`, `blow_dried`, `diffuser`, `scrunched`,
+ * `heat_protectant`, `protective_style`), então a lista aceitaria `fitagem` amanhã sem que nada
+ * apitasse — nem o compilador, nem o `CHECK`, nem uma revisão distraída.
+ *
+ * Estes testes são o apito.
+ */
+describe('finalização é uma etapa, não uma técnica (SPEC-039 §8)', () => {
+  /**
+   * TRAVA 1 — a lista de técnicas está **congelada** no que a SPEC-024 aprovou.
+   *
+   * Acrescentar uma técnica de lavagem continua possível: é mudar esta lista, de propósito, tendo
+   * lido por quê. O que deixa de ser possível é acrescentar **em silêncio** — que é como uma
+   * finalização entraria.
+   */
+  it('as catorze técnicas da SPEC-024 são exatamente estas', () => {
+    expect([...WASH_DAY_TECHNIQUES]).toEqual([
+      'pre_wash_oil',
+      'scalp_massage',
+      'double_cleanse',
+      'co_wash',
+      'left_on_longer',
+      'cold_rinse',
+      'detangled_with_fingers',
+      'wide_tooth_comb',
+      'air_dried',
+      'blow_dried',
+      'heat_protectant',
+      'scrunched',
+      'diffuser',
+      'protective_style',
+    ]);
+    // Se você chegou aqui acrescentando uma FINALIZAÇÃO (fitagem, dedoliss, day after, técnica por
+    // curvatura): ela não mora nesta lista. A etapa é `wash_day_finish` (SPEC-039), e o vocabulário
+    // de técnicas de finalização é o `F38` — conteúdo capilar substantivo, atrás do gate D-26/D-70.
+  });
+
+  /**
+   * TRAVA 2 — os dois vocabulários não se tocam.
+   *
+   * Uma técnica responde *como*; a etapa responde *se aconteceu* (BR3). Um valor que servisse aos
+   * dois seria a prova de que alguém confundiu as perguntas.
+   */
+  it('nenhum valor pertence aos dois vocabulários', () => {
+    const techniques = new Set<string>(WASH_DAY_TECHNIQUES);
+    for (const status of FINISH_STATUSES) {
+      expect(techniques.has(status)).toBe(false);
+    }
+    for (const technique of WASH_DAY_TECHNIQUES) {
+      expect(FinishStatusSchema.safeParse(technique).success).toBe(false);
+    }
+    for (const status of FINISH_STATUSES) {
+      expect(WashDayTechniqueSchema.safeParse(status).success).toBe(false);
+    }
+  });
+
+  /**
+   * TRAVA 3 — a etapa não é um vocabulário de finalização disfarçado.
+   *
+   * `done` e `skipped` dizem se aconteceu. No dia em que alguém tentar pendurar aqui o **conteúdo**
+   * do `F38` — que finalização foi, para que serve, para quem é —, este teste cai, e a conversa que
+   * ele força é a do gate D-26/D-70.
+   */
+  it('a etapa tem duas respostas, e nenhuma delas nomeia uma técnica', () => {
+    expect([...FINISH_STATUSES]).toEqual(['done', 'skipped']);
+    for (const invented of ['fitagem', 'dedoliss', 'day_after', 'plopping', 'finger_coil']) {
+      expect(FinishStatusSchema.safeParse(invented).success).toBe(false);
+    }
+  });
+
+  /**
+   * BR1 — `skipped` é uma **resposta**; a ausência é "ainda não disse".
+   *
+   * A mesma distinção do `F35`, e pela mesma razão: preencher a ausência com um valor faria o
+   * produto ler como fato dela algo que ela nunca disse. É por isso que a coluna nasceu **sem
+   * DEFAULT** e que o tipo do registro é `FinishStatus | null`, e não `FinishStatus`.
+   */
+  it('pular é uma resposta, e não a ausência de uma', () => {
+    expect(FinishStatusSchema.safeParse('skipped').success).toBe(true);
+    expect(FinishStatusSchema.safeParse(null).success).toBe(false);
+    expect(FinishStatusSchema.safeParse('unknown').success).toBe(false);
+  });
+});

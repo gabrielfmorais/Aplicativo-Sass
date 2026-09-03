@@ -208,3 +208,17 @@ insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
   ('authenticated', 'wash_day_scalp', 'INSERT', 'SPEC-025'),
   ('authenticated', 'wash_day_scalp', 'UPDATE', 'SPEC-025'),
   ('authenticated', 'wash_day_scalp', 'DELETE', 'SPEC-025');
+
+-- SPEC-039 §7 (F37): the finish step is one answer per Wash Day, so UPDATE is what makes changing
+-- it a single atomic write (`on conflict do update`) rather than a delete+insert with a window in
+-- which there is no answer. DELETE because taking the answer back — going back to "hasn't said" —
+-- is a valid state and is hers (FR8).
+--
+-- Same reason as the scalp answer for it being its own table rather than a column on `wash_days`: a
+-- column-level `grant update (finish_status)` lives in `pg_attribute.attacl`, and this guard reads
+-- `pg_class.relacl`.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'wash_day_finish', 'SELECT', 'SPEC-039'),
+  ('authenticated', 'wash_day_finish', 'INSERT', 'SPEC-039'),
+  ('authenticated', 'wash_day_finish', 'UPDATE', 'SPEC-039'),
+  ('authenticated', 'wash_day_finish', 'DELETE', 'SPEC-039');

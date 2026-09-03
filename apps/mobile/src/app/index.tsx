@@ -477,6 +477,7 @@ function AuthenticatedApp({
       // prateleira já fazia. Não há mais cópia empilhada dele para abrir por cima da Hoje.
       onOpenCycle={() => setTab('progress')}
       onOpenWashDay={setWashDay}
+      washDays={washDays}
       profile={profileChip}
       productCount={productCount}
       // A prateleira é aba: a sugestão leva **para a aba**, e não para uma cópia empilhada dela.

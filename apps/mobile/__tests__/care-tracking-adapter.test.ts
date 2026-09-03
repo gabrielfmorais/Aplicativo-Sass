@@ -54,6 +54,8 @@ const makeClient = (
   pause: Result = { data: null, error: null },
   // SPEC-024 FR7: quais execuções deste board já têm registro de Wash Day.
   washDays: Result = { data: [], error: null },
+  // SPEC-039 FR5: as etapas de finalização já respondidas, por hub.
+  finishes: Result = { data: [], error: null },
 ) => {
   const rpc = jest.fn(async (_fn: string, _args: Record<string, unknown>) => ({
     data: null,
@@ -102,7 +104,9 @@ const makeClient = (
             ? thenable(executions)
             : table === 'wash_days'
               ? thenable(washDays)
-              : thenable(checkIns),
+              : table === 'wash_day_finish'
+                ? thenable(finishes)
+                : thenable(checkIns),
   );
   return { client: { from, rpc } as unknown as SupabaseClient, rpc, selects };
 };
@@ -120,7 +124,8 @@ describe('care tracking adapter — reads (SPEC-005 §9)', () => {
       { count: 7, error: null },
       { data: null, error: null },
       // SPEC-024 FR7 — a execução 'e1' já tem registro; 'e2' não. A Hoje precisa da diferença.
-      ok([{ care_execution_id: 'e1' }]),
+      ok([{ id: 'w1', care_execution_id: 'e1' }]),
+      ok([{ wash_day_id: 'w1', finish_status: 'done' }]),
     );
     const boardResult = await createCareTrackingAdapter(client).getBoard();
     expect(boardResult).toEqual({
@@ -131,6 +136,8 @@ describe('care tracking adapter — reads (SPEC-005 §9)', () => {
       scheduleAlgorithmVersion: 'v1',
       pausedOn: null,
       washDayExecutionIds: ['e1'],
+      // SPEC-039 — a etapa vem pelo hub, e a Hoje a lê pela execução.
+      careFinishes: [{ careExecutionId: 'e1', status: 'done' }],
       cares: [
         {
           id: 'c1',

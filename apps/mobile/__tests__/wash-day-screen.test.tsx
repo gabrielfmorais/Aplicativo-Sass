@@ -11,7 +11,13 @@ const SHELF: readonly Product[] = [
   { id: 'p2', name: 'Shampoo do mercado', category: 'shampoo' },
 ];
 
-const EMPTY: WashDayRecord = { washDayId: null, products: [], techniques: [], scalpFeel: null };
+const EMPTY: WashDayRecord = {
+  washDayId: null,
+  products: [],
+  techniques: [],
+  scalpFeel: null,
+  finishStatus: null,
+};
 
 /** BR3/AC4 — ela usou e depois tirou da prateleira. O registro é do passado, e o passado não muda. */
 const ARCHIVED: Product = { id: 'p-old', name: 'Creme que acabou', category: 'leave_in' };
@@ -29,6 +35,7 @@ const makeWashDays = (over: Partial<WashDayPort> = {}): WashDayPort => ({
   markProduct: jest.fn(async () => undefined),
   markTechnique: jest.fn(async () => undefined),
   setScalpFeel: jest.fn(async () => undefined),
+  setFinishStatus: jest.fn(async () => undefined),
   ...over,
 });
 
@@ -100,6 +107,7 @@ describe('WashDayScreen (SPEC-024)', () => {
         products: [SHELF[1] as Product],
         techniques: ['co_wash' as const],
         scalpFeel: null,
+        finishStatus: null,
       })),
     });
     const s = await renderScreen(washDays);
@@ -130,6 +138,7 @@ describe('WashDayScreen (SPEC-024)', () => {
         products: [ARCHIVED],
         techniques: [],
         scalpFeel: null,
+        finishStatus: null,
       })),
     });
     const s = await renderScreen(washDays);
@@ -256,6 +265,7 @@ describe('WashDayScreen (SPEC-024)', () => {
         products: [],
         techniques: [],
         scalpFeel: 'balanced' as const,
+        finishStatus: null,
       })),
     });
     const s = await renderScreen(washDays);
@@ -333,5 +343,72 @@ describe('WashDayScreen (SPEC-024)', () => {
     ]) {
       expect(forbidden.some((p) => p.test(sample))).toBe(true);
     }
+  });
+});
+
+/**
+ * SPEC-039 FR4 (F37) — a finalização tem **seção própria** no registro, e não um chip entre as
+ * técnicas. A separação é a SPEC: fundi-las é o que a D-102 proibiu, e a barreira de vocabulário
+ * mora no core (`finish-step.test.ts`).
+ */
+describe('WashDayScreen — a finalização (SPEC-039)', () => {
+  it('é uma seção própria, logo depois de "Como você fez"', async () => {
+    const s = await renderScreen(makeWashDays());
+    await waitFor(() => s.getByText('Finalização'));
+
+    const tree = JSON.stringify(s.toJSON());
+    expect(tree.indexOf('Como você fez')).toBeLessThan(tree.indexOf('Finalização'));
+    s.getByText('Finalizei');
+    s.getByText('Pulei dessa vez');
+  });
+
+  it('marca a etapa pela porta, e não como técnica', async () => {
+    const washDays = makeWashDays();
+    const s = await renderScreen(washDays);
+    await waitFor(() => s.getByText('Finalizei'));
+
+    await fireEvent.press(s.getByText('Finalizei'));
+    await waitFor(() =>
+      expect(washDays.setFinishStatus).toHaveBeenCalledWith({
+        careExecutionId: EXECUTION,
+        finishStatus: 'done',
+      }),
+    );
+    expect(washDays.markTechnique).not.toHaveBeenCalled();
+  });
+
+  it('já respondida, tocar na mesma tira a resposta (FR8)', async () => {
+    const washDays = makeWashDays({
+      getFor: jest.fn(async () => ({
+        washDayId: 'w1',
+        products: [],
+        techniques: [],
+        scalpFeel: null,
+        finishStatus: 'skipped' as const,
+      })),
+    });
+    const s = await renderScreen(washDays);
+    await waitFor(() => s.getByText('Pulei dessa vez'));
+
+    await fireEvent.press(s.getByText('Pulei dessa vez'));
+    await waitFor(() =>
+      expect(washDays.setFinishStatus).toHaveBeenCalledWith({
+        careExecutionId: EXECUTION,
+        finishStatus: null,
+      }),
+    );
+  });
+
+  it('a escrita que falha volta atrás e diz qual foi', async () => {
+    const washDays = makeWashDays({
+      setFinishStatus: jest.fn(async () => {
+        throw new Error('offline');
+      }),
+    });
+    const s = await renderScreen(washDays);
+    await waitFor(() => s.getByText('Finalizei'));
+
+    await fireEvent.press(s.getByText('Finalizei'));
+    await waitFor(() => s.getByText(/Não foi possível marcar Finalizei/));
   });
 });

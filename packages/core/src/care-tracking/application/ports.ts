@@ -1,6 +1,6 @@
 import type { ScheduledCare } from '../../schedule/index.ts';
 import type { CareExecution, CheckIn } from '../domain/care-tracking.ts';
-import type { ScalpFeel, WashDayRecord, WashDayTechnique } from '../domain/wash-day.ts';
+import type { FinishStatus, ScalpFeel, WashDayRecord, WashDayTechnique } from '../domain/wash-day.ts';
 
 /** Everything the daily screen needs, in one read: the active plan, its cares and their executions. */
 /**
@@ -58,6 +58,17 @@ export type CareBoard = {
    * mais código e mais um jeito de a tela mentir enquanto carrega.
    */
   readonly washDayExecutionIds: readonly string[];
+  /**
+   * SPEC-039 FR2/FR5 — a etapa de finalização, por execução, para as que ela já respondeu.
+   *
+   * **Vem no board porque a pergunta não pode voltar.** A Hoje pergunta a finalização no cartão do
+   * cuidado concluído; sem o estado carregado junto com o resto, o reload mostraria a pergunta de
+   * novo, como se ela nunca tivesse respondido — o app esquecendo o que ela disse.
+   *
+   * Só as respondidas aparecem: uma execução ausente daqui é "ainda não disse", que é diferente de
+   * `skipped` (BR1). É a mesma distinção do `F35`, e ela mora na forma do dado, não num comentário.
+   */
+  readonly careFinishes: readonly { readonly careExecutionId: string; readonly status: FinishStatus }[];
   /**
    * Effective executions across ALL her plans, superseded included (SPEC-014). Counted rather than
    * fetched: the summary needs the number, never the rows.
@@ -138,4 +149,16 @@ export interface WashDayPort {
    * falhou. `null` remove a linha — um registro sem resposta é um estado válido (EC2).
    */
   setScalpFeel(input: { careExecutionId: string; scalpFeel: ScalpFeel | null }): Promise<void>;
+  /**
+   * SPEC-039 (F37) — registra a **etapa** de finalização, ou tira a resposta com `null`.
+   *
+   * Mesma disciplina do couro: uma escrita só (`on conflict do update`), porque um par
+   * apaga-e-escreve deixaria um instante sem resposta se a segunda metade falhasse. Idempotente pela
+   * PK — o retry depois de uma resposta perdida cai na mesma linha (FR6).
+   *
+   * ⚠️ **Método próprio, e não `markTechnique('finished')`.** A etapa e a técnica são objetos
+   * diferentes (BR3), e a separação começa aqui, no contrato: quem quiser fundi-las mais tarde vai
+   * ter de apagar este método, e não só acrescentar um valor a uma lista.
+   */
+  setFinishStatus(input: { careExecutionId: string; finishStatus: FinishStatus | null }): Promise<void>;
 }

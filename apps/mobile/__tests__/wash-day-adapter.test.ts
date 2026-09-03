@@ -29,6 +29,9 @@ const makeClient = (over: Partial<Record<string, Result>> = {}) => {
     shelf: { data: [], error: null } as Result,
     techniques: { data: [], error: null } as Result,
     scalp: { data: null, error: null } as Result,
+    // SPEC-039 — a etapa de finalização é a quarta leitura do registro, e tem resultado próprio
+    // pela mesma razão que o couro tem.
+    finish: { data: null, error: null } as Result,
     // A escrita do couro tem resultado próprio: o `upsert` de `wash_days` (criar o hub) e o de
     // `wash_day_scalp` são chamadas diferentes, e um resultado só para os dois faria o teste de
     // falha do couro tropeçar na criação do hub e passar pelo motivo errado.
@@ -47,7 +50,9 @@ const makeClient = (over: Partial<Record<string, Result>> = {}) => {
             ? results.shelf
             : table === 'wash_day_scalp'
               ? results.scalp
-              : results.techniques;
+              : table === 'wash_day_finish'
+                ? results.finish
+                : results.techniques;
     const chain = {
       select: () => chain,
       eq: (column: string, value: unknown) => {
@@ -107,6 +112,7 @@ describe('wash day adapter (SPEC-024)', () => {
       products: [],
       techniques: [],
       scalpFeel: null,
+      finishStatus: null,
     });
     // Uma consulta só. Buscar produtos de um hub que não existe é trabalho e é uma chance a mais de
     // a tela mostrar vazio por causa de erro.
@@ -125,6 +131,7 @@ describe('wash day adapter (SPEC-024)', () => {
       products: [{ id: 'p1', name: 'Máscara da feira', category: 'mask' }],
       techniques: ['co_wash'],
       scalpFeel: null,
+      finishStatus: null,
     });
     // BR3/AC4 — **sem** `archived_at is null`: o vidro que ela usou e depois tirou de casa continua
     // tendo sido usado, e o registro não pode esquecê-lo.
@@ -250,5 +257,32 @@ describe('wash day adapter (SPEC-024)', () => {
     expect(calls.eq).toHaveBeenCalledWith('wash_day_techniques', 'technique', 'co_wash');
     // `user_id` nunca vai como filtro: quem decide é `auth.uid()` pela RLS.
     expect(calls.eq).not.toHaveBeenCalledWith('wash_day_techniques', 'user_id', USER);
+  });
+
+  /**
+   * SPEC-039 (F37) — a etapa de finalização. Mesma disciplina do couro: **uma** escrita, e a tabela
+   * é outra. Escrever isto em `wash_day_techniques` seria a fusão que a D-102 proibiu, e o teste
+   * abaixo é o que reprova essa troca no adapter (a barreira de vocabulário mora no core, e a de
+   * banco no pgTAP).
+   */
+  it('define a etapa por upsert, na tabela dela e nunca na de técnicas', async () => {
+    const { client, calls } = makeClient({ upsert: { data: [{ id: HUB_ID }], error: null } });
+    await adapterOf(client).setFinishStatus({ careExecutionId: EXECUTION, finishStatus: 'done' });
+    expect(calls.upsert).toHaveBeenCalledWith(
+      'wash_day_finish',
+      { wash_day_id: HUB_ID, finish_status: 'done', user_id: USER },
+      { onConflict: 'wash_day_id' },
+    );
+    expect(calls.insert).not.toHaveBeenCalledWith('wash_day_techniques', expect.anything());
+    expect(calls.delete).not.toHaveBeenCalledWith('wash_day_finish');
+  });
+
+  /** FR8 — tirar a resposta e voltar a "ainda não disse" é um estado válido, e é dela. */
+  it('tirar a etapa apaga a linha, escopada ao hub', async () => {
+    const { client, calls } = makeClient({ upsert: { data: [{ id: HUB_ID }], error: null } });
+    await adapterOf(client).setFinishStatus({ careExecutionId: EXECUTION, finishStatus: null });
+    expect(calls.delete).toHaveBeenCalledWith('wash_day_finish');
+    expect(calls.eq).toHaveBeenCalledWith('wash_day_finish', 'wash_day_id', HUB_ID);
+    expect(calls.eq).not.toHaveBeenCalledWith('wash_day_finish', 'user_id', USER);
   });
 });
