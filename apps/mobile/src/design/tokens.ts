@@ -1,3 +1,5 @@
+import type { CareTypeCode } from '@app/core';
+
 /**
  * SPEC-016 §14 — the visual identity, as values instead of adjectives.
  *
@@ -107,6 +109,14 @@ export const color = {
   nutritionSoft: '#F7EBDD',
   reconstruction: '#6B4E9E',
   reconstructionSoft: '#EDE8F7',
+  /**
+   * SPEC-038 — o quarto tipo. Índigo porque as três vagas vizinhas já estavam ocupadas por famílias
+   * diferentes (teal, âmbar, violeta) e as duas cores semânticas — verde de sucesso e vermelho de
+   * erro — não podem ser tipo de cuidado: um cuidado que aparece em verde lê como "feito".
+   * Medido: **6,44:1** sobre o creme e **5,76:1** sobre o próprio tom, na mesma faixa das outras.
+   */
+  restoration: '#3A5A96',
+  restorationSoft: '#E8ECF6',
 
   success: '#2E6B4F',
   successSoft: '#E3EFE9',
@@ -114,13 +124,20 @@ export const color = {
   dangerSoft: '#F8E7E4',
 } as const;
 
-export type CareColorKey = 'hydration' | 'nutrition' | 'reconstruction';
+/**
+ * ⚠️ **A chave é o tipo do core, e não uma união escrita aqui.** Ela era uma lista literal de três
+ * valores, escrita à mão ao lado da de lá: um quarto tipo de cuidado entraria no `CARE_TYPE_CODES`,
+ * o `careColor` continuaria compilando e o cuidado novo apareceria **sem cor** — silêncio, não erro.
+ * Amarrada ao core, esquecer a cor vira falha de compilação, que é o acoplamento certo (SPEC-038).
+ */
+export type CareColorKey = CareTypeCode;
 
 /** Care type → its hue and tint, so no screen has to remember the mapping. */
 export const careColor: Record<CareColorKey, { readonly fg: string; readonly bg: string }> = {
   hydration: { fg: color.hydration, bg: color.hydrationSoft },
   nutrition: { fg: color.nutrition, bg: color.nutritionSoft },
   reconstruction: { fg: color.reconstruction, bg: color.reconstructionSoft },
+  restoration: { fg: color.restoration, bg: color.restorationSoft },
 };
 
 /** 4-based rhythm. Screens compose from these; they never invent a number in between. */

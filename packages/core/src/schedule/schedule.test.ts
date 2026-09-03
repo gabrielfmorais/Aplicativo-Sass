@@ -4,6 +4,7 @@ import {
   CURRENT_SCHEDULE_RULES,
   CURRENT_SCHEDULE_VERSION,
   PLAN_WINDOW_DAYS,
+  CARE_TYPE_CODES,
   buildPlan,
   type CareTypeCode,
 } from './index.ts';
@@ -158,5 +159,55 @@ describe('schedule rules governance (ADR-007 A1 / D-26 / D-67)', () => {
 
   it('exposes the version stamped on every plan', () => {
     expect(CURRENT_SCHEDULE_VERSION).toBe('v1');
+  });
+});
+
+/**
+ * SPEC-038 (F36) fatia 1 — ⚠️ **o vocabulário cresceu; o comportamento do v1 não.**
+ *
+ * `restoration` entrou em `CARE_TYPE_CODES`, e o motor v1 é **imutável** (ADR-001 §2): mudar o que
+ * ele produz seria uma versão nova, não uma edição. Sem esta barreira, alguém acrescentaria o quarto
+ * tipo ao v1 "porque agora existe" e todo plano histórico passaria a ser reproduzido de um jeito que
+ * não foi o jeito como ele nasceu — e a SPEC-017 depende exatamente dessa reprodutibilidade.
+ *
+ * A barreira é sobre o v1, não sobre o produto: o v2 vai poder emitir `restoration`, e é para isso
+ * que ele será uma versão nova.
+ */
+describe('schedule engine v1 — imutável mesmo com o vocabulário maior (SPEC-038)', () => {
+  it('conhece quatro tipos e continua produzindo só três', () => {
+    expect(CARE_TYPE_CODES).toContain('restoration');
+
+    const combos: Partial<HairProfileInput>[] = [
+      {},
+      { washFrequency: 'once_or_less_weekly' },
+      { washFrequency: 'five_or_more_weekly' },
+      { washFrequency: 'varies' },
+      { primaryGoal: 'recover_chemical_or_heat_damage', chemicalTreatments: ['bleaching_or_highlights'] },
+      { heatUsage: 'almost_daily', currentConcerns: ['breakage'] },
+      { hairPattern: 'coily', currentConcerns: ['dryness', 'frizz'] },
+      { perceivedPorosity: 'wets_and_dries_fast', routineAvailability: 'minimal' },
+      { perceivedPorosity: 'slow_to_wet', routineAvailability: 'generous' },
+    ];
+
+    for (const over of combos) {
+      const types = new Set(buildPlan(snapshot(over), STARTS_ON).cares.map((c) => c.careTypeCode));
+      expect([...types].sort()).not.toContain('restoration');
+    }
+  });
+
+  /**
+   * E as duas entradas da SPEC-037 continuam **sem efeito nenhum** no v1 — o que é a razão de elas
+   * não aparecerem em "Por que este cronograma?". Se um dia mudarem o plano aqui, esta expectativa
+   * quebra antes de a tela mentir.
+   */
+  it('porosidade e disponibilidade não mexem no plano do v1', () => {
+    const plain = buildPlan(snapshot({}), STARTS_ON);
+    for (const perceivedPorosity of ['slow_to_wet', 'wets_and_dries_fast', 'unknown'] as const) {
+      for (const routineAvailability of ['minimal', 'generous', 'varies'] as const) {
+        const other = buildPlan(snapshot({ perceivedPorosity, routineAvailability }), STARTS_ON);
+        expect(other.cares).toEqual(plain.cares);
+        expect(other.evidenceCodes).toEqual(plain.evidenceCodes);
+      }
+    }
   });
 });
