@@ -113,3 +113,70 @@ describe('ShelfScreen (SPEC-023)', () => {
     }
   });
 });
+
+/**
+ * SPEC-033 — a prateleira mostra primeiro o que ela **tem**.
+ *
+ * ⚠️ **O que estes testes protegem é uma inversão medida.** A tela chamada "Prateleira" abria com
+ * ~470px de formulário vazio — campo mais sete categorias — e o que ela tem em casa começava abaixo
+ * da dobra. O "Adicionar" ficava fixo no rodapé, permanentemente desabilitado enquanto o formulário
+ * estivesse vazio: um botão primário morto no pé de toda visita.
+ */
+describe('ShelfScreen — o cadastro é ação, não o topo da tela (SPEC-033)', () => {
+  const withProducts = () =>
+    makePort({
+      list: jest.fn(
+        async () =>
+          [
+            { id: 'p1', name: 'Shampoo X', category: 'shampoo', archivedAt: null },
+          ] as unknown as readonly Product[],
+      ),
+    });
+
+  it('com produtos, abre na lista — e o formulário não ocupa a tela', async () => {
+    const s = await renderScreen(withProducts());
+    await waitFor(() => s.getByText('Shampoo X'));
+
+    expect(s.queryByLabelText('Nome do produto')).toBeNull();
+    // A vaga primária existe e **abre** o formulário; ela não é um botão de enviar desabilitado.
+    const open = s.getByText('Adicionar produto');
+    expect(open.parent?.props.accessibilityState?.disabled).toBe(false);
+  });
+
+  it('tocar em "Adicionar produto" revela o formulário, e dá como voltar', async () => {
+    const s = await renderScreen(withProducts());
+    await waitFor(() => s.getByText('Shampoo X'));
+
+    await fireEvent.press(s.getByText('Adicionar produto'));
+    expect(s.getByLabelText('Nome do produto')).toBeTruthy();
+    // A lista não some ao cadastrar: ela é a referência de "já tenho isso".
+    expect(s.getByText('Shampoo X')).toBeTruthy();
+
+    await fireEvent.press(s.getByText('Cancelar'));
+    expect(s.queryByLabelText('Nome do produto')).toBeNull();
+  });
+
+  /**
+   * ⚠️ **Sem nada cadastrado, o formulário É o conteúdo.** Escondê-lo atrás de um toque esconderia a
+   * única coisa que há para fazer na tela — e não há para onde "cancelar" voltar.
+   */
+  it('com a prateleira vazia, o formulário já vem aberto e não oferece cancelar', async () => {
+    const s = await renderScreen(makePort());
+    await waitFor(() => s.getByText(/Nada aqui ainda/));
+
+    expect(s.getByLabelText('Nome do produto')).toBeTruthy();
+    expect(s.queryByText('Cancelar')).toBeNull();
+    expect(s.queryByText('Adicionar produto')).toBeNull();
+  });
+
+  /**
+   * ⚠️ **Uma leitura que falhou não é uma prateleira vazia**, e portanto não abre o formulário
+   * sozinha — abrir seria afirmar "você não tem nada" a partir de um erro de rede.
+   */
+  it('uma leitura que falha não abre o formulário', async () => {
+    const s = await renderScreen(makePort({ list: jest.fn(async () => Promise.reject(new Error('x'))) }));
+    await waitFor(() => s.getByText('Tentar novamente'));
+
+    expect(s.queryByLabelText('Nome do produto')).toBeNull();
+  });
+});
