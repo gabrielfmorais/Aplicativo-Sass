@@ -838,7 +838,7 @@ Depois do tratamento, a Huna **conduz naturalmente** até a finalização recome
 > *"Hora do seu óleo — você programou óleo nas pontas para hoje."*
 
 **Regras importantes.**
-- Tecnicamente é um **quarto intent** no `NotificationScheduler` (SPEC-008 / D-22), que já tem opt-in duplo, teto diário, horizonte e id determinístico. **O domínio não conhece Expo Notifications** — isso não muda.
+- Tecnicamente é um **quinto intent** no `NotificationScheduler` (SPEC-008 / D-22), que já tem opt-in duplo, teto diário, horizonte e id determinístico. **O domínio não conhece Expo Notifications** — isso não muda. *(A D-102 dizia "quarto"; medido em `NOTIFICATION_INTENT_TYPES`, já existem quatro — `care_overdue`, `care_today`, `checkin_pending`, `reassessment_due` — então o óleo é o quinto. Corrigido em 2026-09-03.)*
 - **Adiar é primeira classe**, não um fracasso: a mesma regra do D-28 (mostrar estado e pedir ação; nunca mover o cronograma sozinho).
 - Integração futura com a Prateleira (`F26`): o óleo lembrado é **o óleo que ela tem**, nunca um produto inventado (§8).
 - ⚠️ **Orientação de momento e forma de uso é conteúdo capilar** ⇒ **gate D-26**. O lembrete e o registro, não.
@@ -848,7 +848,104 @@ Depois do tratamento, a Huna **conduz naturalmente** até a finalização recome
 **Estado.** **COMMITTED**.
 
 ---
-# 24. Como usar este documento
+---
+
+# 24. Jornada Huna — a gamificação — `F40` · `F41` · `F42` · `F43` · `F44`
+
+**Objetivo da usuária.** Ver que ela está mantendo a própria rotina, e querer manter.
+
+**A frase que define a capability inteira, e da qual tudo aqui deriva:**
+
+> A Huna recompensa **consistência com o plano**, não **quantidade de tratamentos**.
+
+**O que ela representa, e o que não representa.** A Jornada diz *"minha consistência na jornada"*. Ela **não** diz *"quão saudável ou bonito está meu cabelo"* — essa segunda frase seria avaliação capilar, precisaria de revisor (D-26), e o produto já a recusou três vezes (SPEC-009, SPEC-019, SPEC-021).
+
+## ⚠️ A tensão com as recusas já registradas, e como ela se resolve
+
+O produto **recusa pontuar** em três SPECs, com **barreira de teste viva** na aba Progresso que reprova as palavras `score`, `nota`, `pontuação`, `aderência`, `desempenho` e qualquer `\d+%`. Uma camada de pontos parece contradizer isso frontalmente. Não contradiz, e a distinção precisa estar escrita antes de alguém tentar implementar:
+
+- **O que foi recusado é pontuar o CABELO e o CICLO** — dar nota ao resultado dela, transformar contagem em avaliação, dizer "você cumpriu 83%". Isso continua proibido e as barreiras continuam de pé.
+- **O que a Jornada mede é a ADERÊNCIA AO PLANO** — um objeto diferente, verificável, que não afirma nada sobre cabelo.
+
+**Consequência de arquitetura, e é dura:** a Jornada tem **superfície própria**. Ela **não** é um widget pendurado na Progresso nem na visão de ciclo — aquelas telas respondem *"o que aconteceu"* e continuam sem nota. Quem implementar isto deve encontrar as barreiras da Progresso **verdes e intocadas** no fim.
+
+## Fluxo funcional
+
+```
+fato canônico (care_execution, check-in, wash day, pausa)
+        ↓
+evento elegível (idempotente, por id do fato)
+        ↓
+pontos · sequência · marco
+        ↓
+celebração no lugar dela
+```
+
+## Regras importantes
+
+- **Deriva de fato canônico; nunca uma segunda verdade.** O motor **lê** `care_executions`, `checkins`, `wash_days` e `plan_pauses`. Uma contagem paralela divergiria na primeira mudança de regra, e a divergência apareceria como a Huna discordando de si mesma.
+- **Idempotência pelo id do FATO, não pela sessão.** O mesmo `care_execution_id` não pontua duas vezes por retry, reload ou reprocessamento. É a mesma disciplina do `client_execution_id` da SPEC-005.
+- **Regras de pontuação são versionadas** (padrão do ADR-007). Mudar a régua **não reescreve o passado**: o ponto concedido é **fato datado**, não recálculo. Histórico falsificável é histórico inútil.
+- ⚠️ **Pontuação não é regra capilar e não entra no gate D-26/D-70.** Ela fala de aderência. É exatamente por isso que ela não pode se disfarçar de leitura capilar em nenhuma cópia.
+- **A sequência (`F41`) não é diária.** Um streak diário num plano de 4 a 12 cuidados por mês só se cumpre lavando mais — o incentivo proibido. Ela conta **cuidado planejado atendido**; **dia sem cuidado planejado não quebra nada**.
+- **Pausa real congela a sequência** (`F22`/SPEC-022), e entra na **derivação**, não numa checagem de tela — foi assim que o F22 impediu o progresso de continuar contando durante a pausa.
+- **FREE participa integralmente. Premium não tem multiplicador.** Nada de pay-to-win (D-83 + D-103).
+- **Nenhum marco se conquista fazendo mais** do que o plano pede.
+
+## O que NÃO deve fazer
+
+Criar incentivo para **lavar mais**, fazer **mais reconstruções**, aplicar **mais produto**, repetir cuidado desnecessário ou agir fora do plano por pontos. Copiar interface ou identidade de Duolingo, Strava, Finch ou Fabulous — os benchmarks são **conceituais**. Pôr nota no cabelo dela por outro nome.
+
+**Relações.** `F5` care tracking (o fato) · `F22` pausa · `F19`/`F29` ciclo · `F45` share · Community (`F44`).
+
+**Estado.** `F40`/`F41`/`F42` **COMMITTED** · `F43`/`F44` **DEFERRED BY DEPENDENCY**.
+
+---
+
+# 25. Social Sharing — `F45` (fundação) · `F46` (momentos) · `F47` (recap) · `P25`
+
+**Objetivo da usuária.** Mostrar o que ela conquistou, do jeito dela, para quem ela quiser.
+
+⚠️ **INEGOCIÁVEL (D-103).** Esta capability não sai do roadmap em replanejamento, não é adiada por conveniência e **não depende da Community**.
+
+**O princípio, emprestado do Strava:**
+
+```
+resultado/conquista → card visual bonito → compartilhar → Instagram · WhatsApp · o que estiver instalado
+```
+
+## Fluxo funcional
+
+```
+momento compartilhável
+        ↓
+PREVIEW DO CARD  ← ela vê exatamente o que vai sair
+        ↓
+ela decide (e escolhe o que aparece)
+        ↓
+share nativo do sistema
+```
+
+**Nunca publicação automática.** O preview não é cortesia: é o mecanismo pelo qual ela consente.
+
+## Regras importantes
+
+- **Compartilhamento nativo é a fundação.** Integração direta com um app específico só se trouxer benefício concreto — cada uma é uma dependência e uma superfície de manutenção.
+- **Formatos:** ao menos **9:16** (Stories) e um formato de feed/share genérico.
+- **Direção visual:** vinho/ameixa/roxo, mechas abstratas da Huna (a mesma linguagem do hero, SPEC-036), **logo discreta**, tipografia forte, dado legível. Card autoral — não um print de tela.
+- ⚠️ **Privacidade é parte da capability, não um extra.** Nome, avatar, foto, produto, resultado e estatística são **controláveis**. Dado potencialmente sensível **não entra sozinho**. **`user_id` e dado interno nunca aparecem em card nenhum.**
+- ⚠️ **Foto só por seleção explícita.** Antes × Depois e Hair Progress dependem de mídia com base legal (`F28`/`P24`/D-32) e nunca entram automaticamente.
+- **O ato de compartilhar é FREE.** Crescimento orgânico não fica atrás de paywall. Um card de insight Premium (`P25`) é Premium **pelo conteúdo**, não pelo botão.
+
+## O que NÃO deve fazer
+
+Publicar sozinho. Pôr dado que ela não escolheu. Vazar identificador interno. Bloquear o botão por ela ser Free. Depender da Community para existir.
+
+**Relações.** `F40`–`F42` Jornada (a conquista) · `F14`/`F29` resultado e ciclo · `F28`/`P24` mídia · `P2` Hair Intelligence (`P25`) · Community (reuso futuro: conquista → compartilhar **na** Community, mesma fundação).
+
+**Estado.** `F45`/`F46` **COMMITTED** (`F45` **INEGOCIÁVEL**) · `F47`/`P25` **DEFERRED BY DEPENDENCY**.
+
+# 26. Como usar este documento
 
 **Ao escolher a próxima capability:** o [backlog](MASTER-PRODUCT-BACKLOG.md) diz o que falta e o que depende do quê; este documento diz o que a capability **significa**. Os dois juntos decidem; nenhum dos dois sozinho.
 
@@ -858,9 +955,10 @@ Depois do tratamento, a Huna **conduz naturalmente** até a finalização recome
 
 **Quando encontrar um caminho melhor:** use-o. Este documento fixa **o que resolver**, não como. Se a mudança alterar materialmente o objetivo ou a proposta de valor, aí é decisão material de produto ⇒ human gate.
 
-## 25. Change log
+## 27. Change log
 
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-08-31 | v0.1 — Blueprint criado (D-94) como complemento canônico do MASTER PRODUCT SCOPE (D-92). Tratamento funcional completo das capabilities **ainda não construídas**, que é onde a intenção corre risco de se perder; as **DONE** apontam para a SPEC, que já preserva a intenção com mais autoridade do que um resumo preservaria. Fixa em §1 os princípios inequívocos — Free executa e registra / Premium interpreta, um único tier pago, e as três proibições de honestidade (não inventar causalidade, não inventar dados, não diagnosticar). | agente (§0.3), a partir de decisão humana |
-| 2026-09-02 | v0.2 — **D-102 (dono).** Cinco seções novas: §19 identidade (avatares Huna no Free, foto própria no Premium), §20 avaliação capilar ampliada, §21 cronograma por necessidade com a **Restauração** como quarto tipo, §22 **Tratamento → Finalização** e a área de Finalizações, §23 óleo com rotina própria. §7 do backlog passa a fixar o fluxo `Lavou → Tratamento → Finalização → Resultado`. **O achado que muda o trabalho de hoje:** a avaliação que o dono pediu **já é quase toda coletada** — falta porosidade percebida e rotina/disponibilidade —, e o que realmente precisa de cuidado agora é não fechar porta para **um quarto tipo de cuidado**, uma **etapa de finalização** pendurada na execução, um **quarto intent** de notificação e uma **foto de perfil**. | agente (§0.3), a partir de decisão humana |
+| 2026-09-02 | v0.2 — **D-102 (dono).** Cinco seções novas: §19 identidade (avatares Huna no Free, foto própria no Premium), §20 avaliação capilar ampliada, §21 cronograma por necessidade com a **Restauração** como quarto tipo, §22 **Tratamento → Finalização** e a área de Finalizações, §23 óleo com rotina própria. §7 do backlog passa a fixar o fluxo `Lavou → Tratamento → Finalização → Resultado`. **O achado que muda o trabalho de hoje:** a avaliação que o dono pediu **já é quase toda coletada** — falta porosidade percebida e rotina/disponibilidade —, e o que realmente precisa de cuidado agora é não fechar porta para **um quarto tipo de cuidado**, uma **etapa de finalização** pendurada na execução, um **quinto intent** de notificação e uma **foto de perfil**. | agente (§0.3), a partir de decisão humana |
+| 2026-09-03 | **D-103 (dono).** Duas frentes novas COMMITTED, registradas sem interromper o F36 e sem implementação: **Jornada Huna** (`F40` pontos/progressão/níveis · `F41` sequência · `F42` marcos e conquistas · `F43` desafios · `F44` ranking) e **Social Sharing** (`F45` fundação **INEGOCIÁVEL** · `F46` momentos · `F47` recap anual · `P25` cards Premium). **A regra que define a gamificação:** recompensa **consistência com o plano**, nunca quantidade de tratamentos — sequência **não diária**, pausa congela, Free participa, Premium sem multiplicador. **Share é transversal e Free**, com `preview → ela decide → share` e sem `user_id` em card nenhum. **Achado ao registrar:** existe barreira de teste viva na Progresso reprovando `score`/`nota`/`pontuação`/`aderência`/`%` — não é contradição (o recusado é pontuar **cabelo e ciclo**; a Jornada mede **aderência**), mas obriga a Jornada a ter **superfície própria**. | agente (§0.3), a partir de decisão humana |

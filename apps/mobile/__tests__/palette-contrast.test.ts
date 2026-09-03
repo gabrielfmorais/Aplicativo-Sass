@@ -1,4 +1,4 @@
-import { color } from '@/design/tokens';
+import { careColor, color } from '@/design/tokens';
 
 /**
  * SPEC-026 AC8 / SPEC-016 FR2 — a paleta, **medida**.
@@ -81,16 +81,37 @@ describe('contraste da paleta (SPEC-026 AC8)', () => {
     }
   });
 
+  /**
+   * ⚠️ **A lista era escrita à mão, e por isso não crescia com o produto.** Ela nomeava os três
+   * tipos de cuidado um por um: o quarto (`restoration`, SPEC-038) entraria no `careColor` e
+   * **nenhum teste o mediria** — exatamente o defeito que a `nutrition` teve por semanas antes da
+   * SPEC-026, quando ninguém tinha calculado nada. Agora a fonte é o próprio mapa: um tipo novo é
+   * medido no dia em que ganha cor, sem ninguém lembrar de vir aqui.
+   */
   it('as cores de cuidado continuam legíveis sobre o próprio tom claro e sobre o canvas', () => {
-    for (const [fg, bg] of [
-      [color.hydration, color.hydrationSoft],
-      [color.nutrition, color.nutritionSoft],
-      [color.reconstruction, color.reconstructionSoft],
-      [color.success, color.successSoft],
-      [color.danger, color.dangerSoft],
-    ] as const) {
+    const pairs = [
+      ...Object.values(careColor).map((c) => [c.fg, c.bg] as const),
+      [color.success, color.successSoft] as const,
+      [color.danger, color.dangerSoft] as const,
+    ];
+    for (const [fg, bg] of pairs) {
       expect(contrast(fg, bg)).toBeGreaterThanOrEqual(AA);
       expect(contrast(fg, color.canvas)).toBeGreaterThanOrEqual(AA);
+    }
+  });
+
+  /**
+   * SPEC-038 — **um tipo de cuidado não pode usar a cor de um estado.**
+   *
+   * Verde é "feito" e vermelho é "erro" em todo o app. Um cuidado pintado de verde lê como concluído
+   * antes de qualquer palavra ser lida, e nenhuma cópia desfaz isso. Duas cores de cuidado iguais
+   * têm o mesmo problema pelo lado oposto: a cor deixa de informar e vira decoração (FR5).
+   */
+  it('cada tipo de cuidado tem a sua cor, e nenhuma delas é cor de estado', () => {
+    const hues = Object.values(careColor).map((c) => c.fg);
+    expect(new Set(hues).size).toBe(hues.length);
+    for (const hue of hues) {
+      expect([color.success, color.danger, color.accent]).not.toContain(hue);
     }
   });
   /**

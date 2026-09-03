@@ -10,6 +10,7 @@ export const CARE_TYPE_LABEL: Record<CareTypeCode, string> = {
   hydration: 'Hidratação',
   nutrition: 'Nutrição',
   reconstruction: 'Reconstrução',
+  restoration: 'Restauração',
 };
 
 export const EVIDENCE_LABEL: Record<string, string> = {
