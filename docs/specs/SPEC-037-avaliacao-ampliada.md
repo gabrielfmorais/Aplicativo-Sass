@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-037 |
-| Status | **Fatia 1 (F35) implementada** — fatia 2 (F36) pendente |
+| Status | **Fatia 1 (F35) DONE** — validada no DEV real a 390px (2026-09-03). Fatia 2 (F36) pendente |
 | Owner | dono do produto |
 | Bounded Context | Hair profile (`packages/core/src/hair-profile`, `apps/mobile/src/features/onboarding`) |
 | Related ADRs | ADR-001 (fronteiras), ADR-007 (regras capilares), D-26, D-62, D-102 |
@@ -112,8 +112,22 @@ ideal" — porque a resposta útil depende de ela entender o que está sendo per
 - AC4 — `null` sobrevive à leitura e não vira `'unknown'`. **Teste** no core.
 - AC5 — O CHECK recusa classificação de porosidade e disponibilidade fora da lista. **pgTAP.**
 - AC6 — A contagem prometida nas pausas confere com o roteiro. **Teste.**
-- AC7 — Jornada real a 390px no DEV: onboarding completo → cronograma → reload. **Pendente da
-  migration no DEV.**
+- AC7 — Jornada real a 390px no DEV. ✅ **Validada em 2026-09-03**, migration aplicada pelo dono:
+  reavaliação completa pelas 10 perguntas → *"PERGUNTA 4 DE 10"* na porosidade e *"8 DE 10"* no
+  tempo → as pausas dizendo **"São 4 perguntas"** e **"Só faltam 2 perguntas"**, conferindo com o
+  roteiro → preview → confirmar → reload com o cronograma novo persistido, sem erro de console.
+
+  E a distinção da BR1, medida no banco pela mesma porta que o app usa (anon key + RLS):
+
+  ```
+  2026-09-03  curly  RESPONDIDA → porosidade="unknown" · tempo="minimal"
+  2026-09-03  wavy   ANTERIOR À PERGUNTA (null)
+  2026-09-01  curly  ANTERIOR À PERGUNTA (null)
+  ... mais 3 anteriores à pergunta
+  ```
+
+  **`null` e `'unknown'` coexistem na mesma tabela e significam coisas diferentes** — a linha de
+  cima é ela respondendo "não sei dizer", as de baixo são avaliações de antes da pergunta.
 
 ## 18. Testing Strategy
 
