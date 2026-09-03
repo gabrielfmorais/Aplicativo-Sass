@@ -28,8 +28,17 @@ export function ProgressSummary({ progress }: { progress: Progress }) {
 
       <Stack gap="xs">
         {elapsed === 0 ? (
+          /*
+            ⚠️ **Duas frases que brigavam, vistas a 390px.** Com um plano recém-criado e cuidados
+            de um ciclo anterior no histórico, a tela dizia *"o resumo aparece conforme você
+            registra"* e logo abaixo *"desde o início, você concluiu 4 cuidados"* — prometia um
+            resumo que já estava ali. Não é contradição de dado (um é o plano, o outro é a vida
+            inteira): é **escopo que faltava na frase**. Duas palavras resolvem.
+          */
           <Text tone="muted">
-            Seu plano começou agora. O resumo aparece conforme você registra os cuidados.
+            {lifetimeDone > 0
+              ? 'Seu plano começou agora. O resumo deste ciclo aparece conforme você registra.'
+              : 'Seu plano começou agora. O resumo aparece conforme você registra os cuidados.'}
           </Text>
         ) : (
           <>

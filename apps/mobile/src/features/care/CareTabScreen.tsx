@@ -7,7 +7,12 @@ import { CareGuideLibrary } from '@/features/care/CareGuideLibrary';
  * SPEC-026 fatia 1 (FR6) — **Cuidados**: tudo o que é rotina, num lugar só.
  *
  * O cronograma do dia continua na **Hoje**, que é onde ela age. Aqui mora o que ela consulta e
- * mantém sobre o **cabelo**: a forma do mês e o que mudou nele.
+ * mantém sobre o **cabelo**: o que mudou nele, e como se faz cada cuidado.
+ *
+ * ⚠️ **SPEC-034 — "Meu ciclo" saiu daqui pela MESMA razão que a prateleira tinha saído.** O ciclo
+ * virou o conteúdo da aba **Progresso**, e a barra inferior já é a porta dela. Um cartão aqui
+ * cujo botão troca de aba é uma segunda porta para o mesmo destino — exatamente o que a direção
+ * recusa. Nada some: o ciclo está a um toque, na barra.
  *
  * ⚠️ **SPEC-027 — a prateleira saiu daqui porque virou aba.** Ela não sumiu: ganhou a quarta vaga
  * da barra, porque é o dado de onde saem o Wash Day, a Smart Shelf e a Hair Intelligence (§0.4).
@@ -23,39 +28,17 @@ import { CareGuideLibrary } from '@/features/care/CareGuideLibrary';
  * tela (§6 da direção).
  */
 export function CareTabScreen({
-  onOpenCycle,
   onOpenHairEvents,
-  hasPlan,
   profile,
 }: {
-  onOpenCycle: () => void;
   /** SPEC-020 — contar o que mudou; ausente quando a capability não está disponível. */
   onOpenHairEvents?: () => void;
-  /**
-   * EC1 — sem plano ativo o ciclo não existe, e um botão que abre uma tela vazia é pior que um
-   * botão ausente: a tela diz o que falta em vez de fingir que há algo lá.
-   */
-  hasPlan: boolean;
   /** SPEC-026 fatia 7 — o acesso a **Você**, no cabeçalho. A tela só repassa. */
   profile: { readonly name: string | null; readonly onPress: () => void };
 }) {
   return (
     <Screen>
       <ScreenHeader title="Sua rotina" profile={profile} />
-
-      <Card>
-        <Text variant="heading" accessibilityRole="header">
-          Meu ciclo
-        </Text>
-        <Text tone="muted">As quatro semanas do seu cronograma e o que aconteceu em cada uma.</Text>
-        {hasPlan ? (
-          <Button label="Ver meu ciclo" variant="secondary" onPress={onOpenCycle} style={styles.action} />
-        ) : (
-          <Text variant="caption" tone="faint">
-            Seu ciclo aparece assim que você tiver um cronograma.
-          </Text>
-        )}
-      </Card>
 
       {onOpenHairEvents ? (
         <Card>

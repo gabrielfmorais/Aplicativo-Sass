@@ -50,52 +50,42 @@ describe('TabBar (SPEC-026 / SPEC-027)', () => {
  * AC2 — nenhuma capability de rotina mora na gaveta de configurações. A prateleira saiu da Conta na
  * SPEC-026 e virou **aba** na SPEC-027; "meu cabelo mudou" fez o mesmo caminho e parou aqui.
  */
-describe('CareTabScreen (SPEC-026 / SPEC-027)', () => {
-  it('reúne o ciclo e "meu cabelo mudou", que antes estavam em telas diferentes', async () => {
-    const onOpenCycle = jest.fn();
+describe('CareTabScreen (SPEC-026 / SPEC-027 / SPEC-034)', () => {
+  it('guarda "meu cabelo mudou" e os guias, que antes não tinham lugar', async () => {
     const onOpenHairEvents = jest.fn();
     const s = await render(
-      <CareTabScreen
-        hasPlan
-        profile={{ name: 'Ana', onPress: jest.fn() }}
-        onOpenCycle={onOpenCycle}
-        onOpenHairEvents={onOpenHairEvents}
-      />,
+      <CareTabScreen profile={{ name: 'Ana', onPress: jest.fn() }} onOpenHairEvents={onOpenHairEvents} />,
     );
-    await fireEvent.press(s.getByText('Ver meu ciclo'));
     await fireEvent.press(s.getByText('Contar o que mudou'));
-    expect(onOpenCycle).toHaveBeenCalled();
     expect(onOpenHairEvents).toHaveBeenCalled();
+    // SPEC-031 — os guias, alcançáveis sem nenhum cuidado agendado.
+    s.getByText('Hidratação');
   });
 
   /**
-   * ⚠️ A prateleira **não** pode ter uma segunda porta aqui: ela é aba desde a SPEC-027, e duas
-   * entradas para a mesma tela são exatamente o que a direção recusa.
+   * ⚠️ **Nenhuma segunda porta para uma aba.** A prateleira é aba desde a SPEC-027 e o **ciclo**
+   * virou o conteúdo da aba Progresso na SPEC-034 — a barra inferior já é a porta das duas. Um
+   * cartão aqui cujo botão apenas troca de aba é a duplicação que a direção recusa.
    */
-  it('não oferece uma segunda porta para a prateleira, que agora é aba', async () => {
+  it('não oferece uma segunda porta para a prateleira nem para o ciclo, que agora são abas', async () => {
     const s = await render(
-      <CareTabScreen hasPlan profile={{ name: 'Ana', onPress: jest.fn() }} onOpenCycle={jest.fn()} />,
+      <CareTabScreen profile={{ name: 'Ana', onPress: jest.fn() }} onOpenHairEvents={jest.fn()} />,
     );
     expect(s.queryByText(/prateleira/i)).toBeNull();
+    expect(s.queryByText('Ver meu ciclo')).toBeNull();
+    expect(s.queryByText('Meu ciclo')).toBeNull();
   });
 
   /**
-   * EC1 — sem plano o ciclo não existe. Um botão que abre uma tela vazia é pior que um botão
-   * ausente: a tela diz o que falta.
+   * ⚠️ **Esta aba deixou de depender de plano.** Antes ela recebia `hasPlan` só para decidir se o
+   * cartão do ciclo oferecia o botão; sem o cartão, nada aqui depende de cronograma — os guias e
+   * "meu cabelo mudou" valem com plano ou sem.
    */
-  it('sem plano, diz o que falta em vez de abrir um ciclo que não existe', async () => {
-    const onOpenCycle = jest.fn();
+  it('funciona sem plano ativo, porque nada aqui depende de cronograma', async () => {
     const s = await render(
-      <CareTabScreen
-        hasPlan={false}
-        profile={{ name: 'Ana', onPress: jest.fn() }}
-        onOpenCycle={onOpenCycle}
-        onOpenHairEvents={jest.fn()}
-      />,
+      <CareTabScreen profile={{ name: 'Ana', onPress: jest.fn() }} onOpenHairEvents={jest.fn()} />,
     );
-    expect(s.queryByText('Ver meu ciclo')).toBeNull();
-    expect(s.getByText(/Seu ciclo aparece assim que/)).toBeTruthy();
-    // O que não depende de plano continua acessível.
     expect(s.getByText('Contar o que mudou')).toBeTruthy();
+    expect(s.queryByText(/Seu ciclo aparece assim que/)).toBeNull();
   });
 });

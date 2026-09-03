@@ -25,7 +25,6 @@ import { TabBar, type TabKey } from '@/design/TabBar';
 import { useAuth } from '@/bootstrap/auth';
 import { AccountScreen } from '@/features/account/AccountScreen';
 import { CareTabScreen } from '@/features/care/CareTabScreen';
-import { CycleScreen } from '@/features/care/CycleScreen';
 import { ProgressTabScreen } from '@/features/care/ProgressTabScreen';
 import { HairEventsScreen } from '@/features/hair-events/HairEventsScreen';
 import { ShelfScreen } from '@/features/shelf/ShelfScreen';
@@ -136,8 +135,8 @@ function AuthenticatedApp({
       active = false;
     };
   }, [products]);
-  const [stacked, setStacked] = useState<null | 'cycle' | 'hairEvents' | 'you'>(null);
-  const openStacked = (screen: 'cycle' | 'hairEvents' | 'you') => setStacked(screen);
+  const [stacked, setStacked] = useState<null | 'hairEvents' | 'you'>(null);
+  const openStacked = (screen: 'hairEvents' | 'you') => setStacked(screen);
   const closeStacked = () => setStacked(null);
   /**
    * SPEC-024 — o registro do que ela usou, aberto a partir de um cuidado concluído. Guarda a
@@ -411,26 +410,25 @@ function AuthenticatedApp({
   }
 
   // Cuidados e Progresso funcionam **sem** plano ativo: dizem o que falta em vez de sumirem (EC1).
-  if (tab === 'care' && stacked !== 'cycle') {
-    return shell(
-      <CareTabScreen
-        profile={profileChip}
-        hasPlan={board !== null}
-        onOpenCycle={() => openStacked('cycle')}
-        onOpenHairEvents={() => openStacked('hairEvents')}
-      />,
-    );
+  if (tab === 'care') {
+    return shell(<CareTabScreen profile={profileChip} onOpenHairEvents={() => openStacked('hairEvents')} />);
   }
+  /**
+   * SPEC-034 — **o ciclo é a aba Progresso**, e não uma tela empilhada sob Cuidados.
+   *
+   * ⚠️ A versão anterior fazia `setTab('care')` antes de empilhar o ciclo, porque o ramo de
+   * `tab === 'progress'` vinha **antes** do ramo empilhado e o ciclo nunca renderizaria de outro
+   * jeito. O efeito visível: abrir o ciclo daqui (ou da Hoje) acendia *Cuidados* na barra e o
+   * rodapé dizia *"Voltar aos cuidados"* — uma aba de onde ela nunca veio. Sem tela empilhada, não
+   * há ordem de ramos para acertar nem `setTab` para esconder.
+   */
   if (tab === 'progress')
     return shell(
       <ProgressTabScreen
         board={board}
         today={today()}
         profile={profileChip}
-        onOpenCycle={() => {
-          setTab('care');
-          openStacked('cycle');
-        }}
+        onStartNext={() => setReassessing('profile')}
       />,
     );
 
@@ -453,19 +451,6 @@ function AuthenticatedApp({
       />
     );
   }
-  if (stacked === 'cycle') {
-    return shell(
-      <CycleScreen
-        board={board}
-        today={today()}
-        onBack={closeStacked}
-        onStartNext={() => {
-          closeStacked();
-          setReassessing('profile');
-        }}
-      />,
-    );
-  }
   return shell(
     <TodayScreen
       board={board}
@@ -485,10 +470,9 @@ function AuthenticatedApp({
       onResume={() => {
         void careTracking.resume({ timeZone: timeZone(), commit: true }).then(loadBoard).catch(loadBoard);
       }}
-      onOpenCycle={() => {
-        setTab('care');
-        openStacked('cycle');
-      }}
+      // SPEC-034 — o ciclo é uma **aba**, então "ver meu mês" troca de aba, como a sugestão da
+      // prateleira já fazia. Não há mais cópia empilhada dele para abrir por cima da Hoje.
+      onOpenCycle={() => setTab('progress')}
       onOpenWashDay={setWashDay}
       profile={profileChip}
       productCount={productCount}
