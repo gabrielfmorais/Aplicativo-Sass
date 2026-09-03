@@ -813,7 +813,57 @@ LAVOU → TRATAMENTO (Hidratação/Nutrição/Reconstrução/Restauração) → 
 
 Depois do tratamento, a Huna **conduz naturalmente** até a finalização recomendada. **"Pular finalização" existe** — mas o padrão é que ela faz parte da rotina.
 
-**A área de Finalizações (`F38`).** Endereço próprio dentro de **Cuidados**, ao lado dos guias: definição · volume · redução de frizz · leveza · fitagem · técnicas por curvatura (ondulado, cacheado, crespo, liso) · day after · combinações com creme, leave-in, gelatina, óleo. A Huna prioriza **"Finalizações recomendadas para o seu cabelo"** — a partir de curvatura, objetivos e avaliação —, e ainda assim deixa **explorar o resto**: recomendar não pode virar esconder.
+## A área de Finalizações (`F38`) — endereço próprio dentro de **Cuidados**
+
+⚠️ **O `F37` e o `F38` são coisas diferentes, e a separação é permanente.** O `F37` é a **etapa da
+execução** (`LAVOU → TRATAMENTO → FINALIZAÇÃO → RESULTADO`) e já está DONE: ela diz **se** finalizou.
+O `F38` é a **descoberta e o aprendizado** — **quais** finalizações existem, como se fazem, com o
+quê. Uma responde *aconteceu?*, a outra responde *o que é e como faço?*.
+
+**A estrutura da área:**
+
+```
+FINALIZAÇÕES
+  → Recomendadas para você      (atrás do gate; ver abaixo)
+  → Todas as finalizações
+```
+
+**Cada finalização poderá ter:** nome · apresentação visual · o contexto/perfil para o qual é
+indicada (**quando houver regra validada**) · **"Como fazer"** com passo a passo · produtos
+relacionados à execução · **prioridade para os produtos que ela já possui** · CTA para registrar que
+realizou · ligação com o **resultado/check-in** posterior · **histórico daquela finalização**.
+
+**São várias técnicas, não uma opção.** Definição · volume · redução de frizz · leveza · fitagem ·
+técnicas por curvatura (ondulado, cacheado, crespo, liso) · day after · combinações com creme,
+leave-in, gelatina, óleo.
+
+**A jornada inteira, ponta a ponta:**
+
+```
+PERFIL/DIAGNÓSTICO → FINALIZAÇÕES RECOMENDADAS → COMO FAZER → PRODUTOS
+  → EXECUÇÃO → COMO FICOU? → HISTÓRICO → HAIR INTELLIGENCE
+```
+
+### ⚠️ O que o gate D-26/D-70 separa aqui
+
+**"Melhores finalizações para o seu cabelo" é recomendação capilar.** A capability é **COMMITTED**,
+mas **regra personalizada e texto substantivo continuam atrás do gate** — e a ordem importa:
+
+| pode ser construído **antes** do sign-off | **só depois** do sign-off |
+|---|---|
+| o catálogo/área e a navegação | *quais* finalizações são "melhores para ela" |
+| o registro de que ela fez | o passo a passo de cada técnica |
+| o vínculo com execução e resultado (`F37`/check-in) | qualquer texto que afirme efeito no cabelo |
+| o histórico por finalização | a personalização por curvatura, objetivo ou avaliação |
+
+⛔ **Não inventar recomendação para preencher interface.** Uma área que precisa de "recomendadas
+para você" para não parecer vazia é uma área que ainda não deve existir com essa aba — a arquitetura
+suporta a lista completa **sem** afirmar qual é a melhor, e é assim que ela entra primeiro.
+
+**Relações.** `F37` a etapa (**nunca fundida** com `WASH_DAY_TECHNIQUES` — SPEC-039 §8 tem barreira
+executável em três travas) · `F48` produtos na execução, que **também deve mostrar a Prateleira
+dentro da execução de Finalização** · `F26` prateleira · `F14` check-in · `P5`/`P8` a leitura
+Premium do que funciona com ela.
 
 **Regras importantes.**
 - **Tratamento e finalização são etapas diferentes**, com registro próprio. Fundi-las destrói o `P8`.
