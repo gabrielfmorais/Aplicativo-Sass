@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-042 |
-| Status | Em implementação |
+| Status | **DONE** — validada no DEV real a 390px em 2026-09-03 |
 | Owner | dono do produto |
 | Bounded Context | Identity (`packages/core/src/identity`) + design + Você |
 | Related ADRs | **SPEC-036** (direção canônica do hero), D-32 (base legal LGPD), D-101 (`react-native-svg`), D-102 |
@@ -102,7 +102,8 @@ do que escrever a mentira.
 - **AC1** No DEV real a 390px: escolher → a marca aparece em Você **e** no cabeçalho → reload →
   persistida.
 - **AC2** Tocar na marca escolhida volta à inicial, e persiste.
-- **AC3** As seis marcas são distinguíveis a 44px, e nenhuma tem figura humana.
+- **AC3** As seis marcas são distinguíveis a 56px no seletor e a 40px no cabeçalho, **cabem inteiras
+  dentro do círculo**, e nenhuma tem figura humana.
 - **AC4** pgTAP: vocabulário recusado pelo banco, isolamento entre usuárias, nenhum grant novo.
 - **AC5** Nenhum texto oferece foto, câmera, galeria ou upload — com barreira de teste.
 
@@ -111,9 +112,13 @@ do que escrever a mentira.
 - **OQ1** Foto própria (`P24`) continua atrás do **D-32**. O primitivo `Avatar` é onde ela entra.
 - **OQ2** Mais marcas é decisão de produto, não de engenharia: acrescentar exige tocar o `CHECK`, a
   lista do core e o teste — de propósito.
+- **OQ3** No preview web, `aria-checked` não é emitido para `role="radio"` — limitação do adapter de
+  plataforma (D-80), **igual para o `Chip` do design system**, que usa exatamente o mesmo contrato.
+  O estado é anunciado no nativo, que é a plataforma do produto; o teste RNTL fixa o contrato.
 
 ## 11. Change Log
 
 | Data | Mudança |
 |---|---|
 | 2026-09-03 | SPEC criada. O lado Free do `F34`; foto continua na `P24`, atrás do D-32. |
+| 2026-09-03 | Validada no DEV real a 390px: escolher → a marca aparece em **Você e no cabeçalho** → reload + entrar de novo → persistida (`flow_berry` medido no banco). **Três defeitos que só o DEV real mostrou:** (1) a primeira geometria lia como **listras** e era cortada reta pelo círculo — exatamente o modo de falha que o dono nomeou para o hero; resolvido com curva de verdade e recuo, depois de comparar **quatro conjuntos fora do app em quatro tamanhos** (o método da SPEC-036); (2) `rotation`/`origin` do `react-native-svg` viravam `transform-origin` inválido no DOM do web — trocado por `transform="rotate(a cx cy)"`, SVG puro, idêntico nas duas plataformas; (3) o estado ia em `selected`, que `role="radio"` não anuncia — passou a `checked`, alinhado com o `Chip` do design system, com barreira de teste. E o seletor a 56px fecha **4+2**, sem a linha órfã que 44px deixava. |

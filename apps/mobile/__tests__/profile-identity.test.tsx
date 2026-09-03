@@ -231,6 +231,19 @@ describe('ProfileIdentity — a marca da Huna (SPEC-042)', () => {
     await waitFor(() => s.getByText(/Não foi possível trocar sua marca/));
   });
 
+  /**
+   * ⚠️ **Achado no DOM do DEV real:** os seis rádios vinham com `aria-checked` nulo, porque o estado
+   * ia em `selected` — que `role="radio"` não anuncia. Sem isto, a leitora de tela não diz qual
+   * marca está escolhida e a **borda vira o único canal**, que é exatamente o que o design system
+   * proíbe (cor nunca é o único canal).
+   */
+  it('a marca escolhida é anunciada como marcada', async () => {
+    const s = await renderIt('flow_berry');
+    await fireEvent.press(s.getByText('Trocar minha marca'));
+    expect(s.getByLabelText('Mechas em berry').props.accessibilityState).toMatchObject({ checked: true });
+    expect(s.getByLabelText('Mechas em ameixa').props.accessibilityState).toMatchObject({ checked: false });
+  });
+
   /** ⚠️ D-32 — foto continua não existindo, e nenhum rótulo promete que existe. */
   it('não oferece foto, e não promete o que o produto não tem', async () => {
     const s = await renderIt(null);

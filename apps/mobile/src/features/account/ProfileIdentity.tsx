@@ -117,11 +117,14 @@ export function ProfileIdentity({
                 onPress={() => chooseAvatar(option)}
                 disabled={avatarBusy}
                 accessibilityRole="radio"
-                accessibilityState={{ selected: avatar === option, disabled: avatarBusy }}
+                // `role="radio"` anuncia a escolha por `checked`; com `selected` a leitora de tela
+                // não dizia qual marca estava escolhida, e a borda virava o único canal — medido no
+                // DOM do DEV real, onde `aria-checked` vinha nulo nos seis.
+                accessibilityState={{ checked: avatar === option, disabled: avatarBusy }}
                 accessibilityLabel={AVATAR_LABEL[option]}
                 style={[styles.option, avatar === option && styles.optionSelected]}
               >
-                <HunaAvatarMark avatar={option} size={44} />
+                <HunaAvatarMark avatar={option} size={56} />
               </Pressable>
             ))}
           </Row>

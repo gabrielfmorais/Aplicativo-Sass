@@ -17,11 +17,24 @@ import type { HunaAvatar } from '@app/core';
  * óptica igual e não o arranjo.
  */
 
-/** As mechas, num quadrado de 100×100. Três fios, com espessura e curva diferentes. */
+/**
+ * As mechas, num quadrado de 100×100. Três fios, com espessura e curva diferentes.
+ *
+ * ⚠️ **A primeira versão lia como listras, e o dono já tinha nomeado esse modo de falha** para o
+ * hero: *"o defeito é se parecer apenas com fita abstrata, tecido, tentáculo, onda genérica,
+ * listras"*. Os fios eram quase verticais, iam de borda a borda e o círculo os **cortava reto** em
+ * cima e embaixo — o mesmo corte que reprovou uma versão do hero.
+ *
+ * O que resolveu foi **curva de verdade e recuo**: cada fio faz um S com deslocamento lateral real,
+ * começa em ~20 e termina em ~82, e por isso **cabe inteiro dentro do círculo**. Quatro conjuntos
+ * foram desenhados e comparados **fora do app**, em quatro tamanhos (96 · 56 · 40 · 28px), antes de
+ * qualquer um entrar na tela — é o método da SPEC-036, e foi ele que mostrou que uma varredura
+ * diagonal vira borrão a 40px e que dois fios viram um símbolo, não cabelo.
+ */
 export const STRANDS = [
-  { d: 'M 22 8 C 10 34, 38 52, 24 92', width: 13 },
-  { d: 'M 50 4 C 36 38, 66 56, 50 96', width: 17 },
-  { d: 'M 78 8 C 92 34, 62 52, 76 92', width: 11 },
+  { d: 'M 30 22 C 14 42, 44 54, 32 80', width: 12 },
+  { d: 'M 51 18 C 71 38, 37 58, 55 82', width: 15 },
+  { d: 'M 72 24 C 87 44, 63 60, 74 78', width: 10 },
 ] as const;
 
 /**
