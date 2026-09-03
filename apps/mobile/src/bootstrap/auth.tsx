@@ -14,6 +14,7 @@ import type {
   PlanPreferencesPort,
   ProductPort,
   ProfilePort,
+  OilRoutinePort,
   WashDayPort,
 } from '@app/core';
 import { UNAUTHENTICATED, cryptoIdGenerator, systemClock, toLocalDate } from '@app/core';
@@ -34,6 +35,7 @@ import { createHairProfileAdapter } from '@/infrastructure/supabase/hair-profile
 import { createNotificationPreferencesAdapter } from '@/infrastructure/supabase/notification-preferences-adapter';
 import { createPlanPreferencesAdapter } from '@/infrastructure/supabase/plan-preferences-adapter';
 import { createProductAdapter } from '@/infrastructure/supabase/product-adapter';
+import { createOilRoutineAdapter } from '@/infrastructure/supabase/oil-routine-adapter';
 import { createWashDayAdapter } from '@/infrastructure/supabase/wash-day-adapter';
 import { createProfileAdapter } from '@/infrastructure/supabase/profile-adapter';
 import { createLocalNotificationAdapter } from '@/infrastructure/notifications/local-notification-adapter';
@@ -55,6 +57,8 @@ type AuthContextValue = {
   products: ProductPort;
   /** SPEC-024 — o que ela realmente usou num cuidado. */
   washDays: WashDayPort;
+  /** SPEC-040 (F39) — a rotina de óleo dela. */
+  oil: OilRoutinePort;
   /** SPEC-018 — o nome escolhido por ela; a única coisa em `profiles`. */
   profile: ProfilePort;
   notificationScheduler: NotificationSchedulerPort;
@@ -147,6 +151,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }),
     [state],
   );
+  // Sem `userId`: leitura por RLS, escrita só por RPC — o dia civil e a idempotência são do
+  // servidor (SPEC-040 §7).
+  const oil = useMemo(() => createOilRoutineAdapter(supabase), []);
   const careTracking = useMemo(() => createCareTrackingAdapter(supabase), []);
   const entitlements = useMemo(() => createEntitlementsAdapter(supabase), []);
   const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -185,6 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hairEvents,
         products,
         washDays,
+        oil,
         profile,
         notificationScheduler,
         today: () => toLocalDate(systemClock.now(), timeZone()),

@@ -326,3 +326,80 @@ describe('pausa silencia os lembretes (SPEC-022 FR2)', () => {
     expect(buildNotificationIntents({ ...base, paused: true })).toEqual([]);
   });
 });
+
+/**
+ * SPEC-040 FR8 (F39) — o **quinto** intent: a rotina de óleo.
+ *
+ * A data vem derivada de `buildOilRoutineView`, nunca recontada aqui: duas contagens da mesma coisa
+ * divergem na primeira mudança de regra.
+ */
+describe('rotina de óleo (SPEC-040 FR8)', () => {
+  const withOil = (oilDueOn: string | null, extra: Record<string, unknown> = {}) =>
+    buildNotificationIntents({
+      view: buildTodayView([], [], TODAY),
+      preferences: ON,
+      today: TODAY,
+      nowLocalTime: '07:00',
+      oilDueOn,
+      ...extra,
+    });
+
+  it('sem rotina, o intent não existe (EC6)', () => {
+    expect(withOil(null)).toEqual([]);
+  });
+
+  it('vencendo hoje, lembra hoje', () => {
+    const intents = withOil(TODAY);
+    expect(intents.map((i) => i.type)).toEqual(['oil_due']);
+    expect(intents[0]?.date).toBe(TODAY);
+  });
+
+  /**
+   * **Uma só, e no primeiro dia em que ela ainda pode agir.** Uma rotina vencida há uma semana não
+   * vira sete notificações — a D-28 pede estado e ação, não cobrança acumulada.
+   */
+  it('vencida no passado, lembra hoje — uma vez, não uma por dia de atraso', () => {
+    const intents = withOil('2026-09-01');
+    expect(intents.length).toBe(1);
+    expect(intents[0]?.date).toBe(TODAY);
+  });
+
+  it('fora do horizonte, não agenda nada', () => {
+    expect(withOil('2027-01-01')).toEqual([]);
+  });
+
+  it('não agenda sem opt-in (NG5/BR1)', () => {
+    expect(
+      buildNotificationIntents({
+        view: buildTodayView([], [], TODAY),
+        preferences: DEFAULT_NOTIFICATION_PREFERENCES,
+        today: TODAY,
+        nowLocalTime: '07:00',
+        oilDueOn: TODAY,
+      }),
+    ).toEqual([]);
+  });
+
+  /**
+   * ⚠️ **EC5 — decisão deliberada.** A rotina de óleo não é o cronograma e continua contando; o
+   * **lembrete**, porém, se cala com a pausa. "Pausada, nada toca" é garantia já validada da
+   * SPEC-022, e um intent novo que passasse por cima dela a enfraqueceria.
+   */
+  it('pausada, o lembrete de óleo também se cala (EC5)', () => {
+    expect(withOil(TODAY).length).toBe(1);
+    expect(withOil(TODAY, { paused: true })).toEqual([]);
+  });
+
+  /** BR4/NG3 — o texto diz o que ela programou, e nada sobre o que o óleo faz. */
+  it('o texto não afirma nada sobre cabelo e não promete resultado', () => {
+    const [oil] = withOil(TODAY);
+    expect(`${oil?.title} ${oil?.body}`).toBe('Hora do seu óleo Você programou o óleo para hoje.');
+    expect(`${oil?.title} ${oil?.body}`).not.toMatch(/hidrat|nutri|sela|repara|fortalec|brilho|frizz/i);
+  });
+
+  /** ADR-009 — id determinístico: o mesmo estado produz o mesmo id, e reconciliar é idempotente. */
+  it('o id é determinístico', () => {
+    expect(withOil(TODAY)[0]?.id).toBe(`oil_due:${TODAY}`);
+    expect(withOil(TODAY)[0]?.id).toBe(withOil(TODAY)[0]?.id);
+  });
+});

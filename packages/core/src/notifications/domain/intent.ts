@@ -21,6 +21,12 @@ export const NOTIFICATION_INTENT_TYPES = [
   'care_today',
   'checkin_pending',
   'reassessment_due',
+  /**
+   * SPEC-040 (F39) — o **quinto** intent. Entra por último de propósito: a ordem desta lista é a
+   * prioridade quando o teto diário aperta (FR6), e um cuidado do cronograma vem antes de uma
+   * rotina paralela que ela pode fazer a qualquer hora.
+   */
+  'oil_due',
 ] as const;
 export type NotificationIntentType = (typeof NOTIFICATION_INTENT_TYPES)[number];
 
@@ -79,6 +85,13 @@ const copyFor = (type: NotificationIntentType, careCount: number): { title: stri
         title: 'Seu cronograma chegou ao fim',
         body: 'Reavalie seu cabelo para montar as próximas semanas.',
       };
+    /**
+     * SPEC-040 — o texto diz **o que ela programou**, e nada sobre o que o óleo faz (BR4/NG2/NG3).
+     * "Hidrata as pontas" ou "sela os fios" seria afirmação capilar na tela de bloqueio, sem
+     * sign-off e sem contexto (D-26/D-70).
+     */
+    case 'oil_due':
+      return { title: 'Hora do seu óleo', body: 'Você programou o óleo para hoje.' };
   }
 };
 
@@ -131,8 +144,22 @@ export const buildNotificationIntents = (input: {
    * agenda tem de enxergar a mesma pausa que a Hoje enxerga (BR2).
    */
   paused?: boolean;
+  /**
+   * SPEC-040 FR8 — a data da próxima ocorrência da rotina de óleo, ou `null` quando ela não tem
+   * rotina (EC6).
+   *
+   * Parâmetro **derivado**, e não a rotina crua: quem decide quando é a próxima vez é
+   * `buildOilRoutineView`, e uma segunda contagem aqui divergiria dela na primeira mudança de regra.
+   *
+   * ⚠️ **Pausada, isto também se cala** — o `return` de `paused` acontece antes, de propósito. A
+   * rotina de óleo **não é o cronograma** e continua contando (a Hoje segue mostrando), mas
+   * "pausada, nada toca" é garantia da SPEC-022 já validada, e um lembrete novo que passasse por
+   * cima dela a enfraqueceria. Pausa é ela dizendo *não me cobre esta semana*, e o aparelho não
+   * sabe distinguir qual cobrança ela quis suspender.
+   */
+  oilDueOn?: string | null;
 }): readonly NotificationIntent[] => {
-  const { view, preferences, today, nowLocalTime, paused = false } = input;
+  const { view, preferences, today, nowLocalTime, paused = false, oilDueOn = null } = input;
   if (paused) return []; // FR2 — pausada, nada toca
   if (!preferences.enabled) return []; // BR1: opt-in, and the only way to get an empty set for free
 
@@ -169,6 +196,18 @@ export const buildNotificationIntents = (input: {
   // simply going quiet. Anchored to a date that does not move, so it fires once: as soon as that
   // day is behind her the intent stops being produced, and there is no daily nagging to suppress.
   // A new plan re-anchors it, because the view it is derived from is the new plan's.
+  /**
+   * SPEC-040 FR8 — a rotina de óleo, quando vence dentro do horizonte.
+   *
+   * **Uma só, na data em que vence**, e nunca uma por dia de atraso: uma rotina vencida há uma
+   * semana não vira sete notificações. Vencida antes de hoje, o lembrete cabe **hoje** — é o
+   * primeiro dia em que ela ainda pode agir.
+   */
+  if (oilDueOn !== null) {
+    const due = (oilDueOn < today ? today : oilDueOn) as LocalDate;
+    if (due <= horizonEnd && usableToday(due)) intents.push(intent('oil_due', due, time, 0));
+  }
+
   const last = lastPlannedDate(view);
   if (last !== null) {
     const due = addDays(last as LocalDate, 1);
