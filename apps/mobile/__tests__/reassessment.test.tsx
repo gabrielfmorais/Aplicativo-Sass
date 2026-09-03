@@ -170,10 +170,17 @@ describe('history survives the new plan (SPEC-014 FR7/AC8)', () => {
     ...over,
   });
 
-  /** The point of the whole line: a brand-new plan must not read as a brand-new user. */
+  /**
+   * The point of the whole line: a brand-new plan must not read as a brand-new user.
+   *
+   * ⚠️ **SPEC-034 — este teste travava duas frases que brigavam.** A 390px lia-se *"o resumo
+   * aparece conforme você registra"* e, logo abaixo, *"desde o início, você concluiu 12 cuidados"*:
+   * a tela prometia um resumo que já estava ali. Não era contradição de dado (um é o plano, o outro
+   * é a vida inteira) — era **escopo faltando na frase**, e é o escopo que a asserção agora exige.
+   */
   it('keeps her earlier work visible on a plan that just started', async () => {
     const screen = await render(<ProgressSummary progress={progress({ lifetimeDone: 12 })} />);
-    screen.getByText('Seu plano começou agora. O resumo aparece conforme você registra os cuidados.');
+    screen.getByText('Seu plano começou agora. O resumo deste ciclo aparece conforme você registra.');
     screen.getByText('Desde o início, você concluiu 12 cuidados.');
   });
 

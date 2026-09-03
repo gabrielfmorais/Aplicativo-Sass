@@ -1,4 +1,4 @@
-import { CARE_GUIDES } from '@app/core';
+import { CARE_GUIDES, CARE_TYPE_CODES } from '@app/core';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import { CareGuideLibrary } from '@/features/care/CareGuideLibrary';
@@ -53,5 +53,17 @@ describe('CareGuideLibrary (SPEC-031)', () => {
     const before = s.getAllByText(`~${minutes} min`).length;
     await fireEvent.press(s.getByLabelText(/^Hidratação, \d+ minutos$/));
     expect(s.getAllByText(`~${minutes} min`).length).toBe(before);
+  });
+  /**
+   * ⚠️ **A biblioteca segue o core, não uma lista escrita à mão.** `ORDER` era o literal
+   * `['hydration', 'nutrition', 'reconstruction']`: um quarto tipo de cuidado (a Restauração do
+   * `F36`, D-102) entraria no engine, no banco e em `CARE_GUIDES` e **não apareceria aqui** — sem
+   * erro de compilação e sem teste vermelho, apenas um guia inalcançável. Esta é a asserção que
+   * falharia.
+   */
+  it('lista um guia por tipo de cuidado que o core define', async () => {
+    const s = await render(<CareGuideLibrary />);
+    const rows = s.getAllByLabelText(/^.+, \d+ minutos$/);
+    expect(rows).toHaveLength(CARE_TYPE_CODES.length);
   });
 });

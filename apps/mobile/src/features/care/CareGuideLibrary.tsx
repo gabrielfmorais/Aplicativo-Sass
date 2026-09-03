@@ -1,5 +1,5 @@
 import type { CareTypeCode } from '@app/core';
-import { CARE_GUIDES } from '@app/core';
+import { CARE_GUIDES, CARE_TYPE_CODES } from '@app/core';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -35,7 +35,13 @@ import { CARE_TYPE_LABEL } from '@/features/plan/copy';
  * não muda o status dele, e nada aqui afirma nada além do que o guia já dizia.
  */
 
-const ORDER: readonly CareTypeCode[] = ['hydration', 'nutrition', 'reconstruction'];
+/**
+ * ⚠️ **Derivado do core, nunca reescrito à mão.** Esta linha era a lista literal dos três tipos —
+ * e um quarto tipo de cuidado (a Restauração do `F36`, D-102) entraria no engine, no banco e nos
+ * guias sem que a biblioteca o mostrasse: sem erro de compilação, sem teste vermelho, apenas um
+ * guia inalcançável. `CARE_TYPE_CODES` já é a ordem canônica.
+ */
+const ORDER: readonly CareTypeCode[] = CARE_TYPE_CODES;
 
 function GuideRow({ code, last }: { code: CareTypeCode; last: boolean }) {
   const [open, setOpen] = useState(false);
