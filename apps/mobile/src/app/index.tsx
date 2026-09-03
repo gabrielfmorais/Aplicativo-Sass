@@ -478,6 +478,7 @@ function AuthenticatedApp({
       onOpenCycle={() => setTab('progress')}
       onOpenWashDay={setWashDay}
       washDays={washDays}
+      products={products}
       profile={profileChip}
       productCount={productCount}
       // A prateleira é aba: a sugestão leva **para a aba**, e não para uma cópia empilhada dela.

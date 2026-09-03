@@ -1,4 +1,5 @@
-import type { ScheduledCare } from '../../schedule/index.ts';
+import type { Product } from '../../hair-profile/index.ts';
+import type { CareTypeCode, ScheduledCare } from '../../schedule/index.ts';
 import type { CareExecution, CheckIn } from '../domain/care-tracking.ts';
 import type { FinishStatus, ScalpFeel, WashDayRecord, WashDayTechnique } from '../domain/wash-day.ts';
 
@@ -161,4 +162,13 @@ export interface WashDayPort {
    * ter de apagar este método, e não só acrescentar um valor a uma lista.
    */
   setFinishStatus(input: { careExecutionId: string; finishStatus: FinishStatus | null }): Promise<void>;
+  /**
+   * SPEC-041 (F48) — os produtos que ela usou **da última vez** num cuidado deste tipo.
+   *
+   * ⚠️ **É um fato dela, não uma recomendação.** A lista sai do registro que ela mesma fez
+   * (SPEC-024); o app não escolhe produto por categoria, composição ou indicação — isso seria
+   * conteúdo capilar substantivo e cairia no gate D-26/D-70. Vazio quando não há registro anterior,
+   * que é o estado normal no começo.
+   */
+  lastUsedFor(careTypeCode: CareTypeCode): Promise<readonly Product[]>;
 }

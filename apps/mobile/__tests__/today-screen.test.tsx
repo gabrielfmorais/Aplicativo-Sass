@@ -4,6 +4,7 @@ import type {
   HairProfilePort,
   Instant,
   LocalDate,
+  ProductPort,
   WashDayPort,
 } from '@app/core';
 import { CARE_GUIDES, ConflictError, instantFromString } from '@app/core';
@@ -85,6 +86,7 @@ const washDayPort = (over: Partial<WashDayPort> = {}): WashDayPort => ({
   markTechnique: jest.fn(async () => undefined),
   setScalpFeel: jest.fn(async () => undefined),
   setFinishStatus: jest.fn(async () => undefined),
+  lastUsedFor: jest.fn(async () => []),
   ...over,
 });
 
@@ -851,5 +853,60 @@ describe('finalização na Hoje (SPEC-039)', () => {
     await waitFor(() => s.getByText('Você finalizou?'));
 
     expect(s.queryByText(/defini|frizz|volume|recomend|deveria|ideal|melhor/i)).toBeNull();
+  });
+});
+
+/**
+ * SPEC-041 FR2 (F48) — o painel "Meus produtos" no cartão do cuidado: a um toque, e nunca
+ * empurrando a ação primária para baixo da dobra.
+ */
+describe('produtos na execução, na Hoje (SPEC-041)', () => {
+  const shelfPorts = {
+    washDays: washDayPort({ lastUsedFor: jest.fn(async () => []) }),
+    products: { list: jest.fn(async () => []) } as unknown as ProductPort,
+  };
+
+  const renderWithShelf = (withShelf: boolean) =>
+    render(
+      <TodayScreen
+        board={board()}
+        care={makePort()}
+        today={TODAY}
+        now={() => NOW}
+        timeZone="America/Sao_Paulo"
+        newExecutionId={() => 'exec-1'}
+        onChanged={jest.fn()}
+        hairProfile={hairProfilePort()}
+        onOpenWashDay={jest.fn()}
+        washDays={shelfPorts.washDays}
+        {...(withShelf ? { products: shelfPorts.products } : {})}
+        profile={{ name: 'Ana', onPress: jest.fn() }}
+        productCount={null}
+        onOpenShelf={jest.fn()}
+        onPause={jest.fn()}
+        onPreviewResume={jest.fn()}
+        onResume={jest.fn()}
+        onOpenCycle={jest.fn()}
+      />,
+    );
+
+  it('oferece o painel no cuidado, e ele abre fechado', async () => {
+    const s = await renderWithShelf(true);
+    await waitFor(() => s.getAllByText('Meus produtos'));
+    expect(s.queryByText(/Na sua prateleira|Sua prateleira está vazia/)).toBeNull();
+  });
+
+  it('abrir mostra o que ela tem', async () => {
+    const s = await renderWithShelf(true);
+    await waitFor(() => s.getAllByText('Meus produtos'));
+    await fireEvent.press(s.getAllByText('Meus produtos')[0] as never);
+    await waitFor(() => s.getByText(/Sua prateleira está vazia/));
+  });
+
+  /** Sem a prateleira, o cartão continua inteiro — a capability é opcional (FR4/NG5). */
+  it('sem a prateleira, o cartão não oferece o painel e nada quebra', async () => {
+    const s = await renderWithShelf(false);
+    await waitFor(() => s.getAllByText('Fiz hoje'));
+    expect(s.queryByText('Meus produtos')).toBeNull();
   });
 });

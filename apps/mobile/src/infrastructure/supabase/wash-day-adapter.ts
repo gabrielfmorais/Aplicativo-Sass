@@ -16,6 +16,10 @@ const TECHNIQUES = 'wash_day_techniques';
 const SCALP = 'wash_day_scalp';
 const FINISH = 'wash_day_finish';
 
+/** Quantas execuções recentes daquele tipo olhar para trás. Limitado de propósito: o painel é uma
+ * conveniência, e uma varredura sem teto no histórico dela não é. */
+const RECENT_EXECUTIONS = 10;
+
 const fail = (code: string, e: { message: string }) => new InfrastructureError(code, e.message);
 
 /** A marcação já existe. Não é falha: é o estado que ela pediu (EC5). */
@@ -196,6 +200,62 @@ export const createWashDayAdapter = (client: SupabaseClient, userId: () => strin
      * ⚠️ **A tabela é outra, e isso é a SPEC.** Escrever isto em `wash_day_techniques` seria
      * afirmar que finalizar é uma maneira de fazer o cuidado, quando é uma parte do processo (BR3).
      */
+    /**
+     * SPEC-041 (F48) — o que ela usou **da última vez** num cuidado deste tipo.
+     *
+     * ⚠️ **Sem nenhum filtro por categoria.** Escolher "máscara para hidratação" seria associar
+     * produto a tipo de cuidado por indicação — conteúdo capilar substantivo, gate D-26/D-70. O que
+     * volta daqui é o registro que **ela** fez, e nada mais.
+     *
+     * Quatro leituras curtas em vez de um `join` embutido: a FK de `wash_days` para
+     * `care_executions` é composta, e o PostgREST não promete embedding por FK composta — um
+     * `select` aninhado que o servidor não reconhecesse falharia em runtime, não em compilação.
+     * Só roda quando ela abre o painel, e as listas são limitadas.
+     */
+    async lastUsedFor(careTypeCode): Promise<readonly Product[]> {
+      const { data: executionRows, error: executionsError } = await client
+        .from('care_executions')
+        .select('id')
+        .eq('care_type_code', careTypeCode)
+        .is('voided_at', null)
+        .order('executed_on', { ascending: false })
+        .limit(RECENT_EXECUTIONS);
+      if (executionsError) throw fail('care.wash_day_read_failed', executionsError);
+      const executionIds = (executionRows as { id: string }[]).map((r) => r.id);
+      if (executionIds.length === 0) return [];
+
+      // O hub mais recente entre essas execuções: a ordem da consulta acima é a ordem da verdade,
+      // então a primeira execução que **tem** registro é a última vez que ela contou o que usou.
+      const { data: hubRows, error: hubsError } = await client
+        .from(HUB)
+        .select('id, care_execution_id')
+        .in('care_execution_id', executionIds);
+      if (hubsError) throw fail('care.wash_day_read_failed', hubsError);
+      const hubOf = new Map(
+        (hubRows as { id: string; care_execution_id: string }[]).map((r) => [r.care_execution_id, r.id]),
+      );
+      const washDayId = executionIds.map((id) => hubOf.get(id)).find((id) => id !== undefined);
+      if (!washDayId) return [];
+
+      const { data: markRows, error: marksError } = await client
+        .from(PRODUCTS)
+        .select('product_id')
+        .eq('wash_day_id', washDayId);
+      if (marksError) throw fail('care.wash_day_read_failed', marksError);
+      const productIds = (markRows as { product_id: string }[]).map((r) => r.product_id);
+      if (productIds.length === 0) return [];
+
+      // Sem filtro de arquivado, como em `getFor` (SPEC-024 BR3): ela usou aquilo, e o passado não
+      // muda porque o vidro acabou.
+      const { data, error } = await client.from('products').select('id, name, category').in('id', productIds);
+      if (error) throw fail('care.wash_day_read_failed', error);
+      return (data as { id: string; name: string; category: ProductCategory }[]).map((r) => ({
+        id: r.id,
+        name: r.name,
+        category: r.category,
+      }));
+    },
+
     async setFinishStatus({ careExecutionId, finishStatus }): Promise<void> {
       const washDayId = await hubFor(careExecutionId);
       if (finishStatus === null) {
