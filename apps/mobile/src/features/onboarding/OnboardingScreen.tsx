@@ -66,7 +66,37 @@ const GOAL: Opt<HairProfileInput['primaryGoal']>[] = [
   { value: 'maintain_healthy_hair', label: 'Manter o cabelo saudável' },
 ];
 
-/** Answers, exactly the eight of SPEC-002 §6 — the shape this screen builds toward. */
+/**
+ * SPEC-037 (F35) — porosidade percebida, perguntada pelo que ela **vê**.
+ *
+ * ⚠️ **A pergunta não diz "porosidade" e as opções não classificam.** Perguntar "qual é a porosidade
+ * do seu cabelo?" exclui quem não conhece o termo — que é a maioria — e convida a resposta que ela
+ * leu num vídeo em vez da que ela observa. O que ela sabe sem dúvida é quanto tempo o cabelo dela
+ * demora para molhar e para secar, e é isso que está sendo perguntado. Traduzir isso em classe de
+ * porosidade é regra capilar e não acontece aqui (D-26).
+ */
+const POROSITY: Opt<HairProfileInput['perceivedPorosity']>[] = [
+  { value: 'slow_to_wet', label: 'Demora para molhar' },
+  { value: 'absorbs_normally', label: 'Molha e seca normalmente' },
+  { value: 'wets_and_dries_fast', label: 'Molha rápido e seca rápido' },
+  { value: 'unknown', label: 'Não sei dizer' },
+];
+
+/**
+ * SPEC-037 (F35) — o tempo que ela **tem**, não o que ela gostaria de ter.
+ *
+ * Os rótulos falam em minutos porque "pouco tempo" é elástico e minuto não é: quem responde "até 15
+ * minutos" está dizendo uma coisa verificável sobre a vida dela. É a única pergunta do onboarding
+ * que não é sobre o cabelo.
+ */
+const AVAILABILITY: Opt<HairProfileInput['routineAvailability']>[] = [
+  { value: 'minimal', label: 'Até 15 minutos' },
+  { value: 'moderate', label: 'De 15 a 40 minutos' },
+  { value: 'generous', label: 'Mais de 40 minutos' },
+  { value: 'varies', label: 'Depende muito da semana' },
+];
+
+/** Answers — as dez de SPEC-002 §6 + SPEC-037. É a forma que esta tela constrói. */
 type Answers = {
   hairPattern?: HairProfileInput['hairPattern'];
   strandThickness?: HairProfileInput['strandThickness'];
@@ -76,6 +106,8 @@ type Answers = {
   heatUsage?: HairProfileInput['heatUsage'];
   currentConcerns: HairProfileInput['currentConcerns'];
   primaryGoal?: HairProfileInput['primaryGoal'];
+  perceivedPorosity?: HairProfileInput['perceivedPorosity'];
+  routineAvailability?: HairProfileInput['routineAvailability'];
 };
 
 const EMPTY: Answers = { chemicalTreatments: [], currentConcerns: [] };
@@ -136,6 +168,10 @@ const STEPS: readonly Step[] = [
   single('hairPattern', 'Qual é o seu tipo de curvatura?', PATTERN),
   single('strandThickness', 'Qual é a espessura do fio?', THICKNESS),
   single('scalpTendency', 'Como é o seu couro cabeludo?', SCALP),
+  {
+    ...single('perceivedPorosity', 'Quando você molha o cabelo, o que acontece?', POROSITY),
+    hint: 'Se nunca reparou, "não sei dizer" é uma resposta — e é melhor que um chute.',
+  },
   single('washFrequency', 'Com que frequência você lava o cabelo?', WASH),
   {
     key: 'chemicalTreatments',
@@ -158,6 +194,10 @@ const STEPS: readonly Step[] = [
     ready: () => true,
   },
   single('heatUsage', 'Com que frequência você usa calor?', HEAT),
+  {
+    ...single('routineAvailability', 'Num dia de cuidado, quanto tempo você tem?', AVAILABILITY),
+    hint: 'O tempo real, não o ideal — é ele que decide se o cronograma cabe na sua semana.',
+  },
   {
     key: 'currentConcerns',
     question: 'O que mais te incomoda hoje?',
@@ -200,28 +240,55 @@ type Interlude = {
   readonly body: string;
 };
 
+/**
+ * ⚠️ **O número de perguntas era escrito à mão, e isso quebrou na primeira vez que o roteiro
+ * mudou.** As pausas diziam *"são três perguntas"* e *"só faltam duas perguntas"* — verdade quando
+ * foram escritas, mentira no minuto em que a SPEC-037 acrescentou duas. E contar é justamente o que
+ * a BR3 desta tela promete ser **verdade verificável**: se a frase que conta é a que erra, ela custa
+ * mais confiança do que compra.
+ *
+ * Agora o número vem do roteiro. Escrever "3" aqui deixou de ser possível.
+ */
+const plural = (n: number, one: string, many: string) => (n === 1 ? one : many.replace('{n}', String(n)));
+
 type FlowItem =
   | { readonly kind: 'question'; readonly step: Step }
   | { readonly kind: 'interlude'; readonly interlude: Interlude };
 
 /** Depois de qual índice de `STEPS` cada pausa entra. Os blocos são: o cabelo · a rotina · o que ela quer. */
+const INTERLUDE_AFTER = [3, 7] as const;
+
+/** Quantas perguntas vêm entre esta pausa e a próxima (ou o fim). Derivado, nunca digitado. */
+const blockSizeAfter = (index: number): number => {
+  const next = INTERLUDE_AFTER.find((i) => i > index) ?? STEPS.length - 1;
+  return next - index;
+};
+
 const INTERLUDES: readonly (readonly [number, Interlude])[] = [
   [
-    2,
+    INTERLUDE_AFTER[0],
     {
       key: 'after-hair',
       overline: 'Seu cabelo',
       title: 'Essa parte já está registrada.',
-      body: 'Agora quero entender a sua rotina — o que você faz com o cabelo no dia a dia. São três perguntas.',
+      body: `Agora quero entender a sua rotina — o que você faz com o cabelo no dia a dia. ${plural(
+        blockSizeAfter(INTERLUDE_AFTER[0]),
+        'É uma pergunta.',
+        'São {n} perguntas.',
+      )}`,
     },
   ],
   [
-    5,
+    INTERLUDE_AFTER[1],
     {
       key: 'after-routine',
       overline: 'Sua rotina',
       title: 'Falta pouco.',
-      body: 'Só faltam duas perguntas: o que te incomoda hoje e o que você quer mudar.',
+      body: `${plural(
+        STEPS.length - 1 - INTERLUDE_AFTER[1],
+        'Falta uma pergunta',
+        'Só faltam {n} perguntas',
+      )}: o que te incomoda hoje e o que você quer mudar.`,
     },
   ],
 ];

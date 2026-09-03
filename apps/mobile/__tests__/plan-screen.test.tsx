@@ -23,6 +23,8 @@ const profile: HairProfileSnapshot = {
   heatUsage: 'almost_never',
   currentConcerns: ['dryness'],
   primaryGoal: 'softness_and_hydration',
+  perceivedPorosity: 'absorbs_normally',
+  routineAvailability: 'moderate',
 };
 
 const createdPlan: HairPlan = {
