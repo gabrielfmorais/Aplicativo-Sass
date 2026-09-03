@@ -60,6 +60,10 @@ SPEC diz o que o óleo faz no cabelo**. Isso é conteúdo capilar substantivo, e
 - **FR1** `public.oil_routines` guarda **uma** rotina por usuária: `every_days` e `started_on`.
 - **FR2** Ela escolhe o intervalo entre opções neutras, muda quando quiser e **desliga** quando
   quiser. Desligar apaga a rotina; **o histórico fica**.
+- **FR2.1** ⚠️ **A rotina diária é oferecida** (decisão do dono, 2026-09-03): `1` abre a lista. O
+  banco sempre aceitou (`between 1 and 60`) e a derivação nunca soube o que é uma semana — mas a
+  lista começava no 2, e **uma capability que aceita um valor no schema e o esconde da tela não tem
+  aquele valor**. Feito hoje com intervalo diário, a próxima é **amanhã**.
 - **FR3** `public.oil_events` guarda o que aconteceu: `done` ou `postponed`, com o dia civil.
 - **FR4** O dia civil e a idempotência são **invariantes de servidor** (o mesmo raciocínio da
   SPEC-020): escrita só por RPC `SECURITY DEFINER`, `user_id` de `auth.uid()`, cliente só com
@@ -78,7 +82,11 @@ SPEC diz o que o óleo faz no cabelo**. Isso é conteúdo capilar substantivo, e
 - **BR3** Nada se move sozinho (D-28). Vencida, ela continua vencida até ela agir.
 - **BR4** Nenhum rótulo desta SPEC afirma o que o óleo faz. "Passei óleo" descreve o que ela fez.
 - **BR5** A rotina desligada não lembra e não aparece na Hoje. O histórico continua.
-- **BR6** Nenhuma opção de intervalo é apresentada como recomendada (NG2).
+- **BR6** Nenhuma opção de intervalo é apresentada como recomendada (NG2) — o diário inclusive:
+  "todo dia" é **escolha dela**, nunca sugestão da Huna.
+- **BR7** **Nenhuma frequência é privilegiada no código.** A regra é `último feito + intervalo`, e
+  sete não tem nada de especial ali — "1x por semana" é só um rótulo em português, como "todo dia".
+  Há teste percorrendo a lista inteira e conferindo que cada opção anda exatamente o próprio número.
 
 ## 7. Dados e autorização
 
@@ -156,6 +164,10 @@ muda a próxima data (que deriva do último feito), não a história.
   `buildOilRoutineView` não recebe `paused` e portanto não pode escondê-la.
 - **AC7** Nenhum rótulo afirma o que o óleo faz, e nenhuma frequência é apresentada como recomendada
   — com barreira de teste.
+- **AC8** ⚠️ **Diário validado nas três camadas:** domínio (feito hoje → amanhã, adiar, atraso sem
+  fila, e cada opção andando o próprio número), banco (`1` aceito; `0` e `61` recusados com
+  `23514`) e **DEV real a 390px** — "Todo dia" na lista e `Próxima: sex, 04/09 · última vez em qui,
+  03/09`.
 
 ## 10. Open Questions
 
@@ -169,4 +181,5 @@ muda a próxima data (que deriva do último feito), não a história.
 | Data | Mudança |
 |---|---|
 | 2026-09-03 | SPEC criada. A rotina existe; o que o óleo faz continua fora, atrás do gate. |
+| 2026-09-03 | **A rotina diária entra na lista** (decisão do dono). O banco e o domínio já aceitavam `1`; a **lista oferecida** começava no 2, e um valor que o schema aceita e a tela esconde não existe para ela. Medido no DEV real: `1` gravado pela tela, `0` e `61` recusados com `23514`, e `Próxima: sex, 04/09 · última vez em qui, 03/09`. |
 | 2026-09-03 | Validada no DEV real a 390px: ligar · trocar intervalo · **Adiar** pelo botão (evento gravado com o dia civil dela) · desligar preservando o histórico · religar · a próxima andando o intervalo depois do feito (`qui, 10/09 · última vez em qui, 03/09`). Idempotência medida com **três chamadas da mesma chave, duas em paralelo** → o mesmo id e **uma** linha. Cliente hostil recusado nas quatro pontas. **EC7 descoberta na validação** e fixada em teste. |

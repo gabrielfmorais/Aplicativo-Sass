@@ -2,7 +2,7 @@
 -- acontece quando ela desliga.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(21);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values ('00000000-0000-4000-8000-000000000091', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'o91@example.test'),
@@ -50,10 +50,24 @@ select is(
   1,
   'e continua tendo UMA rotina, não duas');
 
--- O CHECK da tabela é a única fonte de verdade da faixa — a RPC não a repete (§7).
+-- ⚠️ **O diário é válido, e é a borda de baixo da faixa** (decisão do dono, 2026-09-03). Quem passa
+-- óleo todo dia precisa conseguir dizer isso; `between 1 and 60` sempre aceitou, e agora está
+-- provado aqui em vez de presumido.
+select lives_ok(
+  $q$ select public.set_oil_routine(1::smallint, 'America/Sao_Paulo') $q$,
+  'a rotina diária é aceita pelo banco');
+select is(
+  (select every_days::int from public.oil_routines),
+  1,
+  'e fica gravada como 1');
+
+-- O CHECK da tabela é a única fonte de verdade da faixa — a RPC não a repete (§7). As duas bordas:
 select throws_ok(
   $q$ select public.set_oil_routine(0::smallint, 'America/Sao_Paulo') $q$,
-  '23514', null, 'intervalo fora da faixa é recusado pelo banco');
+  '23514', null, 'zero dias não é um intervalo, e o banco recusa');
+select throws_ok(
+  $q$ select public.set_oil_routine(61::smallint, 'America/Sao_Paulo') $q$,
+  '23514', null, 'acima da faixa também é recusado pelo banco');
 
 -- ------------------------------------------------------------ registrar (FR3/FR4/EC3)
 select lives_ok(

@@ -18,8 +18,17 @@ import { addDays, diffDays, type LocalDate } from '../../shared/time/index.ts';
  * São marcas de calendário, não conselho: marcar um deles como "ideal" ou "para o seu cabelo" seria
  * exatamente a afirmação que esta SPEC não pode fazer. A lista existe para ela escolher rápido, e a
  * barreira de teste garante que nenhum rótulo a transforme em orientação.
+ *
+ * ⚠️ **O diário abre a lista, e não é detalhe.** O banco sempre aceitou `1` (`between 1 and 60`) e a
+ * derivação nunca soube o que é uma semana — mas **a lista não oferecia**, então quem passa óleo
+ * todo dia não conseguia dizer isso. Uma capability que aceita um valor no schema e o esconde da
+ * tela **não tem** aquele valor.
+ *
+ * ⚠️ E ele entra como **escolha dela**, nunca como sugestão: nenhuma opção é marcada, ordenada por
+ * mérito ou apresentada como o certo. Com que frequência ela **deveria** passar óleo continua sendo
+ * conteúdo capilar substantivo ⇒ D-26/D-70.
  */
-export const OIL_INTERVAL_OPTIONS = [2, 3, 7, 15] as const;
+export const OIL_INTERVAL_OPTIONS = [1, 2, 3, 7, 15] as const;
 
 export const OIL_EVENT_KINDS = ['done', 'postponed'] as const;
 

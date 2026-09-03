@@ -116,7 +116,7 @@ describe('rotina de óleo — o que ela NÃO diz (SPEC-040 NG2/BR4/BR6)', () => 
    * de domínio, que é a coisa que o D-26 existe para impedir.
    */
   it('as opções de intervalo são números, sem nenhuma marcada como recomendada', () => {
-    expect([...OIL_INTERVAL_OPTIONS]).toEqual([2, 3, 7, 15]);
+    expect([...OIL_INTERVAL_OPTIONS]).toEqual([1, 2, 3, 7, 15]);
     for (const option of OIL_INTERVAL_OPTIONS) {
       expect(typeof option).toBe('number');
     }
@@ -166,5 +166,61 @@ describe('rotina de óleo — desligar e ligar de novo (SPEC-040 EC4/EC7)', () =
     );
     expect(v.dueOn).toBe('2026-09-10');
     expect(v.lastDoneOn).toBe('2026-09-03');
+  });
+});
+
+/**
+ * SPEC-040 — **a rotina diária** (decisão do dono, 2026-09-03).
+ *
+ * O banco sempre aceitou `1` (`every_days between 1 and 60`) e a derivação nunca soube o que é uma
+ * semana — mas a **lista oferecida** ia de dois em diante, e uma capability que aceita um valor no
+ * schema e o esconde da tela **não tem** aquele valor. Estes testes fixam o diário como caminho de
+ * primeira classe, e não como caso de borda.
+ */
+describe('rotina de óleo — diária (SPEC-040)', () => {
+  it('1 dia é uma opção oferecida, e a primeira da lista', () => {
+    expect(OIL_INTERVAL_OPTIONS[0]).toBe(1);
+    expect(OIL_INTERVAL_OPTIONS).toContain(1);
+  });
+
+  it('feito hoje com intervalo diário: a próxima é AMANHÃ', () => {
+    const v = view({ everyDays: 1, startedOn: '2026-09-01' }, [done('2026-09-03')], '2026-09-03');
+    expect(v.dueOn).toBe('2026-09-04');
+    expect(v.state).toBe('upcoming');
+  });
+
+  it('e amanhã ela vence de novo — todo dia é todo dia', () => {
+    const v = view({ everyDays: 1, startedOn: '2026-09-01' }, [done('2026-09-03')], '2026-09-04');
+    expect(v.state).toBe('due_today');
+  });
+
+  it('adiar continua funcionando no diário', () => {
+    const v = view(
+      { everyDays: 1, startedOn: '2026-09-03' },
+      [done('2026-09-02'), postponed('2026-09-03')],
+      '2026-09-03',
+    );
+    expect(v.dueOn).toBe('2026-09-04');
+    expect(v.state).toBe('upcoming');
+  });
+
+  it('faltar dias no diário continua sendo UMA ocorrência vencida, não uma fila (D-28)', () => {
+    const v = view({ everyDays: 1, startedOn: '2026-08-01' }, [done('2026-08-20')], '2026-09-03');
+    expect(v.dueOn).toBe('2026-08-21');
+    expect(v.state).toBe('overdue');
+    expect(v.daysLate).toBe(13);
+  });
+
+  /**
+   * ⚠️ **Nada na derivação sabe o que é uma semana.** A regra é `último feito + intervalo`, e o
+   * intervalo é um número dela — sete não tem nenhum privilégio no código. Este teste percorre a
+   * lista inteira e confere que cada opção se comporta como o próprio número.
+   */
+  it('nenhuma frequência é privilegiada: cada opção anda exatamente o próprio número', () => {
+    for (const days of OIL_INTERVAL_OPTIONS) {
+      const v = view({ everyDays: days, startedOn: '2026-09-01' }, [done('2026-09-03')], '2026-09-03');
+      const expected = new Date(Date.UTC(2026, 8, 3 + days)).toISOString().slice(0, 10);
+      expect(v.dueOn).toBe(expected);
+    }
   });
 });

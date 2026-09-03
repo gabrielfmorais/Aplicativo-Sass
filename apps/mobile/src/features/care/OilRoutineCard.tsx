@@ -14,9 +14,15 @@ import { formatPlannedDate } from '@/features/plan/copy';
  * fazer, onde e com qual óleo é o `F38`/`F48`, e nenhum dos dois está aberto.
  */
 
-/** Sem "recomendado", sem "ideal", sem estrela. Só o intervalo. */
+/**
+ * Sem "recomendado", sem "ideal", sem estrela. Só o intervalo.
+ *
+ * "Todo dia" e "1x por semana" existem porque "A cada 1 dias" e "A cada 7 dias" são a mesma coisa
+ * dita pior — é português, não hierarquia. Qualquer outro número cai na forma geral, então a lista
+ * pode crescer sem tocar aqui.
+ */
 export const intervalLabel = (days: number): string =>
-  days === 7 ? '1x por semana' : days === 15 ? 'A cada 15 dias' : `A cada ${days} dias`;
+  days === 1 ? 'Todo dia' : days === 7 ? '1x por semana' : `A cada ${days} dias`;
 
 export function OilRoutineCard({
   view,
