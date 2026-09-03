@@ -123,7 +123,7 @@ ausência de UPDATE — ninguém "completa" uma avaliação antiga depois.
 
 ## 19–22. Dependências, plano, migração, rollback
 
-`supabase/migrations/20260903000000_hair_profiles_assessment_v2.sql`, aditiva. Rollback no rodapé do
+`supabase/migrations/20260910000000_hair_profiles_assessment_v2.sql`, aditiva. Rollback no rodapé do
 arquivo. ⚠️ **Ordem de deploy: a migration vem antes do código.**
 
 ## 23. Open Questions
