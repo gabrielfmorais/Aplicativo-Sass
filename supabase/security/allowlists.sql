@@ -222,3 +222,25 @@ insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
   ('authenticated', 'wash_day_finish', 'INSERT', 'SPEC-039'),
   ('authenticated', 'wash_day_finish', 'UPDATE', 'SPEC-039'),
   ('authenticated', 'wash_day_finish', 'DELETE', 'SPEC-039');
+
+-- SPEC-040 §7 (F39): the oil routine. `authenticated` may read both tables and DELETE its own
+-- routine — turning the routine off is hers, and deleting the routine never deletes the history
+-- (FR2/BR5). Every write goes through the two RPCs below, for the same reason as SPEC-020: the
+-- civil day depends on her IANA timezone (ADR-008) and `current_date` on the server is UTC, so
+-- letting the client send the date would make the truth of her history depend on a clock it owns.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'oil_routines', 'SELECT', 'SPEC-040'),
+  ('authenticated', 'oil_routines', 'DELETE', 'SPEC-040'),
+  ('authenticated', 'oil_events', 'SELECT', 'SPEC-040');
+
+insert into tests.security_definer_allowlist (function_signature, spec, justification) values
+  (
+    'public.set_oil_routine(p_every_days smallint, p_timezone text)',
+    'SPEC-040',
+    'Only write path into oil_routines; the client holds no INSERT or UPDATE. user_id is never a parameter — it comes from auth.uid() via care_current_user(). One server invariant justifies DEFINER: started_on is her civil day, taken from care_local_today, which validates and bounds the caller-supplied IANA timezone (T22); the server''s current_date is UTC and would be wrong for her. The interval range is revalidated by the table CHECK rather than restated here, so there is one source of truth. Re-running it changes the interval and leaves started_on alone: she started when she started. search_path is pinned.'
+  ),
+  (
+    'public.record_oil_event(p_kind text, p_client_event_id uuid, p_timezone text)',
+    'SPEC-040',
+    'Only write path into oil_events; the client holds no INSERT. user_id comes from auth.uid(), so a tampered client cannot record an event for someone else. Two server invariants justify DEFINER: the civil day (care_local_today, validated timezone) and idempotency by (user_id, client_event_id), so a double tap or a retry after a lost response yields one event, not two — the ON CONFLICT DO NOTHING is what closes the race the preceding SELECT cannot. It refuses to record when she has no routine, so no history exists that no routine explains. The kind is revalidated by the table CHECK. search_path is pinned.'
+  );

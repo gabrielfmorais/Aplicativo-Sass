@@ -4,6 +4,7 @@ import type {
   HairProfilePort,
   Instant,
   LocalDate,
+  OilRoutineView,
   ProductPort,
   WashDayPort,
 } from '@app/core';
@@ -924,5 +925,110 @@ describe('produtos na execução, na Hoje (SPEC-041)', () => {
     const s = await renderWithShelf(false);
     await waitFor(() => s.getAllByText('Fiz hoje'));
     expect(s.queryByText('Meus produtos')).toBeNull();
+  });
+});
+
+/**
+ * SPEC-040 FR6 (F39) — a rotina de óleo na Hoje: **só quando vence ou está vencida**, e adiar tem o
+ * mesmo peso que fazer.
+ */
+describe('rotina de óleo na Hoje (SPEC-040)', () => {
+  const oilView = (over: Partial<OilRoutineView> = {}): OilRoutineView => ({
+    state: 'none',
+    everyDays: null,
+    dueOn: null,
+    daysLate: 0,
+    lastDoneOn: null,
+    doneCount: 0,
+    ...over,
+  });
+
+  const renderWithOil = (over: Partial<OilRoutineView>, handlers: Record<string, unknown> = {}) =>
+    render(
+      <TodayScreen
+        board={board()}
+        care={makePort()}
+        today={TODAY}
+        now={() => NOW}
+        timeZone="America/Sao_Paulo"
+        newExecutionId={() => 'exec-1'}
+        onChanged={jest.fn()}
+        hairProfile={hairProfilePort()}
+        onOpenWashDay={jest.fn()}
+        washDays={washDayPort()}
+        oil={{ view: oilView(over), busy: false, onDone: jest.fn(), onPostpone: jest.fn(), ...handlers }}
+        profile={{ name: 'Ana', onPress: jest.fn() }}
+        productCount={null}
+        onOpenShelf={jest.fn()}
+        onPause={jest.fn()}
+        onPreviewResume={jest.fn()}
+        onResume={jest.fn()}
+        onOpenCycle={jest.fn()}
+      />,
+    );
+
+  it('sem rotina, a Hoje não fala de óleo (EC6)', async () => {
+    const s = await renderWithOil({});
+    expect(s.queryByText('Hora do seu óleo')).toBeNull();
+  });
+
+  it('a próxima ocorrência ainda longe também não aparece', async () => {
+    const s = await renderWithOil({ state: 'upcoming', everyDays: 7, dueOn: '2026-09-17' as never });
+    expect(s.queryByText('Hora do seu óleo')).toBeNull();
+  });
+
+  it('vencendo hoje, oferece fazer e adiar', async () => {
+    const s = await renderWithOil({ state: 'due_today', everyDays: 7, dueOn: TODAY as never });
+    await waitFor(() => s.getByText('Hora do seu óleo'));
+    s.getByText('Você programou o óleo para hoje.');
+    s.getByText('Passei óleo');
+    s.getByText('Adiar um dia');
+  });
+
+  it('marcar chama a porta', async () => {
+    const onDone = jest.fn();
+    const s = await renderWithOil({ state: 'due_today', everyDays: 7, dueOn: TODAY as never }, { onDone });
+    await fireEvent.press(s.getByText('Passei óleo'));
+    expect(onDone).toHaveBeenCalled();
+  });
+
+  it('adiar chama a porta, e é uma ação como outra qualquer (BR2/D-28)', async () => {
+    const onPostpone = jest.fn();
+    const s = await renderWithOil(
+      { state: 'overdue', everyDays: 7, dueOn: '2026-09-03' as never, daysLate: 7 },
+      { onPostpone },
+    );
+    await fireEvent.press(s.getByText('Adiar um dia'));
+    expect(onPostpone).toHaveBeenCalled();
+  });
+
+  /**
+   * NG3/BR4 — diz o fato, não cobra, e não afirma nada sobre cabelo.
+   *
+   * Asserção **exata**, e não uma varredura por palavras proibidas: a tela inteira contém
+   * "Hidratação" — que é um tipo de cuidado do cronograma, não uma alegação — e uma varredura larga
+   * reprovaria por isso, dizendo a coisa errada sobre um texto certo. A barreira por palavra existe
+   * onde ela pode ser escopada: no cartão (`oil-routine.test.tsx`) e no texto do lembrete
+   * (`notifications.test.ts`).
+   */
+  it('vencida, conta os dias sem cobrar', async () => {
+    const s = await renderWithOil({
+      state: 'overdue',
+      everyDays: 7,
+      dueOn: '2026-09-03' as never,
+      daysLate: 7,
+    });
+    s.getByText('Hora do seu óleo');
+    s.getByText('Você programou o óleo para há 7 dias.');
+  });
+
+  it('vencida ontem, fala em ontem e não em "há 1 dias"', async () => {
+    const s = await renderWithOil({
+      state: 'overdue',
+      everyDays: 7,
+      dueOn: '2026-09-09' as never,
+      daysLate: 1,
+    });
+    s.getByText('Você programou o óleo para ontem.');
   });
 });

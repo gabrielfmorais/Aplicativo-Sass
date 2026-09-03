@@ -1,7 +1,9 @@
+import type { OilRoutineView } from '@app/core';
 import { StyleSheet } from 'react-native';
 
 import { Button, Card, Screen, ScreenHeader, Text } from '@/design/primitives';
 import { CareGuideLibrary } from '@/features/care/CareGuideLibrary';
+import { OilRoutineCard } from '@/features/care/OilRoutineCard';
 
 /**
  * SPEC-026 fatia 1 (FR6) — **Cuidados**: tudo o que é rotina, num lugar só.
@@ -30,11 +32,22 @@ import { CareGuideLibrary } from '@/features/care/CareGuideLibrary';
 export function CareTabScreen({
   onOpenHairEvents,
   profile,
+  oil,
 }: {
   /** SPEC-020 — contar o que mudou; ausente quando a capability não está disponível. */
   onOpenHairEvents?: () => void;
   /** SPEC-026 fatia 7 — o acesso a **Você**, no cabeçalho. A tela só repassa. */
   profile: { readonly name: string | null; readonly onPress: () => void };
+  /**
+   * SPEC-040 FR7 (F39) — o endereço da rotina de óleo. Ela mora aqui e não na Hoje porque configurar
+   * não é fazer: a Hoje mostra a ocorrência do dia, e esta aba guarda a rotina.
+   */
+  oil?: {
+    readonly view: OilRoutineView;
+    readonly busy: boolean;
+    readonly onChoose: (everyDays: number) => void;
+    readonly onTurnOff: () => void;
+  };
 }) {
   return (
     <Screen>
@@ -66,6 +79,10 @@ export function CareTabScreen({
         eram alcançáveis por dentro de um cartão de cuidado agendado. Isto não preenche espaço:
         dá endereço a uma capability que não tinha nenhum.
       */}
+      {oil ? (
+        <OilRoutineCard view={oil.view} busy={oil.busy} onChoose={oil.onChoose} onTurnOff={oil.onTurnOff} />
+      ) : null}
+
       <CareGuideLibrary />
     </Screen>
   );

@@ -7,6 +7,7 @@ import type {
   Instant,
   LocalDate,
   ProductPort,
+  OilRoutineView,
   ResumeOutcome,
   WashDayPort,
 } from '@app/core';
@@ -596,6 +597,7 @@ export function TodayScreen({
   onOpenWashDay,
   washDays,
   products,
+  oil,
   profile,
   productCount,
   onOpenShelf,
@@ -639,6 +641,16 @@ export function TodayScreen({
    * Opcional: sem ela o cartão não oferece o painel, e o resto da tela segue igual.
    */
   products?: ProductPort;
+  /**
+   * SPEC-040 (F39) — a rotina de óleo, quando ela tem uma. Opcional: a Hoje funciona inteira sem
+   * ela, e uma leitura que não voltou simplesmente não aparece (o hook falha em silêncio).
+   */
+  oil?: {
+    readonly view: OilRoutineView;
+    readonly busy: boolean;
+    readonly onDone: () => void;
+    readonly onPostpone: () => void;
+  };
   /**
    * SPEC-026 fatia 3 — quantos produtos ativos ela tem, ou `null` enquanto não se sabe.
    *
@@ -974,6 +986,42 @@ export function TodayScreen({
       */}
       {!viewingToday ? null : (
         <>
+          {/*
+            SPEC-040 FR6 (F39) — a rotina de óleo, **só quando vence ou está vencida** (EC6). Ela
+            não é do cronograma e não entra nas seções: aparece, pede uma ação e sai.
+
+            ⚠️ Nada aqui diz o que o óleo faz (BR4), e **adiar não é falha** (BR2/D-28): as duas
+            ações têm o mesmo peso visual, e nenhuma frase cobra o que passou.
+          */}
+          {oil && (oil.view.state === 'due_today' || oil.view.state === 'overdue') ? (
+            <Card>
+              <Text variant="heading" accessibilityRole="header">
+                Hora do seu óleo
+              </Text>
+              <Text tone="muted">
+                {oil.view.state === 'due_today'
+                  ? 'Você programou o óleo para hoje.'
+                  : `Você programou o óleo para ${oil.view.daysLate === 1 ? 'ontem' : `há ${oil.view.daysLate} dias`}.`}
+              </Text>
+              <Row gap="sm">
+                <Button
+                  label="Passei óleo"
+                  variant="secondary"
+                  size="sm"
+                  disabled={oil.busy}
+                  onPress={oil.onDone}
+                />
+                <Button
+                  label="Adiar um dia"
+                  variant="ghost"
+                  size="sm"
+                  disabled={oil.busy}
+                  onPress={oil.onPostpone}
+                />
+              </Row>
+            </Card>
+          ) : null}
+
           <SuggestionsCard
             suggestions={suggestions}
             onAct={actOnSuggestion}

@@ -5,6 +5,7 @@ import type {
   HairEventPort,
   HairProfilePort,
   ProductPort,
+  OilRoutinePort,
   WashDayPort,
   HairProfileSnapshot,
   Instant,
@@ -25,6 +26,7 @@ import { TabBar, type TabKey } from '@/design/TabBar';
 import { useAuth } from '@/bootstrap/auth';
 import { AccountScreen } from '@/features/account/AccountScreen';
 import { CareTabScreen } from '@/features/care/CareTabScreen';
+import { useOilRoutine } from '@/features/care/use-oil-routine';
 import { ProgressTabScreen } from '@/features/care/ProgressTabScreen';
 import { HairEventsScreen } from '@/features/hair-events/HairEventsScreen';
 import { ShelfScreen } from '@/features/shelf/ShelfScreen';
@@ -80,6 +82,7 @@ function AuthenticatedApp({
   hairEvents,
   products,
   washDays,
+  oil,
   careTracking,
   notificationPreferences,
   notificationScheduler,
@@ -95,6 +98,7 @@ function AuthenticatedApp({
   hairEvents: HairEventPort;
   products: ProductPort;
   washDays: WashDayPort;
+  oil: OilRoutinePort;
   careTracking: CareTrackingPort;
   notificationPreferences: NotificationPreferencesPort;
   notificationScheduler: NotificationSchedulerPort;
@@ -125,6 +129,11 @@ function AuthenticatedApp({
    * sugestão não aparecer — uma oferta ausente não é um erro a mostrar.
    */
   const [productCount, setProductCount] = useState<number | null>(null);
+  /**
+   * SPEC-040 (F39) — uma fonte, dois consumidores: a Hoje mostra a ocorrência do dia, Cuidados
+   * guarda o intervalo. Carregar em cada tela faria as duas discordarem sobre a mesma rotina.
+   */
+  const oilRoutine = useOilRoutine(oil, today(), timeZone, newRequestId);
   useEffect(() => {
     let active = true;
     products
@@ -414,7 +423,18 @@ function AuthenticatedApp({
 
   // Cuidados e Progresso funcionam **sem** plano ativo: dizem o que falta em vez de sumirem (EC1).
   if (tab === 'care') {
-    return shell(<CareTabScreen profile={profileChip} onOpenHairEvents={() => openStacked('hairEvents')} />);
+    return shell(
+      <CareTabScreen
+        profile={profileChip}
+        onOpenHairEvents={() => openStacked('hairEvents')}
+        oil={{
+          view: oilRoutine.view,
+          busy: oilRoutine.busy,
+          onChoose: oilRoutine.choose,
+          onTurnOff: oilRoutine.turnOff,
+        }}
+      />,
+    );
   }
   /**
    * SPEC-034 — **o ciclo é a aba Progresso**, e não uma tela empilhada sob Cuidados.
@@ -479,6 +499,12 @@ function AuthenticatedApp({
       onOpenWashDay={setWashDay}
       washDays={washDays}
       products={products}
+      oil={{
+        view: oilRoutine.view,
+        busy: oilRoutine.busy,
+        onDone: oilRoutine.markDone,
+        onPostpone: oilRoutine.postpone,
+      }}
       profile={profileChip}
       productCount={productCount}
       // A prateleira é aba: a sugestão leva **para a aba**, e não para uma cópia empilhada dela.
@@ -498,6 +524,7 @@ export default function IndexRoute() {
     hairEvents,
     products,
     washDays,
+    oil,
     careTracking,
     notificationPreferences,
     notificationScheduler,
@@ -537,6 +564,7 @@ export default function IndexRoute() {
       hairEvents={hairEvents}
       products={products}
       washDays={washDays}
+      oil={oil}
       careTracking={careTracking}
       notificationPreferences={notificationPreferences}
       notificationScheduler={notificationScheduler}
