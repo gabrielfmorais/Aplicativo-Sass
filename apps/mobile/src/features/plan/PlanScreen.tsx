@@ -169,7 +169,14 @@ export function PlanScreen({
     setMessage(null);
     setFailure(null);
     plans
-      .generate({ clientRequestId: requestId.current, startsOn: today })
+      .generate({
+        clientRequestId: requestId.current,
+        startsOn: today,
+        // ⚠️ A versão sai do **rascunho que ela está vendo**, nunca de uma constante lida à parte:
+        // constante e despacho em módulos diferentes já produziram um plano da versão que ninguém
+        // tinha escolhido (SPEC-038).
+        scheduleVersion: draft.scheduleVersion,
+      })
       .then(() => {
         requestId.current = null;
         onCreated();

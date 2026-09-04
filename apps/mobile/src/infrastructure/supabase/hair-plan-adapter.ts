@@ -101,9 +101,10 @@ export const createHairPlanAdapter = (client: SupabaseClient): HairPlanPort => {
 
   return {
     getActive: readActive,
-    async generate({ clientRequestId, startsOn }) {
+    async generate({ clientRequestId, startsOn, scheduleVersion }) {
+      // SPEC-046 — a versão vai junto: o servidor gera com **a que ela previu**, ou recusa.
       const { error } = await client.functions.invoke('generate-plan', {
-        body: { clientRequestId, startsOn },
+        body: { clientRequestId, startsOn, ...(scheduleVersion ? { scheduleVersion } : {}) },
       });
       if (error) throw new InfrastructureError('hair_plan.generate_failed', await invokeReason(error));
       const plan = await readActive();

@@ -6,6 +6,7 @@ import type {
   LocalDate,
   PlanPreferencesPort,
 } from '@app/core';
+import { buildPlan } from '@app/core';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { PlanScreen } from '@/features/plan/PlanScreen';
@@ -98,7 +99,18 @@ describe('PlanScreen (SPEC-004 §5) — preview and confirmation only', () => {
 
     await fireEvent.press(screen.getByText('Começar meu cronograma'));
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
-    expect(plans.generate).toHaveBeenCalledWith({ clientRequestId: 'req-1', startsOn: '2026-09-01' });
+    /**
+     * SPEC-046 — **a versão do motor vai junto**, e é a do rascunho que ela acabou de ver.
+     *
+     * O app é binário de loja e a Edge Function versiona à parte: sem isto, ela poderia prever um
+     * cronograma e receber outro (SPEC-038 OQ4). Comparar com `buildPlan` em vez de com um literal
+     * é o que impede o teste de continuar passando no dia em que a corrente mudar sozinha.
+     */
+    expect(plans.generate).toHaveBeenCalledWith({
+      clientRequestId: 'req-1',
+      startsOn: '2026-09-01',
+      scheduleVersion: buildPlan(profile, '2026-09-01' as never).scheduleVersion,
+    });
     expect(plans.generate).toHaveBeenCalledTimes(1);
   });
 

@@ -19,6 +19,7 @@ import { createClient } from '@supabase/supabase-js';
 
 import { CORS_HEADERS, preflight } from './cors.ts';
 import { premiumPreferences } from './preferences.ts';
+import { resolveScheduleVersion } from './schedule-version.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
@@ -72,13 +73,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   lastCallAt.set(userId, now);
 
   // Trust boundary: validate the two client-supplied values (SECURITY-BASELINE, zod-equivalent).
-  let body: { clientRequestId?: unknown; startsOn?: unknown };
+  let body: { clientRequestId?: unknown; startsOn?: unknown; scheduleVersion?: unknown };
   try {
     body = await req.json();
   } catch {
     return json(400, { error: 'invalid_body' });
   }
-  const { clientRequestId, startsOn } = body;
+  const { clientRequestId, startsOn, scheduleVersion } = body;
   if (typeof clientRequestId !== 'string' || !isUuid(clientRequestId)) {
     return json(400, { error: 'invalid_client_request_id' });
   }
@@ -90,6 +91,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (daysBetween(startsOn, todayUtc) > MAX_START_DRIFT_DAYS) {
     return json(400, { error: 'invalid_starts_on' });
   }
+
+  /**
+   * SPEC-046 — a versão do motor com que ela viu o preview (SPEC-038 OQ4). A decisão inteira,
+   * incluindo a recusa, mora em `resolveScheduleVersion` — e recusa **antes** de qualquer escrita.
+   */
+  const decided = resolveScheduleVersion(scheduleVersion);
+  if (!decided.ok) return json(400, { error: 'unsupported_schedule_version' });
+  const engineVersion = decided.version;
 
   // Her current snapshot, read under RLS with her own JWT — the client never supplies the profile.
   const { data: profileRow, error: profileError } = await userClient
@@ -108,7 +117,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     async () => await userClient.rpc('has_entitlement', { p_code: 'plan_customization' }),
     async () => await userClient.from('plan_preferences').select('preferred_weekdays').maybeSingle(),
   );
-  const draft = buildPlan(hairProfileFromRow(profileRow), startsOn as LocalDate, preferences);
+  const draft = buildPlan(hairProfileFromRow(profileRow), startsOn as LocalDate, preferences, engineVersion);
 
   const serviceClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -128,5 +137,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json(503, { error: 'plan_creation_failed' });
   }
 
-  return json(200, { planId });
+  /**
+   * ⚠️ **A versão vai na resposta lida DO PLANO, não da que acabamos de calcular.**
+   *
+   * Numa repetição idempotente, `create_plan_tx` devolve o plano que já existia e **preserva a
+   * versão dele** — então responder com a versão recém-computada faria a resposta afirmar uma coisa
+   * enquanto o banco guarda outra. Seria a divergência silenciosa de novo, agora na própria
+   * superfície que existe para eliminá-la.
+   *
+   * A leitura falhar não invalida o plano, que está gravado: aí a resposta omite a versão em vez de
+   * inventá-la, e quem chamou continua tendo o `planId` para reler.
+   */
+  const { data: storedRow } = await serviceClient
+    .from('hair_plans')
+    .select('schedule_algorithm_version')
+    .eq('id', planId)
+    .maybeSingle();
+  const stored = (storedRow as { schedule_algorithm_version?: string } | null)?.schedule_algorithm_version;
+
+  return json(200, { planId, ...(stored ? { scheduleVersion: stored } : {}) });
 });

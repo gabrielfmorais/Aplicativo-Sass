@@ -193,6 +193,13 @@ Implementar no momento arquiteturalmente correto, não antes. Começa **observac
 
 Autonomia técnica não muda decisão comercial. **Não** alterar autonomamente: existência de Free + Premium · criação de novos tiers · preço aprovado · estratégia de monetização material · lançamento em produção · contratos/custos · decisões legais · domínio clínico/profissional · mudança material de marca.
 
+## Dívidas conhecidas
+
+| dívida | desde | estado | destrava com |
+|---|---|---|---|
+| ⚠️ **`perceived_porosity` e `routine_availability` são coletadas no onboarding e NÃO têm consumidor** | SPEC-037 (`F35`) | **VISÍVEL, não remover** | uma **regra validada** que as leia, no motor (`F36`). Traduzir porosidade em frequência é a alegação mais substantiva do conjunto ⇒ **gate D-26/D-70**; "este cuidado cabe no seu tempo" é veto explícito do dono. Enquanto isso, são **duas perguntas que custam o tempo dela e não mudam nada** — o custo fica registrado aqui, à vista, em vez de esquecido no código |
+| **A v2 do motor existe, está testada e não está ligada** | SPEC-038 (`F36`) | **destravada tecnicamente** pela SPEC-046 | decisão do dono (SPEC-038 **OQ2**) + deploy da `generate-plan` |
+
 ## 11. Change log
 
 | Data | Mudança | Autor |

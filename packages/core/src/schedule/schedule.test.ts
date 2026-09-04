@@ -6,6 +6,7 @@ import {
   PLAN_WINDOW_DAYS,
   CARE_TYPE_CODES,
   buildPlan,
+  isKnownScheduleVersion,
   type CareTypeCode,
 } from './index.ts';
 
@@ -233,5 +234,41 @@ describe('schedule engine v1 — imutável mesmo com o vocabulário maior (SPEC-
         expect(other.evidenceCodes).toEqual(plain.evidenceCodes);
       }
     }
+  });
+});
+
+/**
+ * SPEC-046 — **o rascunho diz com que motor ele foi feito** (SPEC-038 OQ4).
+ *
+ * ⚠️ A tela manda ao servidor a versão que está **neste** rascunho, e não uma constante lida à
+ * parte. Escolha e despacho em módulos diferentes já produziram, uma vez, um plano da versão que
+ * ninguém tinha escolhido — a versão sair de dentro da mesma chamada que produziu os cuidados é o
+ * que torna aquilo impossível de repetir.
+ */
+describe('a versão do motor viaja com o rascunho (SPEC-046)', () => {
+  const s = snapshot();
+
+  it('o rascunho nomeia a versão que ele mesmo usou', () => {
+    expect(buildPlan(s, STARTS_ON, undefined, 'v1').scheduleVersion).toBe('v1');
+    expect(buildPlan(s, STARTS_ON, undefined, 'v2').scheduleVersion).toBe('v2');
+  });
+
+  it('sem versão explícita, é a corrente — e o plano gravado registra a mesma', () => {
+    const draft = buildPlan(s, STARTS_ON);
+    expect(draft.scheduleVersion).toBe(CURRENT_SCHEDULE_VERSION);
+    // ⚠️ O que a tela manda e o que fica no banco têm de ser a mesma coisa: é o par que o
+    // servidor valida, e o par que impede prever um cronograma e receber outro.
+    expect(draft.plan.scheduleAlgorithmVersion).toBe(draft.scheduleVersion);
+  });
+
+  it('a versão do rascunho é sempre uma versão que o despacho conhece', () => {
+    for (const v of ['v1', 'v2'] as const) {
+      expect(isKnownScheduleVersion(buildPlan(s, STARTS_ON, undefined, v).scheduleVersion)).toBe(true);
+    }
+  });
+
+  /** ⚠️ A troca de versão **não** foi ligada aqui: a corrente continua a v1 até decisão do dono. */
+  it('a versão corrente continua sendo a v1 (OQ2 é gate do dono)', () => {
+    expect(CURRENT_SCHEDULE_VERSION).toBe('v1');
   });
 });
