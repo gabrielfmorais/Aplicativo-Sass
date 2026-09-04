@@ -15,6 +15,16 @@ export type PlanDraft = {
   readonly assessment: AssessmentOutput;
   readonly plan: HairPlanDraft;
   readonly cares: readonly ScheduledCareDraft[];
+  /**
+   * SPEC-046 — **a versão que ESTE rascunho usou**, e não a que o processo considera corrente.
+   *
+   * ⚠️ Existe para que quem previu possa dizer **com o que previu**. A alternativa — a tela ler a
+   * constante por conta própria — é exatamente o defeito que a SPEC-038 já cometeu uma vez: escolha
+   * e despacho em módulos diferentes, e a constante apontando para uma versão enquanto o padrão
+   * executava outra. Aqui a versão sai de dentro da mesma chamada que produziu os cuidados, então
+   * não há como as duas discordarem.
+   */
+  readonly scheduleVersion: ScheduleVersion;
   /** Assessment + schedule codes, in that order, deduplicated. UI copy lives in the app. */
   readonly evidenceCodes: readonly EvidenceCode[];
   /**
@@ -105,6 +115,7 @@ export const buildPlan = (
     assessment,
     plan: schedule.plan,
     cares: placement?.cares ?? schedule.cares,
+    scheduleVersion,
     evidenceCodes: [...new Set([...assessment.evidenceCodes, ...schedule.evidenceCodes])],
     weekdayPlacement: placement ? { fullyHonoured: placement.fullyHonoured } : null,
   };

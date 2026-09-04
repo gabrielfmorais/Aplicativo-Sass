@@ -45,8 +45,13 @@ export interface HairPlanPort {
    * Asks the server to create the official plan.
    * `clientRequestId` makes the call idempotent: retrying with the same id returns the same plan
    * and never supersedes anything twice (SPEC-004 AC9).
+   *
+   * ⚠️ **`scheduleVersion` é a versão com que ELA VIU o preview** (SPEC-046). O servidor a valida
+   * contra a allowlist e gera com ela — é isso que impede o app de prever um cronograma e receber
+   * outro quando o binário de loja e a Edge Function versionam à parte. Omitida (app antigo), o
+   * servidor usa a versão corrente **dele**, que é o comportamento que sempre existiu.
    */
-  generate(input: { clientRequestId: string; startsOn: string }): Promise<HairPlan>;
+  generate(input: { clientRequestId: string; startsOn: string; scheduleVersion?: string }): Promise<HairPlan>;
 }
 
 /**

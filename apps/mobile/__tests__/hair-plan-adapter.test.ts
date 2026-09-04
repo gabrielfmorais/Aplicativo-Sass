@@ -181,3 +181,46 @@ describe('hair plan adapter (SPEC-004 §12)', () => {
     ).rejects.toMatchObject({ code: 'hair_plan.generate_failed', message: 'HTTP 503: boom' });
   });
 });
+
+/**
+ * SPEC-046 — o contrato de versão na fronteira do cliente (SPEC-038 OQ4).
+ *
+ * ⚠️ **O app é binário de loja e a Edge Function versiona à parte.** Mandar a versão prevista é o
+ * que impede ela de **prever um cronograma e receber outro** — a quebra do SPEC-004 AC3.
+ */
+describe('a versão do motor vai no corpo da chamada (SPEC-046)', () => {
+  const planRow = {
+    id: 'plan-1',
+    starts_on: '2026-09-01',
+    hair_profile_id: 'hp-1',
+    assessment_algorithm_version: 'v1',
+    schedule_algorithm_version: 'v1',
+  };
+  const careRows: unknown[] = [];
+
+  it('manda a versão quando a tela informa qual previu', async () => {
+    const { client, invokeFn } = makeClient({ data: planRow, error: null }, { data: careRows, error: null });
+    await createHairPlanAdapter(client).generate({
+      clientRequestId: 'req-1',
+      startsOn: '2026-09-01',
+      scheduleVersion: 'v2',
+    });
+    expect(invokeFn).toHaveBeenCalledWith('generate-plan', {
+      body: { clientRequestId: 'req-1', startsOn: '2026-09-01', scheduleVersion: 'v2' },
+    });
+  });
+
+  /**
+   * ⚠️ **Compatibilidade:** sem versão, o campo **não vai** no corpo — e não vai como `undefined`,
+   * que numa serialização vira uma chave presente. Um servidor antigo tem de receber exatamente o
+   * corpo que sempre recebeu.
+   */
+  it('sem versão, o campo nem aparece no corpo', async () => {
+    const { client, invokeFn } = makeClient({ data: planRow, error: null }, { data: careRows, error: null });
+    await createHairPlanAdapter(client).generate({ clientRequestId: 'req-1', startsOn: '2026-09-01' });
+    const [, arg] = invokeFn.mock.calls[0] as unknown as [string, { body: Record<string, unknown> }];
+    // `in`, e não uma comparação de igualdade: uma chave presente valendo `undefined` passaria
+    // despercebida por `toHaveBeenCalledWith` e chegaria ao servidor como campo existente.
+    expect('scheduleVersion' in arg.body).toBe(false);
+  });
+});
