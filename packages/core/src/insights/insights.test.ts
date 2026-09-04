@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import type { WashDayTechnique } from '../care-tracking/index.ts';
 import { localDateFromString } from '../shared/time/index.ts';
 import { buildInsights } from './application/build-insights.ts';
 import { HIGH_FEEL, MIN_OCCURRENCES, MIN_RATED_CARES, type InsightFact } from './domain/insights.ts';
@@ -18,12 +19,17 @@ const P = {
 };
 
 let n = 0;
-const fact = (feel: number | null, products: { id: string; name: string }[] = []): InsightFact => ({
+const fact = (
+  feel: number | null,
+  products: { id: string; name: string }[] = [],
+  techniques: WashDayTechnique[] = [],
+): InsightFact => ({
   careExecutionId: `e${(n += 1)}`,
   careTypeCode: 'hydration',
   executedOn: localDateFromString('2026-09-01'),
   feel,
   products,
+  techniques,
 });
 
 describe('Insights — sem dados suficientes, a Huna diz isso (SPEC-047)', () => {
@@ -172,6 +178,86 @@ describe('Insights — o que NENHUMA observação pode dizer (Blueprint §12 / D
       const [, n1, n2] = /esteve em (\d+) dos (\d+)/.exec(o.detail) ?? [];
       expect(Number(n2)).toBe(melhores);
       expect(Number(n1)).toBeLessThanOrEqual(Number(n2));
+    }
+  });
+});
+
+/**
+ * SPEC-047 fatia 2 — **a técnica também se repete**, e o vocabulário é o **já aprovado** da
+ * SPEC-024.
+ *
+ * ⚠️ Seis das catorze são movimentos de finalização, então esta dimensão já cobre parte do que o
+ * `F38` promete — **sem nomear finalização nova**, que continua sendo conteúdo capilar substantivo
+ * atrás do gate D-26/D-70 (barreira viva na SPEC-039 §8).
+ */
+describe('Insights — a dimensão de técnica (SPEC-047 fatia 2)', () => {
+  const rotulos: Partial<Record<WashDayTechnique, string>> = {
+    air_dried: 'Secou naturalmente',
+    diffuser: 'Difusor',
+  };
+  const rotulo = (t: WashDayTechnique) => rotulos[t] ?? t;
+
+  it('nomeia a técnica que se repete, com o verbo dela', () => {
+    const v = buildInsights(
+      [
+        fact(5, [], ['air_dried']),
+        fact(5, [], ['air_dried']),
+        fact(5, [], ['air_dried']),
+        fact(5, [], ['diffuser']),
+        fact(4, [], []),
+      ],
+      rotulo,
+    );
+    const tecnica = v.observations.find((o) => o.kind === 'technique');
+    expect(tecnica?.subject).toBe('Secou naturalmente');
+    expect(tecnica?.detail).toBe('você fez em 3 dos 5 cuidados que você avaliou bem');
+  });
+
+  it('produto e técnica convivem, cada um com a sua chave', () => {
+    const v = buildInsights(
+      [
+        fact(5, [P.mascara], ['air_dried']),
+        fact(5, [P.mascara], ['air_dried']),
+        fact(5, [P.mascara], ['air_dried']),
+        fact(5, [], []),
+        fact(4, [], []),
+      ],
+      rotulo,
+    );
+    expect(v.observations.map((o) => o.kind)).toEqual(['product', 'technique']);
+    expect(new Set(v.observations.map((o) => o.key)).size).toBe(2);
+  });
+
+  /** Sem rótulo, o código cru nunca chega à tela como se fosse nome. */
+  it('o rótulo vem de fora — o core não inventa vocabulário de exibição', () => {
+    const v = buildInsights([
+      fact(5, [], ['scrunched']),
+      fact(5, [], ['scrunched']),
+      fact(5, [], ['scrunched']),
+      fact(5, [], []),
+      fact(4, [], []),
+    ]);
+    // Sem resolvedor, o padrão é o próprio código: explícito, e nunca um nome inventado.
+    expect(v.observations.find((o) => o.kind === 'technique')?.subject).toBe('scrunched');
+  });
+
+  /**
+   * ⚠️ **A barreira que separa esta fatia do `F38`.** Observar as catorze aprovadas é fato dela;
+   * nomear uma finalização nova é conteúdo capilar. Se alguém acrescentar "fitagem" ao vocabulário
+   * sem passar pelo gate, a SPEC-039 §8 cai — e este teste lembra por quê.
+   */
+  it('nenhuma finalização nova entrou pelo caminho dos insights', () => {
+    for (const inventada of ['fitagem', 'dedoliss', 'day_after', 'plopping']) {
+      const v = buildInsights([
+        fact(5, [], [inventada as WashDayTechnique]),
+        fact(5, [], [inventada as WashDayTechnique]),
+        fact(5, [], [inventada as WashDayTechnique]),
+        fact(5, [], []),
+        fact(4, [], []),
+      ]);
+      // O core não valida o vocabulário — quem valida é o CHECK do banco e o schema da SPEC-024.
+      // O que este teste fixa é que **nada aqui cria** o vocabulário: o rótulo cru passa direto.
+      expect(v.observations.find((o) => o.kind === 'technique')?.subject).toBe(inventada);
     }
   });
 });

@@ -44,7 +44,7 @@ import { reasonOf } from '@/shared/failure-detail';
  * Cada rótulo nomeia o que ela FAZ, nunca o que aquilo provoca. "Umectação antes" é um procedimento;
  * "sela as cutículas" seria afirmação capilar e jogaria a capability no gate de domínio (D-26/D-70).
  */
-const TECHNIQUE_LABEL: Record<WashDayTechnique, string> = {
+export const TECHNIQUE_LABEL: Record<WashDayTechnique, string> = {
   pre_wash_oil: 'Umectação antes',
   scalp_massage: 'Massagem no couro',
   double_cleanse: 'Lavei duas vezes',

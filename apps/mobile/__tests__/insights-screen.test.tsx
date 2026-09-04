@@ -17,6 +17,7 @@ const view = (over: Partial<InsightsView> = {}): InsightsView => ({
   observations: [
     {
       key: 'product:p1',
+      kind: 'product',
       subject: 'Máscara da Ana',
       detail: 'esteve em 4 dos 6 cuidados que você avaliou bem',
     },
@@ -106,5 +107,34 @@ describe('Seus padrões (SPEC-047)', () => {
     const s = await screen();
     expect(s.queryByText(/\d+\s?%/)).toBeNull();
     expect(s.queryByText(/nota|score|ranking|média|outras usuárias|a maioria/i)).toBeNull();
+  });
+
+  /**
+   * SPEC-047 fatia 2 — técnica e produto convivem, e o **verbo muda**: um produto *esteve em*, uma
+   * técnica *você fez em*. Nenhum dos dois afirma efeito.
+   */
+  it('mostra técnica ao lado de produto, cada uma com o seu verbo', async () => {
+    const s = await screen({
+      view: view({
+        observations: [
+          {
+            key: 'product:p1',
+            kind: 'product',
+            subject: 'Máscara da Ana',
+            detail: 'esteve em 4 dos 6 cuidados que você avaliou bem',
+          },
+          {
+            key: 'technique:air_dried',
+            kind: 'technique',
+            subject: 'Secou naturalmente',
+            detail: 'você fez em 5 dos 6 cuidados que você avaliou bem',
+          },
+        ],
+      }),
+    });
+    s.getByText('Máscara da Ana');
+    s.getByText('Secou naturalmente');
+    s.getByText('você fez em 5 dos 6 cuidados que você avaliou bem');
+    expect(s.queryByText(/melhorou|funciona|ajud|por causa/i)).toBeNull();
   });
 });

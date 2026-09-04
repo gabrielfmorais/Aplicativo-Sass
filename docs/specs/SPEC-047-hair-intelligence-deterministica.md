@@ -9,7 +9,7 @@
 | Related ADRs | **D-26/D-70** (nada afirma sobre cabelo), **D-83** (premium é adição), D-31 (analytics), §0.4 §3.1 (IA por último) |
 | Related SPECs | SPEC-024 (o que ela usou), SPEC-006 (como ficou), SPEC-023 (a prateleira), SPEC-009 (`MIN_CHECKINS_FOR_AVERAGE`, a mesma disciplina) |
 | Capability | `P2` — **COMMITTED**, primeira fatia |
-| Criado / Atualizado | 2026-09-04 / 2026-09-04 |
+| Criado / Atualizado | 2026-09-04 / 2026-09-04 (fatia 2: técnica) |
 
 ## 1. Context
 
@@ -101,9 +101,9 @@ que a IA vai **consultar** um dia.
 
 ## 10. Open Questions
 
-- **OQ1 (CAN DEFER)** Outras dimensões: técnica, finalização (`F38`), couro, dia da semana. Técnica
-  e finalização exigem rótulo, que hoje mora no app — decidir onde o vocabulário de exibição vive é
-  a próxima escolha, não uma omissão.
+- **OQ1 (parcialmente fechada)** ✅ **Técnica entrou** (fatia 2), com o vocabulário **já aprovado**
+  da SPEC-024 e o rótulo vindo do app por um resolvedor — o core não guarda cópia de interface.
+  Faltam **couro** e **dia da semana**. ⛔ **Finalização nova (`F38`) NÃO entrou** — ver §13.
 - **OQ2 (CAN DEFER)** Mover a derivação para o servidor, tornando o gate premium um gate de **dado**
   (ver §6).
 - **OQ3 (CAN DEFER)** O nome do Blueprint para a superfície é *"O que funciona comigo?"* (`P3`).
@@ -137,3 +137,38 @@ foi **recusada com `42501`**, confirmando que o cliente não tem `UPDATE` nessas
    *"dos N cuidados que você avaliou bem"* (BR3).
 
 E um **nomeado, não corrigido**: o gate premium é de apresentação, não de dado (§6, OQ2).
+
+### 12.3 Fatia 2 — a dimensão de técnica (mesmo dia)
+
+✅ **390px no DEV real, as duas dimensões juntas:**
+
+- *"Máscara da feira — **esteve em** 4 dos 5 cuidados que você avaliou bem"*
+- *"Secou naturalmente — **você fez em** 3 dos 5 cuidados que você avaliou bem"*
+
+**O verbo muda com o tipo** (`esteve em` para produto, `você fez em` para técnica) e nenhum dos
+dois afirma efeito. Os dados foram marcados pelo caminho de cliente que a SPEC-024 já autoriza.
+
+## 13. ⛔ Por que a finalização do `F38` NÃO entrou
+
+O pedido era registrar **qual finalização** ela fez. Isso exige um **vocabulário de técnicas de
+finalização** — e ele é conteúdo capilar substantivo, atrás do gate **D-26/D-70**. Não é
+interpretação minha: está escrito na barreira que a própria SPEC-039 §8 deixou no repositório.
+
+> *"Se você chegou aqui acrescentando uma FINALIZAÇÃO (fitagem, dedoliss, day after, técnica por
+> curvatura): ela não mora nesta lista. […] o vocabulário de técnicas de finalização é o `F38` —
+> conteúdo capilar substantivo, atrás do gate D-26/D-70."*
+
+**Inventar essa lista é exatamente o que a D-26 proíbe engenharia de fazer.** As três saídas
+possíveis, e por que só uma serve:
+
+| saída | por quê não / sim |
+|---|---|
+| inventar a lista | ⛔ é engenharia criando vocabulário de domínio (D-26) |
+| campo de texto livre | ⛔ recusado na SPEC-024: texto livre não se compara nem se agrega, e destruiria `P5`/`P6`/`P7`/`P8` |
+| **reusar o vocabulário aprovado** | ✅ **feito nesta fatia** — e **seis das catorze técnicas da SPEC-024 são movimentos de finalização** (`air_dried`, `blow_dried`, `diffuser`, `scrunched`, `heat_protectant`, `protective_style`), então parte do que o `F38` promete já é observável **sem cruzar gate nenhum** |
+
+**O que falta é uma decisão humana**, não código: a lista de finalizações (fitagem, dedoliss, day
+after, técnica por curvatura, …) precisa vir do dono ou de um revisor de domínio. Com a lista na
+mão, o resto é pequeno — coluna `finish_technique` em `wash_day_finish`, `CHECK`, porta, chip na
+tela, e a quarta trava mantendo os vocabulários disjuntos.
+
