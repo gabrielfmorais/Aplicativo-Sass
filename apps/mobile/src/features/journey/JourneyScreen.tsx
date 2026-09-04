@@ -22,13 +22,37 @@ import { color, radius, space } from '@/design/tokens';
 export function JourneyScreen({
   view,
   loading,
+  failed,
+  onRetry,
   onBack,
 }: {
   view: JourneyView | null;
   loading: boolean;
+  failed?: boolean;
+  onRetry?: () => void;
   onBack: () => void;
 }) {
-  if (loading || !view) return <Loading label="Abrindo sua jornada…" />;
+  if (loading) return <Loading label="Abrindo sua jornada…" />;
+  /**
+   * ⚠️ **Não carregou não é "carregando".** Sem este ramo, uma leitura que falhou deixava a tela
+   * girando *"Abrindo sua jornada…"* **para sempre**, sem dizer o que houve e sem oferecer saída —
+   * e a Jornada é justamente a tela em que ficar sem resposta dói mais, porque ela veio ver o que
+   * construiu. A frase não culpa ela nem inventa número nenhum.
+   */
+  if (!view) {
+    return (
+      <Screen footer={<Button label="Voltar" variant="ghost" onPress={onBack} />}>
+        <Card>
+          <Stack gap="lg">
+            <Text variant="heading" accessibilityLiveRegion="polite">
+              {failed ? 'Não foi possível abrir sua jornada agora.' : 'Sua jornada começa com o seu plano.'}
+            </Text>
+            {failed && onRetry ? <Button label="Tentar novamente" onPress={onRetry} /> : null}
+          </Stack>
+        </Card>
+      </Screen>
+    );
+  }
 
   return (
     <Screen footer={<Button label="Voltar" variant="ghost" onPress={onBack} />}>

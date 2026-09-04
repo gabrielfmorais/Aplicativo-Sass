@@ -1,6 +1,7 @@
 // ESLint flat config — architectural boundary enforcement (ADR-001, SPEC-000 §7).
 // Defence in depth: the same rules are mirrored in .dependency-cruiser.cjs.
 import js from '@eslint/js';
+import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 /** Patterns that must never be imported from packages/core (runtime independence, D-48). */
@@ -142,6 +143,23 @@ export default tseslint.config(
         },
       ],
     },
+  },
+
+  // ---- apps/mobile: as regras dos hooks, como guardrail executável --------------------------
+  /**
+   * ⚠️ **Barreira de correção, não de estilo.** Um hook chamado depois de um `return` antecipado
+   * só existe em alguns renders: no instante em que a condição vira, a ordem dos hooks muda e o
+   * React derruba a árvore inteira com *"change in the order of Hooks"*. Foi exatamente isso que
+   * a SPEC-043 produziu em `AuthenticatedApp` — a tela autenticada inteira caía, e **nada** no
+   * repositório apontava para o defeito: nem tipo, nem teste, nem lint.
+   *
+   * Só `rules-of-hooks`, e de propósito. É a regra que decide **correção**; as demais do plugin
+   * (dependências, memoização, pureza) são preferência e ampliariam o escopo sem remover defeito.
+   */
+  {
+    files: ['apps/mobile/src/**/*.{ts,tsx}'],
+    plugins: { 'react-hooks': reactHooks },
+    rules: { 'react-hooks/rules-of-hooks': 'error' },
   },
 
   // ---- apps/mobile: presentation must not know Supabase or core internals --------------------

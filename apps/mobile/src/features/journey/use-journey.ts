@@ -2,7 +2,7 @@ import type { CareBoard, JourneyPort, JourneyView, LocalDate } from '@app/core';
 import { buildJourneyView, buildTodayView } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
 
-type Loadable = { view: JourneyView | null; loading: boolean };
+type Loadable = { view: JourneyView | null; loading: boolean; failed: boolean };
 
 /**
  * SPEC-043 — a Jornada, carregada uma vez.
@@ -15,23 +15,30 @@ type Loadable = { view: JourneyView | null; loading: boolean };
  * seria a segunda verdade que a D-103 proíbe — e a divergência apareceria como a Huna discordando
  * de si mesma sobre o que ela fez.
  *
- * **Falha em silêncio, de propósito:** se a concessão ou a leitura não voltarem, a Jornada
- * simplesmente não aparece. Ela é uma camada de motivação; derrubar o loop diário por causa dela
+ * **Falha em silêncio na Hoje, de propósito:** se a concessão ou a leitura não voltarem, a Jornada
+ * simplesmente não aparece ali. Ela é uma camada de motivação; derrubar o loop diário por causa dela
  * seria trocar o essencial pelo acessório.
+ *
+ * ⚠️ **Mas o silêncio acaba na porta da tela dela.** `failed` existe porque *"não carregou"* e
+ * *"ainda carregando"* são estados diferentes, e confundi-los deixava quem abriu a Jornada olhando
+ * um spinner **para sempre**, sem erro e sem nova tentativa — um caminho de erro que mente sobre o
+ * que aconteceu.
  */
 export const useJourney = (
   journey: JourneyPort,
   board: CareBoard | null,
   today: LocalDate,
 ): Loadable & { reload: () => void } => {
-  const [state, setState] = useState<Loadable>({ view: null, loading: true });
+  const [state, setState] = useState<Loadable>({ view: null, loading: true, failed: false });
 
   const load = useCallback(() => {
     if (!board) {
-      setState({ view: null, loading: false });
+      // Sem cronograma não há jornada, e isso **não é falha** (EC1): não há número a inventar.
+      setState({ view: null, loading: false, failed: false });
       return;
     }
     let active = true;
+    setState((s) => ({ ...s, loading: true, failed: false }));
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     journey
       .award(timeZone)
@@ -47,9 +54,10 @@ export const useJourney = (
             pausedOn: board.pausedOn,
           }),
           loading: false,
+          failed: false,
         });
       })
-      .catch(() => active && setState({ view: null, loading: false }));
+      .catch(() => active && setState({ view: null, loading: false, failed: true }));
     return () => {
       active = false;
     };

@@ -57,7 +57,8 @@ intocadas no fim** — e elas estão.
 ## 5. Functional Requirements
 
 - **FR1** `journey_points` guarda o ponto como fato datado, com `fact_kind` + `fact_id` e a
-  `rules_version` que o concedeu.
+  `rules_version` que o concedeu. ⚠️ **`fact_id` é o CUIDADO PLANEJADO** (`scheduled_cares.id`), nas
+  três espécies — nunca a linha de execução (ver BR7).
 - **FR2** O cliente tem **apenas `SELECT`**. Sem `INSERT` ele não forja; sem `UPDATE`/`DELETE` ele não
   reescreve.
 - **FR3** `award_journey_points(tz)` concede o que ainda não foi concedido, lendo os fatos dela.
@@ -81,6 +82,13 @@ intocadas no fim** — e elas estão.
 - **BR5** O cuidado **de hoje** ainda não feito **não quebra** — tratá-lo como falha antes de o dia
   acabar seria cobrar o que ainda pode acontecer (D-28).
 - **BR6** Nenhum nome de nível ou marco fala do cabelo dela — com barreira de teste.
+- **BR7** ⚠️ **O fato que paga é o CUIDADO PLANEJADO, não a execução.** `void_execution` é *soft
+  delete*, e refazer o cuidado cria uma execução **com id novo**: chavado pela execução, o par único
+  lia isso como outro fato. **Medido no DEV real:** concluir → desfazer → concluir pagou 10 pontos
+  **duas vezes** pelo mesmo cuidado (135 → 145 → 155), em laço sem fim e **sem cliente adulterado** —
+  só os botões da Hoje. `checkins` e `wash_days` tinham o mesmo furo, os dois sendo únicos por
+  `care_execution_id`. Chavando pelo cuidado planejado, a `unique` que já existia faz o teto valer
+  sozinha. Barreira em pgTAP.
 
 ## 7. Dados e autorização
 
@@ -116,6 +124,17 @@ linha aponta para o fato canônico que a originou, e é esse par que garante a i
   que esta SPEC fecha.)
 - **EC4** Régua nova (v2): vale para o que vier depois. O passado continua sendo o que foi.
 - **EC5** Pausa: sequência congelada, e a tela diz **guardada**, nunca perdida.
+- **EC6** **Cuidado feito adiantado conta na sequência.** A Hoje deixa ela antecipar um cuidado do
+  plano; filtrar a sequência só por data já vencida descartava exatamente esses. Achado no DEV real:
+  cinco cuidados atendidos exibiam sequência **1**, e a subcontagem só se corrigia quando o
+  calendário alcançasse cada um. Um cuidado **futuro e não feito** continua fora — não soma e não
+  quebra.
+- **EC7** **Plano substituído não apaga a história.** `caresAttended` e os marcos derivam de
+  `journey_points` (cumulativo), não do board — que é o **plano ativo e só ele**. Derivando do board,
+  reavaliar (que o próprio produto oferece depois de um `hair_event`) zerava os marcos dela, e os
+  marcos de **10** e **25** cuidados eram inalcançáveis por construção num ciclo de 8 a 12. A
+  **sequência** continua sendo do plano ativo, e isso é deliberado: um plano novo é um plano novo, e
+  os dois marcos de sequência (3 e 7) cabem dentro de um ciclo.
 
 ## 9. Acceptance Criteria
 
@@ -138,3 +157,4 @@ linha aponta para o fato canônico que a originou, e é esse par que garante a i
 | Data | Mudança |
 |---|---|
 | 2026-09-03 | SPEC criada. Aderência ao plano, com superfície própria e ponto como fato datado. |
+| 2026-09-04 | Validação no DEV real a 390px. Quatro defeitos corrigidos: hook condicional derrubando a tela autenticada (e `react-hooks/rules-of-hooks` adotada como guardrail); `caresAttended` derivado do board (EC7); cuidado adiantado fora da sequência (EC6); e **o ponto chavado pela execução, que pagava o mesmo cuidado planejado várias vezes** (BR7). |

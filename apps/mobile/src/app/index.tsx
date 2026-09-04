@@ -273,6 +273,17 @@ function AuthenticatedApp({
     });
   }, [board_, prefs, notificationScheduler, today, now]);
 
+  /**
+   * SPEC-043 — a Jornada, carregada uma vez: a Hoje mostra a entrada, a tela mostra o resto.
+   *
+   * ⚠️ **Fica aqui, acima de todo `return`, e isso é obrigatório, não arrumação.** Chamado depois
+   * do primeiro return antecipado, o hook só existe em alguns renders — e a ordem muda no instante
+   * em que a leitura do perfil resolve, o que derruba a tela inteira com *"change in the order of
+   * Hooks"*. É a mesma lição que o `IndexRoute` carrega logo abaixo: um hook não pode ficar atrás
+   * de um return.
+   */
+  const journey = useJourney(journeyPort, board !== 'loading' && board !== 'error' ? board : null, today());
+
   if (askName === null || profile === 'loading') return <Loading label="Carregando seu perfil…" />;
   // Antes do cabelo, ela. A pergunta abre a primeira experiência e sai do caminho para sempre.
   if (askName) return <NameScreen profile={userProfile} onDone={() => setAskName(false)} />;
@@ -296,8 +307,6 @@ function AuthenticatedApp({
    * da barra é da Prateleira, e duas entradas para o mesmo perfil seriam duas versões da mesma tela.
    */
   const profileChip = { name: displayName, avatar, onPress: () => openStacked('you') };
-  /** SPEC-043 — a Jornada, carregada uma vez: a Hoje mostra a entrada, a tela mostra o resto. */
-  const journey = useJourney(journeyPort, board !== 'loading' && board !== 'error' ? board : null, today());
 
   const shell = (content: React.ReactNode) => (
     <View style={styles.shell}>
@@ -391,7 +400,13 @@ function AuthenticatedApp({
    */
   if (stacked === 'journey') {
     return shell(
-      <JourneyScreen view={journey.view} loading={journey.loading} onBack={() => setStacked(null)} />,
+      <JourneyScreen
+        view={journey.view}
+        loading={journey.loading}
+        failed={journey.failed}
+        onRetry={journey.reload}
+        onBack={() => setStacked(null)}
+      />,
     );
   }
 

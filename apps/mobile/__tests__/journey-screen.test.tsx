@@ -1,5 +1,5 @@
 import type { JourneyView } from '@app/core';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 
 import { JourneyScreen } from '@/features/journey/JourneyScreen';
 
@@ -74,5 +74,27 @@ describe('Sua jornada (SPEC-043)', () => {
   it('enquanto carrega, não inventa número nenhum', async () => {
     const s = await render(<JourneyScreen view={null} loading onBack={jest.fn()} />);
     expect(s.queryByText('Sua jornada')).toBeNull();
+  });
+  /**
+   * ⚠️ **"Não carregou" não pode se passar por "carregando".** Antes, uma leitura que falhava
+   * deixava a tela girando *"Abrindo sua jornada…"* para sempre: sem erro, sem saída e sem nova
+   * tentativa — e é justamente a tela em que ficar sem resposta dói mais.
+   */
+  it('quando a leitura falha, diz o que houve e oferece tentar de novo', async () => {
+    const onRetry = jest.fn();
+    const s = await render(
+      <JourneyScreen view={null} loading={false} failed onRetry={onRetry} onBack={jest.fn()} />,
+    );
+    s.getByText(/não foi possível abrir sua jornada/i);
+    expect(s.queryByText('Abrindo sua jornada…')).toBeNull();
+    fireEvent.press(s.getByText('Tentar novamente'));
+    expect(onRetry).toHaveBeenCalled();
+  });
+
+  /** Sem plano ativo não é falha (EC1) — e continua sem inventar número nenhum. */
+  it('sem plano, convida em vez de acusar erro', async () => {
+    const s = await render(<JourneyScreen view={null} loading={false} onBack={jest.fn()} />);
+    s.getByText(/sua jornada começa com o seu plano/i);
+    expect(s.queryByText('Tentar novamente')).toBeNull();
   });
 });

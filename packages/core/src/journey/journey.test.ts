@@ -163,7 +163,9 @@ describe('Jornada — marcos (SPEC-043 F42)', () => {
       execution('e2', 'b', '2026-09-08'),
       execution('e3', 'c', '2026-09-15'),
     ];
-    const v = view(cares, executions);
+    // Os pontos acompanham as execuções porque é isso que o servidor faz: uma execução atendida,
+    // um ponto concedido. Marcos de cuidado saem do **fato concedido** (BR1), não do board.
+    const v = view(cares, executions, [point(10), point(10), point(10)]);
     expect(v.milestones.find((m) => m.key === 'first_care')?.reached).toBe(true);
     expect(v.milestones.find((m) => m.key === 'streak_3')?.reached).toBe(true);
     expect(v.milestones.find((m) => m.key === 'cares_5')?.reached).toBe(false);
@@ -203,5 +205,95 @@ describe('Jornada — o que ela NÃO pode dizer (SPEC-043 / D-103)', () => {
   it('não existe multiplicador: o ponto vale o mesmo para todo mundo', () => {
     expect(Object.values(POINTS_V1).every((p) => Number.isInteger(p) && p > 0)).toBe(true);
     expect(JSON.stringify(POINTS_V1)).not.toMatch(/premium|multip|bonus|boost/i);
+  });
+});
+
+/**
+ * SPEC-043 BR1 — **uma verdade só, e ela é cumulativa.**
+ *
+ * O defeito que estes testes fixam apareceu no DEV real e nenhum teste o via: a tela mostrava
+ * **125 pontos** ao lado de **4 cuidados até aqui**, porque os pontos vinham de `journey_points`
+ * (todo o histórico) e a contagem vinha do board (**só o plano ativo**). Reavaliar — que o produto
+ * oferece sozinho depois de um `hair_event` — zerava os marcos dela em silêncio.
+ */
+describe('Jornada — os cuidados atendidos são fato canônico, não board (SPEC-043 BR1)', () => {
+  const kind = (factKind: JourneyPoint['factKind'], points: number): JourneyPoint => ({
+    factKind,
+    points,
+    rulesVersion: 'v1',
+    awardedOn: d('2026-09-10'),
+  });
+
+  it('conta os pontos de cuidado, e ignora check-in e registro', () => {
+    const v = view([], [], [kind('care_execution', 10), kind('checkin', 5), kind('wash_day', 5)]);
+    expect(v.caresAttended).toBe(1);
+  });
+
+  /**
+   * ⚠️ **O board é o plano ATIVO e só ele.** Um plano substituído não tem board nenhum, então
+   * derivar daqui zeraria a história dela toda vez que ela reavaliasse.
+   */
+  it('sobrevive ao plano substituído: board vazio, história intacta', () => {
+    const oito = Array.from({ length: 8 }, () => kind('care_execution', 10));
+    const v = view([], [], oito);
+    expect(v.caresAttended).toBe(8);
+    expect(v.milestones.find((m) => m.key === 'cares_5')?.reached).toBe(true);
+  });
+
+  /**
+   * ⚠️ **Os marcos de 10 e 25 têm de ser alcançáveis.** Um ciclo tem 8 a 12 cuidados: contados por
+   * plano, `cares_25` seria inalcançável **por construção** — um marco que ninguém pode atingir não
+   * é um marco, é uma promessa quebrada.
+   */
+  it('os marcos altos são alcançáveis acumulando entre ciclos', () => {
+    const v = view(
+      [],
+      [],
+      Array.from({ length: 25 }, () => kind('care_execution', 10)),
+    );
+    expect(v.milestones.find((m) => m.key === 'cares_10')?.reached).toBe(true);
+    expect(v.milestones.find((m) => m.key === 'cares_25')?.reached).toBe(true);
+  });
+
+  /**
+   * A reconciliação que a tela precisa: os dois números que ela mostra saem da **mesma** lista.
+   * Antes, `points` e `caresAttended` liam universos diferentes e não fechavam conta nenhuma.
+   */
+  it('pontos e cuidados atendidos fecham a conta entre si', () => {
+    const pontos = [
+      ...Array.from({ length: 8 }, () => kind('care_execution', 10)),
+      ...Array.from({ length: 4 }, () => kind('checkin', 5)),
+      ...Array.from({ length: 5 }, () => kind('wash_day', 5)),
+    ];
+    const v = view([], [], pontos);
+    expect(v.points).toBe(125);
+    expect(v.caresAttended).toBe(8);
+    expect(v.caresAttended * POINTS_V1.care_execution).toBeLessThanOrEqual(v.points);
+  });
+});
+
+/**
+ * SPEC-043 FR5 — **atendido é atendido, mesmo adiantado.**
+ *
+ * Achado no DEV real: cinco cuidados do plano estavam feitos e a sequência dizia **1**, porque
+ * quatro tinham data futura. A Hoje deixa ela adiantar um cuidado; a sequência não pode fingir que
+ * ela não o fez até o calendário chegar lá.
+ */
+describe('Jornada — cuidado adiantado entra na sequência (SPEC-043 FR5)', () => {
+  it('conta o cuidado feito antes da data planejada', () => {
+    const cares = [care('a', '2026-09-19'), care('b', '2026-09-25'), care('c', '2026-09-29')];
+    const executions = [
+      execution('e1', 'a', '2026-09-19'),
+      execution('e2', 'b', '2026-09-19'),
+      execution('e3', 'c', '2026-09-19'),
+    ];
+    // TODAY é 2026-09-20: 'b' e 'c' são futuros, e os dois já foram feitos.
+    expect(view(cares, executions).streak).toBe(3);
+  });
+
+  it('mas um cuidado futuro NÃO feito continua fora — não soma e não quebra', () => {
+    const cares = [care('a', '2026-09-19'), care('b', '2026-09-25')];
+    const v = view(cares, [execution('e1', 'a', '2026-09-19')]);
+    expect(v.streak).toBe(1);
   });
 });
