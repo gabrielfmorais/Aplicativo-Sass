@@ -1,5 +1,4 @@
 import type { InsightsView } from '@app/core';
-import { MIN_RATED_CARES } from '@app/core';
 
 import { Button, Card, Loading, Screen, Stack, Tag, Text } from '@/design/primitives';
 
@@ -106,11 +105,14 @@ export function InsightsScreen({
             <Text variant="heading" accessibilityRole="header">
               A Huna ainda está conhecendo sua rotina
             </Text>
-            <Text tone="muted">
-              {view.ratedCares === 0
-                ? `Para comparar, a Huna precisa de cuidados que você tenha avaliado no check-in. Ainda não há nenhum.`
-                : `Você já avaliou ${view.ratedCares} ${view.ratedCares === 1 ? 'cuidado' : 'cuidados'}. A partir de ${MIN_RATED_CARES}, a Huna começa a comparar o que se repete.`}
-            </Text>
+            {/*
+              ⚠️ **Três silêncios diferentes, e dizer o errado é pior que não dizer nada.**
+              A versão anterior tinha uma frase só e, com doze cuidados avaliados e nenhum produto
+              marcado, ela dizia *"a partir de 5 a Huna começa a comparar"* — apontando para um
+              volume que ela **já tinha**, e escondendo o motivo real. Cada estado agora diz o que
+              **de fato** falta, porque é isso que ela pode fazer a respeito.
+            */}
+            <Text tone="muted">{missingReason(view)}</Text>
             {/*
               Por que esperar, dito com franqueza: com pouco registro, "padrão" é coincidência com
               cara de descoberta — e é melhor não dizer nada do que dizer isso.
@@ -159,3 +161,29 @@ export function InsightsScreen({
     </Screen>
   );
 }
+
+/**
+ * Por que ainda não há padrão — em uma frase, e sempre a **verdadeira**.
+ *
+ * A ordem importa: cada pergunta só faz sentido depois da anterior. Sem cuidado avaliado não há o
+ * que comparar; com poucos, comparar seria coincidência; com muitos avaliados mas nada marcado, o
+ * que falta é o registro, não o volume; e com tudo isso pronto, o que falta é simplesmente uma
+ * repetição — que pode nunca vir, e tudo bem.
+ */
+const missingReason = (view: InsightsView): string => {
+  if (view.ratedCares === 0) {
+    return 'Para comparar, a Huna precisa de cuidados que você tenha avaliado no check-in. Ainda não há nenhum.';
+  }
+  if (!view.enoughData) {
+    const falta = view.ratedCaresMissing;
+    return `Você já avaliou ${view.ratedCares} ${view.ratedCares === 1 ? 'cuidado' : 'cuidados'}. ${
+      falta === 1 ? 'Falta 1' : `Faltam ${falta}`
+    } para a Huna começar a comparar o que se repete.`;
+  }
+  if (view.ratedCaresWithRecord === 0) {
+    return `Você avaliou ${view.ratedCares} cuidados, e ainda não marcou o que usou em nenhum deles. A Huna compara o que você marca no registro — é dali que sai a repetição.`;
+  }
+  return `A Huna já está comparando os ${view.ratedCaresWithRecord} ${
+    view.ratedCaresWithRecord === 1 ? 'cuidado' : 'cuidados'
+  } em que você marcou o que usou, e ainda não encontrou nada que se repita o bastante.`;
+};

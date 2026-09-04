@@ -27,12 +27,19 @@ export const buildInsights = (
    */
   const rated = facts.filter((f) => f.feel !== null);
   const ratedCares = rated.length;
+  /**
+   * ⚠️ **Avaliar e registrar são coisas diferentes**, e confundi-las produzia uma tela que se
+   * contradizia: com doze cuidados avaliados e nenhum produto marcado, ela dizia *"a partir de 5 a
+   * Huna começa a comparar"* — como se o problema fosse o volume que ela já tinha alcançado.
+   */
+  const ratedCaresWithRecord = rated.filter((f) => f.products.length > 0 || f.techniques.length > 0).length;
 
   if (ratedCares < MIN_RATED_CARES) {
     return {
       enoughData: false,
       ratedCares,
       ratedCaresMissing: MIN_RATED_CARES - ratedCares,
+      ratedCaresWithRecord,
       // ⚠️ Nada é inventado para preencher a tela: sem volume, a lista é **vazia**, não estimada.
       observations: [],
     };
@@ -97,5 +104,5 @@ export const buildInsights = (
     ),
   ];
 
-  return { enoughData: true, ratedCares, ratedCaresMissing: 0, observations };
+  return { enoughData: true, ratedCares, ratedCaresMissing: 0, ratedCaresWithRecord, observations };
 };

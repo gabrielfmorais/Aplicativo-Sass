@@ -77,5 +77,13 @@ export type InsightsView = {
   readonly ratedCares: number;
   /** Quantos ainda faltam para a Huna começar a comparar. `0` quando já dá. */
   readonly ratedCaresMissing: number;
+  /**
+   * Quantos dos cuidados avaliados têm **algum registro** — produto ou técnica marcada.
+   *
+   * ⚠️ **É o número que explica um silêncio que parecia bug.** Avaliar diz *como ficou*; marcar diz
+   * *o que ela fez*. Sem o segundo não há o que comparar, e a tela precisa saber a diferença: dizer
+   * "avalie mais" a quem já avaliou doze é mandá-la fazer o que ela já fez.
+   */
+  readonly ratedCaresWithRecord: number;
   readonly observations: readonly Observation[];
 };
