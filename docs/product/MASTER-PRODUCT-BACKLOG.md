@@ -107,7 +107,7 @@ Premium vende personalização, inteligência e conveniência — **nunca** a re
 | # | Capability | Estado | Do que depende |
 |---|---|---|---|
 | P1 | Plan Customization | **DONE** | SPEC-015 (#42/#43/#44) — a primeira capability premium |
-| P2 | **Hair Intelligence** | **COMMITTED** | §6. Depende de dados reais: F25, F26, F14/F31, F16, ciclos. **Determinística primeiro, sem IA.** |
+| P2 | **Hair Intelligence** | **IN PROGRESS** | SPEC-047 — primeira fatia: repetição de **produto** nos cuidados que ela avaliou bem, com estado honesto de poucos dados. Faltam as outras dimensões (técnica, finalização, couro, dia da semana), que dependem de decidir onde mora o vocabulário de exibição (OQ1). §6. Depende de dados reais: F25, F26, F14/F31, F16, ciclos. **Determinística primeiro, sem IA.** |
 | P3 | **"O que funciona comigo?"** | **DEFERRED BY DEPENDENCY** | Superfície de leitura da P2. Precisa de volume de registros. |
 | P4 | **Cronograma adaptativo** | **DEFERRED BY DEPENDENCY** | Precisa de P2 **e** de regras capilares validadas (**D-26**) para qualquer adaptação substantiva. |
 | P5 | **Wash Day avançado** | **DEFERRED BY DEPENDENCY** | Premium **interpreta** o que o Free registrou. Depende de F25. |

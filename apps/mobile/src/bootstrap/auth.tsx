@@ -4,6 +4,7 @@ import type {
   CareTrackingPort,
   DeletionRequestPort,
   EntitlementsPort,
+  InsightsPort,
   HairEventPort,
   HairPlanPort,
   HairProfilePort,
@@ -31,6 +32,7 @@ import { createDeletionRequestAdapter } from '@/infrastructure/supabase/deletion
 import { createDevSignIn } from '@/infrastructure/supabase/dev-sign-in';
 import { createCareTrackingAdapter } from '@/infrastructure/supabase/care-tracking-adapter';
 import { createEntitlementsAdapter } from '@/infrastructure/supabase/entitlements-adapter';
+import { createInsightsAdapter } from '@/infrastructure/supabase/insights-adapter';
 import { createHairEventAdapter } from '@/infrastructure/supabase/hair-event-adapter';
 import { createHairPlanAdapter } from '@/infrastructure/supabase/hair-plan-adapter';
 import { createHairProfileAdapter } from '@/infrastructure/supabase/hair-profile-adapter';
@@ -53,6 +55,7 @@ type AuthContextValue = {
   hairPlan: HairPlanPort;
   careTracking: CareTrackingPort;
   entitlements: EntitlementsPort;
+  insights: InsightsPort;
   notificationPreferences: NotificationPreferencesPort;
   planPreferences: PlanPreferencesPort;
   /** SPEC-020 — o que ela declara que mudou no cabelo dela. */
@@ -167,6 +170,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const share = useMemo(() => createShareAdapter(), []);
   const careTracking = useMemo(() => createCareTrackingAdapter(supabase), []);
   const entitlements = useMemo(() => createEntitlementsAdapter(supabase), []);
+  /** SPEC-047 (P2) — leitura do histórico dela para observar repetições. Só leitura, só dela. */
+  const insights = useMemo(() => createInsightsAdapter(supabase), []);
   const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
   const devSignIn = useMemo(() => createDevSignIn(supabase), []);
 
@@ -198,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hairPlan,
         careTracking,
         entitlements,
+        insights,
         notificationPreferences,
         planPreferences,
         hairEvents,
