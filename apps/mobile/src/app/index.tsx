@@ -31,6 +31,7 @@ import { CareTabScreen } from '@/features/care/CareTabScreen';
 import { useOilRoutine } from '@/features/care/use-oil-routine';
 import { JourneyScreen } from '@/features/journey/JourneyScreen';
 import { useJourney } from '@/features/journey/use-journey';
+import { SharePreviewScreen } from '@/features/sharing/SharePreviewScreen';
 import { ProgressTabScreen } from '@/features/care/ProgressTabScreen';
 import { HairEventsScreen } from '@/features/hair-events/HairEventsScreen';
 import { ShelfScreen } from '@/features/shelf/ShelfScreen';
@@ -115,7 +116,7 @@ function AuthenticatedApp({
   timeZone: () => string;
   newRequestId: () => string;
 }) {
-  const { auth, deletion, entitlements } = useAuth();
+  const { auth, deletion, entitlements, share } = useAuth();
   const [profile, setProfile] = useState<Loadable<HairProfileSnapshot | null>>('loading');
   const [board, setBoard] = useState<Loadable<CareBoard | null>>('loading');
   /**
@@ -150,8 +151,8 @@ function AuthenticatedApp({
       active = false;
     };
   }, [products]);
-  const [stacked, setStacked] = useState<null | 'hairEvents' | 'you' | 'journey'>(null);
-  const openStacked = (screen: 'hairEvents' | 'you' | 'journey') => setStacked(screen);
+  const [stacked, setStacked] = useState<null | 'hairEvents' | 'you' | 'journey' | 'share'>(null);
+  const openStacked = (screen: 'hairEvents' | 'you' | 'journey' | 'share') => setStacked(screen);
   const closeStacked = () => setStacked(null);
   /**
    * SPEC-024 — o registro do que ela usou, aberto a partir de um cuidado concluído. Guarda a
@@ -405,7 +406,27 @@ function AuthenticatedApp({
         loading={journey.loading}
         failed={journey.failed}
         onRetry={journey.reload}
+        {...(journey.view ? { onShare: () => setStacked('share') } : {})}
         onBack={() => setStacked(null)}
+      />,
+    );
+  }
+
+  /**
+   * SPEC-044 (F45) — **o preview é o consentimento** (BR2). Este é o único caminho até o share: não
+   * existe outro ramo, e nenhuma ação em outra tela compartilha nada. Ele só existe quando há
+   * jornada — um card sem conquista não teria o que dizer.
+   *
+   * Voltar leva de volta à **Jornada**, de onde ela veio, e não à Hoje.
+   */
+  if (stacked === 'share' && journey.view) {
+    return shell(
+      <SharePreviewScreen
+        journey={journey.view}
+        displayName={displayName}
+        avatar={avatar}
+        share={share}
+        onBack={() => setStacked('journey')}
       />,
     );
   }

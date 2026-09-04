@@ -15,6 +15,7 @@ import type {
   ProductPort,
   ProfilePort,
   JourneyPort,
+  SharePort,
   OilRoutinePort,
   WashDayPort,
 } from '@app/core';
@@ -37,6 +38,7 @@ import { createNotificationPreferencesAdapter } from '@/infrastructure/supabase/
 import { createPlanPreferencesAdapter } from '@/infrastructure/supabase/plan-preferences-adapter';
 import { createProductAdapter } from '@/infrastructure/supabase/product-adapter';
 import { createJourneyAdapter } from '@/infrastructure/supabase/journey-adapter';
+import { createShareAdapter } from '@/infrastructure/sharing/share-adapter';
 import { createOilRoutineAdapter } from '@/infrastructure/supabase/oil-routine-adapter';
 import { createWashDayAdapter } from '@/infrastructure/supabase/wash-day-adapter';
 import { createProfileAdapter } from '@/infrastructure/supabase/profile-adapter';
@@ -63,6 +65,7 @@ type AuthContextValue = {
   oil: OilRoutinePort;
   /** SPEC-043 (F40/F41/F42) — a Jornada dela. */
   journey: JourneyPort;
+  share: SharePort;
   /** SPEC-018 — o nome escolhido por ela; a única coisa em `profiles`. */
   profile: ProfilePort;
   notificationScheduler: NotificationSchedulerPort;
@@ -160,6 +163,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const oil = useMemo(() => createOilRoutineAdapter(supabase), []);
   // SPEC-043 — leitura por RLS; conceder é RPC, e a usuária nunca manda pontos.
   const journey = useMemo(() => createJourneyAdapter(supabase), []);
+  /** SPEC-044 — o share é porta de **plataforma**, não de servidor: nada aqui fala com o Supabase. */
+  const share = useMemo(() => createShareAdapter(), []);
   const careTracking = useMemo(() => createCareTrackingAdapter(supabase), []);
   const entitlements = useMemo(() => createEntitlementsAdapter(supabase), []);
   const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -200,6 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         washDays,
         oil,
         journey,
+        share,
         profile,
         notificationScheduler,
         today: () => toLocalDate(systemClock.now(), timeZone()),

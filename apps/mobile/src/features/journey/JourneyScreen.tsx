@@ -24,12 +24,15 @@ export function JourneyScreen({
   loading,
   failed,
   onRetry,
+  onShare,
   onBack,
 }: {
   view: JourneyView | null;
   loading: boolean;
   failed?: boolean;
   onRetry?: () => void;
+  /** SPEC-044 (F45) — a conquista mora aqui, então o card sai daqui. */
+  onShare?: () => void;
   onBack: () => void;
 }) {
   if (loading) return <Loading label="Abrindo sua jornada…" />;
@@ -121,6 +124,13 @@ export function JourneyScreen({
           {`${view.caresAttended} cuidados do seu plano até aqui.`}
         </Text>
       </Stack>
+
+      {/*
+        SPEC-044 (F45) — a porta do card. **Uma oferta, nunca um empurrão:** o botão é secundário,
+        vem depois da conquista e não promete nada sobre o que vai acontecer — quem decide o que
+        aparece, e se vai aparecer, é a tela seguinte (BR2).
+      */}
+      {onShare ? <Button label="Compartilhar minha jornada" variant="secondary" onPress={onShare} /> : null}
     </Screen>
   );
 }
