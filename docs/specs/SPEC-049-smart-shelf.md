@@ -62,8 +62,10 @@ para ela**: quais desses vidros aparecem nos registros, e quais nunca apareceram
 
 ## 7. Open Questions
 
-- **OQ1 (CAN DEFER)** Combinações que aparecem juntas nos melhores registros (Blueprint §10) — é
-  leitura de par, e vale uma fatia própria.
+- **OQ1** ✅ **Fechada.** Combinações entraram como observação `combo` na SPEC-047: *"apareceram
+  juntos em 3 dos 5 cuidados que você avaliou bem"*. ⚠️ **Par, não receita** — um par soa mais causal
+  que um item isolado justamente porque parece uma fórmula, e a frase é escolhida para não soar como
+  uma. **Só pares**: trios explodem em combinações e produzem coincidência com cara de padrão.
 - **OQ2 (BLOQUEADA por decisão)** *"A avaliação dela associada a cada produto"* é o **`P7`**: média
   por produto é a forma mais direta de virar ranking, e ranking é outra decisão. Fora desta fatia de
   propósito.
@@ -80,6 +82,10 @@ para ela**: quais desses vidros aparecem nos registros, e quais nunca apareceram
 
 - *"O que você mais usa — Máscara da feira · em 4 registros de 5"*
 - *"Ainda sem registro — oleo · truns"*, com a frase que diz que pode ser novo ou de outra época
+
+⚠️ **As combinações não aparecem no DEV, e isso é o comportamento certo:** nenhum par alcança as
+três ocorrências, então a Huna **não mostra nada** em vez de baixar a régua. O caminho de render é o
+mesmo das outras observações e está preso por teste.
 
 ⚠️ **Um detalhe que a validação esclareceu:** produtos **arquivados** que têm uso histórico **não**
 aparecem na tela, porque a lista é a prateleira ativa (BR3). O uso deles continua no histórico e

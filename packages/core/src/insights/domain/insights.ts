@@ -64,7 +64,7 @@ export type InsightFact = {
 export type Observation = {
   readonly key: string;
   /** O que se repetiu: um produto dela, ou uma técnica do vocabulário aprovado. */
-  readonly kind: 'product' | 'technique';
+  readonly kind: 'product' | 'technique' | 'combo';
   readonly subject: string;
   /** O que se repetiu, em número. Nunca "porque", nunca "melhora". */
   readonly detail: string;

@@ -91,12 +91,45 @@ export const buildInsights = (
         detail: `${verb} ${v.count} dos ${best.length} cuidados que você avaliou bem`,
       }));
 
+  /**
+   * SPEC-049 OQ1 — **os produtos que aparecem JUNTOS** nos cuidados que ela avaliou bem.
+   *
+   * ⚠️ **Par, não receita.** "Apareceram juntos em 3 dos 5" é co-ocorrência contada nos registros
+   * dela; "essa combinação funciona para você" seria alegação capilar (D-26/D-70) — e um par soa
+   * mais causal que um item isolado justamente porque parece uma fórmula. A frase é escolhida para
+   * não soar como uma.
+   *
+   * Só **pares**, e de propósito: trios e além explodem em combinações e produzem coincidência com
+   * cara de padrão, que é exatamente o que o volume mínimo existe para evitar.
+   */
+  const pairs = new Map<string, { name: string; count: number }>();
+  for (const fact of best) {
+    const items = [...new Map(fact.products.map((p) => [p.id, p])).values()].sort((x, y) =>
+      x.id.localeCompare(y.id),
+    );
+    for (let i = 0; i < items.length; i += 1) {
+      for (let j = i + 1; j < items.length; j += 1) {
+        const a = items[i];
+        const b2 = items[j];
+        if (!a || !b2) continue;
+        const key = `${a.id}|${b2.id}`;
+        const current = pairs.get(key);
+        pairs.set(key, {
+          // O nome sai em ordem alfabética para a frase não depender de qual id veio antes.
+          name: current?.name ?? [a.name, b2.name].sort((x, y) => x.localeCompare(y)).join(' + '),
+          count: (current?.count ?? 0) + 1,
+        });
+      }
+    }
+  }
+
   const observations = [
     ...named(
       tally((f) => f.products),
       'product',
       'esteve em',
     ),
+    ...named(pairs, 'combo', 'apareceram juntos em'),
     ...named(
       tally((f) => f.techniques.map((t) => ({ id: t, name: techniqueLabel(t) }))),
       'technique',
