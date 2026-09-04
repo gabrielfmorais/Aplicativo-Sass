@@ -6,6 +6,7 @@ import type {
   HairProfilePort,
   HunaAvatar,
   ProductPort,
+  JourneyPort,
   OilRoutinePort,
   WashDayPort,
   HairProfileSnapshot,
@@ -28,6 +29,8 @@ import { useAuth } from '@/bootstrap/auth';
 import { AccountScreen } from '@/features/account/AccountScreen';
 import { CareTabScreen } from '@/features/care/CareTabScreen';
 import { useOilRoutine } from '@/features/care/use-oil-routine';
+import { JourneyScreen } from '@/features/journey/JourneyScreen';
+import { useJourney } from '@/features/journey/use-journey';
 import { ProgressTabScreen } from '@/features/care/ProgressTabScreen';
 import { HairEventsScreen } from '@/features/hair-events/HairEventsScreen';
 import { ShelfScreen } from '@/features/shelf/ShelfScreen';
@@ -84,6 +87,7 @@ function AuthenticatedApp({
   products,
   washDays,
   oil,
+  journeyPort,
   careTracking,
   notificationPreferences,
   notificationScheduler,
@@ -100,6 +104,7 @@ function AuthenticatedApp({
   products: ProductPort;
   washDays: WashDayPort;
   oil: OilRoutinePort;
+  journeyPort: JourneyPort;
   careTracking: CareTrackingPort;
   notificationPreferences: NotificationPreferencesPort;
   notificationScheduler: NotificationSchedulerPort;
@@ -145,8 +150,8 @@ function AuthenticatedApp({
       active = false;
     };
   }, [products]);
-  const [stacked, setStacked] = useState<null | 'hairEvents' | 'you'>(null);
-  const openStacked = (screen: 'hairEvents' | 'you') => setStacked(screen);
+  const [stacked, setStacked] = useState<null | 'hairEvents' | 'you' | 'journey'>(null);
+  const openStacked = (screen: 'hairEvents' | 'you' | 'journey') => setStacked(screen);
   const closeStacked = () => setStacked(null);
   /**
    * SPEC-024 — o registro do que ela usou, aberto a partir de um cuidado concluído. Guarda a
@@ -291,6 +296,8 @@ function AuthenticatedApp({
    * da barra é da Prateleira, e duas entradas para o mesmo perfil seriam duas versões da mesma tela.
    */
   const profileChip = { name: displayName, avatar, onPress: () => openStacked('you') };
+  /** SPEC-043 — a Jornada, carregada uma vez: a Hoje mostra a entrada, a tela mostra o resto. */
+  const journey = useJourney(journeyPort, board !== 'loading' && board !== 'error' ? board : null, today());
 
   const shell = (content: React.ReactNode) => (
     <View style={styles.shell}>
@@ -371,6 +378,20 @@ function AuthenticatedApp({
             }
           : {})}
       />,
+    );
+  }
+
+  /**
+   * SPEC-043 (F40/F41/F42) — **superfície própria** (D-103). A Jornada é uma tela empilhada, e não
+   * um bloco dentro de Progresso: aquela aba responde *"o que aconteceu"* e continua **sem nota**,
+   * com as barreiras da SPEC-009/019/021 intactas.
+   *
+   * A entrada fica na **Hoje**, que é onde o fato acontece — a consistência dela é feita de cuidados
+   * concluídos, e é ali que ela acabou de concluir um.
+   */
+  if (stacked === 'journey') {
+    return shell(
+      <JourneyScreen view={journey.view} loading={journey.loading} onBack={() => setStacked(null)} />,
     );
   }
 
@@ -516,6 +537,7 @@ function AuthenticatedApp({
       // A prateleira é aba: a sugestão leva **para a aba**, e não para uma cópia empilhada dela.
       onOpenShelf={() => setTab('shelf')}
       onReassess={() => setReassessing('profile')}
+      onOpenJourney={() => openStacked('journey')}
     />,
   );
 }
@@ -531,6 +553,7 @@ export default function IndexRoute() {
     products,
     washDays,
     oil,
+    journey,
     careTracking,
     notificationPreferences,
     notificationScheduler,
@@ -571,6 +594,7 @@ export default function IndexRoute() {
       products={products}
       washDays={washDays}
       oil={oil}
+      journeyPort={journey}
       careTracking={careTracking}
       notificationPreferences={notificationPreferences}
       notificationScheduler={notificationScheduler}

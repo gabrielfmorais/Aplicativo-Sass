@@ -602,6 +602,7 @@ export function TodayScreen({
   productCount,
   onOpenShelf,
   onReassess,
+  onOpenJourney,
 }: {
   board: CareBoard;
   care: CareTrackingPort;
@@ -668,6 +669,11 @@ export function TodayScreen({
    * asserting on navigation.
    */
   onReassess?: () => void;
+  /**
+   * SPEC-043 — abre a Jornada. Opcional: a Hoje funciona inteira sem ela, e a capability é uma
+   * camada de motivação, não parte do loop diário.
+   */
+  onOpenJourney?: () => void;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -1022,6 +1028,26 @@ export function TodayScreen({
             </Card>
           ) : null}
 
+          {/*
+            SPEC-043 (F40/F41/F42) — a entrada da **Jornada**, quieta.
+
+            ⚠️ **Superfície própria** (D-103): a Jornada é uma tela, não um bloco aqui. E a entrada
+            **não é um crachá gritando por atenção** — nenhum "não perca sua sequência", nenhuma
+            contagem regressiva, nenhum vermelho. Quem quiser olhar, olha.
+
+            Mora na Hoje porque é aqui que o fato acontece: a consistência dela é feita de cuidados
+            concluídos, e é aqui que ela acabou de concluir um.
+          */}
+          {onOpenJourney ? (
+            <Button
+              label="Sua jornada"
+              variant="ghost"
+              size="sm"
+              onPress={onOpenJourney}
+              style={styles.inlineStart}
+            />
+          ) : null}
+
           <SuggestionsCard
             suggestions={suggestions}
             onAct={actOnSuggestion}
@@ -1134,6 +1160,8 @@ export function TodayScreen({
 }
 
 const styles = StyleSheet.create({
+  /** Um botão dentro do corpo não ocupa a linha inteira (mesma regra da SPEC-023/024). */
+  inlineStart: { alignSelf: 'flex-start' },
   /** Não ocupa a linha: num dia livre nada aqui é a ação primária da tela. */
   emptyAction: { alignSelf: 'flex-start' },
   /** Alinhado à esquerda: "ver mais" é uma oferta da seção, não a ação principal da tela. */
