@@ -5,6 +5,7 @@ import type { Progress } from '../progress/index.ts';
 import { buildShareCard } from './application/build-share-card.ts';
 import { careDoneMoment, cycleMoment, journeyMoment, milestoneMoments } from './application/moments.ts';
 import { DEFAULT_SHARE_OPTIONS, SHARE_FORMATS, captureSizeOf } from './domain/share-card.ts';
+import { SHARE_MOMENT_KINDS } from './domain/share-moment.ts';
 
 /**
  * SPEC-044 (F45) e SPEC-045 (F46) — **o card e os momentos**.
@@ -255,5 +256,29 @@ describe('Share card — os formatos que as redes esperam (SPEC-044 FR2)', () =>
   it('9:16 para Stories e 1:1 para feed', () => {
     expect(SHARE_FORMATS.story.width / SHARE_FORMATS.story.height).toBeCloseTo(9 / 16, 3);
     expect(SHARE_FORMATS.feed.width).toBe(SHARE_FORMATS.feed.height);
+  });
+});
+
+/**
+ * SPEC-045 — **os tipos de momento, congelados.**
+ *
+ * O `F46` vai acrescentar gatilhos (Wash Day, progresso, comparação de ciclos). Acrescentar continua
+ * possível: é mudar esta lista, de propósito, tendo lido por quê. O que deixa de ser possível é um
+ * momento entrar **sem** verbo próprio e sem barreira de linguagem.
+ */
+describe('Momentos — o vocabulário congelado (SPEC-045)', () => {
+  it('os quatro momentos são exatamente estes', () => {
+    expect([...SHARE_MOMENT_KINDS]).toEqual(['journey', 'milestone', 'care_done', 'cycle']);
+  });
+
+  it('todo momento produzido pelo core declara um kind conhecido', () => {
+    const todos = [
+      journeyMoment(journey()),
+      ...milestoneMoments(journey()),
+      careDoneMoment({ careLabel: 'Hidratação', journey: journey() }),
+      cycleMoment(progress()),
+    ];
+    const conhecidos = new Set<string>(SHARE_MOMENT_KINDS);
+    for (const m of todos) expect(conhecidos.has(m.kind)).toBe(true);
   });
 });

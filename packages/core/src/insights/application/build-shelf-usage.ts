@@ -1,6 +1,7 @@
 import type { Product } from '../../hair-profile/index.ts';
 import type { InsightFact } from '../domain/insights.ts';
 import type { ShelfUsage } from '../domain/insights.ts';
+import { countByCare } from './count-by-care.ts';
 
 /**
  * SPEC-049 (P6) — **Smart Shelf: a prateleira dela, contada pelo uso.**
@@ -22,16 +23,10 @@ export const buildShelfUsage = (
   products: readonly Product[],
   facts: readonly InsightFact[],
 ): ShelfUsage => {
-  /**
-   * Conta por **cuidado**, não por marcação — a mesma disciplina do `buildInsights`. O mesmo produto
-   * marcado duas vezes no mesmo registro continua sendo um cuidado.
-   */
-  const uses = new Map<string, number>();
-  for (const fact of facts) {
-    for (const id of new Set(fact.products.map((p) => p.id))) {
-      uses.set(id, (uses.get(id) ?? 0) + 1);
-    }
-  }
+  // A regra de "conta por cuidado" mora num lugar só (`countByCare`): duplicá-la aqui deixaria
+  // duas telas Premium darem números diferentes sobre o mesmo produto e o mesmo histórico.
+  const contagem = countByCare(facts, (f) => f.products);
+  const uses = new Map([...contagem].map(([id, v]) => [id, v.count]));
 
   const used = products
     .filter((p) => (uses.get(p.id) ?? 0) > 0)

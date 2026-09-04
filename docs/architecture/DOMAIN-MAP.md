@@ -46,7 +46,7 @@ Legenda: seta cheia = dependência de dados/fluxo; pontilhada = consulta/cross-c
 |---|---|---|
 | `Calendar`, `Check-ins` e execução separados | Unificar em **Care Tracking** (subdomínios: calendar projection, execution, check-in) | Compartilham o mesmo agregado (ScheduledCare ↔ CareExecution ↔ CheckIn). Separar geraria 3 módulos com FK cruzada e regras duplicadas de "dia da usuária". Calendar é uma **projeção de leitura**, não um domínio |
 | `Identity` inclui "perfil básico" | Identity = auth/sessão/conta; `profiles` (timezone, display name, consentimentos) fica em **Account** dentro do mesmo contexto | Timezone é dado de Account, consumido por Schedule e Notifications |
-| `Growth` como módulo | Mantido só como **placeholder documental**; sem código no MVP | Evitar abstrações hipotéticas |
+| `Growth` como módulo | Placeholder até a SPEC-044, que o **ativou** com `packages/core/src/sharing` (`F45`/`F46`) | Nasceu vazio para evitar abstração hipotética; ganhou código quando houve capability real |
 | `Admin` | Split em **Audit** (MVP: tabela + RPCs) e **Admin UI** (pós-MVP) | Auditoria é necessária desde o início; UI não |
 
 ## 3. Contextos
@@ -125,13 +125,48 @@ Legenda: seta cheia = dependência de dados/fluxo; pontilhada = consulta/cross-c
 - **Responsabilidade:** refletir estado de assinatura vindo do provider; derivar entitlements.
 - **Entidades:** `Subscription` (escrita apenas via webhook/service role), `Entitlement` (derivado — função, não tabela, no MVP).
 - **Catálogo de entitlements (inicial):** `advanced_insights`, `plan_customization`, `premium_content`. Nomeados por **capacidade**, nunca por plano.
-- **Regras:** `EntitlementService.can(entitlement)` no core; fonte de verdade = `get_my_entitlements()` no servidor; RLS/RPC de recursos premium verificam entitlement server-side.
+- **Regras:** `EntitlementService.can(entitlement)` no core; fonte de verdade = `get_my_entitlements()` no servidor.
+- ⚠️ **Onde o entitlement é ENFORÇADO varia com a capability, e a diferença precisa estar dita:**
+  - **Gate de efeito** — o servidor decide e o cliente não consegue contornar. É o caso do
+    `plan_customization`: a `generate-plan` consulta `has_entitlement` e simplesmente **não aplica**
+    os dias preferidos de quem não tem (SPEC-015 FR3).
+  - **Gate de apresentação** — a origem do entitlement é o servidor, mas o **efeito** é uma leitura
+    no aparelho sobre dados que já são dela. É o caso do `advanced_insights` (SPEC-047 §6): um
+    cliente adulterado computaria as mesmas observações **sobre o próprio histórico**. Nada de outra
+    usuária vaza, e nenhum conteúdo de servidor é exposto — mas **não** é um gate de dado, e chamá-lo
+    assim seria pior que assumir o que ele é. Mover a derivação para RPC é a OQ2 da SPEC-047.
 - Ver [ADR-011](../adr/ADR-011-subscription-entitlements.md).
 
-### 3.10 Growth (Generic — futuro)
-- Placeholder: share cards, referral, deep links, attribution. Sem código no MVP. Deep links terão SPEC própria com validação de parâmetros (threat model).
+### 3.10 Growth (Generic — **ativado** na SPEC-044)
+- **Deixou de ser placeholder.** `packages/core/src/sharing` existe: o card compartilhável (`F45`) e
+  os momentos que o produzem (`F46`). **Sem backend** — sem tabela, sem RPC, sem registro de "ela
+  compartilhou": contar shares é analytics, e o provider não existe (D-31).
+- **Ainda placeholder:** referral, deep links, attribution. Deep links terão SPEC própria com
+  validação de parâmetros (threat model).
 
-### 3.11 Admin & Audit
+### 3.11 Journey (Supporting — implementado na SPEC-043)
+- **Responsabilidade:** medir **aderência ao plano** — pontos, nível, sequência e marcos.
+- ⚠️ **Não pontua o cabelo nem o ciclo.** SPEC-009/019/021 recusaram isso, e as barreiras da aba
+  Progresso continuam de pé; a Jornada mede **outro objeto** e por isso tem **superfície própria**.
+- **Entidade:** `journey_points` — o ponto como **fato datado**, chavado pelo **cuidado planejado**
+  (nunca pela execução: refazer criaria id novo e pagaria duas vezes — SPEC-043 BR7).
+
+### 3.12 Insights (Core do Premium — implementado na SPEC-047/SPEC-049)
+- **Responsabilidade:** responder *"o que funciona comigo?"* a partir do que **ela** registrou.
+- **Determinística, sem IA** (§0.4 §3.1): é a camada que a IA vai **consultar**, não o contrário.
+- ⚠️ **Observação, nunca causa.** *"Esteve em 4 dos 5 cuidados que você avaliou bem"* é contagem;
+  *"melhorou seu cabelo"* seria alegação capilar (D-26/D-70).
+- **Sem entidade própria:** lê `care_executions`, `checkins`, `wash_days`, `wash_day_products`,
+  `wash_day_techniques` e `products` sob RLS. **Não escreve nada.**
+
+### 3.13 Oil Routine (Supporting — implementado na SPEC-040)
+- **Responsabilidade:** a rotina de óleo **paralela ao cronograma** (`F39`).
+- ⚠️ **Não entra no plano** (NG1): o cronograma é saída de motor versionado, e enfiar o óleo lá
+  dentro faria uma escolha dela virar decisão de engine.
+- **Entidades:** `oil_routines` (uma por usuária) e `oil_events`, **escrita só por RPC**, porque o
+  dia civil depende do fuso dela (ADR-008).
+
+### 3.14 Admin & Audit
 - **Audit (MVP):** `audit_log` append-only, escrito por RPCs/Edge Functions para: mudanças de assinatura, exclusão de conta, mudanças de conteúdo, concessão de role admin, execuções de operação.
 - **Admin (pós-MVP):** app separado; custom claims; MFA; policies próprias (`is_admin()` baseada em claim + tabela `admin_users`).
 
