@@ -14,6 +14,7 @@ const view = (over: Partial<InsightsView> = {}): InsightsView => ({
   enoughData: true,
   ratedCares: 8,
   ratedCaresMissing: 0,
+  ratedCaresWithRecord: 6,
   observations: [
     {
       key: 'product:p1',
@@ -136,5 +137,54 @@ describe('Seus padrões (SPEC-047)', () => {
     s.getByText('Secou naturalmente');
     s.getByText('você fez em 5 dos 6 cuidados que você avaliou bem');
     expect(s.queryByText(/melhorou|funciona|ajud|por causa/i)).toBeNull();
+  });
+});
+
+/**
+ * SPEC-047 fatia 3 — **três silêncios diferentes, e dizer o errado é pior que não dizer nada.**
+ *
+ * ⚠️ A versão anterior tinha uma frase só: com doze avaliados e nada marcado, ela mandava alcançar
+ * um volume que ela **já tinha**. Cada teste aqui prende um motivo real.
+ */
+describe('Seus padrões — por que ainda não há padrão (SPEC-047 fatia 3)', () => {
+  const vazio = (over: Partial<InsightsView>) => screen({ view: view({ observations: [], ...over }) });
+
+  it('nenhum cuidado avaliado: diz que faltam avaliações', async () => {
+    const s = await vazio({
+      enoughData: false,
+      ratedCares: 0,
+      ratedCaresMissing: 5,
+      ratedCaresWithRecord: 0,
+    });
+    s.getByText(/Ainda não há nenhum/);
+  });
+
+  it('abaixo do mínimo: diz quantos faltam, e não repete o limiar', async () => {
+    const s = await vazio({
+      enoughData: false,
+      ratedCares: 3,
+      ratedCaresMissing: 2,
+      ratedCaresWithRecord: 1,
+    });
+    s.getByText(/Faltam 2 para a Huna começar a comparar/);
+  });
+
+  /** ⚠️ O caso que estava errado: volume alcançado, registro ausente. */
+  it('avaliou bastante mas não marcou nada: aponta o REGISTRO, não o volume', async () => {
+    const s = await vazio({
+      enoughData: true,
+      ratedCares: 12,
+      ratedCaresMissing: 0,
+      ratedCaresWithRecord: 0,
+    });
+    s.getByText(/ainda não marcou o que usou em nenhum deles/);
+    // E não manda alcançar um número que ela já passou.
+    expect(s.queryByText(/A partir de 5|Faltam/)).toBeNull();
+  });
+
+  it('marcou, mas nada se repetiu: diz exatamente isso', async () => {
+    const s = await vazio({ enoughData: true, ratedCares: 9, ratedCaresMissing: 0, ratedCaresWithRecord: 7 });
+    s.getByText(/já está comparando os 7 cuidados/);
+    s.getByText(/ainda não encontrou nada que se repita/);
   });
 });

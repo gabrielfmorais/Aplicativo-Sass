@@ -61,6 +61,7 @@ describe('Insights — sem dados suficientes, a Huna diz isso (SPEC-047)', () =>
       enoughData: false,
       ratedCares: 0,
       ratedCaresMissing: MIN_RATED_CARES,
+      ratedCaresWithRecord: 0,
       observations: [],
     });
   });
@@ -259,5 +260,33 @@ describe('Insights — a dimensão de técnica (SPEC-047 fatia 2)', () => {
       // O que este teste fixa é que **nada aqui cria** o vocabulário: o rótulo cru passa direto.
       expect(v.observations.find((o) => o.kind === 'technique')?.subject).toBe(inventada);
     }
+  });
+});
+
+/**
+ * SPEC-047 fatia 3 — **avaliar e registrar são coisas diferentes.**
+ *
+ * ⚠️ O defeito que isto fixa: com doze cuidados avaliados e nenhum produto marcado, a tela dizia
+ * *"a partir de 5 a Huna começa a comparar"* — apontando para um volume que ela **já tinha** e
+ * escondendo o motivo real. `ratedCaresWithRecord` é o número que separa os dois silêncios.
+ */
+describe('Insights — cobertura do registro (SPEC-047 fatia 3)', () => {
+  it('conta quantos cuidados avaliados têm algum registro', () => {
+    const v = buildInsights([fact(5, [P.mascara]), fact(5, [], ['air_dried']), fact(5), fact(4), fact(4)]);
+    expect(v.ratedCares).toBe(5);
+    expect(v.ratedCaresWithRecord).toBe(2);
+  });
+
+  it('avaliado sem nada marcado não conta como registro', () => {
+    const v = buildInsights([fact(5), fact(5), fact(5), fact(5), fact(5)]);
+    expect(v.enoughData).toBe(true);
+    expect(v.ratedCaresWithRecord).toBe(0);
+    expect(v.observations).toEqual([]);
+  });
+
+  it('cuidado não avaliado não entra na cobertura, mesmo com produto marcado', () => {
+    const v = buildInsights([fact(null, [P.mascara]), fact(5), fact(5), fact(5), fact(5), fact(4)]);
+    expect(v.ratedCares).toBe(5);
+    expect(v.ratedCaresWithRecord).toBe(0);
   });
 });
