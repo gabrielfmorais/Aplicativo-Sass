@@ -112,6 +112,15 @@ do que escrever a mentira.
 - **OQ1** Foto própria (`P24`) continua atrás do **D-32**. O primitivo `Avatar` é onde ela entra.
 - **OQ2** Mais marcas é decisão de produto, não de engenharia: acrescentar exige tocar o `CHECK`, a
   lista do core e o teste — de propósito.
+- **OQ4** ⚠️ **A arte não é final** (dono, 2026-09-03). As seis marcas atuais **cumprem a capability**
+  — seleção, persistência, cabeçalho, acessibilidade e o fallback sem foto — e ficam **em produção
+  como estão** até o dono trazer referências visuais para uma família mais rica. **Isto não é um
+  placeholder técnico:** escolher um avatar é **escolha de identidade dela**, e continua sendo,
+  qualquer que seja o desenho. O refinamento troca a **geometria** (`huna-avatars.ts`, dado puro) e
+  no máximo a **paleta**; **nada** do contrato muda — a lista de chaves, o `CHECK`, o `ProfilePort`,
+  o primitivo `Avatar` e a escolha já gravada de cada usuária seguem intactos. **A restrição da
+  SPEC-036 continua valendo na arte nova:** abstrata, sem personagem, rosto, cabeça, corpo ou
+  silhueta.
 - **OQ3** No preview web, `aria-checked` não é emitido para `role="radio"` — limitação do adapter de
   plataforma (D-80), **igual para o `Chip` do design system**, que usa exatamente o mesmo contrato.
   O estado é anunciado no nativo, que é a plataforma do produto; o teste RNTL fixa o contrato.
