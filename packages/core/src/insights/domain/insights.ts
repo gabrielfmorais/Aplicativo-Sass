@@ -87,3 +87,24 @@ export type InsightsView = {
   readonly ratedCaresWithRecord: number;
   readonly observations: readonly Observation[];
 };
+
+/**
+ * SPEC-049 (P6) — a prateleira dela, contada pelo uso.
+ *
+ * ⚠️ **Sem média, sem nota, sem ordem de mérito.** Ordenar por "melhor" seria o **ranking pessoal**
+ * (`P7`), que é outra capability e outra decisão. Aqui a ordem é **quantas vezes**, que os
+ * registros dela respondem sozinhos.
+ */
+export type ShelfUsage = {
+  readonly totalProducts: number;
+  /** Cuidados em que ela marcou algum produto — o denominador honesto de "em N registros". */
+  readonly recordedCares: number;
+  readonly used: readonly { readonly id: string; readonly name: string; readonly cares: number }[];
+  /**
+   * O que está na prateleira e **não aparece em registro nenhum**.
+   *
+   * ⚠️ Fato, não acusação: pode ser novo, sazonal, ou simplesmente não ter sido marcado. Sugerir
+   * descarte, troca ou compra é `P18`, atrás do próprio gate.
+   */
+  readonly neverUsed: readonly { readonly id: string; readonly name: string }[];
+};

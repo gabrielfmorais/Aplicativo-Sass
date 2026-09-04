@@ -53,6 +53,7 @@ type Loadable<T> = 'loading' | 'error' | T;
 export function ShelfScreen({
   products,
   profile,
+  onOpenUsage,
 }: {
   products: ProductPort;
   /**
@@ -61,6 +62,11 @@ export function ShelfScreen({
    * app onde o perfil some.
    */
   profile?: { readonly name: string | null; readonly onPress: () => void };
+  /**
+   * SPEC-049 (P6) — **Smart Shelf**: como ela usa o que tem. Fica aqui porque é aqui que ela olha
+   * para a prateleira; premium é decidido lá dentro, e a porta aparece para todo mundo.
+   */
+  onOpenUsage?: () => void;
 }) {
   const [list, setList] = useState<Loadable<readonly Product[]>>('loading');
   const [archiving, setArchiving] = useState(false);
@@ -149,6 +155,14 @@ export function ShelfScreen({
       }
     >
       <ScreenHeader title="Seus produtos" {...(profile ? { profile } : {})} />
+
+      {/*
+        SPEC-049 (P6) — a porta do Smart Shelf. Só quando ela **tem** produtos: numa prateleira
+        vazia, "como você usa" não teria o que contar, e um botão que leva a nada é pior que nenhum.
+      */}
+      {onOpenUsage && Array.isArray(list) && list.length > 0 ? (
+        <Button label="Como você usa sua prateleira" variant="secondary" onPress={onOpenUsage} />
+      ) : null}
 
       {/*
         A explicação aparece quando ela importa: cadastrando, ou sem nada cadastrado. Com a

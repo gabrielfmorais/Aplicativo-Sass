@@ -44,6 +44,8 @@ import { useJourney } from '@/features/journey/use-journey';
 import { SharePreviewScreen } from '@/features/sharing/SharePreviewScreen';
 import { InsightsScreen } from '@/features/insights/InsightsScreen';
 import { useInsights } from '@/features/insights/use-insights';
+import { ShelfUsageScreen } from '@/features/insights/ShelfUsageScreen';
+import { useShelfUsage } from '@/features/insights/use-shelf-usage';
 import { ProgressTabScreen } from '@/features/care/ProgressTabScreen';
 import { HairEventsScreen } from '@/features/hair-events/HairEventsScreen';
 import { ShelfScreen } from '@/features/shelf/ShelfScreen';
@@ -163,9 +165,9 @@ function AuthenticatedApp({
       active = false;
     };
   }, [products]);
-  const [stacked, setStacked] = useState<null | 'hairEvents' | 'you' | 'journey' | 'share' | 'insights'>(
-    null,
-  );
+  const [stacked, setStacked] = useState<
+    null | 'hairEvents' | 'you' | 'journey' | 'share' | 'insights' | 'shelfUsage'
+  >(null);
   /**
    * SPEC-045 (F46) — **de onde ela veio decide o que o card pode ser**. A tela de compartilhar é uma
    * só (SPEC-044 G5: o F46 acrescenta gatilhos, não outro caminho); o que muda é a lista de momentos
@@ -176,7 +178,8 @@ function AuthenticatedApp({
     setShareFrom(from);
     setStacked('share');
   };
-  const openStacked = (screen: 'hairEvents' | 'you' | 'journey' | 'share' | 'insights') => setStacked(screen);
+  const openStacked = (screen: 'hairEvents' | 'you' | 'journey' | 'share' | 'insights' | 'shelfUsage') =>
+    setStacked(screen);
   const closeStacked = () => setStacked(null);
   /**
    * SPEC-024 — o registro do que ela usou, aberto a partir de um cuidado concluído. Guarda a
@@ -316,6 +319,8 @@ function AuthenticatedApp({
   }, [entitlements]);
   const canSeeInsights = EntitlementService.can('advanced_insights', granted);
   const insightsState = useInsights(insights, canSeeInsights);
+  /** SPEC-049 (P6) — a prateleira contada pelo uso, no mesmo gate. */
+  const shelfUsage = useShelfUsage(insights, products, canSeeInsights);
 
   /**
    * SPEC-043 — a Jornada, carregada uma vez: a Hoje mostra a entrada, a tela mostra o resto.
@@ -515,6 +520,20 @@ function AuthenticatedApp({
     );
   }
 
+  /** SPEC-049 (P6) — **Smart Shelf**: a prateleira dela, contada pelo uso. Mesmo gate premium. */
+  if (stacked === 'shelfUsage') {
+    return shell(
+      <ShelfUsageScreen
+        view={shelfUsage.view}
+        loading={shelfUsage.loading}
+        failed={shelfUsage.failed}
+        entitled={canSeeInsights}
+        onRetry={shelfUsage.reload}
+        onBack={() => setStacked(null)}
+      />,
+    );
+  }
+
   if (stacked === 'you') {
     return shell(
       <AccountScreen
@@ -555,7 +574,10 @@ function AuthenticatedApp({
    * que ele é a porta de Você. E tem de vir **antes** da leitura do board: a prateleira não depende
    * de cronograma nenhum, e esperar por um seria fazê-la carregar por um dado que ela não usa.
    */
-  if (tab === 'shelf') return shell(<ShelfScreen products={products} profile={profileChip} />);
+  if (tab === 'shelf')
+    return shell(
+      <ShelfScreen products={products} profile={profileChip} onOpenUsage={() => openStacked('shelfUsage')} />,
+    );
 
   if (board === 'loading') return shell(<Loading label="Carregando seus cuidados…" />);
   if (board === 'error') {
