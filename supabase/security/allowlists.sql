@@ -244,3 +244,17 @@ insert into tests.security_definer_allowlist (function_signature, spec, justific
     'SPEC-040',
     'Only write path into oil_events; the client holds no INSERT. user_id comes from auth.uid(), so a tampered client cannot record an event for someone else. Two server invariants justify DEFINER: the civil day (care_local_today, validated timezone) and idempotency by (user_id, client_event_id), so a double tap or a retry after a lost response yields one event, not two — the ON CONFLICT DO NOTHING is what closes the race the preceding SELECT cannot. It refuses to record when she has no routine, so no history exists that no routine explains. The kind is revalidated by the table CHECK. search_path is pinned.'
   );
+
+-- SPEC-043 §7 (F40/F41/F42): the Journey. `authenticated` may only SELECT its own points — no
+-- INSERT, no UPDATE, no DELETE. Points are awarded by the server from the canonical facts it reads
+-- itself, so a tampered client can neither forge consistency it did not have nor erase the
+-- consistency it did. A point is a dated fact; rewriting it would falsify her history (D-103).
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'journey_points', 'SELECT', 'SPEC-043');
+
+insert into tests.security_definer_allowlist (function_signature, spec, justification) values
+  (
+    'public.award_journey_points(p_timezone text)',
+    'SPEC-043',
+    'Only write path into journey_points; the client holds no INSERT. Neither the points nor the fact to award are parameters — the function reads her own care_executions, checkins and wash_days and grants what has no row yet, so a tampered client cannot invent adherence it did not have. user_id comes from auth.uid() via care_current_user(). Two server invariants justify DEFINER: the civil day (care_local_today, which validates and bounds the caller-supplied IANA timezone, T22) and idempotency by (user_id, fact_kind, fact_id), so a second call, a retry or a reload grants nothing — the ON CONFLICT DO NOTHING closes the race the preceding read cannot. The ruler version is stamped on each row so a future v2 never rewrites points already granted. search_path is pinned.'
+  );

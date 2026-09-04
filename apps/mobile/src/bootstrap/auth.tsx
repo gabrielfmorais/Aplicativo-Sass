@@ -14,6 +14,7 @@ import type {
   PlanPreferencesPort,
   ProductPort,
   ProfilePort,
+  JourneyPort,
   OilRoutinePort,
   WashDayPort,
 } from '@app/core';
@@ -35,6 +36,7 @@ import { createHairProfileAdapter } from '@/infrastructure/supabase/hair-profile
 import { createNotificationPreferencesAdapter } from '@/infrastructure/supabase/notification-preferences-adapter';
 import { createPlanPreferencesAdapter } from '@/infrastructure/supabase/plan-preferences-adapter';
 import { createProductAdapter } from '@/infrastructure/supabase/product-adapter';
+import { createJourneyAdapter } from '@/infrastructure/supabase/journey-adapter';
 import { createOilRoutineAdapter } from '@/infrastructure/supabase/oil-routine-adapter';
 import { createWashDayAdapter } from '@/infrastructure/supabase/wash-day-adapter';
 import { createProfileAdapter } from '@/infrastructure/supabase/profile-adapter';
@@ -59,6 +61,8 @@ type AuthContextValue = {
   washDays: WashDayPort;
   /** SPEC-040 (F39) — a rotina de óleo dela. */
   oil: OilRoutinePort;
+  /** SPEC-043 (F40/F41/F42) — a Jornada dela. */
+  journey: JourneyPort;
   /** SPEC-018 — o nome escolhido por ela; a única coisa em `profiles`. */
   profile: ProfilePort;
   notificationScheduler: NotificationSchedulerPort;
@@ -154,6 +158,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Sem `userId`: leitura por RLS, escrita só por RPC — o dia civil e a idempotência são do
   // servidor (SPEC-040 §7).
   const oil = useMemo(() => createOilRoutineAdapter(supabase), []);
+  // SPEC-043 — leitura por RLS; conceder é RPC, e a usuária nunca manda pontos.
+  const journey = useMemo(() => createJourneyAdapter(supabase), []);
   const careTracking = useMemo(() => createCareTrackingAdapter(supabase), []);
   const entitlements = useMemo(() => createEntitlementsAdapter(supabase), []);
   const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -193,6 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         products,
         washDays,
         oil,
+        journey,
         profile,
         notificationScheduler,
         today: () => toLocalDate(systemClock.now(), timeZone()),
