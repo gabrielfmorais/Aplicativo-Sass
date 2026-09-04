@@ -124,7 +124,11 @@ describe('Insights — a repetição, contada nos fatos dela (SPEC-047)', () => 
       fact(4, [P.leave]),
       fact(4, [P.mascara]),
     ]);
-    expect(v.observations.map((o) => o.subject)).toEqual(['Leave-in azul', 'Máscara da Ana']);
+    // Escopo: a ordem **dos produtos**. Combinações têm o seu próprio bloco de testes.
+    expect(v.observations.filter((o) => o.kind === 'product').map((o) => o.subject)).toEqual([
+      'Leave-in azul',
+      'Máscara da Ana',
+    ]);
   });
 });
 
@@ -288,5 +292,73 @@ describe('Insights — cobertura do registro (SPEC-047 fatia 3)', () => {
     const v = buildInsights([fact(null, [P.mascara]), fact(5), fact(5), fact(5), fact(5), fact(4)]);
     expect(v.ratedCares).toBe(5);
     expect(v.ratedCaresWithRecord).toBe(0);
+  });
+});
+
+/**
+ * SPEC-049 OQ1 — **os produtos que aparecem juntos** nos cuidados que ela avaliou bem.
+ *
+ * ⚠️ **Par, não receita.** Um par soa mais causal que um item isolado justamente porque parece uma
+ * fórmula — e a frase é escolhida para não soar como uma.
+ */
+describe('Insights — combinações (SPEC-049 OQ1)', () => {
+  it('nomeia o par que se repete, com o verbo no plural', () => {
+    const v = buildInsights([
+      fact(5, [P.mascara, P.leave]),
+      fact(5, [P.mascara, P.leave]),
+      fact(5, [P.mascara, P.leave]),
+      fact(5, [P.shampoo]),
+      fact(4, [P.shampoo]),
+    ]);
+    const combo = v.observations.find((o) => o.kind === 'combo');
+    expect(combo?.subject).toBe('Leave-in azul + Máscara da Ana');
+    expect(combo?.detail).toBe('apareceram juntos em 3 dos 5 cuidados que você avaliou bem');
+  });
+
+  it('um par que apareceu duas vezes não vira padrão', () => {
+    const v = buildInsights([
+      fact(5, [P.mascara, P.leave]),
+      fact(5, [P.mascara, P.leave]),
+      fact(5, []),
+      fact(5, []),
+      fact(4, []),
+    ]);
+    expect(v.observations.filter((o) => o.kind === 'combo')).toHaveLength(0);
+  });
+
+  /** Só pares: trios explodem em combinações e produzem coincidência com cara de padrão. */
+  it('três produtos juntos viram três pares, nunca um trio', () => {
+    const tres = [P.mascara, P.leave, P.shampoo];
+    const v = buildInsights([fact(5, tres), fact(5, tres), fact(5, tres), fact(5, []), fact(4, [])]);
+    const combos = v.observations.filter((o) => o.kind === 'combo');
+    expect(combos).toHaveLength(3);
+    for (const c of combos) expect(c.subject.split(' + ')).toHaveLength(2);
+  });
+
+  it('o nome do par não depende da ordem em que os produtos vieram', () => {
+    const a = buildInsights([
+      fact(5, [P.mascara, P.leave]),
+      fact(5, [P.leave, P.mascara]),
+      fact(5, [P.mascara, P.leave]),
+      fact(5, []),
+      fact(4, []),
+    ]);
+    expect(a.observations.find((o) => o.kind === 'combo')?.subject).toBe('Leave-in azul + Máscara da Ana');
+  });
+
+  /** ⚠️ A barreira de linguagem vale igual para o par. */
+  it('nenhuma frase de combinação afirma efeito', () => {
+    const v = buildInsights([
+      fact(5, [P.mascara, P.leave]),
+      fact(5, [P.mascara, P.leave]),
+      fact(5, [P.mascara, P.leave]),
+      fact(5, []),
+      fact(4, []),
+    ]);
+    for (const o of v.observations) {
+      expect(`${o.subject} ${o.detail}`).not.toMatch(
+        /funciona|melhor|receita|f[óo]rmula|combinação ideal|ajud/i,
+      );
+    }
   });
 });

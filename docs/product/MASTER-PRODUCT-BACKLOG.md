@@ -111,7 +111,7 @@ Premium vende personalização, inteligência e conveniência — **nunca** a re
 | P3 | **"O que funciona comigo?"** | **DEFERRED BY DEPENDENCY** | Superfície de leitura da P2. Precisa de volume de registros. |
 | P4 | **Cronograma adaptativo** | **DEFERRED BY DEPENDENCY** | Precisa de P2 **e** de regras capilares validadas (**D-26**) para qualquer adaptação substantiva. |
 | P5 | **Wash Day avançado** | **DEFERRED BY DEPENDENCY** | Premium **interpreta** o que o Free registrou. Depende de F25. |
-| P6 | **Smart Shelf** | **DEFERRED BY DEPENDENCY** | Depende de F26/F27 + histórico. |
+| P6 | **Smart Shelf** | **IN PROGRESS** | SPEC-049 — primeira fatia: contagem de uso por produto e "ainda sem registro". Faltam **combinações** nos melhores registros (OQ1); **avaliação por produto** fica de fora de propósito, porque é o caminho mais curto para o ranking `P7`. Depende de F26/F27 + histórico. |
 | P7 | **Ranking pessoal de produtos** | **DEFERRED BY DEPENDENCY** | Depende de P6 + avaliações. |
 | P8 | **Padrões produto × técnica × resultado** | **DEFERRED BY DEPENDENCY** | Depende de P6 + F25 + check-ins. **D-102 acrescenta a finalização à quádrupla:** tratamento + produto + **finalização** + resultado percebido — sem a etapa de finalização (`F37`) registrada, metade do que ela realmente faz no cabelo fica fora da correlação. |
 | P9 | **Hair Progress avançado** | **DEFERRED BY DEPENDENCY** | Depende de F28. |
