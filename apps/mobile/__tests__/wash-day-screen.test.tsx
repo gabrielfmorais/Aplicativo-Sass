@@ -17,6 +17,7 @@ const EMPTY: WashDayRecord = {
   techniques: [],
   scalpFeel: null,
   finishStatus: null,
+  finishTechnique: null,
 };
 
 /** BR3/AC4 — ela usou e depois tirou da prateleira. O registro é do passado, e o passado não muda. */
@@ -36,6 +37,7 @@ const makeWashDays = (over: Partial<WashDayPort> = {}): WashDayPort => ({
   markTechnique: jest.fn(async () => undefined),
   setScalpFeel: jest.fn(async () => undefined),
   setFinishStatus: jest.fn(async () => undefined),
+  setFinishTechnique: jest.fn(async () => {}),
   lastUsedFor: jest.fn(async () => []),
   ...over,
 });
@@ -109,6 +111,7 @@ describe('WashDayScreen (SPEC-024)', () => {
         techniques: ['co_wash' as const],
         scalpFeel: null,
         finishStatus: null,
+        finishTechnique: null,
       })),
     });
     const s = await renderScreen(washDays);
@@ -140,6 +143,7 @@ describe('WashDayScreen (SPEC-024)', () => {
         techniques: [],
         scalpFeel: null,
         finishStatus: null,
+        finishTechnique: null,
       })),
     });
     const s = await renderScreen(washDays);
@@ -267,6 +271,7 @@ describe('WashDayScreen (SPEC-024)', () => {
         techniques: [],
         scalpFeel: 'balanced' as const,
         finishStatus: null,
+        finishTechnique: null,
       })),
     });
     const s = await renderScreen(washDays);
@@ -386,6 +391,7 @@ describe('WashDayScreen — a finalização (SPEC-039)', () => {
         techniques: [],
         scalpFeel: null,
         finishStatus: 'skipped' as const,
+        finishTechnique: null,
       })),
     });
     const s = await renderScreen(washDays);

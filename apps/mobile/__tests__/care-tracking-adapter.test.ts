@@ -137,7 +137,7 @@ describe('care tracking adapter — reads (SPEC-005 §9)', () => {
       pausedOn: null,
       washDayExecutionIds: ['e1'],
       // SPEC-039 — a etapa vem pelo hub, e a Hoje a lê pela execução.
-      careFinishes: [{ careExecutionId: 'e1', status: 'done' }],
+      careFinishes: [{ careExecutionId: 'e1', status: 'done', technique: null }],
       cares: [
         {
           id: 'c1',

@@ -3,6 +3,7 @@ import type {
   CareItem,
   CareTrackingPort,
   FinishStatus,
+  FinishTechnique,
   HairProfilePort,
   Instant,
   LocalDate,
@@ -11,7 +12,15 @@ import type {
   ResumeOutcome,
   WashDayPort,
 } from '@app/core';
-import { CARE_GUIDES, CHECKIN_SCALE, FINISH_STATUSES, buildTodayView, canCheckIn, canUndo } from '@app/core';
+import {
+  CARE_GUIDES,
+  CHECKIN_SCALE,
+  FINISH_STATUSES,
+  FINISH_TECHNIQUES,
+  buildTodayView,
+  canCheckIn,
+  canUndo,
+} from '@app/core';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -51,7 +60,9 @@ type Action =
   | { kind: 'complete' | 'skip' | 'undo' }
   | { kind: 'reschedule'; days: number }
   | { kind: 'checkin'; feel: number }
-  | { kind: 'finish'; status: FinishStatus | null };
+  | { kind: 'finish'; status: FinishStatus | null }
+  /** SPEC-048 (F38) — qual finalização ela fez. `null` volta a "ainda não disse qual". */
+  | { kind: 'finishTechnique'; technique: FinishTechnique | null };
 
 /**
  * SPEC-024 — tudo o que um cartão precisa saber sobre o registro do Wash Day: se aquela execução já
@@ -68,6 +79,8 @@ type WashDayAccess = {
    * o que ela respondeu (FR5).
    */
   finishOf: (careExecutionId: string) => FinishStatus | null;
+  /** SPEC-048 — qual finalização, lida do mesmo registro. */
+  finishTechniqueOf: (careExecutionId: string) => FinishTechnique | null;
 };
 
 /** The planned day, plus how late it is when it is late — the same sentence, wherever it appears. */
@@ -150,6 +163,25 @@ function CheckInPrompt({ blocked, onAnswer }: { blocked: boolean; onAnswer: (fee
  * ⚠️ **Nenhum rótulo aqui afirma nada sobre cabelo** (BR4). "Finalizei" e "Pulei dessa vez" dizem o
  * que ela fez. *Quais* finalizações e como fazê-las são o `F38`, atrás do gate D-26/D-70.
  */
+/**
+ * SPEC-048 (F38) — **como cada finalização se chama na tela.**
+ *
+ * ⚠️ **Vocabulário CANDIDATE** (dono, 2026-09-04): serve para ela **registrar o que fez**, nunca
+ * para o app indicar. "Fitagem é melhor para o seu cabelo", indicação por curvatura, passo a passo
+ * e ranking seguem bloqueados por D-26/D-70 — e é essa contenção que deixa o registro utilizável
+ * antes do sign-off.
+ */
+export const FINISH_TECHNIQUE_LABEL: Record<FinishTechnique, string> = {
+  fitagem_tradicional: 'Fitagem tradicional',
+  fitagem_estruturada: 'Fitagem estruturada',
+  dedoliss: 'Dedoliss',
+  rake_and_shake: 'Rake and shake',
+  plopping: 'Plopping',
+  twist_out: 'Twist out',
+  other: 'Outra finalização',
+  unknown: 'Não sei o nome',
+};
+
 const FINISH_LABEL: Record<FinishStatus, string> = {
   done: 'Finalizei',
   skipped: 'Pulei dessa vez',
@@ -157,13 +189,18 @@ const FINISH_LABEL: Record<FinishStatus, string> = {
 
 function FinishPrompt({
   status,
+  technique,
   blocked,
   onAnswer,
+  onTechnique,
 }: {
   status: FinishStatus | null;
+  /** SPEC-048 — qual, ou `null` para "ainda não disse qual" (que não é `unknown`). */
+  technique: FinishTechnique | null;
   blocked: boolean;
   /** `null` tira a resposta: voltar a "ainda não disse" é um estado válido, e é dela (FR8). */
   onAnswer: (status: FinishStatus | null) => void;
+  onTechnique: (technique: FinishTechnique | null) => void;
 }) {
   return (
     <Stack gap="sm">
@@ -184,6 +221,29 @@ function FinishPrompt({
           />
         ))}
       </Row>
+      {/*
+        SPEC-048 (F38) — **qual**, e só depois de ela dizer que finalizou.
+        ⚠️ Perguntar "qual" antes de "se" inverteria a ordem canônica (SPEC-039 FR2), e o banco
+        recusa a combinação: técnica só existe com a etapa em `done`.
+        ⚠️ **Pergunta, não indicação.** Nenhum item vem sugerido, marcado ou ordenado por perfil —
+        "melhor para você" é D-26/D-70 e não está aqui.
+      */}
+      {status === 'done' ? (
+        <Stack gap="sm">
+          <Text variant="bodyStrong">{technique === null ? 'Qual finalização?' : 'Finalização feita'}</Text>
+          <Row gap="sm">
+            {FINISH_TECHNIQUES.map((value) => (
+              <Chip
+                key={value}
+                label={FINISH_TECHNIQUE_LABEL[value]}
+                selected={technique === value}
+                disabled={blocked}
+                onPress={() => onTechnique(technique === value ? null : value)}
+              />
+            ))}
+          </Row>
+        </Stack>
+      ) : null}
     </Stack>
   );
 }
@@ -262,6 +322,8 @@ function CareActions({
         {item.execution ? (
           <FinishPrompt
             status={washDay.finishOf(item.execution.id)}
+            technique={washDay.finishTechniqueOf(item.execution.id)}
+            onTechnique={(value) => onAct(item, { kind: 'finishTechnique', technique: value })}
             blocked={blocked}
             onAnswer={(status) => onAct(item, { kind: 'finish', status })}
           />
@@ -789,6 +851,8 @@ export function TodayScreen({
     },
     finishOf: (executionId) =>
       board.careFinishes.find((f) => f.careExecutionId === executionId)?.status ?? null,
+    finishTechniqueOf: (executionId) =>
+      board.careFinishes.find((f) => f.careExecutionId === executionId)?.technique ?? null,
   };
 
   const suggestions = useMemo(
@@ -867,6 +931,13 @@ export function TodayScreen({
             ? washDays.setFinishStatus({
                 careExecutionId: item.execution.id,
                 finishStatus: action.status,
+              })
+            : Promise.resolve();
+        case 'finishTechnique':
+          return item.execution
+            ? washDays.setFinishTechnique({
+                careExecutionId: item.execution.id,
+                finishTechnique: action.technique,
               })
             : Promise.resolve();
       }

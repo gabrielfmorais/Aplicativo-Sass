@@ -4,6 +4,7 @@ import type {
   CareTrackingPort,
   CheckIn,
   FinishStatus,
+  FinishTechnique,
   ResumeOutcome,
   ScheduledCare,
   ScheduledCareStatus,
@@ -144,7 +145,11 @@ export const createCareTrackingAdapter = (client: SupabaseClient): CareTrackingP
        * do reload. Só as respondidas: uma execução ausente daqui é "ainda não disse", que não é
        * `skipped` (BR1).
        */
-      let careFinishes: { careExecutionId: string; status: FinishStatus }[] = [];
+      let careFinishes: {
+        careExecutionId: string;
+        status: FinishStatus;
+        technique: FinishTechnique | null;
+      }[] = [];
       if (executionIds.length > 0) {
         const { data: washDayRows, error: washDaysError } = await client
           .from('wash_days')
@@ -157,7 +162,7 @@ export const createCareTrackingAdapter = (client: SupabaseClient): CareTrackingP
         if (hubs.length > 0) {
           const { data: finishRows, error: finishError } = await client
             .from('wash_day_finish')
-            .select('wash_day_id, finish_status')
+            .select('wash_day_id, finish_status, finish_technique')
             .in(
               'wash_day_id',
               hubs.map((r) => r.id),
@@ -165,12 +170,15 @@ export const createCareTrackingAdapter = (client: SupabaseClient): CareTrackingP
           if (finishError) throw fail('care.board_read_failed', finishError);
           const executionOfHub = new Map(hubs.map((r) => [r.id, r.care_execution_id]));
           careFinishes = (finishRows ?? []).flatMap((row) => {
-            const { wash_day_id, finish_status } = row as {
+            const { wash_day_id, finish_status, finish_technique } = row as {
               wash_day_id: string;
               finish_status: FinishStatus;
+              finish_technique: FinishTechnique | null;
             };
             const careExecutionId = executionOfHub.get(wash_day_id);
-            return careExecutionId ? [{ careExecutionId, status: finish_status }] : [];
+            return careExecutionId
+              ? [{ careExecutionId, status: finish_status, technique: finish_technique ?? null }]
+              : [];
           });
         }
       }

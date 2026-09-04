@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   FINISH_STATUSES,
+  FINISH_TECHNIQUES,
   FinishStatusSchema,
+  FinishTechniqueSchema,
   WASH_DAY_TECHNIQUES,
   WashDayTechniqueSchema,
 } from './domain/wash-day.ts';
@@ -92,5 +94,71 @@ describe('finalização é uma etapa, não uma técnica (SPEC-039 §8)', () => {
     expect(FinishStatusSchema.safeParse('skipped').success).toBe(true);
     expect(FinishStatusSchema.safeParse(null).success).toBe(false);
     expect(FinishStatusSchema.safeParse('unknown').success).toBe(false);
+  });
+});
+
+/**
+ * SPEC-048 (F38) — **TRAVA 4: o vocabulário de QUAL finalização, e a fronteira dele.**
+ *
+ * A lista veio do dono (2026-09-04) e entra como **`candidate`**. O que estas asserções guardam é a
+ * separação que a SPEC-039 §8 criou: ela continua valendo agora que a finalização **tem** nome.
+ */
+describe('qual finalização — vocabulário candidate e disjunto (SPEC-048)', () => {
+  it('é exatamente a lista que o dono aprovou', () => {
+    expect([...FINISH_TECHNIQUES]).toEqual([
+      'fitagem_tradicional',
+      'fitagem_estruturada',
+      'dedoliss',
+      'rake_and_shake',
+      'plopping',
+      'twist_out',
+      'other',
+      'unknown',
+    ]);
+    // ⚠️ `day_after` ficou **de fora** por decisão do dono: revitalização é conceito separado.
+    expect(FinishTechniqueSchema.safeParse('day_after').success).toBe(false);
+  });
+
+  /**
+   * ⚠️ **Os três vocabulários não se tocam.** Técnica responde *como lavou*; a etapa responde *se
+   * finalizou*; a técnica de finalização responde *qual*. Um valor que servisse a dois seria a
+   * prova de que alguém confundiu as perguntas — e é assim que a fusão que a D-102 proibiu
+   * recomeçaria.
+   */
+  it('nenhum valor pertence a dois vocabulários', () => {
+    const tecnicas = new Set<string>(WASH_DAY_TECHNIQUES);
+    const etapas = new Set<string>(FINISH_STATUSES);
+    for (const value of FINISH_TECHNIQUES) {
+      expect(tecnicas.has(value)).toBe(false);
+      expect(etapas.has(value)).toBe(false);
+      expect(WashDayTechniqueSchema.safeParse(value).success).toBe(false);
+      expect(FinishStatusSchema.safeParse(value).success).toBe(false);
+    }
+    for (const technique of WASH_DAY_TECHNIQUES) {
+      expect(FinishTechniqueSchema.safeParse(technique).success).toBe(false);
+    }
+    for (const status of FINISH_STATUSES) {
+      expect(FinishTechniqueSchema.safeParse(status).success).toBe(false);
+    }
+  });
+
+  /**
+   * ⚠️ **Sem texto livre** (SPEC-024): `other` cobre o que está fora da lista e `unknown` é "fiz e
+   * não sei o nome". Texto livre não se compara nem se agrega, e destruiria `P5`/`P6`/`P7`/`P8`.
+   */
+  it('other e unknown existem justamente para não haver campo aberto', () => {
+    expect(FinishTechniqueSchema.safeParse('other').success).toBe(true);
+    expect(FinishTechniqueSchema.safeParse('unknown').success).toBe(true);
+    expect(FinishTechniqueSchema.safeParse('fitagem inventada por mim').success).toBe(false);
+  });
+
+  /**
+   * ⚠️ **`null` NÃO é `unknown`.** Ausência é "ainda não disse qual"; `unknown` é uma resposta —
+   * *"fiz e não sei o nome"*. A mesma distinção que o `F35` teve de fazer, e pela mesma razão:
+   * preencher a ausência faria o produto ler como fato dela algo que ela nunca disse.
+   */
+  it('ausência e "não sei o nome" são coisas diferentes', () => {
+    expect(FinishTechniqueSchema.safeParse(null).success).toBe(false);
+    expect(FinishTechniqueSchema.safeParse('unknown').success).toBe(true);
   });
 });
