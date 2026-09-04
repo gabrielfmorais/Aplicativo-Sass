@@ -1,4 +1,4 @@
-import type { HunaAvatar, JourneyView, ShareCardContent, SharePort, ShareFormatKey } from '@app/core';
+import type { HunaAvatar, ShareCardContent, ShareMoment, SharePort, ShareFormatKey } from '@app/core';
 import { DEFAULT_SHARE_OPTIONS, SHARE_FORMATS, buildShareCard, captureSizeOf } from '@app/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -31,18 +31,26 @@ const CAPTURE_TIMEOUT = 8000;
  * **conteúdo**, nunca pelo botão.
  */
 export function SharePreviewScreen({
-  journey,
+  moments,
   displayName,
   avatar,
   share,
   onBack,
 }: {
-  journey: JourneyView;
+  /**
+   * SPEC-045 (F46) — **os momentos que este ponto de entrada oferece**, o primeiro sendo o padrão.
+   *
+   * A tela não sabe de onde ela veio, e é isso que faz o `F46` acrescentar **gatilhos e não outro
+   * caminho** (SPEC-044 G5): a Hoje manda o cuidado que ela acabou de fazer, a Jornada manda a
+   * jornada e os marcos, o Progresso manda o ciclo. O fluxo é sempre o mesmo.
+   */
+  moments: readonly ShareMoment[];
   displayName: string | null;
   avatar: HunaAvatar | null;
   share: SharePort;
   onBack: () => void;
 }) {
+  const [momentKey, setMomentKey] = useState(moments[0]?.key ?? '');
   const [options, setOptions] = useState(DEFAULT_SHARE_OPTIONS);
   const [format, setFormat] = useState<ShareFormatKey>('story');
   const [busy, setBusy] = useState(false);
@@ -62,7 +70,9 @@ export function SharePreviewScreen({
     };
   }, [share]);
 
-  const content = buildShareCard({ journey, displayName, avatar, options });
+  // Se a lista mudar sob os pés (um marco novo alcançado), cai no primeiro em vez de sumir.
+  const moment = moments.find((m) => m.key === momentKey) ?? moments[0];
+  const content = moment ? buildShareCard({ moment, displayName, avatar, options }) : null;
 
   const onShare = useCallback(() => {
     // EC4 — toque duplo não abre duas folhas.
@@ -143,6 +153,24 @@ export function SharePreviewScreen({
     </Stack>
   );
 
+  /**
+   * Sem momento não há card, e não há o que compartilhar. Não é erro — é a tela sendo aberta de um
+   * lugar que ainda não produziu conquista nenhuma (SPEC-044 EC1), e inventar um card vazio seria
+   * pior que dizer isso.
+   */
+  if (!content) {
+    return (
+      <Screen footer={<Button label="Voltar" variant="ghost" onPress={onBack} />}>
+        <Stack gap="sm">
+          <Text variant="display" accessibilityRole="header">
+            Compartilhar
+          </Text>
+          <Text tone="muted">Assim que você tiver uma conquista por aqui, ela vira card.</Text>
+        </Stack>
+      </Screen>
+    );
+  }
+
   return (
     <Screen footer={footer}>
       <Stack gap="sm">
@@ -161,6 +189,28 @@ export function SharePreviewScreen({
       <View style={styles.stage} accessible accessibilityLabel={describe(content)}>
         <ShareCard ref={cardRef} content={content} format={format} width={PREVIEW_WIDTH} />
       </View>
+
+      {/*
+        SPEC-045 (F46) — **qual momento**. Só aparece quando há mais de um: um seletor de uma opção
+        seria um controle que não decide nada, o defeito que a SPEC-027 achou na Prateleira.
+      */}
+      {moments.length > 1 ? (
+        <Stack gap="sm">
+          <Text variant="overline" tone="accent" accessibilityRole="header">
+            O que compartilhar
+          </Text>
+          <Row>
+            {moments.map((m) => (
+              <Chip
+                key={m.key}
+                label={m.chip}
+                selected={m.key === moment?.key}
+                onPress={() => setMomentKey(m.key)}
+              />
+            ))}
+          </Row>
+        </Stack>
+      ) : null}
 
       <Stack gap="sm">
         <Text variant="overline" tone="accent" accessibilityRole="header">

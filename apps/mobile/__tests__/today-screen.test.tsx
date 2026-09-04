@@ -1032,3 +1032,105 @@ describe('rotina de óleo na Hoje (SPEC-040)', () => {
     s.getByText('Você programou o óleo para ontem.');
   });
 });
+
+/**
+ * SPEC-045 (F46) — o cuidado concluído vira card, **dali mesmo**.
+ *
+ * ⚠️ **Conta, e não "existe pelo menos um".** É a lição da SPEC-041, em que a `Section` declarava
+ * `shelf` e **não a repassava**: o painel chegava só ao cartão de foco, e o teste, que perguntava se
+ * o rótulo existia em algum lugar, não via diferença. Quem viu foi o DEV real a 390px. `onShare`
+ * atravessa a mesma cadeia de props, então merece a mesma barreira.
+ */
+describe('compartilhar o cuidado concluído, na Hoje (SPEC-045)', () => {
+  /**
+   * **Dois** concluídos de propósito: um cai no cartão de foco e o outro numa seção. Com um só, um
+   * repasse quebrado ainda passaria — foi exatamente assim que a SPEC-041 escapou.
+   */
+  const doisConcluidos = board({
+    executions: [
+      {
+        id: 'e-late',
+        scheduledCareId: 'late',
+        executedAt: instantFromString('2026-09-08T10:00:00.000Z'),
+        executedOn: '2026-09-08',
+        voidedAt: null,
+      },
+      {
+        id: 'e-now',
+        scheduledCareId: 'now',
+        executedAt: instantFromString('2026-09-10T10:00:00.000Z'),
+        executedOn: '2026-09-10',
+        voidedAt: null,
+      },
+    ],
+  });
+
+  const renderWithShare = (withShare: boolean) =>
+    render(
+      <TodayScreen
+        board={doisConcluidos}
+        care={makePort()}
+        today={TODAY}
+        now={() => NOW}
+        timeZone="America/Sao_Paulo"
+        newExecutionId={() => 'exec-1'}
+        onChanged={jest.fn()}
+        hairProfile={hairProfilePort()}
+        onOpenWashDay={jest.fn()}
+        washDays={washDayPort()}
+        {...(withShare ? { onShare: jest.fn() } : {})}
+        profile={{ name: 'Ana', onPress: jest.fn() }}
+        productCount={null}
+        onOpenShelf={jest.fn()}
+        onPause={jest.fn()}
+        onPreviewResume={jest.fn()}
+        onResume={jest.fn()}
+        onOpenCycle={jest.fn()}
+      />,
+    );
+
+  it('oferece compartilhar em TODO cuidado concluído, não só no primeiro', async () => {
+    const s = await renderWithShare(true);
+    // "Contar esse cuidado"/"Ver o que contei" só existem em cuidado com execução — é a mesma
+    // população que pode virar card.
+    const concluidos =
+      s.queryAllByText('Contar esse cuidado').length + s.queryAllByText('Ver o que contei').length;
+    expect(concluidos).toBeGreaterThan(1);
+    expect(s.getAllByText('Compartilhar')).toHaveLength(concluidos);
+  });
+
+  /** Sem a porta, nenhum botão — e nada de botão morto (a lição da SPEC-027). */
+  it('sem onShare, não existe botão nenhum', async () => {
+    const s = await renderWithShare(false);
+    expect(s.queryAllByText('Compartilhar')).toHaveLength(0);
+  });
+
+  it('leva o nome do cuidado, que é o que o card mostra', async () => {
+    const onShare = jest.fn();
+    const s = await render(
+      <TodayScreen
+        board={doisConcluidos}
+        care={makePort()}
+        today={TODAY}
+        now={() => NOW}
+        timeZone="America/Sao_Paulo"
+        newExecutionId={() => 'exec-1'}
+        onChanged={jest.fn()}
+        hairProfile={hairProfilePort()}
+        onOpenWashDay={jest.fn()}
+        washDays={washDayPort()}
+        onShare={onShare}
+        profile={{ name: 'Ana', onPress: jest.fn() }}
+        productCount={null}
+        onOpenShelf={jest.fn()}
+        onPause={jest.fn()}
+        onPreviewResume={jest.fn()}
+        onResume={jest.fn()}
+        onOpenCycle={jest.fn()}
+      />,
+    );
+    fireEvent.press(s.getAllByText('Compartilhar')[0]!);
+    expect(onShare).toHaveBeenCalledWith(expect.any(String));
+    expect(onShare.mock.calls[0]![0]).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/i);
+  });
+});

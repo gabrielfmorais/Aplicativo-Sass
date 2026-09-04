@@ -3,7 +3,7 @@ import { buildCycleView, buildProgress, buildTodayView } from '@app/core';
 import { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 
-import { Card, Row, Screen, ScreenHeader, Stack, Text } from '@/design/primitives';
+import { Button, Card, Row, Screen, ScreenHeader, Stack, Text } from '@/design/primitives';
 import { space } from '@/design/tokens';
 import { CareTypeMark } from '@/features/care/CareTypeMark';
 import { CycleSummary } from '@/features/care/CycleSummary';
@@ -50,11 +50,14 @@ export function ProgressTabScreen({
   today,
   profile,
   onStartNext,
+  onShare,
 }: {
   board: CareBoard | null;
   today: LocalDate;
   /** SPEC-021 — presente quando há um próximo ciclo a oferecer (D-82). */
   onStartNext?: () => void;
+  /** SPEC-045 (F46) — o ciclo dela vira card, do lugar em que ela olha o ciclo. */
+  onShare?: () => void;
   /** SPEC-026 fatia 7 — o acesso a **Você**, no cabeçalho. A tela só repassa. */
   profile: { readonly name: string | null; readonly onPress: () => void };
 }) {
@@ -87,6 +90,14 @@ export function ProgressTabScreen({
       {view ? (
         <>
           <ProgressSummary progress={view.progress} />
+
+          {/*
+            SPEC-045 (F46) — **uma oferta, e só depois do fato.** Aparece quando já há cuidado
+            atendido: um card de ciclo com zero não é conquista, é cobrança de véspera.
+          */}
+          {onShare && view.progress.done > 0 ? (
+            <Button label="Compartilhar meu ciclo" variant="secondary" onPress={onShare} />
+          ) : null}
 
           {/*
             ⚠️ **Só no fim do ciclo.** Em andamento, o `CycleSummary` e o `ProgressSummary` diziam

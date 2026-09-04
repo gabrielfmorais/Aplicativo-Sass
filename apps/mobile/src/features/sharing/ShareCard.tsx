@@ -4,7 +4,7 @@ import { forwardRef } from 'react';
 import Svg, { Circle, ClipPath, Defs, G, LinearGradient, Path, Rect, Stop, Text } from 'react-native-svg';
 
 import { AVATAR_MARKS, STRANDS } from '@/design/huna-avatars';
-import { CARD_FONT, CARD_LAYOUT, CARD_PALETTE, CARD_STRANDS } from '@/design/share-card-art';
+import { CARD_FONT, CARD_LAYOUT, CARD_PALETTE, CARD_STRANDS, heroFontSize } from '@/design/share-card-art';
 
 /**
  * SPEC-044 (F45) — **o card**, inteiro em `react-native-svg`.
@@ -31,6 +31,8 @@ export const ShareCard = forwardRef<
   const grad = `grad-${format}`;
   const base = vh - CARD_LAYOUT.contentBottom;
   const mark = content.avatar ? AVATAR_MARKS[content.avatar] : null;
+  // ⚠️ SVG não reflui texto: o que não couber **sai do quadro**, sem aviso.
+  const heroSize = heroFontSize(content.value, vw - CARD_LAYOUT.marginX * 2);
 
   return (
     <Svg ref={ref} width={width} height={vh * scale} viewBox={`0 0 ${vw} ${vh}`}>
@@ -128,7 +130,7 @@ export const ShareCard = forwardRef<
         fontFamily={CARD_FONT}
         x={CARD_LAYOUT.marginX - 8}
         y={base - 90}
-        fontSize={248}
+        fontSize={heroSize}
         fontWeight="800"
         fill={CARD_PALETTE.value}
       >

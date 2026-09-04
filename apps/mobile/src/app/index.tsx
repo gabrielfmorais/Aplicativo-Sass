@@ -18,7 +18,16 @@ import type {
   PlanPreferencesPort,
   ProfilePort,
 } from '@app/core';
-import { DEFAULT_NOTIFICATION_PREFERENCES, buildNotificationIntents, buildTodayView } from '@app/core';
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  buildNotificationIntents,
+  buildProgress,
+  buildTodayView,
+  careDoneMoment,
+  cycleMoment,
+  journeyMoment,
+  milestoneMoments,
+} from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -152,6 +161,16 @@ function AuthenticatedApp({
     };
   }, [products]);
   const [stacked, setStacked] = useState<null | 'hairEvents' | 'you' | 'journey' | 'share'>(null);
+  /**
+   * SPEC-045 (F46) — **de onde ela veio decide o que o card pode ser**. A tela de compartilhar é uma
+   * só (SPEC-044 G5: o F46 acrescenta gatilhos, não outro caminho); o que muda é a lista de momentos
+   * que cada lugar entrega.
+   */
+  const [shareFrom, setShareFrom] = useState<'journey' | 'progress' | { careLabel: string }>('journey');
+  const openShare = (from: 'journey' | 'progress' | { careLabel: string }) => {
+    setShareFrom(from);
+    setStacked('share');
+  };
   const openStacked = (screen: 'hairEvents' | 'you' | 'journey' | 'share') => setStacked(screen);
   const closeStacked = () => setStacked(null);
   /**
@@ -406,7 +425,7 @@ function AuthenticatedApp({
         loading={journey.loading}
         failed={journey.failed}
         onRetry={journey.reload}
-        {...(journey.view ? { onShare: () => setStacked('share') } : {})}
+        {...(journey.view ? { onShare: () => openShare('journey') } : {})}
         onBack={() => setStacked(null)}
       />,
     );
@@ -419,14 +438,36 @@ function AuthenticatedApp({
    *
    * Voltar leva de volta à **Jornada**, de onde ela veio, e não à Hoje.
    */
-  if (stacked === 'share' && journey.view) {
+  if (stacked === 'share') {
+    /**
+     * SPEC-045 (F46) — os momentos deste ponto de entrada, **derivados de fato já canônico**
+     * (SPEC-044 BR4). Nenhum número é calculado aqui: sequência, marcos e contagens vêm prontos das
+     * mesmas views que as telas mostraram, senão o card e a tela poderiam discordar.
+     */
+    const view = journey.view;
+    const moments = [
+      ...(typeof shareFrom === 'object'
+        ? [careDoneMoment({ careLabel: shareFrom.careLabel, journey: view })]
+        : []),
+      ...(shareFrom === 'progress' && board && board !== 'loading' && board !== 'error'
+        ? [
+            cycleMoment(
+              buildProgress(
+                buildTodayView(board.cares, board.executions, today(), board.checkIns, board.pausedOn),
+                board.lifetimeDoneCount,
+              ),
+            ),
+          ]
+        : []),
+      ...(view ? [journeyMoment(view), ...milestoneMoments(view)] : []),
+    ];
     return shell(
       <SharePreviewScreen
-        journey={journey.view}
+        moments={moments}
         displayName={displayName}
         avatar={avatar}
         share={share}
-        onBack={() => setStacked('journey')}
+        onBack={() => setStacked(shareFrom === 'journey' ? 'journey' : null)}
       />,
     );
   }
@@ -515,6 +556,7 @@ function AuthenticatedApp({
         today={today()}
         profile={profileChip}
         onStartNext={() => setReassessing('profile')}
+        onShare={() => openShare('progress')}
       />,
     );
 
@@ -574,6 +616,7 @@ function AuthenticatedApp({
       onOpenShelf={() => setTab('shelf')}
       onReassess={() => setReassessing('profile')}
       onOpenJourney={() => openStacked('journey')}
+      onShare={(careLabel) => openShare({ careLabel })}
     />,
   );
 }

@@ -205,6 +205,7 @@ function CareActions({
   onAct,
   washDay,
   shelf,
+  onShare,
 }: {
   item: CareItem;
   today: LocalDate;
@@ -227,6 +228,8 @@ function CareActions({
    * quando a capability não está disponível: o cartão continua inteiro sem ela.
    */
   shelf?: { readonly washDays: WashDayPort; readonly products: ProductPort } | undefined;
+  /** SPEC-045 (F46) — o cuidado que ela acabou de fazer vira card, dali mesmo. */
+  onShare?: ((careLabel: string) => void) | undefined;
 }) {
   const [choosingDate, setChoosingDate] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
@@ -284,6 +287,18 @@ function CareActions({
               size="sm"
               disabled={blocked}
               onPress={() => onAct(item, { kind: 'undo' })}
+            />
+          ) : null}
+          {/*
+            SPEC-045 (F46) — **o momento de orgulho, onde ele acontece.** É uma oferta discreta ao
+            lado do registro, nunca um passo do fluxo: o cuidado está concluído com ou sem ela.
+          */}
+          {onShare ? (
+            <Button
+              label="Compartilhar"
+              variant="ghost"
+              size="sm"
+              onPress={() => onShare(CARE_TYPE_LABEL[item.careTypeCode])}
             />
           ) : null}
         </Row>
@@ -391,6 +406,7 @@ function FocusCard({
   onAct,
   washDay,
   shelf,
+  onShare,
 }: {
   item: CareItem;
   today: LocalDate;
@@ -401,6 +417,8 @@ function FocusCard({
   washDay: WashDayAccess;
   /** SPEC-041 (F48) — repassado até o cartão, que é onde o painel abre. */
   shelf?: { readonly washDays: WashDayPort; readonly products: ProductPort } | undefined;
+  /** SPEC-045 (F46) — o cuidado que ela acabou de fazer vira card, dali mesmo. */
+  onShare?: ((careLabel: string) => void) | undefined;
 }) {
   const state = stateTagOf(item);
   const guide = CARE_GUIDES[item.careTypeCode];
@@ -423,6 +441,7 @@ function FocusCard({
           onAct={onAct}
           washDay={washDay}
           shelf={shelf}
+          onShare={onShare}
         />
       </View>
     </Card>
@@ -440,6 +459,7 @@ function CareCard({
   onAct,
   washDay,
   shelf,
+  onShare,
   tone = 'surface',
 }: {
   item: CareItem;
@@ -451,6 +471,8 @@ function CareCard({
   washDay: WashDayAccess;
   /** SPEC-041 (F48) — repassado até o cartão, que é onde o painel abre. */
   shelf?: { readonly washDays: WashDayPort; readonly products: ProductPort } | undefined;
+  /** SPEC-045 (F46) — o cuidado que ela acabou de fazer vira card, dali mesmo. */
+  onShare?: ((careLabel: string) => void) | undefined;
   /**
    * SPEC-030 — a escada tonal da Hoje, e ela **significa** alguma coisa.
    *
@@ -481,6 +503,7 @@ function CareCard({
         onAct={onAct}
         washDay={washDay}
         shelf={shelf}
+        onShare={onShare}
       />
     </Card>
   );
@@ -523,6 +546,8 @@ function Section({
   washDay: WashDayAccess;
   /** SPEC-041 (F48) — repassado até o cartão, que é onde o painel abre. */
   shelf?: { readonly washDays: WashDayPort; readonly products: ProductPort } | undefined;
+  /** SPEC-045 (F46) — o cuidado que ela acabou de fazer vira card, dali mesmo. */
+  onShare?: ((careLabel: string) => void) | undefined;
 }) {
   const [expanded, setExpanded] = useState(false);
   if (items.length === 0) return null;
@@ -544,6 +569,7 @@ function Section({
           onAct={rest.onAct}
           washDay={rest.washDay}
           shelf={rest.shelf}
+          onShare={rest.onShare}
           tone={cardTone}
         />
       ))}
@@ -603,6 +629,7 @@ export function TodayScreen({
   onOpenShelf,
   onReassess,
   onOpenJourney,
+  onShare,
 }: {
   board: CareBoard;
   care: CareTrackingPort;
@@ -674,6 +701,11 @@ export function TodayScreen({
    * camada de motivação, não parte do loop diário.
    */
   onOpenJourney?: () => void;
+  /**
+   * SPEC-045 (F46) — o cuidado que ela acabou de fazer vira card, **dali mesmo**. Opcional pela
+   * mesma razão que a Jornada: o loop diário não depende disso.
+   */
+  onShare?: ((careLabel: string) => void) | undefined;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -909,6 +941,7 @@ export function TodayScreen({
                 onAct={act}
                 washDay={washDay}
                 shelf={shelf}
+                onShare={onShare}
               />
             ))
           )}
@@ -949,6 +982,7 @@ export function TodayScreen({
           onAct={act}
           washDay={washDay}
           shelf={shelf}
+          onShare={onShare}
         />
       ) : (
         /*
@@ -1073,6 +1107,7 @@ export function TodayScreen({
             onAct={act}
             washDay={washDay}
             shelf={shelf}
+            onShare={onShare}
           />
           <Section
             title="Hoje"
@@ -1083,6 +1118,7 @@ export function TodayScreen({
             onAct={act}
             washDay={washDay}
             shelf={shelf}
+            onShare={onShare}
           />
           <Section
             title="Próximos"
@@ -1094,6 +1130,7 @@ export function TodayScreen({
             onAct={act}
             washDay={washDay}
             shelf={shelf}
+            onShare={onShare}
           />
 
           {/* SPEC-017 OQ2 — aqui, e não no cartão de foco: a explicação é leitura reflexiva, e no topo
@@ -1117,6 +1154,7 @@ export function TodayScreen({
             onAct={act}
             washDay={washDay}
             shelf={shelf}
+            onShare={onShare}
           />
 
           {message ? (
