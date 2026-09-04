@@ -34,11 +34,54 @@ export interface DeletionRequestPort {
  * Sem RPC: a linha não guarda invariante de servidor, é a declaração dela sobre ela mesma. RLS mais
  * `with check` é toda a autorização (§10).
  */
-export type UserProfile = { readonly displayName: string | null };
+/**
+ * SPEC-042 (F34) — as marcas autorais da Huna que ela pode escolher.
+ *
+ * 🔒 **Abstratas, pela mesma decisão do hero (SPEC-036):** fluxo, mechas, movimento. **Sem
+ * personagem, sem rosto, sem cabeça, sem corpo, sem silhueta humana** — e um avatar é ainda menor
+ * que o hero, onde um rosto erra por definição.
+ *
+ * ⚠️ **Isto não é mídia e não é PII nova.** É uma escolha estética entre marcas do produto: nenhum
+ * arquivo é enviado e nada se infere sobre ela. **Foto própria é a `P24`**, atrás da base legal
+ * LGPD e da tabela `consents` que não existe (D-32).
+ *
+ * A lista espelha o `CHECK` de `profiles.avatar_key`: duas listas para o mesmo enum é o preço de
+ * validar nos dois lados da fronteira, e a de lá é a que importa.
+ */
+export const HUNA_AVATARS = [
+  'flow_plum',
+  'flow_wine',
+  'flow_berry',
+  'flow_violet',
+  'flow_amber',
+  'flow_teal',
+] as const;
+
+export type HunaAvatar = (typeof HUNA_AVATARS)[number];
+
+export const isHunaAvatar = (value: string): value is HunaAvatar =>
+  (HUNA_AVATARS as readonly string[]).includes(value);
+
+export type UserProfile = {
+  readonly displayName: string | null;
+  /**
+   * A marca que ela escolheu, ou `null` quando ela não escolheu — e aí o app usa a inicial do nome,
+   * que é o comportamento de sempre e continua válido. Escolher **por ela** seria decidir estética
+   * em nome de alguém que não pediu.
+   */
+  readonly avatar: HunaAvatar | null;
+};
 
 export interface ProfilePort {
   /** O perfil dela, ou `null` quando a pergunta nunca foi feita. */
   get(): Promise<UserProfile | null>;
   /** Registra a resposta. `null` grava "prefiro não dizer" — que também é ter respondido. */
   save(displayName: string | null): Promise<void>;
+  /**
+   * SPEC-042 — grava a marca escolhida, ou `null` para voltar à inicial do nome.
+   *
+   * Método próprio, e não um segundo parâmetro em `save`: são duas declarações independentes, e
+   * juntá-las faria trocar o avatar reescrever o nome (ou o contrário) toda vez.
+   */
+  saveAvatar(avatar: HunaAvatar | null): Promise<void>;
 }

@@ -1,4 +1,4 @@
-import type { ProfilePort } from '@app/core';
+import type { HunaAvatar, ProfilePort } from '@app/core';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { ProfileIdentity } from '@/features/account/ProfileIdentity';
@@ -12,12 +12,18 @@ import { ProfileIdentity } from '@/features/account/ProfileIdentity';
  * regredir: gravar uma vez por intenção, e nunca afirmar sucesso que não houve.
  */
 const portWith = (save: ProfilePort['save']): ProfilePort =>
-  ({ get: async () => ({ displayName: null }), save }) as unknown as ProfilePort;
+  ({ get: async () => ({ displayName: null, avatar: null }), save }) as unknown as ProfilePort;
 
 describe('ProfileIdentity — quem ela é, no topo da tela', () => {
   it('sem nome gravado, convida em vez de inventar uma saudação', async () => {
     const screen = await render(
-      <ProfileIdentity profile={portWith(async () => undefined)} name={null} onNameChanged={jest.fn()} />,
+      <ProfileIdentity
+        profile={portWith(async () => undefined)}
+        name={null}
+        avatar={null}
+        onNameChanged={jest.fn()}
+        onAvatarChanged={jest.fn()}
+      />,
     );
     // EC1: quem preferiu não dizer não recebe apelido escolhido por ela.
     screen.getByText('Sem nome ainda');
@@ -29,7 +35,13 @@ describe('ProfileIdentity — quem ela é, no topo da tela', () => {
     const save = jest.fn(async () => undefined);
     const onNameChanged = jest.fn();
     const screen = await render(
-      <ProfileIdentity profile={portWith(save)} name={null} onNameChanged={onNameChanged} />,
+      <ProfileIdentity
+        profile={portWith(save)}
+        name={null}
+        avatar={null}
+        onNameChanged={onNameChanged}
+        onAvatarChanged={jest.fn()}
+      />,
     );
 
     await fireEvent.press(screen.getByText('Dizer meu nome'));
@@ -48,7 +60,13 @@ describe('ProfileIdentity — quem ela é, no topo da tela', () => {
     });
     const onNameChanged = jest.fn();
     const screen = await render(
-      <ProfileIdentity profile={portWith(save)} name="Ana" onNameChanged={onNameChanged} />,
+      <ProfileIdentity
+        profile={portWith(save)}
+        name="Ana"
+        avatar={null}
+        onNameChanged={onNameChanged}
+        onAvatarChanged={jest.fn()}
+      />,
     );
 
     await fireEvent.press(screen.getByText('Editar nome'));
@@ -69,7 +87,9 @@ describe('ProfileIdentity — quem ela é, no topo da tela', () => {
       <ProfileIdentity
         profile={portWith(save as unknown as ProfilePort['save'])}
         name="Ana"
+        avatar={null}
         onNameChanged={jest.fn()}
+        onAvatarChanged={jest.fn()}
       />,
     );
 
@@ -90,7 +110,13 @@ describe('ProfileIdentity — quem ela é, no topo da tela', () => {
   it('não grava um nome vazio', async () => {
     const save = jest.fn(async () => undefined);
     const screen = await render(
-      <ProfileIdentity profile={portWith(save)} name="Ana" onNameChanged={jest.fn()} />,
+      <ProfileIdentity
+        profile={portWith(save)}
+        name="Ana"
+        avatar={null}
+        onNameChanged={jest.fn()}
+        onAvatarChanged={jest.fn()}
+      />,
     );
 
     await fireEvent.press(screen.getByText('Editar nome'));
@@ -103,7 +129,13 @@ describe('ProfileIdentity — quem ela é, no topo da tela', () => {
   it('cancelar sai da edição sem escrever nada', async () => {
     const save = jest.fn(async () => undefined);
     const screen = await render(
-      <ProfileIdentity profile={portWith(save)} name="Ana" onNameChanged={jest.fn()} />,
+      <ProfileIdentity
+        profile={portWith(save)}
+        name="Ana"
+        avatar={null}
+        onNameChanged={jest.fn()}
+        onAvatarChanged={jest.fn()}
+      />,
     );
 
     await fireEvent.press(screen.getByText('Editar nome'));
@@ -112,5 +144,109 @@ describe('ProfileIdentity — quem ela é, no topo da tela', () => {
 
     expect(save).not.toHaveBeenCalled();
     screen.getByText('Editar nome');
+  });
+});
+
+/**
+ * SPEC-042 (F34) — as marcas da Huna, no Free.
+ *
+ * ⚠️ **A barreira aqui é o D-32 e a direção do hero.** Isto **não é foto**: nenhum arquivo é
+ * enviado, e nada se infere sobre ela. Foto própria é a `P24`, atrás da base legal LGPD — e um
+ * botão que abrisse nada prometeria o que o produto não tem.
+ */
+describe('ProfileIdentity — a marca da Huna (SPEC-042)', () => {
+  const port = (over: Partial<ProfilePort> = {}): ProfilePort =>
+    ({
+      get: async () => ({ displayName: 'Ana', avatar: null }),
+      save: async () => undefined,
+      saveAvatar: jest.fn(async () => undefined),
+      ...over,
+    }) as unknown as ProfilePort;
+
+  const renderIt = async (avatar: HunaAvatar | null, profile = port(), onAvatarChanged = jest.fn()) =>
+    await render(
+      <ProfileIdentity
+        profile={profile}
+        name="Ana"
+        avatar={avatar}
+        onNameChanged={jest.fn()}
+        onAvatarChanged={onAvatarChanged}
+      />,
+    );
+
+  it('sem marca escolhida, convida a escolher — e o seletor começa fechado', async () => {
+    const s = await renderIt(null);
+    s.getByText('Escolher minha marca');
+    expect(s.queryByLabelText('Mechas em ameixa')).toBeNull();
+  });
+
+  it('com marca escolhida, o rótulo vira trocar', async () => {
+    const s = await renderIt('flow_berry');
+    s.getByText('Trocar minha marca');
+  });
+
+  it('abrir mostra as seis marcas', async () => {
+    const s = await renderIt(null);
+    await fireEvent.press(s.getByText('Escolher minha marca'));
+    for (const label of [
+      'Mechas em ameixa',
+      'Mechas em vinho',
+      'Mechas em berry',
+      'Mechas em roxo',
+      'Mechas em âmbar',
+      'Mechas em verde',
+    ]) {
+      s.getByLabelText(label);
+    }
+  });
+
+  it('escolher grava pela porta e avisa a rota', async () => {
+    const profile = port();
+    const onAvatarChanged = jest.fn();
+    const s = await renderIt(null, profile, onAvatarChanged);
+    await fireEvent.press(s.getByText('Escolher minha marca'));
+    await fireEvent.press(s.getByLabelText('Mechas em berry'));
+    await waitFor(() => expect(profile.saveAvatar).toHaveBeenCalledWith('flow_berry'));
+    await waitFor(() => expect(onAvatarChanged).toHaveBeenCalledWith('flow_berry'));
+  });
+
+  /** Tocar na marca já escolhida tira a escolha — a mesma mecânica do couro e da finalização. */
+  it('tocar na marca marcada volta à inicial do nome', async () => {
+    const profile = port();
+    const s = await renderIt('flow_berry', profile);
+    await fireEvent.press(s.getByText('Trocar minha marca'));
+    await fireEvent.press(s.getByLabelText('Mechas em berry'));
+    await waitFor(() => expect(profile.saveAvatar).toHaveBeenCalledWith(null));
+  });
+
+  it('uma escrita que falha avisa, sem inventar que entrou', async () => {
+    const profile = port({
+      saveAvatar: jest.fn(async () => {
+        throw new Error('offline');
+      }),
+    });
+    const s = await renderIt(null, profile);
+    await fireEvent.press(s.getByText('Escolher minha marca'));
+    await fireEvent.press(s.getByLabelText('Mechas em vinho'));
+    await waitFor(() => s.getByText(/Não foi possível trocar sua marca/));
+  });
+
+  /**
+   * ⚠️ **Achado no DOM do DEV real:** os seis rádios vinham com `aria-checked` nulo, porque o estado
+   * ia em `selected` — que `role="radio"` não anuncia. Sem isto, a leitora de tela não diz qual
+   * marca está escolhida e a **borda vira o único canal**, que é exatamente o que o design system
+   * proíbe (cor nunca é o único canal).
+   */
+  it('a marca escolhida é anunciada como marcada', async () => {
+    const s = await renderIt('flow_berry');
+    await fireEvent.press(s.getByText('Trocar minha marca'));
+    expect(s.getByLabelText('Mechas em berry').props.accessibilityState).toMatchObject({ checked: true });
+    expect(s.getByLabelText('Mechas em ameixa').props.accessibilityState).toMatchObject({ checked: false });
+  });
+
+  /** ⚠️ D-32 — foto continua não existindo, e nenhum rótulo promete que existe. */
+  it('não oferece foto, e não promete o que o produto não tem', async () => {
+    const s = await renderIt(null);
+    expect(s.queryByText(/foto|câmera|galeria|imagem|upload/i)).toBeNull();
   });
 });

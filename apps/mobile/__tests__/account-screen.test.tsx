@@ -12,8 +12,18 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { AccountScreen } from '@/features/account/AccountScreen';
 
 /** SPEC-035 — a tela passou a editar o nome, então ela precisa da porta e do valor atual. */
-const profileStub = { get: async () => ({ displayName: null }), save: async () => undefined };
-const identity = { profile: profileStub, displayName: null, onNameChanged: () => undefined };
+const profileStub = {
+  get: async () => ({ displayName: null, avatar: null }),
+  save: async () => undefined,
+  saveAvatar: async () => undefined,
+};
+const identity = {
+  profile: profileStub,
+  displayName: null,
+  onNameChanged: () => undefined,
+  avatar: null,
+  onAvatarChanged: () => undefined,
+};
 
 const ports = (deletionOverrides: Partial<DeletionRequestPort> = {}) => ({
   auth: { signOut: jest.fn(async () => undefined) } as unknown as AuthPort,

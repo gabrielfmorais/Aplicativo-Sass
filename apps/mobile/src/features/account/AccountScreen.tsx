@@ -1,5 +1,6 @@
 import type {
   AuthPort,
+  HunaAvatar,
   ProfilePort,
   DeletionRequestPort,
   EntitlementsPort,
@@ -37,7 +38,9 @@ export function AccountScreen({
   entitlements,
   profile,
   displayName,
+  avatar,
   onNameChanged,
+  onAvatarChanged,
   planPreferences,
   notificationPreferences,
   notificationScheduler,
@@ -52,7 +55,10 @@ export function AccountScreen({
   /** SPEC-035 — o nome dela é editável aqui: o dado já existia, faltava a porta. */
   profile: ProfilePort;
   displayName: string | null;
+  /** SPEC-042 (F34) — a marca da Huna que ela escolheu, ou `null`. */
+  avatar: HunaAvatar | null;
   onNameChanged: (name: string | null) => void;
+  onAvatarChanged: (avatar: HunaAvatar | null) => void;
   planPreferences: PlanPreferencesPort;
   notificationPreferences: NotificationPreferencesPort;
   notificationScheduler: NotificationSchedulerPort;
@@ -124,7 +130,13 @@ export function AccountScreen({
         cabelo dela. Agora há quatro blocos com pesos diferentes e uma regra explícita —
         **identidade e cabelo antes de conta, cobrança e exclusão**.
       */}
-      <ProfileIdentity profile={profile} name={displayName} onNameChanged={onNameChanged} />
+      <ProfileIdentity
+        profile={profile}
+        name={displayName}
+        avatar={avatar}
+        onNameChanged={onNameChanged}
+        onAvatarChanged={onAvatarChanged}
+      />
 
       {onReassess ? (
         <Stack gap="md">

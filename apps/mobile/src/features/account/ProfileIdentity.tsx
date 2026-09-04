@@ -1,9 +1,11 @@
-import type { ProfilePort } from '@app/core';
-import { DisplayNameSchema } from '@app/core';
+import type { HunaAvatar, ProfilePort } from '@app/core';
+import { DisplayNameSchema, HUNA_AVATARS } from '@app/core';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Avatar, Button, Field, Stack, Text } from '@/design/primitives';
+import { Avatar, Button, Field, Row, Stack, Text } from '@/design/primitives';
+import { HunaAvatarMark } from '@/design/HunaAvatarMark';
+import { AVATAR_LABEL } from '@/design/huna-avatars';
 import { color, radius, space } from '@/design/tokens';
 
 /**
@@ -24,17 +26,25 @@ import { color, radius, space } from '@/design/tokens';
 export function ProfileIdentity({
   profile,
   name,
+  avatar,
   onNameChanged,
+  onAvatarChanged,
 }: {
   profile: ProfilePort;
   /** O nome já gravado, ou `null` quando ela preferiu não dizer. */
   name: string | null;
+  /** SPEC-042 (F34) — a marca que ela escolheu, ou `null` (e aí vale a inicial do nome). */
+  avatar: HunaAvatar | null;
   onNameChanged: (name: string | null) => void;
+  onAvatarChanged: (avatar: HunaAvatar | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name ?? '');
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [pickingAvatar, setPickingAvatar] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
 
   const parsed = DisplayNameSchema.safeParse(draft);
   const valid = parsed.success ? parsed.data : null;
@@ -53,10 +63,26 @@ export function ProfileIdentity({
       .finally(() => setSaving(false));
   };
 
+  /**
+   * Tocar na marca já escolhida **tira** a escolha e volta à inicial do nome — a mesma mecânica do
+   * couro (SPEC-025) e da finalização (SPEC-039). É dela, e desfazer é parte de escolher.
+   */
+  const chooseAvatar = (next: HunaAvatar) => {
+    if (avatarBusy) return;
+    const value = avatar === next ? null : next;
+    setAvatarBusy(true);
+    setAvatarFailed(false);
+    profile
+      .saveAvatar(value)
+      .then(() => onAvatarChanged(value))
+      .catch(() => setAvatarFailed(true))
+      .finally(() => setAvatarBusy(false));
+  };
+
   return (
     <Stack gap="md">
       <View style={styles.panel}>
-        <Avatar name={name} size={64} />
+        <Avatar name={name} size={64} avatar={avatar} />
         <View style={styles.who}>
           <Text variant="title" style={styles.name} accessibilityRole="header">
             {name ?? 'Sem nome ainda'}
@@ -66,6 +92,49 @@ export function ProfileIdentity({
           </Text>
         </View>
       </View>
+
+      {/*
+        SPEC-042 (F34) — as marcas da Huna, no Free.
+        ⚠️ **Isto não é foto.** Nenhum arquivo é enviado e nada se infere sobre ela: é uma escolha
+        estética entre marcas do produto. **Foto própria é a `P24`**, atrás da base legal LGPD e da
+        tabela `consents` que não existe (D-32) — e um botão que abrisse nada prometeria o que o
+        produto não tem, que é a razão de "trocar foto" continuar não existindo aqui.
+      */}
+      <Button
+        label={pickingAvatar ? 'Fechar' : avatar ? 'Trocar minha marca' : 'Escolher minha marca'}
+        variant="ghost"
+        size="sm"
+        accessibilityState={{ expanded: pickingAvatar }}
+        onPress={() => setPickingAvatar((v) => !v)}
+        style={styles.inline}
+      />
+      {pickingAvatar ? (
+        <Stack gap="sm">
+          <Row>
+            {HUNA_AVATARS.map((option) => (
+              <Pressable
+                key={option}
+                onPress={() => chooseAvatar(option)}
+                disabled={avatarBusy}
+                accessibilityRole="radio"
+                // `role="radio"` anuncia a escolha por `checked`; com `selected` a leitora de tela
+                // não dizia qual marca estava escolhida, e a borda virava o único canal — medido no
+                // DOM do DEV real, onde `aria-checked` vinha nulo nos seis.
+                accessibilityState={{ checked: avatar === option, disabled: avatarBusy }}
+                accessibilityLabel={AVATAR_LABEL[option]}
+                style={[styles.option, avatar === option && styles.optionSelected]}
+              >
+                <HunaAvatarMark avatar={option} size={56} />
+              </Pressable>
+            ))}
+          </Row>
+          {avatarFailed ? (
+            <Text tone="danger" accessibilityLiveRegion="polite">
+              Não foi possível trocar sua marca agora. Tente de novo.
+            </Text>
+          ) : null}
+        </Stack>
+      ) : null}
 
       {editing ? (
         <Stack gap="sm">
@@ -117,6 +186,10 @@ export function ProfileIdentity({
 }
 
 const styles = StyleSheet.create({
+  /** A moldura da escolha: a marca já traz a cor, então o que marca a seleção é a borda. */
+  option: { borderRadius: radius.pill, borderWidth: 2, borderColor: 'transparent', padding: 2 },
+  optionSelected: { borderColor: color.accent },
+  inline: { alignSelf: 'flex-start' },
   /**
    * ⚠️ **Uma superfície de marca, e não mais um cartão branco.** É a única seção da tela com fundo
    * tingido, e é isso que a põe acima das outras sem precisar de tamanho de fonte maior nem de

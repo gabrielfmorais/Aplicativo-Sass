@@ -4,6 +4,7 @@ import type {
   HairPlanPort,
   HairEventPort,
   HairProfilePort,
+  HunaAvatar,
   ProductPort,
   OilRoutinePort,
   WashDayPort,
@@ -189,6 +190,8 @@ function AuthenticatedApp({
   const [askName, setAskName] = useState<boolean | null>(null);
   /** SPEC-026 fatia 7 — o nome no avatar do cabeçalho. `null` quando ela pulou a pergunta. */
   const [displayName, setDisplayName] = useState<string | null>(null);
+  /** SPEC-042 (F34) — a marca da Huna que ela escolheu, ou `null` (e vale a inicial do nome). */
+  const [avatar, setAvatar] = useState<HunaAvatar | null>(null);
   useEffect(() => {
     let active = true;
     userProfile
@@ -197,6 +200,7 @@ function AuthenticatedApp({
         if (!active) return;
         setAskName(p === null);
         setDisplayName(p?.displayName ?? null);
+        setAvatar(p?.avatar ?? null);
       })
       .catch(() => active && setAskName(false));
     return () => {
@@ -286,7 +290,7 @@ function AuthenticatedApp({
    * O avatar do cabeçalho é a **única** porta para Você (SPEC-027, decisão do dono): a quarta vaga
    * da barra é da Prateleira, e duas entradas para o mesmo perfil seriam duas versões da mesma tela.
    */
-  const profileChip = { name: displayName, onPress: () => openStacked('you') };
+  const profileChip = { name: displayName, avatar, onPress: () => openStacked('you') };
 
   const shell = (content: React.ReactNode) => (
     <View style={styles.shell}>
@@ -378,6 +382,8 @@ function AuthenticatedApp({
         entitlements={entitlements}
         profile={userProfile}
         displayName={displayName}
+        avatar={avatar}
+        onAvatarChanged={setAvatar}
         onNameChanged={setDisplayName}
         planPreferences={planPreferences}
         notificationPreferences={notificationPreferences}

@@ -1,3 +1,4 @@
+import type { HunaAvatar } from '@app/core';
 import { useEffect, useRef, type ReactNode } from 'react';
 import {
   ActivityIndicator,
@@ -13,6 +14,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { HunaAvatarMark } from '@/design/HunaAvatarMark';
 import { HunaBackdrop } from './HunaBackdrop';
 import { useReduceMotion } from './motion';
 import {
@@ -433,11 +435,18 @@ export function ScreenHeader({
    * Fora do bloco, à esquerda e sobre o creme, a linha vira o primeiro que se lê e não disputa com o
    * título; e a saudação ao lado faz o avatar parecer **ela**, não um ícone de configurações.
    */
-  profile?: { readonly name: string | null; readonly onPress: () => void };
+  profile?: {
+    readonly name: string | null;
+    readonly onPress: () => void;
+    /** SPEC-042 — a marca dela, quando escolheu; sem ela, a inicial do nome. */
+    readonly avatar?: HunaAvatar | null;
+  };
 }) {
   return (
     <Stack gap="md">
-      {profile ? <IdentityRow name={profile.name} onPress={profile.onPress} /> : null}
+      {profile ? (
+        <IdentityRow name={profile.name} onPress={profile.onPress} avatar={profile.avatar ?? null} />
+      ) : null}
       <View style={styles.screenHeader}>
         <RNText style={[type.title as TextStyle, styles.screenHeaderTitle]} accessibilityRole="header">
           {title}
@@ -458,7 +467,17 @@ export function ScreenHeader({
  * ela. Mas o avatar **sozinho** no canto lê como um elemento perdido: sem texto ao lado, o círculo
  * pequeno não diz o que é nem que se toca. "Seu perfil", quieto, resolve as duas coisas.
  */
-function IdentityRow({ name, onPress }: { name: string | null; onPress: () => void }) {
+function IdentityRow({
+  name,
+  onPress,
+  avatar = null,
+}: {
+  name: string | null;
+  onPress: () => void;
+  /** SPEC-042 — a marca dela também aparece aqui: escolher no perfil e não ver no cabeçalho seria
+   * escolher no vazio. */
+  avatar?: HunaAvatar | null;
+}) {
   return (
     <Pressable
       onPress={onPress}
@@ -466,7 +485,7 @@ function IdentityRow({ name, onPress }: { name: string | null; onPress: () => vo
       accessibilityLabel={name ? `${name} — abrir seu perfil` : 'Abrir seu perfil'}
       style={({ pressed }) => [styles.identityRow, pressed && styles.avatarPressed]}
     >
-      <Avatar name={name} size={40} />
+      <Avatar name={name} size={40} avatar={avatar} />
       {name ? (
         <RNText numberOfLines={1} style={[type.bodyStrong as TextStyle, styles.identityName]}>
           Oi, {name}
@@ -489,8 +508,27 @@ function IdentityRow({ name, onPress }: { name: string | null; onPress: () => vo
  * vinho: as cores da identidade, não as de um controle. No dia em que a foto existir, é só esta
  * função que muda — quem a usa passa `name` e `size`, e nada mais.
  */
-export function Avatar({ name, size = 40 }: { name: string | null; size?: number }) {
+/**
+ * SPEC-035 — a identidade dela, num círculo.
+ *
+ * SPEC-042 (F34): quando ela escolheu uma **marca da Huna**, é a marca que aparece; sem escolha,
+ * continua a inicial do nome — que é o comportamento de sempre e continua válido. **Escolher por
+ * ela seria decidir estética em nome de quem não pediu**, e é por isso que não há avatar padrão.
+ *
+ * Foto própria é a `P24`, atrás da base legal LGPD (D-32) — este primitivo é onde ela entra no dia
+ * em que entrar, e é a razão de o contrato ser `name`/`size` e não uma inicial pronta.
+ */
+export function Avatar({
+  name,
+  size = 40,
+  avatar = null,
+}: {
+  name: string | null;
+  size?: number;
+  avatar?: HunaAvatar | null;
+}) {
   const initial = (name ?? 'Huna').trim().charAt(0).toUpperCase();
+  if (avatar) return <HunaAvatarMark avatar={avatar} size={size} />;
   return (
     <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}>
       <RNText
