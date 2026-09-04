@@ -20,6 +20,7 @@ import type {
 } from '@app/core';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
+  EntitlementService,
   buildNotificationIntents,
   buildProgress,
   buildTodayView,
@@ -41,6 +42,8 @@ import { useOilRoutine } from '@/features/care/use-oil-routine';
 import { JourneyScreen } from '@/features/journey/JourneyScreen';
 import { useJourney } from '@/features/journey/use-journey';
 import { SharePreviewScreen } from '@/features/sharing/SharePreviewScreen';
+import { InsightsScreen } from '@/features/insights/InsightsScreen';
+import { useInsights } from '@/features/insights/use-insights';
 import { ProgressTabScreen } from '@/features/care/ProgressTabScreen';
 import { HairEventsScreen } from '@/features/hair-events/HairEventsScreen';
 import { ShelfScreen } from '@/features/shelf/ShelfScreen';
@@ -125,7 +128,7 @@ function AuthenticatedApp({
   timeZone: () => string;
   newRequestId: () => string;
 }) {
-  const { auth, deletion, entitlements, share } = useAuth();
+  const { auth, deletion, entitlements, share, insights } = useAuth();
   const [profile, setProfile] = useState<Loadable<HairProfileSnapshot | null>>('loading');
   const [board, setBoard] = useState<Loadable<CareBoard | null>>('loading');
   /**
@@ -160,7 +163,9 @@ function AuthenticatedApp({
       active = false;
     };
   }, [products]);
-  const [stacked, setStacked] = useState<null | 'hairEvents' | 'you' | 'journey' | 'share'>(null);
+  const [stacked, setStacked] = useState<null | 'hairEvents' | 'you' | 'journey' | 'share' | 'insights'>(
+    null,
+  );
   /**
    * SPEC-045 (F46) — **de onde ela veio decide o que o card pode ser**. A tela de compartilhar é uma
    * só (SPEC-044 G5: o F46 acrescenta gatilhos, não outro caminho); o que muda é a lista de momentos
@@ -171,7 +176,7 @@ function AuthenticatedApp({
     setShareFrom(from);
     setStacked('share');
   };
-  const openStacked = (screen: 'hairEvents' | 'you' | 'journey' | 'share') => setStacked(screen);
+  const openStacked = (screen: 'hairEvents' | 'you' | 'journey' | 'share' | 'insights') => setStacked(screen);
   const closeStacked = () => setStacked(null);
   /**
    * SPEC-024 — o registro do que ela usou, aberto a partir de um cuidado concluído. Guarda a
@@ -292,6 +297,25 @@ function AuthenticatedApp({
       // be reported as success either — the preference stays exactly as the server has it.
     });
   }, [board_, prefs, notificationScheduler, today, now]);
+
+  /**
+   * SPEC-047 (P2) — `advanced_insights`, decidido pelo SERVIDOR. A tela nunca conclui sozinha que
+   * ela é premium: aqui só se lê o que `get_my_entitlements()` concedeu.
+   */
+  const [granted, setGranted] = useState<readonly string[]>([]);
+  useEffect(() => {
+    let active = true;
+    entitlements
+      .get()
+      .then((codes: readonly string[]) => active && setGranted(codes))
+      // Fail closed: uma leitura que não voltou **não** vira premium.
+      .catch(() => active && setGranted([]));
+    return () => {
+      active = false;
+    };
+  }, [entitlements]);
+  const canSeeInsights = EntitlementService.can('advanced_insights', granted);
+  const insightsState = useInsights(insights, canSeeInsights);
 
   /**
    * SPEC-043 — a Jornada, carregada uma vez: a Hoje mostra a entrada, a tela mostra o resto.
@@ -472,6 +496,25 @@ function AuthenticatedApp({
     );
   }
 
+  /**
+   * SPEC-047 (P2) — **Seus padrões**, superfície própria e Premium.
+   *
+   * O gate real é do servidor (`advanced_insights`); a tela existe para quem não tem, e explica o
+   * que o premium **acrescenta** em vez de bloquear (D-83).
+   */
+  if (stacked === 'insights') {
+    return shell(
+      <InsightsScreen
+        view={insightsState.view}
+        loading={insightsState.loading}
+        failed={insightsState.failed}
+        entitled={canSeeInsights}
+        onRetry={insightsState.reload}
+        onBack={() => setStacked(null)}
+      />,
+    );
+  }
+
   if (stacked === 'you') {
     return shell(
       <AccountScreen
@@ -557,6 +600,7 @@ function AuthenticatedApp({
         profile={profileChip}
         onStartNext={() => setReassessing('profile')}
         onShare={() => openShare('progress')}
+        onOpenInsights={() => openStacked('insights')}
       />,
     );
 

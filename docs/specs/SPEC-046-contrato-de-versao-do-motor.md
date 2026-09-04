@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-046 |
-| Status | Implemented (servidor **aguardando deploy** no DEV) |
+| Status | **DONE** — os três casos medidos contra a Edge Function deployada |
 | Owner | dono do produto |
 | Bounded Context | Schedule (`packages/core/src/schedule`) + Edge Function `generate-plan` |
 | Related ADRs | **ADR-001 §2** (versão liberada é imutável), ADR-007 A1, D-26/D-70 |
@@ -111,9 +111,10 @@ versão usada no preview é uma coincidência de deploy.
 
 ## 10. Open Questions
 
-- **OQ1** ⚠️ **A validação do lado servidor exige deploy** (`deploy-dev-functions`), que é ação do
-  dono (§4). Até lá, o DEV roda a função anterior — e é por isso que a recusa de versão desconhecida
-  ainda **não** aparece no ambiente.
+- **OQ1** ✅ **Fechada.** Os três casos foram medidos contra a função deployada (§12). ⚠️ Lição que
+  vale registrar: o deploy sai da **`main`**, então a primeira tentativa validou a função **antiga**
+  e "reprovou" um contrato que estava certo — a mesma armadilha que a SPEC-038 já tinha registrado.
+  Medir contra o ambiente **antes** de acreditar no verde é o que a separou de um falso negativo.
 - **OQ2 (herdada, gate do dono)** Quando ligar a v2.
 - **OQ3** ⚠️ **A outra deriva, anterior a esta SPEC e não resolvida aqui:** perfil e entitlement são
   relidos **no momento de gerar**, então reavaliar (ou virar premium) **entre o preview e a
@@ -128,6 +129,28 @@ versão usada no preview é uma coincidência de deploy.
 | 2026-09-04 | SPEC criada e implementada. Contrato de versão sem migration e sem ligar a v2. |
 
 ## 12. Evidência
+
+### 12.1 Contra a função DEPLOYADA — os três casos (2026-09-04)
+
+| caso | resultado medido | leitura |
+|---|---|---|
+| **sem versão** (app antigo) | **200**, plano gravado `v1` | vale a corrente do servidor — comportamento de sempre |
+| **conhecida `v1`** | **200**, ativo `v1` | honrada |
+| **conhecida `v2`** | **200**, ativo **`v2`** | ⚠️ **o servidor honrou o que ela previu** — a prova de que não é coincidência de deploy |
+| **desconhecida `v99`** | **400 `unsupported_schedule_version`** · planos **17 → 17** | recusou **antes de escrever**: nada foi criado |
+| **tipo errado** (número) | **400** | sem coerção |
+
+Ao final, o DEV foi devolvido a um plano `v1`. **`CURRENT_SCHEDULE_VERSION` continua `v1`** e a v2
+**não** foi ligada (barreira de teste).
+
+⚠️ **Um defeito que só a medição contra o ambiente encontrou:** a resposta **nunca** trazia
+`scheduleVersion`. As policies de `hair_plans` são `for all to postgres` (para o `SECURITY
+DEFINER`) e `select` para `authenticated` — **não há policy para `service_role`**, e a tabela é
+FORCE RLS, então a releitura pela service role voltava **vazia em silêncio**. Passou a ser lida com a
+JWT **dela**, que enxerga o próprio plano por `hair_plans_select_own` — sem afrouxar policy nenhuma.
+O campo aparece no próximo deploy; **os três casos acima não dependem dele**.
+
+### 12.2 Antes do deploy (mantido como registro)
 
 **Medido contra a Edge Function real do DEV — que ainda roda a versão ANTERIOR da função**, e é
 justamente isso que torna a medição útil:

@@ -1,0 +1,111 @@
+import type { CareTypeCode, InsightFact, InsightsPort } from '@app/core';
+import { InfrastructureError, localDateFromString } from '@app/core';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+const fail = (code: string, e: { message: string }) => new InfrastructureError(code, e.message);
+
+/**
+ * Quantos cuidados atendidos entram na leitura, do mais recente para trás.
+ *
+ * ⚠️ **Existe por um limite real, não por precaução.** As leituras seguintes filtram por
+ * `in (…ids)`, e cada uuid custa ~37 caracteres na URL: sem teto, uma usuária com dois anos de
+ * histórico (~300 execuções) montaria uma query de mais de 11 mil caracteres e bateria no limite de
+ * URI do PostgREST — a tela quebraria **justamente para quem mais tem dado**, que é o oposto do que
+ * esta capability promete.
+ *
+ * 60 é ~6 a 15 meses no ritmo de 4 a 12 cuidados por mês, e a janela é honesta na tela: o número que
+ * ela vê ("com base em N cuidados que você avaliou") é o que foi realmente lido.
+ */
+const HISTORY_WINDOW = 60;
+
+/**
+ * SPEC-047 (P2) — o histórico dela, lido sob RLS.
+ *
+ * ⚠️ **Só leitura, e só dela.** Nada é escrito, nada agrega com terceiros: a camada opera sobre o
+ * histórico pessoal e nunca vira benchmark contra outras pessoas (Blueprint §12).
+ *
+ * ⚠️ **Cinco leituras curtas em vez de um `join` embutido**, pela mesma razão medida na SPEC-041: a
+ * FK de `wash_days` para `care_executions` é composta, e o PostgREST não promete embedding por FK
+ * composta. Cada leitura é limitada ao histórico dela pela RLS.
+ *
+ * **Execução anulada fica de fora.** Ela desfez aquilo; contá-la como evidência seria observar um
+ * fato que ela mesma retirou.
+ */
+export const createInsightsAdapter = (client: SupabaseClient): InsightsPort => ({
+  async facts(): Promise<readonly InsightFact[]> {
+    const executions = await client
+      .from('care_executions')
+      .select('id, care_type_code, executed_on')
+      .is('voided_at', null)
+      .order('executed_on', { ascending: false })
+      .limit(HISTORY_WINDOW);
+    if (executions.error) throw fail('insights.read_failed', executions.error);
+    const rows = (executions.data ?? []) as {
+      id: string;
+      care_type_code: CareTypeCode;
+      executed_on: string;
+    }[];
+    if (rows.length === 0) return [];
+    const executionIds = rows.map((r) => r.id);
+
+    const [checkIns, washDays] = await Promise.all([
+      client.from('checkins').select('care_execution_id, overall_feel').in('care_execution_id', executionIds),
+      client.from('wash_days').select('id, care_execution_id').in('care_execution_id', executionIds),
+    ]);
+    if (checkIns.error) throw fail('insights.read_failed', checkIns.error);
+    if (washDays.error) throw fail('insights.read_failed', washDays.error);
+
+    const feelOf = new Map(
+      ((checkIns.data ?? []) as { care_execution_id: string; overall_feel: number }[]).map((c) => [
+        c.care_execution_id,
+        c.overall_feel,
+      ]),
+    );
+    const hubs = (washDays.data ?? []) as { id: string; care_execution_id: string }[];
+
+    /** Sem hub não há produto marcado — e aí as duas leituras seguintes não têm o que perguntar. */
+    let productsByExecution = new Map<string, { id: string; name: string }[]>();
+    if (hubs.length > 0) {
+      const marks = await client
+        .from('wash_day_products')
+        .select('wash_day_id, product_id')
+        .in(
+          'wash_day_id',
+          hubs.map((h) => h.id),
+        );
+      if (marks.error) throw fail('insights.read_failed', marks.error);
+      const marked = (marks.data ?? []) as { wash_day_id: string; product_id: string }[];
+
+      if (marked.length > 0) {
+        // ⚠️ O nome vem de `products`, que é **o nome que ela deu** — o app não inventa rótulo, e
+        // não há catálogo por trás disto (o `F32` é outra coisa).
+        const names = await client
+          .from('products')
+          .select('id, name')
+          .in('id', [...new Set(marked.map((m) => m.product_id))]);
+        if (names.error) throw fail('insights.read_failed', names.error);
+        const nameOf = new Map(
+          ((names.data ?? []) as { id: string; name: string }[]).map((p) => [p.id, p.name]),
+        );
+        const executionOf = new Map(hubs.map((h) => [h.id, h.care_execution_id]));
+
+        productsByExecution = marked.reduce((acc, m) => {
+          const executionId = executionOf.get(m.wash_day_id);
+          const name = nameOf.get(m.product_id);
+          // Um produto sem nome legível não vira observação: nomear "" seria pior que omitir.
+          if (!executionId || !name) return acc;
+          acc.set(executionId, [...(acc.get(executionId) ?? []), { id: m.product_id, name }]);
+          return acc;
+        }, new Map<string, { id: string; name: string }[]>());
+      }
+    }
+
+    return rows.map((r) => ({
+      careExecutionId: r.id,
+      careTypeCode: r.care_type_code,
+      executedOn: localDateFromString(r.executed_on),
+      feel: feelOf.get(r.id) ?? null,
+      products: productsByExecution.get(r.id) ?? [],
+    }));
+  },
+});

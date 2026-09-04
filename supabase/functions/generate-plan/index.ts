@@ -145,10 +145,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
    * enquanto o banco guarda outra. Seria a divergência silenciosa de novo, agora na própria
    * superfície que existe para eliminá-la.
    *
+   * ⚠️ **Lida com a JWT DELA, não com a service role** — e isso foi medido, não suposto. As policies
+   * de `hair_plans` são `for all to postgres` (o dono, para o `SECURITY DEFINER` funcionar) e
+   * `select` para `authenticated`; **não há policy para `service_role`**, e a tabela é FORCE RLS.
+   * Uma leitura direta pela service role voltava **vazia em silêncio**, e a resposta omitia a versão
+   * sempre. Ela enxerga o próprio plano por `hair_plans_select_own`, então é a leitura certa — e
+   * não custa afrouxar policy nenhuma.
+   *
    * A leitura falhar não invalida o plano, que está gravado: aí a resposta omite a versão em vez de
    * inventá-la, e quem chamou continua tendo o `planId` para reler.
    */
-  const { data: storedRow } = await serviceClient
+  const { data: storedRow } = await userClient
     .from('hair_plans')
     .select('schedule_algorithm_version')
     .eq('id', planId)

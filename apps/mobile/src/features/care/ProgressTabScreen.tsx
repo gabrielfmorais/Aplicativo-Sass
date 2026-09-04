@@ -51,6 +51,7 @@ export function ProgressTabScreen({
   profile,
   onStartNext,
   onShare,
+  onOpenInsights,
 }: {
   board: CareBoard | null;
   today: LocalDate;
@@ -58,6 +59,8 @@ export function ProgressTabScreen({
   onStartNext?: () => void;
   /** SPEC-045 (F46) — o ciclo dela vira card, do lugar em que ela olha o ciclo. */
   onShare?: () => void;
+  /** SPEC-047 (P2) — "Seus padrões". Fica aqui porque é aqui que ela olha para o histórico. */
+  onOpenInsights?: () => void;
   /** SPEC-026 fatia 7 — o acesso a **Você**, no cabeçalho. A tela só repassa. */
   profile: { readonly name: string | null; readonly onPress: () => void };
 }) {
@@ -97,6 +100,14 @@ export function ProgressTabScreen({
           */}
           {onShare && view.progress.done > 0 ? (
             <Button label="Compartilhar meu ciclo" variant="secondary" onPress={onShare} />
+          ) : null}
+
+          {/*
+            SPEC-047 (P2) — a porta de "Seus padrões". Aparece para todo mundo: quem não tem premium
+            encontra a explicação do que ele acrescenta, e não um botão que some sem dizer por quê.
+          */}
+          {onOpenInsights ? (
+            <Button label="Seus padrões" variant="secondary" onPress={onOpenInsights} />
           ) : null}
 
           {/*
