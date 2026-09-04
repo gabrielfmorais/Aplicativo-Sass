@@ -12,6 +12,7 @@ export * from './schedule/index.ts';
 export * from './care-tracking/index.ts';
 export * from './oil-routine/index.ts';
 export * from './journey/index.ts';
+export * from './sharing/index.ts';
 export * from './content/index.ts';
 export * from './notifications/index.ts';
 export * from './progress/index.ts';
