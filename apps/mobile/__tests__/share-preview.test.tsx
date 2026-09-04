@@ -1,4 +1,5 @@
 import type { JourneyView, SharePort } from '@app/core';
+import { careDoneMoment, journeyMoment, milestoneMoments } from '@app/core';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { SharePreviewScreen } from '@/features/sharing/SharePreviewScreen';
@@ -35,7 +36,7 @@ const cardText = (s: { toJSON: () => unknown }) => JSON.stringify(s.toJSON());
 const screen = (over: Partial<Parameters<typeof SharePreviewScreen>[0]> = {}) =>
   render(
     <SharePreviewScreen
-      journey={journey}
+      moments={[journeyMoment(journey)]}
       displayName="Millie"
       avatar="flow_berry"
       share={port()}
@@ -127,5 +128,43 @@ describe('Compartilhar (SPEC-044)', () => {
     s.getByLabelText(/Card da Huna. Sem o seu nome. Sem a sua marca./);
     fireEvent.press(s.getByText('Meu nome'));
     await waitFor(() => s.getByLabelText(/Com o seu nome, Millie./));
+  });
+});
+/**
+ * SPEC-045 (F46) — **os momentos**. O `F45` prometeu que o `F46` acrescentaria gatilhos e **não
+ * outro caminho**: estes testes guardam essa promessa — a tela é a mesma, muda a lista.
+ */
+describe('Momentos compartilháveis (SPEC-045)', () => {
+  const marco = { key: 'first_care', label: 'Primeiro cuidado', reached: true };
+
+  it('com um momento só, não oferece um seletor que não decide nada', async () => {
+    const s = await screen();
+    expect(s.queryByText('O que compartilhar')).toBeNull();
+  });
+
+  it('com vários, ela escolhe — e o card muda', async () => {
+    const j = { ...journey, milestones: [marco] };
+    const s = await screen({ moments: [journeyMoment(j), ...milestoneMoments(j)] });
+    s.getByText('O que compartilhar');
+    expect(cardText(s)).toContain('Em ritmo');
+
+    fireEvent.press(s.getByText('Primeiro cuidado'));
+    await waitFor(() => expect(cardText(s)).toContain('Marco alcançado'));
+  });
+
+  /** O primeiro momento é o padrão: quem vem da Hoje vê o cuidado que acabou de fazer. */
+  it('o momento do lugar de onde ela veio é o que abre', async () => {
+    const s = await screen({
+      moments: [careDoneMoment({ careLabel: 'Hidratação', journey }), journeyMoment(journey)],
+    });
+    expect(cardText(s)).toContain('Cuidado feito');
+    expect(cardText(s)).toContain('Hidratação');
+  });
+
+  /** Sem conquista não há card — e isso não é erro, é a tela sendo honesta (SPEC-044 EC1). */
+  it('sem momento nenhum, convida em vez de mostrar um card vazio', async () => {
+    const s = await screen({ moments: [] });
+    s.getByText(/vira card/i);
+    expect(s.queryByText('Formato')).toBeNull();
   });
 });

@@ -62,6 +62,23 @@ export const CARD_FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helveti
  * Story, é justamente ali que o olho termina. Ancorar embaixo resolve os dois formatos com um
  * número só, porque a distância até a base não muda quando a altura muda.
  */
+/**
+ * O tamanho do número/palavra herói, **ajustado ao que cabe**.
+ *
+ * ⚠️ **Defeito visto a 390px:** o tamanho era fixo em 248, o que só serve para um número de um ou
+ * dois dígitos. Um marco escrito por extenso saía **cortado na borda** — o card mostrava
+ * *"5 cuidad"* — e um cuidado de nome comprido ("Reconstrução") faria o mesmo. SVG **não reflui
+ * texto**, então nada avisa: o excesso simplesmente sai do quadro.
+ *
+ * A largura de um caractere numa bold sem serifa fica perto de `0,58 × tamanho`. Daí o tamanho que
+ * cabe na largura útil, com teto (para o número não crescer sem motivo) e piso (para a frase não
+ * virar legenda).
+ */
+export const heroFontSize = (text: string, available: number): number => {
+  const fits = available / (Math.max(text.length, 1) * 0.58);
+  return Math.max(96, Math.min(248, Math.round(fits)));
+};
+
 export const CARD_LAYOUT = {
   marginX: 90,
   wordmarkY: 130,
