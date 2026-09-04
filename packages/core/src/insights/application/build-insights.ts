@@ -1,4 +1,5 @@
 import type { WashDayTechnique } from '../../care-tracking/index.ts';
+import { countByCare } from './count-by-care.ts';
 import type { InsightFact, InsightsView, Observation } from '../domain/insights.ts';
 import { HIGH_FEEL, MIN_OCCURRENCES, MIN_RATED_CARES } from '../domain/insights.ts';
 
@@ -46,25 +47,6 @@ export const buildInsights = (
   }
 
   const best = rated.filter((f) => (f.feel ?? 0) >= HIGH_FEEL);
-
-  /**
-   * Quantas vezes cada coisa apareceu nos cuidados que **ela** melhor avaliou.
-   *
-   * Conta por **cuidado**, não por marcação: a mesma coisa marcada duas vezes no mesmo registro
-   * continua sendo um cuidado, e contar marcações inflaria a repetição sem nenhum fato novo.
-   */
-  const tally = (pick: (fact: InsightFact) => readonly { id: string; name: string }[]) => {
-    const seen = new Map<string, { name: string; count: number }>();
-    for (const fact of best) {
-      const items = pick(fact);
-      for (const id of new Set(items.map((i) => i.id))) {
-        const name = items.find((i) => i.id === id)?.name ?? '';
-        const current = seen.get(id);
-        seen.set(id, { name: current?.name ?? name, count: (current?.count ?? 0) + 1 });
-      }
-    }
-    return seen;
-  };
 
   const named = (
     seen: Map<string, { name: string; count: number }>,
@@ -125,13 +107,13 @@ export const buildInsights = (
 
   const observations = [
     ...named(
-      tally((f) => f.products),
+      countByCare(best, (f) => f.products),
       'product',
       'esteve em',
     ),
     ...named(pairs, 'combo', 'apareceram juntos em'),
     ...named(
-      tally((f) => f.techniques.map((t) => ({ id: t, name: techniqueLabel(t) }))),
+      countByCare(best, (f) => f.techniques.map((t) => ({ id: t, name: techniqueLabel(t) }))),
       'technique',
       'você fez em',
     ),

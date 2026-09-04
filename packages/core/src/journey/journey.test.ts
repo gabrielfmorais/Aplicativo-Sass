@@ -3,9 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { buildTodayView } from '../care-tracking/index.ts';
 import { assertProductionRules } from '../shared/domain-rule.ts';
 import { localDateFromString } from '../shared/time/index.ts';
-import type { JourneyPoint } from './domain/journey.ts';
+import { JOURNEY_FACT_KINDS, type JourneyPoint } from './domain/journey.ts';
 import { buildJourneyView } from './application/build-journey-view.ts';
-import { JOURNEY_RULES_V1, LEVELS_V1, MILESTONES_V1, POINTS_V1 } from './rules/v1/rules.ts';
+import {
+  JOURNEY_RULES_V1,
+  JOURNEY_RULES_VERSION_V1,
+  LEVELS_V1,
+  MILESTONES_V1,
+  POINTS_V1,
+} from './rules/v1/rules.ts';
 
 const TODAY = localDateFromString('2026-09-20');
 const d = (iso: string) => localDateFromString(iso);
@@ -295,5 +301,32 @@ describe('Jornada — cuidado adiantado entra na sequência (SPEC-043 FR5)', () 
     const cares = [care('a', '2026-09-19'), care('b', '2026-09-25')];
     const v = view(cares, [execution('e1', 'a', '2026-09-19')]);
     expect(v.streak).toBe(1);
+  });
+});
+
+/**
+ * SPEC-043 — **os vocabulários congelados**, na mesma disciplina de `WASH_DAY_TECHNIQUES` e
+ * `FINISH_STATUSES`.
+ *
+ * ⚠️ **`JOURNEY_FACT_KINDS` existe duas vezes:** aqui e no `CHECK` de `journey_points`. Nada liga as
+ * duas listas, então uma divergência seria **silenciosa** — o TS aceitaria um tipo novo e o banco o
+ * recusaria em runtime, ou pior, o inverso. Congelar aqui é o que força quem mudar uma a olhar a
+ * outra.
+ */
+describe('Jornada — vocabulários congelados (SPEC-043)', () => {
+  it('os três fatos que pagam ponto são exatamente estes', () => {
+    expect([...JOURNEY_FACT_KINDS]).toEqual(['care_execution', 'checkin', 'wash_day']);
+    // Se você acrescentou um: o `CHECK` de `journey_points.fact_kind` também precisa dele, e a
+    // régua precisa dizer quanto ele vale (`POINTS_V1`).
+    expect(Object.keys(POINTS_V1).sort()).toEqual([...JOURNEY_FACT_KINDS].sort());
+  });
+
+  /**
+   * ⚠️ A `rules_version` gravada em cada linha vem do **servidor**, que a escreve literalmente como
+   * `'v1'` na RPC. Esta constante é a contraparte no core: mudá-la sem mexer na migration faria o
+   * histórico dizer uma versão que a régua não reconhece.
+   */
+  it('a versão da régua é a mesma string que a RPC grava', () => {
+    expect(JOURNEY_RULES_VERSION_V1).toBe('v1');
   });
 });
