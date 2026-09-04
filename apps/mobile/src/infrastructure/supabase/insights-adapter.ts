@@ -1,4 +1,4 @@
-import type { CareTypeCode, InsightFact, InsightsPort } from '@app/core';
+import type { CareTypeCode, InsightFact, InsightsPort, WashDayTechnique } from '@app/core';
 import { InfrastructureError, localDateFromString } from '@app/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -63,16 +63,32 @@ export const createInsightsAdapter = (client: SupabaseClient): InsightsPort => (
     );
     const hubs = (washDays.data ?? []) as { id: string; care_execution_id: string }[];
 
-    /** Sem hub não há produto marcado — e aí as duas leituras seguintes não têm o que perguntar. */
+    /** Sem hub não há marcação nenhuma — e aí as leituras seguintes não têm o que perguntar. */
     let productsByExecution = new Map<string, { id: string; name: string }[]>();
+    let techniquesByExecution = new Map<string, WashDayTechnique[]>();
     if (hubs.length > 0) {
+      const executionOfHub = new Map(hubs.map((h) => [h.id, h.care_execution_id]));
+      const hubIds = hubs.map((h) => h.id);
+
+      // As técnicas do vocabulário **já aprovado** (SPEC-024) — seis delas movimentos de
+      // finalização. Nomear finalizações novas é o `F38`, atrás do gate D-26/D-70.
+      const techs = await client
+        .from('wash_day_techniques')
+        .select('wash_day_id, technique')
+        .in('wash_day_id', hubIds);
+      if (techs.error) throw fail('insights.read_failed', techs.error);
+      techniquesByExecution = (
+        (techs.data ?? []) as { wash_day_id: string; technique: WashDayTechnique }[]
+      ).reduce((acc, t) => {
+        const executionId = executionOfHub.get(t.wash_day_id);
+        if (executionId) acc.set(executionId, [...(acc.get(executionId) ?? []), t.technique]);
+        return acc;
+      }, new Map<string, WashDayTechnique[]>());
+
       const marks = await client
         .from('wash_day_products')
         .select('wash_day_id, product_id')
-        .in(
-          'wash_day_id',
-          hubs.map((h) => h.id),
-        );
+        .in('wash_day_id', hubIds);
       if (marks.error) throw fail('insights.read_failed', marks.error);
       const marked = (marks.data ?? []) as { wash_day_id: string; product_id: string }[];
 
@@ -87,7 +103,7 @@ export const createInsightsAdapter = (client: SupabaseClient): InsightsPort => (
         const nameOf = new Map(
           ((names.data ?? []) as { id: string; name: string }[]).map((p) => [p.id, p.name]),
         );
-        const executionOf = new Map(hubs.map((h) => [h.id, h.care_execution_id]));
+        const executionOf = executionOfHub;
 
         productsByExecution = marked.reduce((acc, m) => {
           const executionId = executionOf.get(m.wash_day_id);
@@ -106,6 +122,7 @@ export const createInsightsAdapter = (client: SupabaseClient): InsightsPort => (
       executedOn: localDateFromString(r.executed_on),
       feel: feelOf.get(r.id) ?? null,
       products: productsByExecution.get(r.id) ?? [],
+      techniques: techniquesByExecution.get(r.id) ?? [],
     }));
   },
 });

@@ -1,5 +1,7 @@
 import type { InsightsPort, InsightsView } from '@app/core';
 import { buildInsights } from '@app/core';
+
+import { TECHNIQUE_LABEL } from '@/features/care/WashDayScreen';
 import { useCallback, useEffect, useState } from 'react';
 
 type Loadable = { view: InsightsView | null; loading: boolean; failed: boolean };
@@ -28,7 +30,13 @@ export const useInsights = (insights: InsightsPort, enabled: boolean): Loadable 
       .facts()
       .then((facts) => {
         if (!active) return;
-        setState({ view: buildInsights(facts), loading: false, failed: false });
+        // O rótulo da técnica é cópia de interface e já mora no app desde a SPEC-024 — o core
+        // recebe o resolvedor em vez de manter uma segunda lista que divergiria.
+        setState({
+          view: buildInsights(facts, (technique) => TECHNIQUE_LABEL[technique]),
+          loading: false,
+          failed: false,
+        });
       })
       .catch(() => active && setState({ view: null, loading: false, failed: true }));
     return () => {

@@ -1,3 +1,4 @@
+import type { WashDayTechnique } from '../../care-tracking/index.ts';
 import type { CareTypeCode } from '../../schedule/index.ts';
 import type { LocalDate } from '../../shared/time/index.ts';
 
@@ -44,6 +45,16 @@ export type InsightFact = {
   readonly feel: number | null;
   /** Os produtos que ela marcou naquele cuidado, com o nome que **ela** deu. */
   readonly products: readonly { readonly id: string; readonly name: string }[];
+  /**
+   * As técnicas que ela marcou (SPEC-024).
+   *
+   * ⚠️ **Vocabulário já aprovado, e é isso que a mantém fora do gate.** São as catorze da SPEC-024 —
+   * seis delas movimentos de finalização (`air_dried`, `blow_dried`, `diffuser`, `scrunched`,
+   * `heat_protectant`, `protective_style`). Observar o que ela marcou **não** é o `F38`: nomear
+   * finalizações novas (fitagem, dedoliss, day after) continua sendo conteúdo capilar substantivo,
+   * atrás do gate D-26/D-70, com barreira viva na SPEC-039 §8.
+   */
+  readonly techniques: readonly WashDayTechnique[];
 };
 
 /**
@@ -52,6 +63,8 @@ export type InsightFact = {
  */
 export type Observation = {
   readonly key: string;
+  /** O que se repetiu: um produto dela, ou uma técnica do vocabulário aprovado. */
+  readonly kind: 'product' | 'technique';
   readonly subject: string;
   /** O que se repetiu, em número. Nunca "porque", nunca "melhora". */
   readonly detail: string;

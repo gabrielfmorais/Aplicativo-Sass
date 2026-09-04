@@ -197,6 +197,7 @@ Autonomia técnica não muda decisão comercial. **Não** alterar autonomamente:
 
 | dívida | desde | estado | destrava com |
 |---|---|---|---|
+| ⚠️ **`F38` — a lista de finalizações não existe, e engenharia não pode inventá-la** | SPEC-039 §8 / SPEC-047 §13 | **BLOQUEADA por D-26/D-70** | **uma decisão humana**: a lista (fitagem, dedoliss, day after, técnica por curvatura, …) vinda do dono ou de revisor de domínio. Com ela, o resto é pequeno: coluna `finish_technique` em `wash_day_finish`, `CHECK`, porta, chip e a quarta trava de disjunção. ⚠️ **Parte do que o `F38` promete já é observável hoje**: seis das catorze técnicas da SPEC-024 são movimentos de finalização, e a SPEC-047 fatia 2 já as correlaciona |
 | ⚠️ **`perceived_porosity` e `routine_availability` são coletadas no onboarding e NÃO têm consumidor** | SPEC-037 (`F35`) | **VISÍVEL, não remover** | uma **regra validada** que as leia, no motor (`F36`). Traduzir porosidade em frequência é a alegação mais substantiva do conjunto ⇒ **gate D-26/D-70**; "este cuidado cabe no seu tempo" é veto explícito do dono. Enquanto isso, são **duas perguntas que custam o tempo dela e não mudam nada** — o custo fica registrado aqui, à vista, em vez de esquecido no código |
 | **A v2 do motor existe, está testada e não está ligada** | SPEC-038 (`F36`) | **destravada tecnicamente** pela SPEC-046 | decisão do dono (SPEC-038 **OQ2**) + deploy da `generate-plan` |
 
