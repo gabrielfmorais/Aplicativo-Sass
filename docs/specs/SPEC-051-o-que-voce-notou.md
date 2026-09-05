@@ -196,7 +196,10 @@ ambiente de validação, não o produto. Fica registrado como **OQ4**, fora do e
 - ~~**OQ1 🔒 (do dono)** **Congelar os cinco valores.**~~ Mudar depois quebra a série histórica. A lista
   é a do Blueprint §8; esta SPEC não a inventa, mas também não a congela sozinha — o ato de congelar
   é **aplicar a migration**.
-- **OQ2** **O sinal das marcações**, para quem consumir (§4). Uma agregação ingênua diria *"frizz
+- **OQ2 (RESOLVIDA)** ✅ **O sinal deixou de ser problema porque o denominador mudou.** A SPEC-047
+  §16 conta a marca sobre **todos** os cuidados avaliados, não sobre o subconjunto bem avaliado — a
+  marca *é* o resultado, e contá-la dentro de outro resultado é que produzia a frase estranha.
+- ~~**OQ2** **O sinal das marcações**, para quem consumir (§4).~~ Uma agregação ingênua diria *"frizz
   esteve em 4 dos 5 cuidados que você avaliou bem"*. A fatia de consumo terá de resolver isso.
 - **OQ3 (bloqueada)** A metade **couro** do Blueprint §8 — **D-32** + **D-26**, SPEC-025 OQ2.
 - **OQ4** `accessibilityState` não chega ao DOM no `react-native-web` 0.21 (§10). Nove usos no app.

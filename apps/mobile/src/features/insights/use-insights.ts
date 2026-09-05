@@ -1,6 +1,7 @@
 import type { InsightsPort, InsightsView } from '@app/core';
 import { buildInsights } from '@app/core';
 
+import { CHECKIN_MARK_LABEL } from '@/features/care/TodayScreen';
 import { FINISH_TECHNIQUE_LABEL, TECHNIQUE_LABEL } from '@/features/care/WashDayScreen';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -37,6 +38,7 @@ export const useInsights = (insights: InsightsPort, enabled: boolean): Loadable 
             facts,
             (technique) => TECHNIQUE_LABEL[technique],
             (finish) => FINISH_TECHNIQUE_LABEL[finish],
+            (mark) => CHECKIN_MARK_LABEL[mark],
           ),
           loading: false,
           failed: false,

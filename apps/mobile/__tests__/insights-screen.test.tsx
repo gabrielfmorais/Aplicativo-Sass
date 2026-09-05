@@ -290,3 +290,57 @@ describe('Seus padrões — as combinações (SPEC-050)', () => {
     expect(s.queryByText(/apareceram juntos em/)).toBeNull();
   });
 });
+
+/**
+ * SPEC-051 consumida — **o que ela tem notado**, na tela.
+ *
+ * ⚠️ Seção própria porque o **denominador é outro**: *"que você avaliou"* contra *"que você avaliou
+ * bem"*. Misturá-las poria dois números parecidos lado a lado sem nada explicando a diferença.
+ */
+describe('Seus padrões — o que você tem notado (SPEC-051)', () => {
+  const NOTADO = {
+    key: 'noticed:frizz',
+    kind: 'noticed' as const,
+    subject: 'Frizz',
+    detail: 'você notou em 6 dos 12 cuidados que você avaliou',
+  };
+
+  it('mostra a marcação na seção própria, e antes das repetições', async () => {
+    const s = await screen({ view: view({ observations: [NOTADO, ...view().observations] }) });
+    s.getByText('O que você tem notado');
+    s.getByText('Frizz');
+    s.getByText('você notou em 6 dos 12 cuidados que você avaliou');
+    const tree = JSON.stringify(s.toJSON());
+    expect(tree.indexOf('O que você tem notado')).toBeLessThan(tree.indexOf('O que se repete'));
+  });
+
+  it('sem marcação nenhuma, a seção não existe — e não inventa estado vazio', async () => {
+    const s = await screen();
+    expect(s.queryByText('O que você tem notado')).toBeNull();
+  });
+
+  /** ⚠️ A marcação não vai para a lista de repetições: os denominadores são diferentes. */
+  it('a marcação não aparece entre as repetições', async () => {
+    const s = await screen({ view: view({ observations: [NOTADO] }) });
+    const tree = JSON.stringify(s.toJSON());
+    // Está na tela uma vez só, na seção dela.
+    expect(tree.split('você notou em 6 dos 12').length - 1).toBe(1);
+  });
+
+  /**
+   * ⛔ **A atribuição é a fronteira.** *"Com a Máscara X você notou maciez"* nomeia um efeito
+   * capilar e o atribui a um produto — D-26/D-70, a mesma fronteira da `P18`.
+   */
+  it('nenhuma frase atribui a marcação a um produto ou técnica', async () => {
+    const s = await screen({ view: view({ observations: [NOTADO, ...view().observations] }) });
+    expect(
+      s.queryByText(/com (a|o) .+ você notou|por causa|graças|resultado de|deixou seu cabelo/i),
+    ).toBeNull();
+    /*
+     * ⚠️ "causou" fica **fora** da proibição de propósito: a frase que define o limite da capability
+     * é justamente *"a Huna mostra o que apareceu junto — não o que causou o quê"*. Uma barreira que
+     * banisse a palavra proibiria a única frase que o produto precisa dizer.
+     */
+    expect(s.queryByText(/melhorou|piorou|danificad|saudável|recuper/i)).toBeNull();
+  });
+});

@@ -1,4 +1,4 @@
-import type { FinishTechnique, WashDayTechnique } from '../../care-tracking/index.ts';
+import type { CheckInMark, FinishTechnique, WashDayTechnique } from '../../care-tracking/index.ts';
 
 /**
  * SPEC-047 (P2) — **Hair Intelligence, a camada determinística.**
@@ -72,6 +72,16 @@ export type InsightFact = {
    * recomendação capilar e continua bloqueada por D-26/D-70 (SPEC-048 §8).
    */
   readonly finishTechnique: FinishTechnique | null;
+  /**
+   * SPEC-051 (`P13`) — **o que ela notou** naquele cuidado.
+   *
+   * ⚠️ **Isto é um RESULTADO, não uma entrada — e a diferença decide tudo o que pode ser dito.**
+   * Produto, técnica e finalização são coisas que ela **fez**; a marca é o que ela **observou**.
+   * Contar uma marca dentro dos *"cuidados que você avaliou bem"* seria contar um resultado dentro
+   * de outro, e atribuí-la a um produto (*"com a Máscara X você notou maciez em 4 de 5"*) **nomeia
+   * um efeito capilar** — não importa a redação. Isso é D-26/D-70, e está fora.
+   */
+  readonly marks: readonly CheckInMark[];
 };
 
 /**
@@ -102,7 +112,7 @@ export type Observation = {
    * O que se repetiu: um produto dela, uma técnica do vocabulário aprovado, um par de produtos, ou
    * a **finalização** que ela registrou (SPEC-048).
    */
-  readonly kind: 'product' | 'technique' | 'combo' | 'finish';
+  readonly kind: 'product' | 'technique' | 'combo' | 'finish' | 'noticed';
   readonly subject: string;
   /** O que se repetiu, em número. Nunca "porque", nunca "melhora". */
   readonly detail: string;

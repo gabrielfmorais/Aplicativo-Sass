@@ -132,6 +132,14 @@ export function InsightsScreen({
     );
   }
 
+  /**
+   * SPEC-051 — as marcações vão para a **sua** seção, e não para a lista de repetições: os
+   * denominadores são diferentes, e misturá-las poria "que você avaliou" ao lado de "que você
+   * avaliou bem" sem nada explicando a diferença.
+   */
+  const noticed = view.observations.filter((o) => o.kind === 'noticed');
+  const repeated = view.observations.filter((o) => o.kind !== 'noticed');
+
   return (
     <Screen footer={footer}>
       {header}
@@ -141,12 +149,41 @@ export function InsightsScreen({
         denominadores são diferentes, e sem o título eles se pareceriam demais para números tão
         parecidos.
       */}
+      {/*
+        SPEC-051 (`P13`) — **o que ela tem notado.**
+
+        ⚠️ **Sem atribuição, e é aqui que a linha passa.** *"Frizz — você notou em 6 dos 12 cuidados
+        que avaliou"* é ela se relendo: nenhuma entrada é apontada como origem. *"Com a Máscara X
+        você notou maciez em 4 de 5"* seria **nomear um efeito capilar e atribuí-lo a um produto**, a
+        alegação que a D-26/D-70 reserva a revisor de domínio.
+
+        ⚠️ **O denominador é TODO cuidado avaliado**, não o subconjunto bem avaliado: a marca **é** o
+        resultado, e contá-la dentro de "avaliou bem" seria contar um resultado dentro de outro.
+      */}
+      {noticed.length > 0 ? (
+        <Stack gap="md">
+          <Text variant="overline" tone="accent" accessibilityRole="header">
+            O que você tem notado
+          </Text>
+          {noticed.map((o) => (
+            <Card key={o.key}>
+              <Stack gap="sm">
+                <Text variant="heading" accessibilityRole="header">
+                  {o.subject}
+                </Text>
+                <Text tone="muted">{o.detail}</Text>
+              </Stack>
+            </Card>
+          ))}
+        </Stack>
+      ) : null}
+
       <Stack gap="md">
         <Text variant="overline" tone="accent" accessibilityRole="header">
           O que se repete
         </Text>
-        {view.observations.length > 0 ? (
-          view.observations.map((o) => (
+        {repeated.length > 0 ? (
+          repeated.map((o) => (
             <Card key={o.key}>
               <Stack gap="sm">
                 <Text variant="heading" accessibilityRole="header">
@@ -213,7 +250,7 @@ export function InsightsScreen({
             registrada em três SPECs. A barreira de teste reprova a palavra, e está certa.
           */}
           Tudo aqui sai do que você registrou: os cuidados que concluiu, o que marcou que usou, como fez e
-          finalizou, e a resposta que deu no check-in.
+          finalizou, a resposta que deu no check-in e o que notou depois.
         </Text>
       </Stack>
     </Screen>
