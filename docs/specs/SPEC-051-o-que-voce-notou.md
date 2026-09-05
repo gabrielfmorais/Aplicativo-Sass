@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-051 |
-| Status | Draft — **aguarda a migration** |
+| Status | Implemented |
 | Owner | dono do produto |
 | Bounded Context | **Care Tracking** (`packages/core/src/care-tracking`) |
 | Related SPECs | **SPEC-006** (`F14`, o check-in de um toque) · SPEC-025 (`F31`, o couro) · SPEC-024 (o padrão de junção) · SPEC-048 (o precedente de vocabulário) · SPEC-047/SPEC-050 (quem vai consumir) |
@@ -142,11 +142,52 @@ congelá-lo ser do dono, e de esta SPEC parar exatamente antes da migration.
 - **AC4** Vocabulário fechado medido **contra o DEV real**, não só no CI.
 - **AC5** Nenhum valor de couro cabeludo é aceito aqui — os dois vocabulários seguem disjuntos.
 
-## 10. Open Questions
+## 10. Evidência
 
-- **OQ1 🔒 (do dono)** **Congelar os cinco valores.** Mudar depois quebra a série histórica. A lista
+- `pnpm verify` verde — core **391**, mobile **447**, e os nove checks. `check:remote-schema` →
+  **23 tabelas**.
+- **Probe contra o DEV real** (anon key + JWT dela + RLS), **23/23**: os cinco valores entram;
+  `23514` para texto livre, para `itching`/`flaking`/`sensitive` (**sintoma não entra**), para o
+  vocabulário do couro (`oily_quickly`), para técnica (`diffuser`), para finalização (`plopping`) e
+  para os escapes `other`/`unknown`; duplo toque → **`23505`**, e duas em paralelo deixam **uma**
+  linha; `user_id` forjado → **`42501`** (policy); check-in alheio → **`23503`** (FK composta);
+  `DELETE` da marcação → **204**; e ⚠️ **`checkins` continua append-only**, medido: `UPDATE` da nota
+  → **`42501`**, `DELETE` → **`42501`**.
+- **Jornada a 390px no DEV real, zero problema de console:** sem check-in a oferta **não existe**
+  (FR5) → responder a nota (**um toque**) → a oferta aparece → marcar duas → reload → persistidas →
+  desmarcar uma → reload → só aquela saiu.
+
+### ⚠️ Um achado de MEDIÇÃO, não do produto: `aria-checked` não existe no preview web
+
+Ao tentar aferir o estado dos chips, a validação mediu **zero elementos com `aria-checked` na página
+inteira** — inclusive os chips `radio` já validados na SPEC-042 e na SPEC-048. O `role` chega
+(`checkbox`: 5, `radio`: 10), o **estado não**: o `react-native-web` 0.21 descarta o
+`accessibilityState` legado, que é a API que o `Chip` usa.
+
+⚠️ **Isto não é defeito do produto:** `accessibilityState` é a API suportada no iOS/Android, e **web
+não é plataforma de produto** (D-80). ⚠️ **Mas também não está medido no nativo** — e não pode
+estar, enquanto o development build seguir DEFERRED por constraint do dono.
+
+**Consequência prática, e ela vale para toda validação futura:** a 390px o estado de um chip
+**não pode ser aferido por ARIA**; afere-se pelo canal que ela realmente vê — o rótulo do chip
+marcado é escrito em ameixa (`accent`). Está na mesma família de `toDataURL` e da folha do SO
+(SPEC-044): coisas que o preview web não prova.
+
+⛔ **Não corrigido de propósito.** São **nove** usos de `accessibilityState` (incluindo a `TabBar` da
+SPEC-035), então consertar só o `Chip` deixaria o app inconsistente; e o alvo do conserto seria o
+ambiente de validação, não o produto. Fica registrado como **OQ4**, fora do escopo desta SPEC.
+
+## 11. Open Questions
+
+- **OQ1 (RESOLVIDA)** ✅ **O dono aprovou o vocabulário V1 em 2026-09-05** — maciez · brilho ·
+  frizz · definição · ressecamento — e aplicou a migration, que é o ato que o congela. Sair de
+  `candidate` continua sendo do revisor de domínio (D-26/OQ-REL).
+- ~~**OQ1 🔒 (do dono)** **Congelar os cinco valores.**~~ Mudar depois quebra a série histórica. A lista
   é a do Blueprint §8; esta SPEC não a inventa, mas também não a congela sozinha — o ato de congelar
   é **aplicar a migration**.
 - **OQ2** **O sinal das marcações**, para quem consumir (§4). Uma agregação ingênua diria *"frizz
   esteve em 4 dos 5 cuidados que você avaliou bem"*. A fatia de consumo terá de resolver isso.
 - **OQ3 (bloqueada)** A metade **couro** do Blueprint §8 — **D-32** + **D-26**, SPEC-025 OQ2.
+- **OQ4** `accessibilityState` não chega ao DOM no `react-native-web` 0.21 (§10). Nove usos no app.
+  Trocar para as props `aria-*` (suportadas no RN 0.71+ e no web) é pequeno, mas é mudança
+  transversal de primitivo e não pertence a esta SPEC.
