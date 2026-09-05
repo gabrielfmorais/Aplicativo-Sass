@@ -1,4 +1,4 @@
-import type { FinishTechnique, WashDayTechnique } from '../../care-tracking/index.ts';
+import type { CheckInMark, FinishTechnique, WashDayTechnique } from '../../care-tracking/index.ts';
 import { buildPatterns } from './build-patterns.ts';
 import { countByCare } from './count-by-care.ts';
 import type { InsightFact, InsightsView, Observation } from '../domain/insights.ts';
@@ -32,6 +32,8 @@ export const buildInsights = (
    * rótulo é cópia de interface e já mora no app.
    */
   finishLabel: (technique: FinishTechnique) => string = (t) => t,
+  /** SPEC-051 — como cada marca se chama na tela, pela mesma razão dos outros dois resolvedores. */
+  markLabel: (mark: CheckInMark) => string = (m) => m,
 ): InsightsView => {
   /**
    * ⚠️ **O denominador é o que ela AVALIOU, não o que ela fez.** Um cuidado sem check-in não diz
@@ -74,6 +76,19 @@ export const buildInsights = (
     seen: Map<string, { name: string; count: number }>,
     kind: Observation['kind'],
     verb: string,
+    /**
+     * SPEC-051 — o denominador **e** a frase que o nomeia.
+     *
+     * ⚠️ **Não é um detalhe de redação: é o que separa observar de atribuir.** O que ela **fez**
+     * conta dentro dos cuidados que ela **avaliou bem** — é co-ocorrência com um bom resultado. O
+     * que ela **notou** conta sobre **todos** os cuidados que ela avaliou, porque a marca *é* o
+     * resultado: contá-la dentro do conjunto "bem avaliado" seria contar um resultado dentro de
+     * outro e produzir frases verdadeiras e inúteis (*"frizz em 4 dos 5 que você avaliou bem"*).
+     */
+    sobre: { readonly total: number; readonly frase: string } = {
+      total: best.length,
+      frase: 'cuidados que você avaliou bem',
+    },
   ): Observation[] =>
     [...seen.entries()]
       .filter(([, v]) => v.count >= MIN_OCCURRENCES)
@@ -92,7 +107,7 @@ export const buildInsights = (
          * com nota igual ou acima de `HIGH_FEEL` — não um top-N. Com vinte cuidados bem avaliados,
          * a outra frase viraria "os seus 20 mais bem avaliados", que sugere um ranking inexistente.
          */
-        detail: `${verb} ${v.count} dos ${best.length} cuidados que você avaliou bem`,
+        detail: `${verb} ${v.count} dos ${sobre.total} ${sobre.frase}`,
       }));
 
   /**
@@ -178,6 +193,22 @@ export const buildInsights = (
       ),
       'finish',
       'você finalizou assim em',
+    ),
+    /**
+     * SPEC-051 (`P13`) — **o que ela tem notado**, e só isso.
+     *
+     * ⚠️ **Sem atribuição, e é aqui que a linha passa.** *"Você notou frizz em 6 dos 12 cuidados que
+     * avaliou"* é ela se relendo: nenhuma entrada é apontada como origem. *"Com a Máscara X você
+     * notou maciez em 4 de 5"* seria **nomear um efeito capilar e atribuí-lo a um produto** — a
+     * alegação que a D-26/D-70 reserva a revisor de domínio, e a mesma fronteira da `P18`.
+     *
+     * ⚠️ **O denominador é TODO cuidado avaliado**, não o subconjunto bem avaliado (ver `sobre`).
+     */
+    ...named(
+      countByCare(rated, (f) => f.marks.map((m) => ({ id: m, name: markLabel(m) }))),
+      'noticed',
+      'você notou em',
+      { total: ratedCares, frase: 'cuidados que você avaliou' },
     ),
   ];
 

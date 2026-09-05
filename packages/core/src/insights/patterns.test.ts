@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { FinishTechnique, WashDayTechnique } from '../care-tracking/index.ts';
+import type { CheckInMark, FinishTechnique, WashDayTechnique } from '../care-tracking/index.ts';
 import { buildInsights } from './application/build-insights.ts';
 import { buildPatterns } from './application/build-patterns.ts';
 import type { InsightFact } from './domain/insights.ts';
@@ -28,12 +28,14 @@ const fact = (
   products: { id: string; name: string }[] = [],
   techniques: WashDayTechnique[] = [],
   finishTechnique: FinishTechnique | null = null,
+  marks: CheckInMark[] = [],
 ): InsightFact => ({
   careExecutionId: `e${(n += 1)}`,
   feel,
   products,
   techniques,
   finishTechnique,
+  marks,
 });
 
 const rotulos = {

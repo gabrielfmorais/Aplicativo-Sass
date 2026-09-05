@@ -1,4 +1,4 @@
-import type { FinishTechnique, InsightFact, InsightsPort, WashDayTechnique } from '@app/core';
+import type { CheckInMark, FinishTechnique, InsightFact, InsightsPort, WashDayTechnique } from '@app/core';
 import { InfrastructureError } from '@app/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -50,18 +50,48 @@ export const createInsightsAdapter = (client: SupabaseClient): InsightsPort => (
     const executionIds = rows.map((r) => r.id);
 
     const [checkIns, washDays] = await Promise.all([
-      client.from('checkins').select('care_execution_id, overall_feel').in('care_execution_id', executionIds),
+      client
+        .from('checkins')
+        .select('id, care_execution_id, overall_feel')
+        .in('care_execution_id', executionIds),
       client.from('wash_days').select('id, care_execution_id').in('care_execution_id', executionIds),
     ]);
     if (checkIns.error) throw fail('insights.read_failed', checkIns.error);
     if (washDays.error) throw fail('insights.read_failed', washDays.error);
 
-    const feelOf = new Map(
-      ((checkIns.data ?? []) as { care_execution_id: string; overall_feel: number }[]).map((c) => [
-        c.care_execution_id,
-        c.overall_feel,
-      ]),
-    );
+    const checkInRows = (checkIns.data ?? []) as {
+      id: string;
+      care_execution_id: string;
+      overall_feel: number;
+    }[];
+    const feelOf = new Map(checkInRows.map((c) => [c.care_execution_id, c.overall_feel]));
+
+    /**
+     * SPEC-051 (`P13`) — o que ela notou, por cuidado.
+     *
+     * ⚠️ **Escopo pelos check-ins da janela**, e só eles: sem check-in não há resultado registrado,
+     * e a marca não teria a que pertencer.
+     */
+    let marksByExecution = new Map<string, CheckInMark[]>();
+    if (checkInRows.length > 0) {
+      const marks = await client
+        .from('checkin_marks')
+        .select('checkin_id, mark')
+        .in(
+          'checkin_id',
+          checkInRows.map((c) => c.id),
+        );
+      if (marks.error) throw fail('insights.read_failed', marks.error);
+      const executionOfCheckIn = new Map(checkInRows.map((c) => [c.id, c.care_execution_id]));
+      marksByExecution = ((marks.data ?? []) as { checkin_id: string; mark: CheckInMark }[]).reduce(
+        (acc, m) => {
+          const executionId = executionOfCheckIn.get(m.checkin_id);
+          if (executionId) acc.set(executionId, [...(acc.get(executionId) ?? []), m.mark]);
+          return acc;
+        },
+        new Map<string, CheckInMark[]>(),
+      );
+    }
     const hubs = (washDays.data ?? []) as { id: string; care_execution_id: string }[];
 
     /** Sem hub não há marcação nenhuma — e aí as leituras seguintes não têm o que perguntar. */
@@ -142,6 +172,7 @@ export const createInsightsAdapter = (client: SupabaseClient): InsightsPort => (
       products: productsByExecution.get(r.id) ?? [],
       techniques: techniquesByExecution.get(r.id) ?? [],
       finishTechnique: finishByExecution.get(r.id) ?? null,
+      marks: marksByExecution.get(r.id) ?? [],
     }));
   },
 });

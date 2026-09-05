@@ -107,6 +107,10 @@ que a IA vai **consultar** um dia.
   Faltam **couro** e **dia da semana**.
 - **OQ2 (CAN DEFER)** Mover a derivação para o servidor, tornando o gate premium um gate de **dado**
   (ver §6).
+- **OQ5 🔒 (gate D-26/D-70)** **Atribuir uma marca do `P13` a uma entrada** — *"com a Máscara X
+  você notou maciez em 4 de 5"* (§16). É o passo que o produto promete e o que a camada não pode
+  dar sozinha: o resultado passa a ter **nome de propriedade capilar**, e a co-ocorrência lê como
+  causa. Mesma fronteira da `P18`.
 - **OQ4 (decisão de produto)** A dimensão de **couro cabeludo**: é o único registro dela que é um
   **estado observado** e não uma ação, e cruzá-lo com a avaliação lê como causa (§15). Precisa de
   decisão, não de código.
@@ -120,6 +124,7 @@ que a IA vai **consultar** um dia.
 | Data | Mudança |
 |---|---|
 | 2026-09-04 | SPEC criada e implementada. Repetição de produto nos cuidados que ela avaliou bem, com estado honesto de poucos dados. |
+| 2026-09-05 | **§16 — as marcas do `P13` consumidas**: *"você notou em N dos M cuidados que você avaliou"*, com denominador próprio e **sem atribuição**. ⛔ Atribuir a marca a uma entrada é D-26/D-70 (OQ5). |
 | 2026-09-05 | **§15 — auditoria do módulo:** pares redundantes descartados por regra (medido: 10 cartões de combinação para 5 produtos), e dois campos sem consumidor removidos. |
 | 2026-09-05 | **§14 — a dimensão de finalização** (SPEC-048). Terceiro verbo (*"você finalizou assim em"*), `other`/`unknown` fora da observação (OQ3 da SPEC-048, resolvida), a finalização contando como registro, e as três leituras do hub em paralelo. |
 
@@ -229,6 +234,52 @@ sentidos (removida a regra, o teste falha).
 avaliados (3 `plopping`, 1 `dedoliss`, 1 `other`), a tela mostrou *"Plopping — você finalizou
 assim em 3 dos 5 cuidados que você avaliou bem"*, **sem** *"Outra finalização"* e **sem** `Dedoliss`
 (1 ocorrência, abaixo do mínimo). Zero problema de console.
+
+## 16. Como as marcas do `P13` enriquecem o P2/P8 — e onde elas param
+
+A SPEC-051 acrescentou o eixo que faltava: **o que ela notou**. A pergunta era *como consumi-lo sem
+alegação causal*, e a resposta sai de uma distinção que decide tudo:
+
+> ⚠️ **A marca é um RESULTADO, não uma entrada.**
+>
+> Produto, técnica e finalização são coisas que ela **fez**. A marca é o que ela **observou**.
+
+### ✅ O que entrou
+
+**"Frizz — você notou em 4 dos 6 cuidados que você avaliou."** Seção própria (*"O que você tem
+notado"*), verbo próprio, e — o ponto — **denominador próprio**.
+
+⚠️ **O denominador é TODO cuidado avaliado, não o subconjunto bem avaliado**, e isso não é detalhe
+de redação: contar uma marca dentro do conjunto *"que você avaliou bem"* seria **contar um resultado
+dentro de outro**, e produziria frases verdadeiras e inúteis — *"frizz esteve em 4 dos 5 cuidados que
+você avaliou bem"*. Com o denominador certo, a frase é ela **se relendo**, e nenhuma entrada é
+apontada como origem. Barreira de teste no core e na tela.
+
+⚠️ **Seção separada pela mesma razão das outras duas:** *"que você avaliou"* e *"que você avaliou
+bem"* são números parecidos com significados diferentes, e ficariam lado a lado sem nada explicando
+a diferença.
+
+### ⛔ O que NÃO entrou, e é o mais valioso
+
+**Atribuir uma marca a uma entrada.** *"Nos cuidados em que você usou a Máscara X, você notou maciez
+em 4 de 5."*
+
+⚠️ **Isto é qualitativamente diferente de tudo o que a camada já faz.** *"Esteve em 4 dos 5 que você
+avaliou bem"* co-ocorre com **o julgamento geral dela**; *"…você notou maciez"* co-ocorre com um
+**atributo capilar nomeado**. A distância entre *"apareceu junto"* e *"causou"* colapsa quando o
+resultado tem nome de propriedade do cabelo — não importa a redação escolhida.
+
+⇒ **Gate D-26/D-70**, a mesma fronteira da `P18`. É decisão de revisor de domínio, não de
+engenharia, e é a razão de a fatia parar aqui.
+
+⛔ **E a marca também não vira membro de um padrão da SPEC-050** — *"Máscara da feira + Maciez"* é a
+mesma atribuição com outra forma. Barreira de teste.
+
+### Consequência honesta
+
+**O que a camada aprendeu a fazer** é mostrar a ela o que ela mesma vem notando. **O que ela ainda
+não pode fazer** — ligar isso ao que ela usou — é exatamente o que o produto promete, e depende de
+uma chave que não é do agente. Fica registrado como **OQ5**, e não como código faltando.
 
 ## 15. Auditoria do módulo — dois achados, os dois medidos
 

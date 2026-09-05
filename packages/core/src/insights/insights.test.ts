@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { FinishTechnique, WashDayTechnique } from '../care-tracking/index.ts';
+import type { CheckInMark, FinishTechnique, WashDayTechnique } from '../care-tracking/index.ts';
 import { buildInsights } from './application/build-insights.ts';
 import {
   FINISH_TECHNIQUES_NOT_OBSERVABLE,
@@ -29,12 +29,14 @@ const fact = (
   products: { id: string; name: string }[] = [],
   techniques: WashDayTechnique[] = [],
   finishTechnique: FinishTechnique | null = null,
+  marks: CheckInMark[] = [],
 ): InsightFact => ({
   careExecutionId: `e${(n += 1)}`,
   feel,
   products,
   techniques,
   finishTechnique,
+  marks,
 });
 
 describe('Insights — sem dados suficientes, a Huna diz isso (SPEC-047)', () => {
@@ -584,5 +586,142 @@ describe('Insights — a finalização registrada (SPEC-048)', () => {
     expect(v.observations.find((o) => o.kind === 'finish')?.detail).toMatch(
       /^você finalizou assim em 3 dos 5/,
     );
+  });
+});
+
+/**
+ * SPEC-051 (`P13`) consumida pela SPEC-047 — **o que ela tem notado.**
+ *
+ * ⚠️ **A marca é um RESULTADO, não uma entrada**, e é essa distinção que decide tudo o que pode ser
+ * dito. Produto, técnica e finalização são coisas que ela **fez**; a marca é o que ela **observou**.
+ */
+describe('Insights — o que ela tem notado (SPEC-051 consumida)', () => {
+  const comMarcas = (feel: number, marks: CheckInMark[]) => fact(feel, [], [], null, marks);
+  const rotulo = (m: CheckInMark) =>
+    ({
+      frizz: 'Frizz',
+      softness: 'Maciez',
+      shine: 'Brilho',
+      definition: 'Definição',
+      dryness: 'Ressecamento',
+    })[m];
+
+  it('conta sobre TODOS os cuidados avaliados, não só os bem avaliados', () => {
+    const v = buildInsights(
+      [
+        comMarcas(5, ['frizz']),
+        comMarcas(2, ['frizz']),
+        comMarcas(1, ['frizz']),
+        comMarcas(5, []),
+        comMarcas(5, []),
+      ],
+      undefined,
+      undefined,
+      rotulo,
+    );
+    const o = v.observations.find((x) => x.kind === 'noticed');
+    expect(o?.subject).toBe('Frizz');
+    // 3 de 5 cuidados AVALIADOS — e não "3 dos 2 que você avaliou bem", que seria absurdo.
+    expect(o?.detail).toBe('você notou em 3 dos 5 cuidados que você avaliou');
+  });
+
+  /**
+   * ⚠️ **O denominador é a diferença entre observar e atribuir.** Contar a marca dentro do conjunto
+   * "bem avaliado" seria contar um resultado dentro de outro, e produziria frases verdadeiras e
+   * inúteis — *"frizz esteve em 4 dos 5 cuidados que você avaliou bem"*.
+   */
+  it('nunca usa o denominador "que você avaliou bem"', () => {
+    const v = buildInsights(
+      [
+        comMarcas(5, ['dryness']),
+        comMarcas(5, ['dryness']),
+        comMarcas(5, ['dryness']),
+        comMarcas(1, []),
+        comMarcas(1, []),
+      ],
+      undefined,
+      undefined,
+      rotulo,
+    );
+    for (const o of v.observations.filter((x) => x.kind === 'noticed'))
+      expect(o.detail).not.toMatch(/avaliou bem/);
+  });
+
+  it('abaixo do mínimo de ocorrências não vira observação', () => {
+    const v = buildInsights(
+      [
+        comMarcas(5, ['shine']),
+        comMarcas(5, ['shine']),
+        comMarcas(5, []),
+        comMarcas(5, []),
+        comMarcas(4, []),
+      ],
+      undefined,
+      undefined,
+      rotulo,
+    );
+    expect(v.observations.filter((o) => o.kind === 'noticed')).toEqual([]);
+  });
+
+  /**
+   * ⛔ **A atribuição é a fronteira, e ela não é atravessada em lugar nenhum.** *"Com a Máscara X
+   * você notou maciez em 4 de 5"* nomeia um efeito capilar e o atribui a um produto — D-26/D-70, a
+   * mesma fronteira da `P18`. Nenhuma frase pode juntar uma marca a uma entrada.
+   */
+  it('nenhuma observação atribui uma marca a um produto, técnica ou finalização', () => {
+    const v = buildInsights(
+      [
+        fact(5, [P.mascara], ['air_dried'], 'plopping', ['softness']),
+        fact(5, [P.mascara], ['air_dried'], 'plopping', ['softness']),
+        fact(5, [P.mascara], ['air_dried'], 'plopping', ['softness']),
+        fact(5, [P.mascara]),
+        fact(4, [P.mascara]),
+      ],
+      () => 'Secou naturalmente',
+      () => 'Plopping',
+      rotulo,
+    );
+    for (const o of v.observations) {
+      // Uma observação nomeia UMA coisa — nunca uma marca junto de uma entrada.
+      if (o.kind === 'noticed') expect(o.subject).toBe('Maciez');
+      else expect(o.subject).not.toMatch(/Maciez|Brilho|Frizz|Definição|Ressecamento/);
+    }
+  });
+
+  /** ⛔ E a marca também não entra como membro de um padrão (SPEC-050). */
+  it('a marca nunca é membro de uma combinação', () => {
+    const v = buildInsights(
+      [
+        fact(5, [P.mascara], [], null, ['softness']),
+        fact(5, [P.mascara], [], null, ['softness']),
+        fact(5, [P.mascara], [], null, ['softness']),
+        fact(4, [P.mascara]),
+      ],
+      undefined,
+      undefined,
+      rotulo,
+    );
+    for (const p of v.patterns) expect(p.subject).not.toMatch(/Maciez|Brilho|Frizz|Definição|Ressecamento/);
+  });
+
+  it('nenhum verbo de efeito, nenhum diagnóstico', () => {
+    const v = buildInsights(
+      [
+        comMarcas(5, ['frizz']),
+        comMarcas(3, ['frizz']),
+        comMarcas(2, ['frizz']),
+        comMarcas(5, []),
+        comMarcas(4, []),
+      ],
+      undefined,
+      undefined,
+      rotulo,
+    );
+    for (const o of v.observations.filter((x) => x.kind === 'noticed')) {
+      expect(`${o.subject} ${o.detail}`).not.toMatch(
+        /por causa|graças|melhorou|piorou|causou|provoc|resultado de|seu cabelo (está|ficou)|danificad/i,
+      );
+      expect(o.detail).toMatch(/^você notou em \d+ dos \d+ cuidados que você avaliou$/);
+    }
   });
 });
