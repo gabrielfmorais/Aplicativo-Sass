@@ -1,5 +1,6 @@
 import type {
   FinishStatus,
+  FinishTechnique,
   Product,
   ProductCategory,
   ProductPort,
@@ -9,6 +10,7 @@ import type {
 } from '@app/core';
 import {
   FINISH_STATUSES,
+  FINISH_TECHNIQUES,
   PRODUCT_CATEGORIES,
   PRODUCT_NAME_MAX_LENGTH,
   SCALP_FEELS,
@@ -84,6 +86,30 @@ const FINISH_LABEL: Record<FinishStatus, string> = {
   skipped: 'Pulei dessa vez',
 };
 
+/**
+ * SPEC-048 (F38) — **como cada finalização se chama na tela.**
+ *
+ * Mora aqui, junto de `TECHNIQUE_LABEL` e `SCALP_LABEL`, porque o vocabulário do Wash Day é desta
+ * tela: a Hoje e os Insights **importam** este mapa em vez de manter cópia. Dois mapas para a mesma
+ * lista discordariam na primeira renomeação, e o rótulo apareceria diferente em duas telas sobre o
+ * mesmo registro dela.
+ *
+ * ⚠️ **Vocabulário CANDIDATE** (dono, 2026-09-04): serve para ela **registrar o que fez**, nunca
+ * para o app indicar. "Fitagem é melhor para o seu cabelo", indicação por curvatura, passo a passo
+ * e ranking seguem bloqueados por D-26/D-70 — e é essa contenção que deixa o registro utilizável
+ * antes do sign-off.
+ */
+export const FINISH_TECHNIQUE_LABEL: Record<FinishTechnique, string> = {
+  fitagem_tradicional: 'Fitagem tradicional',
+  fitagem_estruturada: 'Fitagem estruturada',
+  dedoliss: 'Dedoliss',
+  rake_and_shake: 'Rake and shake',
+  plopping: 'Plopping',
+  twist_out: 'Twist out',
+  other: 'Outra finalização',
+  unknown: 'Não sei o nome',
+};
+
 const CATEGORY_LABEL: Record<ProductCategory, string> = {
   shampoo: 'Shampoo',
   conditioner: 'Condicionador',
@@ -100,6 +126,8 @@ type Marked = {
   scalpFeel: ScalpFeel | null;
   /** SPEC-039 — campo próprio, e não um valor dentro de `techniques`: a BR3 aparecendo no tipo. */
   finishStatus: FinishStatus | null;
+  /** SPEC-048 — **qual**, ou `null` para "ainda não disse qual" (que não é `unknown`). */
+  finishTechnique: FinishTechnique | null;
 };
 type Ready = { shelf: readonly Product[]; marked: Marked };
 type Loadable<T> = 'loading' | 'error' | T;
@@ -157,6 +185,7 @@ export function WashDayScreen({
             techniques: record.techniques,
             scalpFeel: record.scalpFeel,
             finishStatus: record.finishStatus,
+            finishTechnique: record.finishTechnique,
           },
         });
       })
@@ -245,13 +274,40 @@ export function WashDayScreen({
   const chooseFinish = (finishStatus: FinishStatus) => {
     if (!isReady(state)) return;
     const previous = state.marked.finishStatus;
+    const previousTechnique = state.marked.finishTechnique;
     const next = previous === finishStatus ? null : finishStatus;
-    setMarked((m) => ({ ...m, finishStatus: next }));
+    /**
+     * ⚠️ **Sair de `done` apaga a técnica, e a tela precisa saber disso.** O adapter limpa a coluna
+     * na mesma escrita, porque o `CHECK` recusa "pulei, e a técnica foi fitagem" (SPEC-048). Se a
+     * tela guardasse a técnica antiga, ela continuaria aparecendo aqui depois de sumir do banco — a
+     * divergência silenciosa que só o próximo reload mostraria.
+     */
+    const nextTechnique = next === 'done' ? previousTechnique : null;
+    setMarked((m) => ({ ...m, finishStatus: next, finishTechnique: nextTechnique }));
     mark(
       'finish',
       () => washDays.setFinishStatus({ careExecutionId, finishStatus: next }),
-      () => setMarked((m) => ({ ...m, finishStatus: previous })),
+      () => setMarked((m) => ({ ...m, finishStatus: previous, finishTechnique: previousTechnique })),
       FINISH_LABEL[finishStatus],
+    );
+  };
+
+  /**
+   * SPEC-048 (F38) — **qual** finalização, com a mesma mecânica da etapa e do couro: tocar em outra
+   * troca, tocar na marcada tira. Uma escrita só nos dois casos, e a mesma fila do `finish`, porque
+   * as duas escrevem na **mesma linha**: em filas separadas, escolher a técnica e trocar a etapa em
+   * sequência rápida poderiam chegar fora de ordem e a última a gravar venceria.
+   */
+  const chooseTechnique = (finishTechnique: FinishTechnique) => {
+    if (!isReady(state)) return;
+    const previous = state.marked.finishTechnique;
+    const next = previous === finishTechnique ? null : finishTechnique;
+    setMarked((m) => ({ ...m, finishTechnique: next }));
+    mark(
+      'finish',
+      () => washDays.setFinishTechnique({ careExecutionId, finishTechnique: next }),
+      () => setMarked((m) => ({ ...m, finishTechnique: previous })),
+      FINISH_TECHNIQUE_LABEL[finishTechnique],
     );
   };
 
@@ -466,7 +522,8 @@ export function WashDayScreen({
           D-102 proibiu — a lista de lá aceitaria o valor sem erro nenhum, e é por isso que a
           barreira do §8 é teste e não comentário.
 
-          Aqui não há vocabulário de finalização: **quais** finalizações e como fazê-las são o `F38`,
+          SPEC-048 (F38) — **qual** finalização entrou logo abaixo, e *dentro desta mesma seção*:
+          é a resposta seguinte à mesma pergunta, não um assunto novo. Como fazer cada uma segue
           atrás do gate D-26/D-70.
         */}
         <Text variant="overline" tone="accent" accessibilityRole="header">
@@ -482,6 +539,31 @@ export function WashDayScreen({
             />
           ))}
         </Row>
+        {/*
+          ⚠️ **Só depois de ela dizer que finalizou.** Perguntar *qual* antes de *se* inverteria a
+          ordem canônica (SPEC-039 FR2), e o banco recusa a combinação: técnica só existe com a
+          etapa em `done`.
+
+          ⚠️ **Pergunta, não indicação.** Nada vem sugerido, marcado ou ordenado por perfil —
+          "melhor para você" é D-26/D-70 e não está aqui.
+        */}
+        {state.marked.finishStatus === 'done' ? (
+          <Stack gap="md">
+            <Text variant="bodyStrong">
+              {state.marked.finishTechnique === null ? 'Qual finalização?' : 'Finalização feita'}
+            </Text>
+            <Row>
+              {FINISH_TECHNIQUES.map((value) => (
+                <Chip
+                  key={value}
+                  label={FINISH_TECHNIQUE_LABEL[value]}
+                  selected={state.marked.finishTechnique === value}
+                  onPress={() => chooseTechnique(value)}
+                />
+              ))}
+            </Row>
+          </Stack>
+        ) : null}
       </Stack>
     </Screen>
   );

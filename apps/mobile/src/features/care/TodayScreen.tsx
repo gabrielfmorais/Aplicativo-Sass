@@ -34,6 +34,12 @@ import { CareProductsPanel } from '@/features/care/CareProductsPanel';
 import { CareTypeMark } from '@/features/care/CareTypeMark';
 import { PauseCard } from '@/features/care/PauseCard';
 import { PlanRationale } from '@/features/care/PlanRationale';
+/**
+ * SPEC-048 — o vocabulário de finalização é da `WashDayScreen`, que já é a dona dos rótulos do Wash
+ * Day (`TECHNIQUE_LABEL`, `SCALP_LABEL`). Duas cópias discordariam na primeira renomeação, e o mesmo
+ * registro dela apareceria com nomes diferentes em duas telas.
+ */
+import { FINISH_TECHNIQUE_LABEL } from '@/features/care/WashDayScreen';
 import { WeekStrip } from '@/features/care/WeekStrip';
 import { buildWeek } from '@/features/care/week';
 import { CARE_TYPE_LABEL, formatLongDate, formatPlannedDate } from '@/features/plan/copy';
@@ -163,25 +169,6 @@ function CheckInPrompt({ blocked, onAnswer }: { blocked: boolean; onAnswer: (fee
  * ⚠️ **Nenhum rótulo aqui afirma nada sobre cabelo** (BR4). "Finalizei" e "Pulei dessa vez" dizem o
  * que ela fez. *Quais* finalizações e como fazê-las são o `F38`, atrás do gate D-26/D-70.
  */
-/**
- * SPEC-048 (F38) — **como cada finalização se chama na tela.**
- *
- * ⚠️ **Vocabulário CANDIDATE** (dono, 2026-09-04): serve para ela **registrar o que fez**, nunca
- * para o app indicar. "Fitagem é melhor para o seu cabelo", indicação por curvatura, passo a passo
- * e ranking seguem bloqueados por D-26/D-70 — e é essa contenção que deixa o registro utilizável
- * antes do sign-off.
- */
-export const FINISH_TECHNIQUE_LABEL: Record<FinishTechnique, string> = {
-  fitagem_tradicional: 'Fitagem tradicional',
-  fitagem_estruturada: 'Fitagem estruturada',
-  dedoliss: 'Dedoliss',
-  rake_and_shake: 'Rake and shake',
-  plopping: 'Plopping',
-  twist_out: 'Twist out',
-  other: 'Outra finalização',
-  unknown: 'Não sei o nome',
-};
-
 const FINISH_LABEL: Record<FinishStatus, string> = {
   done: 'Finalizei',
   skipped: 'Pulei dessa vez',

@@ -148,7 +148,12 @@ E um **nomeado, não corrigido**: o gate premium é de apresentação, não de d
 **O verbo muda com o tipo** (`esteve em` para produto, `você fez em` para técnica) e nenhum dos
 dois afirma efeito. Os dados foram marcados pelo caminho de cliente que a SPEC-024 já autoriza.
 
-## 13. ⛔ Por que a finalização do `F38` NÃO entrou
+## 13. ⛔ Por que a finalização do `F38` NÃO entrou *nesta* fatia
+
+> ✅ **Resolvido depois.** O dono forneceu o vocabulário em 2026-09-04 e a fatia de **registro** foi
+> construída na **SPEC-048**. O texto abaixo fica como está porque explica **por que engenharia não
+> podia resolver isso sozinha** — a decisão que faltava era humana, e foi ela que chegou.
+
 
 O pedido era registrar **qual finalização** ela fez. Isso exige um **vocabulário de técnicas de
 finalização** — e ele é conteúdo capilar substantivo, atrás do gate **D-26/D-70**. Não é
