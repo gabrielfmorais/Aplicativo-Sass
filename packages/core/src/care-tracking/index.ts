@@ -1,6 +1,7 @@
 // care-tracking — public surface (SPEC-005, SPEC-006, SPEC-019, SPEC-024, SPEC-025).
 export {
   CHECKIN_SCALE,
+  CHECKIN_MARKS,
   canCheckIn,
   UNDO_WINDOW_MINUTES,
   RESCHEDULE_HORIZON_DAYS,
@@ -8,7 +9,14 @@ export {
   canUndo,
   rescheduleRange,
 } from './domain/care-tracking.ts';
-export type { CareExecution, CareItem, CareOutcome, CheckIn, TodayView } from './domain/care-tracking.ts';
+export type {
+  CareExecution,
+  CareItem,
+  CareOutcome,
+  CheckIn,
+  CheckInMark,
+  TodayView,
+} from './domain/care-tracking.ts';
 export {
   WASH_DAY_TECHNIQUES,
   WashDayTechniqueSchema,

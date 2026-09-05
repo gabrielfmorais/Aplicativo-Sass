@@ -28,6 +28,7 @@ const board = (over: Partial<CareBoard> = {}): CareBoard => ({
   careFinishes: [],
   cares: [care('c1', '2026-09-01'), care('c2', '2026-09-05'), care('c3', '2026-09-16')],
   executions: [],
+  checkInMarks: [],
   checkIns: [],
   lifetimeDoneCount: 0,
   ...over,
@@ -323,6 +324,7 @@ describe('Progresso — o que a fusão consertou (SPEC-034)', () => {
       <ProgressTabScreen
         board={board({
           executions: [doneOn('c1', '2026-09-01')],
+          checkInMarks: [],
           checkIns: [{ id: 'ci1', careExecutionId: 'x-c1', overallFeel: 4 }],
         })}
         today={'2026-09-10' as LocalDate}

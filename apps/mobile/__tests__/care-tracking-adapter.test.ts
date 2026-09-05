@@ -3,6 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { createCareTrackingAdapter } from '@/infrastructure/supabase/care-tracking-adapter';
 
+/** SPEC-051 — a marcação do check-in é a única escrita direta desta porta, e a policy compara este id. */ const USER =
+  'u1';
 const planRow = {
   id: 'plan-1',
   starts_on: '2026-09-01',
@@ -56,6 +58,8 @@ const makeClient = (
   washDays: Result = { data: [], error: null },
   // SPEC-039 FR5: as etapas de finalização já respondidas, por hub.
   finishes: Result = { data: [], error: null },
+  // SPEC-051: o que ela notou, por check-in.
+  marks: Result = { data: [], error: null },
 ) => {
   const rpc = jest.fn(async (_fn: string, _args: Record<string, unknown>) => ({
     data: null,
@@ -106,9 +110,11 @@ const makeClient = (
               ? thenable(washDays)
               : table === 'wash_day_finish'
                 ? thenable(finishes)
-                : thenable(checkIns),
+                : table === 'checkin_marks'
+                  ? thenable(marks)
+                  : thenable(checkIns),
   );
-  return { client: { from, rpc } as unknown as SupabaseClient, rpc, selects };
+  return { client: { from, rpc } as unknown as SupabaseClient, rpc, selects, from };
 };
 
 const ok = (data: unknown): Result => ({ data, error: null });
@@ -126,8 +132,10 @@ describe('care tracking adapter — reads (SPEC-005 §9)', () => {
       // SPEC-024 FR7 — a execução 'e1' já tem registro; 'e2' não. A Hoje precisa da diferença.
       ok([{ id: 'w1', care_execution_id: 'e1' }]),
       ok([{ wash_day_id: 'w1', finish_status: 'done' }]),
+      // SPEC-051 — o que ela notou naquele check-in, ancorado no id do check-in e não na execução.
+      ok([{ checkin_id: 'ck1', mark: 'frizz' }]),
     );
-    const boardResult = await createCareTrackingAdapter(client).getBoard();
+    const boardResult = await createCareTrackingAdapter(client, () => USER).getBoard();
     expect(boardResult).toEqual({
       planId: 'plan-1',
       startsOn: '2026-09-01',
@@ -136,6 +144,8 @@ describe('care tracking adapter — reads (SPEC-005 §9)', () => {
       scheduleAlgorithmVersion: 'v1',
       pausedOn: null,
       washDayExecutionIds: ['e1'],
+      // SPEC-051 — uma linha por marcação, pelo id do CHECK-IN: o assunto é o resultado.
+      checkInMarks: [{ checkInId: 'ck1', mark: 'frizz' }],
       // SPEC-039 — a etapa vem pelo hub, e a Hoje a lê pela execução.
       careFinishes: [{ careExecutionId: 'e1', status: 'done', technique: null }],
       cares: [
@@ -170,19 +180,19 @@ describe('care tracking adapter — reads (SPEC-005 §9)', () => {
 
   it('returns null when there is no active plan', async () => {
     const { client } = makeClient(ok(null), ok([]), ok([]));
-    expect(await createCareTrackingAdapter(client).getBoard()).toBeNull();
+    expect(await createCareTrackingAdapter(client, () => USER).getBoard()).toBeNull();
   });
 
   it('skips the execution query entirely when the plan has no cares', async () => {
     const { client } = makeClient(ok(planRow), ok([]), ok([]));
-    const boardResult = await createCareTrackingAdapter(client).getBoard();
+    const boardResult = await createCareTrackingAdapter(client, () => USER).getBoard();
     expect(boardResult?.executions).toEqual([]);
   });
 
   /** SPEC-014: after a reassessment the plan is new but her history is not. */
   it('counts effective executions across every plan, not just the active one', async () => {
     const { client } = makeClient(ok(planRow), ok([]), ok([]), null, ok([]), { count: 12, error: null });
-    expect((await createCareTrackingAdapter(client).getBoard())?.lifetimeDoneCount).toBe(12);
+    expect((await createCareTrackingAdapter(client, () => USER).getBoard())?.lifetimeDoneCount).toBe(12);
   });
 
   it('surfaces a failed lifetime count instead of silently reporting zero', async () => {
@@ -190,14 +200,14 @@ describe('care tracking adapter — reads (SPEC-005 §9)', () => {
       count: null,
       error: { message: 'boom' },
     });
-    await expect(createCareTrackingAdapter(client).getBoard()).rejects.toMatchObject({
+    await expect(createCareTrackingAdapter(client, () => USER).getBoard()).rejects.toMatchObject({
       code: 'care.board_read_failed',
     });
   });
 
   it('surfaces a read failure instead of pretending the board is empty', async () => {
     const { client } = makeClient({ data: null, error: { message: 'boom' } }, ok([]), ok([]));
-    await expect(createCareTrackingAdapter(client).getBoard()).rejects.toMatchObject({
+    await expect(createCareTrackingAdapter(client, () => USER).getBoard()).rejects.toMatchObject({
       code: 'care.board_read_failed',
     });
   });
@@ -208,7 +218,7 @@ describe('care tracking adapter — writes go through the RPCs only', () => {
 
   it('completes with the idempotency key and the device timezone', async () => {
     const { client: c, rpc } = client();
-    await createCareTrackingAdapter(c).complete({
+    await createCareTrackingAdapter(c, () => USER).complete({
       scheduledCareId: 'c1',
       clientExecutionId: 'k1',
       timeZone: 'America/Sao_Paulo',
@@ -222,7 +232,7 @@ describe('care tracking adapter — writes go through the RPCs only', () => {
 
   it('skips, reschedules and undoes through their own RPCs', async () => {
     const { client: c, rpc } = client();
-    const adapter = createCareTrackingAdapter(c);
+    const adapter = createCareTrackingAdapter(c, () => USER);
     await adapter.skip('c1');
     await adapter.reschedule({ scheduledCareId: 'c1', newDate: '2026-09-12', timeZone: 'UTC' });
     await adapter.undo('e1');
@@ -234,7 +244,7 @@ describe('care tracking adapter — writes go through the RPCs only', () => {
       message: 'care is no longer planned',
       code: '23514',
     });
-    await expect(createCareTrackingAdapter(c).skip('c1')).rejects.toBeInstanceOf(ConflictError);
+    await expect(createCareTrackingAdapter(c, () => USER).skip('c1')).rejects.toBeInstanceOf(ConflictError);
   });
 
   it('maps a missing or foreign care to a conflict too (never leaks which)', async () => {
@@ -242,7 +252,7 @@ describe('care tracking adapter — writes go through the RPCs only', () => {
       message: 'care not found',
       code: 'P0002',
     });
-    await expect(createCareTrackingAdapter(c).skip('c1')).rejects.toBeInstanceOf(ConflictError);
+    await expect(createCareTrackingAdapter(c, () => USER).skip('c1')).rejects.toBeInstanceOf(ConflictError);
   });
 
   it('keeps a transport failure retryable rather than calling it a conflict', async () => {
@@ -250,7 +260,7 @@ describe('care tracking adapter — writes go through the RPCs only', () => {
       message: 'network down',
     });
     await expect(
-      createCareTrackingAdapter(c).complete({
+      createCareTrackingAdapter(c, () => USER).complete({
         scheduledCareId: 'c1',
         clientExecutionId: 'k1',
         timeZone: 'UTC',
@@ -268,7 +278,7 @@ describe('care tracking adapter — writes go through the RPCs only', () => {
 describe('care tracking adapter — a origem do plano viaja no board (SPEC-017)', () => {
   it('pede explicitamente a origem e as versões de engine ao ler o plano ativo', async () => {
     const { client, selects } = makeClient(ok(planRow), ok(careRows), ok(executionRows));
-    await createCareTrackingAdapter(client).getBoard();
+    await createCareTrackingAdapter(client, () => USER).getBoard();
 
     const planSelect = selects[0] ?? '';
     for (const column of ['hair_profile_id', 'assessment_algorithm_version', 'schedule_algorithm_version']) {
@@ -286,7 +296,7 @@ describe('care tracking adapter — pausa (SPEC-022)', () => {
 
   it('pausa pela RPC, mandando só o fuso — o resto o servidor decide', async () => {
     const rpc = jest.fn(async () => ({ data: null, error: null }));
-    await createCareTrackingAdapter(rpcClient(rpc)).pause('America/Sao_Paulo');
+    await createCareTrackingAdapter(rpcClient(rpc), () => USER).pause('America/Sao_Paulo');
     expect(rpc).toHaveBeenCalledWith('pause_plan', { p_timezone: 'America/Sao_Paulo' });
     // O `user_id` vem de `auth.uid()` dentro da função: nomeá-lo aqui seria o buraco que a RPC fecha.
     expect(JSON.stringify(rpc.mock.calls)).not.toMatch(/user_id/);
@@ -297,7 +307,7 @@ describe('care tracking adapter — pausa (SPEC-022)', () => {
       data: [{ action: 'shifted', shift_days: 4, care_count: 3 }],
       error: null,
     }));
-    const adapter = createCareTrackingAdapter(rpcClient(rpc));
+    const adapter = createCareTrackingAdapter(rpcClient(rpc), () => USER);
 
     await expect(adapter.resume({ timeZone: 'America/Sao_Paulo', commit: false })).resolves.toEqual({
       action: 'shifted',
@@ -320,13 +330,18 @@ describe('care tracking adapter — pausa (SPEC-022)', () => {
   it('resposta vazia é "não estava pausado", não uma falha', async () => {
     const rpc = jest.fn(async () => ({ data: [], error: null }));
     await expect(
-      createCareTrackingAdapter(rpcClient(rpc)).resume({ timeZone: 'America/Sao_Paulo', commit: true }),
+      createCareTrackingAdapter(rpcClient(rpc), () => USER).resume({
+        timeZone: 'America/Sao_Paulo',
+        commit: true,
+      }),
     ).resolves.toEqual({ action: 'not_paused', shiftDays: 0, careCount: 0 });
   });
 
   it('rejeita quando o servidor recusa, em vez de relatar uma pausa que não aconteceu', async () => {
     const rpc = jest.fn(async () => ({ data: null, error: { message: 'no active plan' } }));
-    await expect(createCareTrackingAdapter(rpcClient(rpc)).pause('America/Sao_Paulo')).rejects.toMatchObject({
+    await expect(
+      createCareTrackingAdapter(rpcClient(rpc), () => USER).pause('America/Sao_Paulo'),
+    ).rejects.toMatchObject({
       code: 'care.pause_failed',
     });
   });
@@ -348,13 +363,13 @@ describe('care tracking adapter — a pausa vem escopada ao plano ativo (SPEC-02
       { count: 0, error: null },
       ok({ paused_on: '2026-09-04' }),
     );
-    const board = await createCareTrackingAdapter(client).getBoard();
+    const board = await createCareTrackingAdapter(client, () => USER).getBoard();
     expect(board?.pausedOn).toBe('2026-09-04');
   });
 
   it('sem pausa aberta, o board diz que o cronograma está andando', async () => {
     const { client } = makeClient(ok(planRow), ok(careRows), ok(executionRows));
-    const board = await createCareTrackingAdapter(client).getBoard();
+    const board = await createCareTrackingAdapter(client, () => USER).getBoard();
     expect(board?.pausedOn).toBeNull();
   });
 });

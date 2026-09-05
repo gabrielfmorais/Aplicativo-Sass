@@ -1,6 +1,6 @@
 import type { Product } from '../../hair-profile/index.ts';
 import type { CareTypeCode, ScheduledCare } from '../../schedule/index.ts';
-import type { CareExecution, CheckIn } from '../domain/care-tracking.ts';
+import type { CareExecution, CheckIn, CheckInMark } from '../domain/care-tracking.ts';
 import type {
   FinishStatus,
   FinishTechnique,
@@ -56,6 +56,15 @@ export type CareBoard = {
   readonly executions: readonly CareExecution[];
   /** Check-ins for those executions (SPEC-006); empty until the user answers one. */
   readonly checkIns: readonly CheckIn[];
+  /**
+   * SPEC-051 (`P13`) — **o que ela notou**, por check-in.
+   *
+   * ⚠️ **Lista, e não campo do `CheckIn`.** Uma marcação é uma linha própria numa junção, do mesmo
+   * jeito que produtos e técnicas do Wash Day: cada toque é uma escrita independente, e desmarcar é
+   * um `DELETE` — enquanto `checkins` continua **append-only**, porque a nota de 1 a 5 é o fato
+   * âncora e não muda (SPEC-006 BR3).
+   */
+  readonly checkInMarks: readonly { readonly checkInId: string; readonly mark: CheckInMark }[];
   /**
    * SPEC-024 FR7 — as execuções que **têm** um registro de Wash Day. Só os ids: a Hoje precisa
    * dizer que o registro existe, e nunca precisou saber o que tem dentro.
@@ -123,6 +132,16 @@ export interface CareTrackingPort {
    * Records how the care went (SPEC-006). Idempotent by `clientCheckinId`, and refused by the
    * server if the execution was undone or already has a check-in.
    */
+  /**
+   * SPEC-051 (`P13`) — marca ou desmarca **o que ela notou** naquele check-in.
+   *
+   * ⚠️ **Depois do check-in, nunca dentro dele.** `submitCheckIn` não muda de assinatura: passar as
+   * marcações como parâmetro faria a pergunta de **um toque** virar formulário, que é a única coisa
+   * que o Blueprint §8 proíbe explicitamente nesta capability.
+   *
+   * ⚠️ **Registro, nunca diagnóstico** — *"você marcou frizz"* é relato dela (D-26/D-70).
+   */
+  markCheckIn(input: { checkInId: string; mark: CheckInMark; used: boolean }): Promise<void>;
   submitCheckIn(input: {
     careExecutionId: string;
     overallFeel: number;
