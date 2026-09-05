@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import type { FinishTechnique, WashDayTechnique } from '../care-tracking/index.ts';
-import { localDateFromString } from '../shared/time/index.ts';
 import { buildInsights } from './application/build-insights.ts';
 import {
   FINISH_TECHNIQUES_NOT_OBSERVABLE,
@@ -32,8 +31,6 @@ const fact = (
   finishTechnique: FinishTechnique | null = null,
 ): InsightFact => ({
   careExecutionId: `e${(n += 1)}`,
-  careTypeCode: 'hydration',
-  executedOn: localDateFromString('2026-09-01'),
   feel,
   products,
   techniques,
@@ -311,11 +308,13 @@ describe('Insights — cobertura do registro (SPEC-047 fatia 3)', () => {
  */
 describe('Insights — combinações (SPEC-049 OQ1)', () => {
   it('nomeia o par que se repete, com o verbo no plural', () => {
+    // ⚠️ A Máscara aparece **também sem** o Leave-in: é isso que faz o par dizer algo que os dois
+    // cartões isolados não dizem — o Leave-in nunca apareceu sozinho.
     const v = buildInsights([
       fact(5, [P.mascara, P.leave]),
       fact(5, [P.mascara, P.leave]),
       fact(5, [P.mascara, P.leave]),
-      fact(5, [P.shampoo]),
+      fact(5, [P.mascara]),
       fact(4, [P.shampoo]),
     ]);
     const combo = v.observations.find((o) => o.kind === 'combo');
@@ -337,7 +336,16 @@ describe('Insights — combinações (SPEC-049 OQ1)', () => {
   /** Só pares: trios explodem em combinações e produzem coincidência com cara de padrão. */
   it('três produtos juntos viram três pares, nunca um trio', () => {
     const tres = [P.mascara, P.leave, P.shampoo];
-    const v = buildInsights([fact(5, tres), fact(5, tres), fact(5, tres), fact(5, []), fact(4, [])]);
+    // Cada um aparece **também sozinho**: sem isso os três pares empatariam com os três itens e
+    // seriam descartados por redundância, que é outra regra e tem o teste dela.
+    const v = buildInsights([
+      fact(5, tres),
+      fact(5, tres),
+      fact(5, tres),
+      fact(5, [P.mascara]),
+      fact(5, [P.leave]),
+      fact(5, [P.shampoo]),
+    ]);
     const combos = v.observations.filter((o) => o.kind === 'combo');
     expect(combos).toHaveLength(3);
     for (const c of combos) expect(c.subject.split(' + ')).toHaveLength(2);
@@ -348,10 +356,65 @@ describe('Insights — combinações (SPEC-049 OQ1)', () => {
       fact(5, [P.mascara, P.leave]),
       fact(5, [P.leave, P.mascara]),
       fact(5, [P.mascara, P.leave]),
-      fact(5, []),
+      fact(5, [P.mascara]),
       fact(4, []),
     ]);
     expect(a.observations.find((o) => o.kind === 'combo')?.subject).toBe('Leave-in azul + Máscara da Ana');
+  });
+
+  /**
+   * ⚠️ **O par que não diz nada além dos dois itens sozinhos é o mesmo fato contado três vezes** — e
+   * a tela ficava pior justamente para quem é mais consistente.
+   *
+   * Medido: rotina estável com **5 produtos marcados em todo cuidado** produzia **10 cartões de
+   * combinação** ao lado dos 5 de produto, todos dizendo "juntos em 5 dos 5" sobre produtos que já
+   * diziam "esteve em 5 dos 5". As observações de item ficavam soterradas pelos pares derivadas
+   * delas.
+   */
+  it('o par que empata com OS DOIS itens é descartado: não diz nada novo', () => {
+    const juntos = [P.mascara, P.leave];
+    const v = buildInsights([
+      fact(5, juntos),
+      fact(5, juntos),
+      fact(5, juntos),
+      fact(5, juntos),
+      fact(4, juntos),
+    ]);
+    // Os dois produtos continuam sendo observação — o fato é deles.
+    expect(v.observations.filter((o) => o.kind === 'product')).toHaveLength(2);
+    // O par, não: os dois nunca apareceram separados, e dizer isso de novo é ruído.
+    expect(v.observations.filter((o) => o.kind === 'combo')).toEqual([]);
+  });
+
+  it('mas empatar com UM só dos itens informa, e o par fica', () => {
+    const v = buildInsights([
+      fact(5, [P.mascara, P.leave]),
+      fact(5, [P.mascara, P.leave]),
+      fact(5, [P.mascara, P.leave]),
+      fact(5, [P.mascara]),
+      fact(4, [P.mascara]),
+    ]);
+    // "O Leave-in nunca apareceu sem a Máscara" é um fato que nenhum cartão isolado carrega.
+    const combo = v.observations.find((o) => o.kind === 'combo');
+    expect(combo?.subject).toBe('Leave-in azul + Máscara da Ana');
+    expect(combo?.detail).toBe('apareceram juntos em 3 dos 5 cuidados que você avaliou bem');
+  });
+
+  /**
+   * ⚠️ **A medição que motivou a regra, como teste.** Cinco produtos sempre juntos davam dez
+   * cartões de combinação; agora dão zero, e os cinco cartões de produto ficam legíveis.
+   */
+  it('rotina estável de cinco produtos não vira dez cartões de combinação', () => {
+    const cinco = [
+      P.mascara,
+      P.leave,
+      P.shampoo,
+      { id: 'p4', name: 'Gelatina' },
+      { id: 'p5', name: 'Óleo de coco' },
+    ];
+    const v = buildInsights([fact(5, cinco), fact(5, cinco), fact(5, cinco), fact(5, cinco), fact(4, cinco)]);
+    expect(v.observations.filter((o) => o.kind === 'product')).toHaveLength(5);
+    expect(v.observations.filter((o) => o.kind === 'combo')).toEqual([]);
   });
 
   /** ⚠️ A barreira de linguagem vale igual para o par. */
@@ -360,9 +423,12 @@ describe('Insights — combinações (SPEC-049 OQ1)', () => {
       fact(5, [P.mascara, P.leave]),
       fact(5, [P.mascara, P.leave]),
       fact(5, [P.mascara, P.leave]),
-      fact(5, []),
-      fact(4, []),
+      fact(5, [P.mascara]),
+      fact(4, [P.mascara]),
     ]);
+    // Sem isto o laço abaixo ficaria vazio: com os dois produtos sempre juntos, o par é redundante
+    // e nem chega a existir — um teste de linguagem sobre nenhuma frase não prova nada.
+    expect(v.observations.some((o) => o.kind === 'combo')).toBe(true);
     for (const o of v.observations) {
       expect(`${o.subject} ${o.detail}`).not.toMatch(
         /funciona|melhor|receita|f[óo]rmula|combinação ideal|ajud/i,

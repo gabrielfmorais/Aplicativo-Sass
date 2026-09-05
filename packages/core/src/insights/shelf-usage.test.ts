@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Product } from '../hair-profile/index.ts';
-import { localDateFromString } from '../shared/time/index.ts';
 import { buildShelfUsage } from './application/build-shelf-usage.ts';
 import type { InsightFact } from './domain/insights.ts';
 
@@ -17,8 +16,6 @@ const prod = (id: string, name: string): Product => ({ id, name, category: 'mask
 let n = 0;
 const fact = (products: Product[]): InsightFact => ({
   careExecutionId: `e${(n += 1)}`,
-  careTypeCode: 'hydration',
-  executedOn: localDateFromString('2026-09-01'),
   feel: 5,
   products: products.map((p) => ({ id: p.id, name: p.name })),
   techniques: [],

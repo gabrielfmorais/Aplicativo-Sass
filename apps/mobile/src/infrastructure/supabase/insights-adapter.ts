@@ -1,5 +1,5 @@
-import type { CareTypeCode, FinishTechnique, InsightFact, InsightsPort, WashDayTechnique } from '@app/core';
-import { InfrastructureError, localDateFromString } from '@app/core';
+import type { FinishTechnique, InsightFact, InsightsPort, WashDayTechnique } from '@app/core';
+import { InfrastructureError } from '@app/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 const fail = (code: string, e: { message: string }) => new InfrastructureError(code, e.message);
@@ -35,16 +35,17 @@ export const createInsightsAdapter = (client: SupabaseClient): InsightsPort => (
   async facts(): Promise<readonly InsightFact[]> {
     const executions = await client
       .from('care_executions')
-      .select('id, care_type_code, executed_on')
+      /**
+       * ⚠️ **Só `id`.** `care_type_code` e `executed_on` eram lidos e não consumidos por ninguém —
+       * a ordenação por `executed_on` é do servidor e não precisa da coluna no `select`. Voltam com
+       * o consumidor delas (segmentação `P8`, recência `P17`), não antes.
+       */
+      .select('id')
       .is('voided_at', null)
       .order('executed_on', { ascending: false })
       .limit(HISTORY_WINDOW);
     if (executions.error) throw fail('insights.read_failed', executions.error);
-    const rows = (executions.data ?? []) as {
-      id: string;
-      care_type_code: CareTypeCode;
-      executed_on: string;
-    }[];
+    const rows = (executions.data ?? []) as { id: string }[];
     if (rows.length === 0) return [];
     const executionIds = rows.map((r) => r.id);
 
@@ -137,8 +138,6 @@ export const createInsightsAdapter = (client: SupabaseClient): InsightsPort => (
 
     return rows.map((r) => ({
       careExecutionId: r.id,
-      careTypeCode: r.care_type_code,
-      executedOn: localDateFromString(r.executed_on),
       feel: feelOf.get(r.id) ?? null,
       products: productsByExecution.get(r.id) ?? [],
       techniques: techniquesByExecution.get(r.id) ?? [],
