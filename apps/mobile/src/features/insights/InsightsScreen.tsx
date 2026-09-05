@@ -96,7 +96,12 @@ export function InsightsScreen({
    * agora — então ele é conteúdo, não placeholder: diz **o que falta** e **por quê**, em vez de
    * girar ou mostrar uma lista vazia.
    */
-  if (!view.enoughData || view.observations.length === 0) {
+  /**
+   * ⚠️ **SPEC-050 EC3 — as duas listas, não uma.** Um par pode alcançar 3 cuidados **avaliados**
+   * enquanto nenhum item isolado alcança 3 cuidados **bem avaliados**: os denominadores são
+   * diferentes. Olhar só `observations` esconderia padrões que existem.
+   */
+  if (!view.enoughData || (view.observations.length === 0 && view.patterns.length === 0)) {
     return (
       <Screen footer={footer}>
         {header}
@@ -130,17 +135,70 @@ export function InsightsScreen({
   return (
     <Screen footer={footer}>
       {header}
+      {/*
+        ⚠️ **Duas seções, e o rótulo é o que as separa.** Um cartão diz *"esteve em 4 dos 5 cuidados
+        que você avaliou bem"* e outro *"apareceram juntos em 5 cuidados que você avaliou"* — os
+        denominadores são diferentes, e sem o título eles se pareceriam demais para números tão
+        parecidos.
+      */}
       <Stack gap="md">
-        {view.observations.map((o) => (
-          <Card key={o.key}>
-            <Stack gap="sm">
-              <Text variant="heading" accessibilityRole="header">
-                {o.subject}
-              </Text>
-              <Text tone="muted">{o.detail}</Text>
-            </Stack>
-          </Card>
-        ))}
+        <Text variant="overline" tone="accent" accessibilityRole="header">
+          O que se repete
+        </Text>
+        {view.observations.length > 0 ? (
+          view.observations.map((o) => (
+            <Card key={o.key}>
+              <Stack gap="sm">
+                <Text variant="heading" accessibilityRole="header">
+                  {o.subject}
+                </Text>
+                <Text tone="muted">{o.detail}</Text>
+              </Stack>
+            </Card>
+          ))
+        ) : (
+          <Text tone="muted">{missingReason(view)}</Text>
+        )}
+      </Stack>
+
+      {/*
+        SPEC-050 (`P8`) — **as combinações.**
+
+        ⚠️ **Co-ocorrência com resultado, nunca efeito.** *"Apareceram juntos em 5 cuidados que você
+        avaliou, e em 4 deles você avaliou bem"* é contagem nos registros dela; *"essa combinação é
+        ideal para você"* seria alegação capilar (D-26/D-70), e não existe caminho de código que a
+        produza.
+
+        ⚠️ **Poucas, de propósito** (NG6): no máximo três. Uma tela cheia de combinações é uma tela
+        estatística, e a decisão do dono foi que poucos padrões informativos valem mais que
+        cobertura.
+      */}
+      <Stack gap="md">
+        <Text variant="overline" tone="accent" accessibilityRole="header">
+          Suas combinações
+        </Text>
+        {view.patterns.length > 0 ? (
+          view.patterns.map((p) => (
+            <Card key={p.key}>
+              <Stack gap="sm">
+                <Text variant="heading" accessibilityRole="header">
+                  {p.subject}
+                </Text>
+                <Text tone="muted">{p.detail}</Text>
+              </Stack>
+            </Card>
+          ))
+        ) : (
+          /*
+            ⚠️ **Estado honesto, não placeholder.** Sem par com amostra suficiente, a Huna diz isso —
+            e não preenche a seção com combinação nenhuma.
+          */
+          <Text tone="muted">
+            A Huna ainda está conhecendo suas combinações. Ela só mostra um padrão quando as duas coisas
+            apareceram juntas em pelo menos 3 cuidados que você avaliou — com menos que isso, uma repetição é
+            só coincidência.
+          </Text>
+        )}
       </Stack>
       {/*
         ⚠️ **Rastreabilidade**, exigida pelo Blueprint: ela consegue ver de onde saiu cada número.
