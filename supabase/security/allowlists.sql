@@ -258,3 +258,27 @@ insert into tests.security_definer_allowlist (function_signature, spec, justific
     'SPEC-043',
     'Only write path into journey_points; the client holds no INSERT. Neither the points nor the fact to award are parameters — the function reads her own care_executions, checkins and wash_days and grants what has no row yet, so a tampered client cannot invent adherence it did not have. user_id comes from auth.uid() via care_current_user(). Two server invariants justify DEFINER: the civil day (care_local_today, which validates and bounds the caller-supplied IANA timezone, T22) and idempotency by (user_id, fact_kind, fact_id), so a second call, a retry or a reload grants nothing — the ON CONFLICT DO NOTHING closes the race the preceding read cannot. The ruler version is stamped on each row so a future v2 never rewrites points already granted. search_path is pinned.'
   );
+
+-- SPEC-051 §7 (P13): o que ela notou no cabelo, ancorado no check-in.
+--
+-- `authenticated` escreve DIRETO, sem RPC, porque a linha não guarda invariante de servidor nenhum:
+-- não há dia civil (a data é a do check-in) e não há idempotência de transação (a chave natural
+-- `(checkin_id, mark)` faz o retry chegar ao mesmo lugar, e o duplo toque virar `23505`). É o mesmo
+-- raciocínio do `F26`/`F25`.
+--
+-- `DELETE` é correto AQUI e continua proibido em `checkins`: desmarcar é ela corrigindo o que
+-- marcou, não apagando histórico. A nota de 1 a 5 permanece imutável porque é o fato âncora
+-- (SPEC-006), e essa divisão é a mesma que a SPEC-025 fez entre o check-in e o couro no hub.
+--
+-- Sem `UPDATE`: uma marcação não muda de valor — ela existe ou não existe. Conceder `UPDATE` aqui
+-- permitiria reescrever `mark` numa linha existente, que é a mesma coisa que apagar uma e criar
+-- outra, só que sem passar pelo `DELETE` que a policy audita.
+--
+-- A posse é validada nas DUAS pontas: a policy olha o dono da LINHA (`user_id = auth.uid()`), e só
+-- a FK composta `(checkin_id, user_id) -> checkins (id, user_id)` olha o dono do CHECK-IN. Sem ela
+-- um cliente adulterado penduraria a própria marcação no check-in alheio — invisível para as duas e
+-- contável por `P8`.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'checkin_marks', 'SELECT', 'SPEC-051'),
+  ('authenticated', 'checkin_marks', 'INSERT', 'SPEC-051'),
+  ('authenticated', 'checkin_marks', 'DELETE', 'SPEC-051');

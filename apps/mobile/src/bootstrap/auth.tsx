@@ -168,7 +168,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const journey = useMemo(() => createJourneyAdapter(supabase), []);
   /** SPEC-044 — o share é porta de **plataforma**, não de servidor: nada aqui fala com o Supabase. */
   const share = useMemo(() => createShareAdapter(), []);
-  const careTracking = useMemo(() => createCareTrackingAdapter(supabase), []);
+  const careTracking = useMemo(
+    () =>
+      // SPEC-051 — `userId` só para a marcação do check-in, a única escrita direta desta porta.
+      createCareTrackingAdapter(supabase, () => {
+        if (state === 'loading' || state.status !== 'authenticated') throw new Error('not authenticated');
+        return state.session.userId;
+      }),
+    [state],
+  );
   const entitlements = useMemo(() => createEntitlementsAdapter(supabase), []);
   /** SPEC-047 (P2) — leitura do histórico dela para observar repetições. Só leitura, só dela. */
   const insights = useMemo(() => createInsightsAdapter(supabase), []);

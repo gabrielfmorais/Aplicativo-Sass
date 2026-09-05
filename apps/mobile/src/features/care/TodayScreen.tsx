@@ -2,6 +2,7 @@ import type {
   CareBoard,
   CareItem,
   CareTrackingPort,
+  CheckInMark,
   FinishStatus,
   FinishTechnique,
   HairProfilePort,
@@ -14,6 +15,7 @@ import type {
 } from '@app/core';
 import {
   CARE_GUIDES,
+  CHECKIN_MARKS,
   CHECKIN_SCALE,
   FINISH_STATUSES,
   FINISH_TECHNIQUES,
@@ -66,6 +68,8 @@ type Action =
   | { kind: 'complete' | 'skip' | 'undo' }
   | { kind: 'reschedule'; days: number }
   | { kind: 'checkin'; feel: number }
+  /** SPEC-051 (`P13`) — o que ela notou naquele check-in. */
+  | { kind: 'checkinMark'; mark: CheckInMark; used: boolean }
   | { kind: 'finish'; status: FinishStatus | null }
   /** SPEC-048 (F38) — qual finalização ela fez. `null` volta a "ainda não disse qual". */
   | { kind: 'finishTechnique'; technique: FinishTechnique | null };
@@ -123,6 +127,67 @@ const stateTagOf = (item: CareItem): { label: string; tone: 'danger' | 'success'
  * SPEC-006 §14 — one question, one tap, on the care she just finished. No navigation: taking her off
  * this screen is the friction G1 exists to remove.
  */
+/**
+ * SPEC-051 (`P13`) — **como cada marcação se chama na tela.**
+ *
+ * ⚠️ **Vocabulário CANDIDATE**, da metade `cabelo` do Blueprint §8: serve para ela **registrar o
+ * que notou**, nunca para o app afirmar. *"Você marcou frizz"* é relato dela; *"seu cabelo está
+ * ressecado"* seria diagnóstico (D-26/D-70).
+ *
+ * ⛔ **Nada de couro cabeludo aqui** — *sensível · coçando · descamando* é sintoma, atrás de D-32 e
+ * D-26 (SPEC-025 OQ2).
+ */
+export const CHECKIN_MARK_LABEL: Record<CheckInMark, string> = {
+  softness: 'Maciez',
+  shine: 'Brilho',
+  frizz: 'Frizz',
+  definition: 'Definição',
+  dryness: 'Ressecamento',
+};
+
+/**
+ * SPEC-051 — **o que ela notou**, depois da nota e nunca dentro dela.
+ *
+ * ⚠️ **O check-in continua sendo de UM toque** (Blueprint §8: *"o check-in vale porque é barato"*).
+ * Estas marcações são oferta, não pedágio: aparecem **depois** de a nota existir, são opcionais, e
+ * pular não custa nada.
+ *
+ * ⚠️ **A lista mistura qualidades de sinal oposto de propósito.** Dar direção a cada uma dobraria
+ * vocabulário e toques; separar em *"o que ficou bom"* e *"o que incomodou"* exigiria que o app
+ * decidisse que frizz é ruim. A pergunta é neutra — *"o que você notou?"* — e a nota de 1 a 5
+ * continua carregando a valência.
+ */
+function CheckInMarks({
+  marks,
+  blocked,
+  onToggle,
+}: {
+  marks: readonly CheckInMark[];
+  blocked: boolean;
+  onToggle: (mark: CheckInMark, used: boolean) => void;
+}) {
+  return (
+    <Stack gap="sm">
+      <Text variant="bodyStrong">O que você notou?</Text>
+      <Row gap="sm">
+        {CHECKIN_MARKS.map((mark) => {
+          const selected = marks.includes(mark);
+          return (
+            <Chip
+              key={mark}
+              label={CHECKIN_MARK_LABEL[mark]}
+              multi
+              selected={selected}
+              disabled={blocked}
+              onPress={() => onToggle(mark, !selected)}
+            />
+          );
+        })}
+      </Row>
+    </Stack>
+  );
+}
+
 function CheckInPrompt({ blocked, onAnswer }: { blocked: boolean; onAnswer: (feel: number) => void }) {
   return (
     <Stack gap="sm">
@@ -251,6 +316,7 @@ function CareActions({
   emphasis,
   onAct,
   washDay,
+  marksOf,
   shelf,
   onShare,
 }: {
@@ -270,6 +336,8 @@ function CareActions({
   onAct: (item: CareItem, action: Action) => void;
   /** SPEC-024 — o registro do que ela usou, oferecido depois de concluir (FR1). */
   washDay: WashDayAccess;
+  /** SPEC-051 — o que ela notou naquele check-in, lido do board (a tela nunca reconta). */
+  marksOf: (checkInId: string) => readonly CheckInMark[];
   /**
    * SPEC-041 (F48) — as portas para mostrar o que ela já tem, **no momento do cuidado**. Ausente
    * quando a capability não está disponível: o cartão continua inteiro sem ela.
@@ -316,7 +384,19 @@ function CareActions({
           />
         ) : null}
         {item.checkIn ? (
-          <Text tone="muted">{`Você marcou: ${item.checkIn.overallFeel}/5`}</Text>
+          <Stack gap="sm">
+            <Text tone="muted">{`Você marcou: ${item.checkIn.overallFeel}/5`}</Text>
+            {/*
+              SPEC-051 — a oferta vem **depois** da nota, porque é a nota que ancora a marcação: sem
+              check-in não há a que pendurar (FR5), e perguntar antes transformaria o toque único em
+              formulário.
+            */}
+            <CheckInMarks
+              marks={marksOf(item.checkIn.id)}
+              blocked={blocked}
+              onToggle={(mark, used) => onAct(item, { kind: 'checkinMark', mark, used })}
+            />
+          </Stack>
         ) : canCheckIn(item) ? (
           <CheckInPrompt blocked={blocked} onAnswer={(feel) => onAct(item, { kind: 'checkin', feel })} />
         ) : null}
@@ -454,6 +534,7 @@ function FocusCard({
   blocked,
   onAct,
   washDay,
+  marksOf,
   shelf,
   onShare,
 }: {
@@ -464,6 +545,8 @@ function FocusCard({
   blocked: boolean;
   onAct: (item: CareItem, action: Action) => void;
   washDay: WashDayAccess;
+  /** SPEC-051 — o que ela notou naquele check-in, lido do board (a tela nunca reconta). */
+  marksOf: (checkInId: string) => readonly CheckInMark[];
   /** SPEC-041 (F48) — repassado até o cartão, que é onde o painel abre. */
   shelf?: { readonly washDays: WashDayPort; readonly products: ProductPort } | undefined;
   /** SPEC-045 (F46) — o cuidado que ela acabou de fazer vira card, dali mesmo. */
@@ -489,6 +572,7 @@ function FocusCard({
           emphasis="focus"
           onAct={onAct}
           washDay={washDay}
+          marksOf={marksOf}
           shelf={shelf}
           onShare={onShare}
         />
@@ -507,6 +591,7 @@ function CareCard({
   blocked,
   onAct,
   washDay,
+  marksOf,
   shelf,
   onShare,
   tone = 'surface',
@@ -518,6 +603,8 @@ function CareCard({
   blocked: boolean;
   onAct: (item: CareItem, action: Action) => void;
   washDay: WashDayAccess;
+  /** SPEC-051 — o que ela notou naquele check-in, lido do board (a tela nunca reconta). */
+  marksOf: (checkInId: string) => readonly CheckInMark[];
   /** SPEC-041 (F48) — repassado até o cartão, que é onde o painel abre. */
   shelf?: { readonly washDays: WashDayPort; readonly products: ProductPort } | undefined;
   /** SPEC-045 (F46) — o cuidado que ela acabou de fazer vira card, dali mesmo. */
@@ -551,6 +638,7 @@ function CareCard({
         emphasis="list"
         onAct={onAct}
         washDay={washDay}
+        marksOf={marksOf}
         shelf={shelf}
         onShare={onShare}
       />
@@ -593,6 +681,8 @@ function Section({
   busyId: string | null;
   onAct: (item: CareItem, action: Action) => void;
   washDay: WashDayAccess;
+  /** SPEC-051 — o que ela notou naquele check-in, lido do board (a tela nunca reconta). */
+  marksOf: (checkInId: string) => readonly CheckInMark[];
   /** SPEC-041 (F48) — repassado até o cartão, que é onde o painel abre. */
   shelf?: { readonly washDays: WashDayPort; readonly products: ProductPort } | undefined;
   /** SPEC-045 (F46) — o cuidado que ela acabou de fazer vira card, dali mesmo. */
@@ -617,6 +707,7 @@ function Section({
           blocked={rest.busyId !== null}
           onAct={rest.onAct}
           washDay={rest.washDay}
+          marksOf={rest.marksOf}
           shelf={rest.shelf}
           onShare={rest.onShare}
           tone={cardTone}
@@ -827,6 +918,15 @@ export function TodayScreen({
    */
   const shelf = products ? { washDays, products } : undefined;
 
+  /**
+   * SPEC-051 (`P13`) — o que ela notou, **derivado do board**.
+   *
+   * ⚠️ A tela nunca reconta nem guarda estado próprio disto: o board é a verdade, e uma segunda
+   * cópia discordaria dela no primeiro erro de escrita. É a mesma disciplina de `finishOf`.
+   */
+  const marksOf = (checkInId: string): readonly CheckInMark[] =>
+    board.checkInMarks.filter((m) => m.checkInId === checkInId).map((m) => m.mark);
+
   const washDay: WashDayAccess = {
     registered: (executionId) => board.washDayExecutionIds.includes(executionId),
     open: (item) => {
@@ -920,6 +1020,15 @@ export function TodayScreen({
                 finishStatus: action.status,
               })
             : Promise.resolve();
+        case 'checkinMark':
+          /**
+           * SPEC-051 — **sem chave de idempotência**, como as marcações do Wash Day: a operação é
+           * um `INSERT`/`DELETE` numa chave natural `(checkin_id, mark)`, então o retry chega ao
+           * mesmo lugar. O duplo toque é violação de unicidade, nunca uma segunda linha (EC2).
+           */
+          return item.checkIn
+            ? care.markCheckIn({ checkInId: item.checkIn.id, mark: action.mark, used: action.used })
+            : Promise.resolve();
         case 'finishTechnique':
           return item.execution
             ? washDays.setFinishTechnique({
@@ -998,6 +1107,7 @@ export function TodayScreen({
                 blocked={busyId !== null}
                 onAct={act}
                 washDay={washDay}
+                marksOf={marksOf}
                 shelf={shelf}
                 onShare={onShare}
               />
@@ -1039,6 +1149,7 @@ export function TodayScreen({
           blocked={busyId !== null}
           onAct={act}
           washDay={washDay}
+          marksOf={marksOf}
           shelf={shelf}
           onShare={onShare}
         />
@@ -1164,6 +1275,7 @@ export function TodayScreen({
             busyId={busyId}
             onAct={act}
             washDay={washDay}
+            marksOf={marksOf}
             shelf={shelf}
             onShare={onShare}
           />
@@ -1175,6 +1287,7 @@ export function TodayScreen({
             busyId={busyId}
             onAct={act}
             washDay={washDay}
+            marksOf={marksOf}
             shelf={shelf}
             onShare={onShare}
           />
@@ -1187,6 +1300,7 @@ export function TodayScreen({
             busyId={busyId}
             onAct={act}
             washDay={washDay}
+            marksOf={marksOf}
             shelf={shelf}
             onShare={onShare}
           />
@@ -1211,6 +1325,7 @@ export function TodayScreen({
             busyId={busyId}
             onAct={act}
             washDay={washDay}
+            marksOf={marksOf}
             shelf={shelf}
             onShare={onShare}
           />

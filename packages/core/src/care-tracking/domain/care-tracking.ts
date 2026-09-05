@@ -35,6 +35,34 @@ export type CheckIn = {
 /** The options offered for "Como ficou?" — the scale already approved in DATA-MODEL §3.8. */
 export const CHECKIN_SCALE = [1, 2, 3, 4, 5] as const;
 
+/**
+ * SPEC-051 (`P13`) — **o que ela notou no cabelo**, ancorado no check-in.
+ *
+ * O problema está escrito no Blueprint §8, pelo dono: *"o check-in atual é uma nota de 1 a 5 […]
+ * insuficiente para aprender: '3' não diz se o problema foi frizz, ressecamento ou o couro cabeludo
+ * coçando"*. A camada de Insights lê **quatro** eixos de entrada e **um único número** como eixo de
+ * resultado — e nenhuma engenharia de agregação melhora um sinal de um bit.
+ *
+ * ⚠️ **Registro, nunca diagnóstico.** *"Você marcou frizz"* é relato dela; *"seu cabelo está
+ * danificado"* seria alegação capilar (D-26/D-70). Vocabulário `candidate`, PUBLIC RELEASE
+ * bloqueado até sign-off — exatamente como o do `F38`.
+ *
+ * ⛔ **A metade `couro` do Blueprint §8 NÃO está aqui** (*sensível · coçando · descamando*): a
+ * fronteira com sintoma clínico é fina, e ela é a **OQ2 da SPEC-025**, atrás de **duas** chaves que
+ * não são do agente — base legal LGPD (D-32) e sign-off de domínio (D-26).
+ *
+ * ⚠️ **A lista mistura sinais de propósito.** Dar direção a cada qualidade
+ * (`maciez boa`/`maciez ruim`) dobraria vocabulário e toques, e separar em *"o que ficou bom"* e
+ * *"o que incomodou"* exigiria que **engenharia** decidisse que frizz é ruim — classificação de
+ * valor que a lista plana do dono não faz. A nota de 1 a 5 continua carregando a valência geral.
+ *
+ * 🔒 **Mudar esta lista depois quebra a série histórica** (Blueprint §8): comparar ao longo do tempo
+ * exige que a palavra signifique a mesma coisa em janeiro e em junho.
+ */
+export const CHECKIN_MARKS = ['softness', 'shine', 'frizz', 'definition', 'dryness'] as const;
+
+export type CheckInMark = (typeof CHECKIN_MARKS)[number];
+
 /** Undo window approved by D-69 (D-12): 15 minutes from `executedAt`. */
 export const UNDO_WINDOW_MINUTES = 15;
 

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
+import { CHECKIN_MARKS } from './domain/care-tracking.ts';
 import {
   FINISH_STATUSES,
   FINISH_TECHNIQUES,
   FinishStatusSchema,
   FinishTechniqueSchema,
+  SCALP_FEELS,
   WASH_DAY_TECHNIQUES,
   WashDayTechniqueSchema,
 } from './domain/wash-day.ts';
@@ -160,5 +162,50 @@ describe('qual finalização — vocabulário candidate e disjunto (SPEC-048)', 
   it('ausência e "não sei o nome" são coisas diferentes', () => {
     expect(FinishTechniqueSchema.safeParse(null).success).toBe(false);
     expect(FinishTechniqueSchema.safeParse('unknown').success).toBe(true);
+  });
+});
+
+/**
+ * SPEC-051 (`P13`) — **o vocabulário do que ela notou, congelado.**
+ *
+ * ⚠️ Mudar esta lista depois **quebra a série histórica** (Blueprint §8): comparar ao longo do tempo
+ * exige que a palavra signifique a mesma coisa em janeiro e em junho. A trava existe para a mudança
+ * ser uma decisão, nunca um descuido.
+ */
+describe('SPEC-051 — o que ela notou (TRAVA 5)', () => {
+  it('a lista é exatamente a metade `cabelo` do Blueprint §8', () => {
+    expect([...CHECKIN_MARKS]).toEqual(['softness', 'shine', 'frizz', 'definition', 'dryness']);
+  });
+
+  /**
+   * ⛔ **A metade `couro` NÃO entra nesta fatia.** *Sensível · coçando · descamando* é sintoma, e a
+   * fronteira com o clínico é fina: é a **OQ2 da SPEC-025**, atrás de **duas** chaves que não são do
+   * agente — base legal LGPD (D-32) e sign-off de domínio (D-26).
+   */
+  it('nenhum valor de couro cabeludo atravessa para cá', () => {
+    for (const couro of [...SCALP_FEELS, 'itching', 'flaking', 'sensitive', 'normal'])
+      expect((CHECKIN_MARKS as readonly string[]).includes(couro)).toBe(false);
+  });
+
+  /** ⚠️ Os quatro vocabulários seguem estruturalmente disjuntos. */
+  it('não colide com técnicas, finalizações nem etapas', () => {
+    for (const outro of [...WASH_DAY_TECHNIQUES, ...FINISH_TECHNIQUES, ...FINISH_STATUSES])
+      expect((CHECKIN_MARKS as readonly string[]).includes(outro)).toBe(false);
+  });
+
+  /**
+   * ⚠️ **A lista mistura sinais de propósito, e isso é a decisão — não um descuido.** Dar direção a
+   * cada qualidade dobraria vocabulário e toques; separar em "o que ficou bom" e "o que incomodou"
+   * exigiria que engenharia decidisse que frizz é ruim. A pergunta é neutra, e a nota de 1 a 5
+   * continua carregando a valência.
+   */
+  it('nenhum valor carrega direção embutida', () => {
+    for (const mark of CHECKIN_MARKS) expect(mark).not.toMatch(/_good$|_bad$|_high$|_low$|^no_/);
+  });
+
+  /** ⛔ **Sem texto livre**, aqui como na SPEC-024: não se compara, não se agrega, e é PII. */
+  it('a lista é fechada e não tem escape para texto livre', () => {
+    for (const escape of ['other', 'unknown', 'custom', 'free_text'])
+      expect((CHECKIN_MARKS as readonly string[]).includes(escape)).toBe(false);
   });
 });

@@ -54,6 +54,7 @@ const board = (over: Partial<CareBoard> = {}): CareBoard => ({
     },
   ],
   executions: [],
+  checkInMarks: [],
   checkIns: [],
   lifetimeDoneCount: 0,
   ...over,
@@ -63,6 +64,7 @@ const makePort = (overrides: Partial<CareTrackingPort> = {}): jest.Mocked<CareTr
   ({
     getBoard: jest.fn(async () => null),
     submitCheckIn: jest.fn(async () => undefined),
+    markCheckIn: jest.fn(async () => undefined),
     complete: jest.fn(async () => undefined),
     skip: jest.fn(async () => undefined),
     reschedule: jest.fn(async () => undefined),
@@ -676,6 +678,7 @@ describe('TodayScreen — o Wash Day (SPEC-024)', () => {
           voidedAt: null,
         },
       ],
+      checkInMarks: [],
       checkIns: [],
       ...over,
     });
@@ -1134,5 +1137,91 @@ describe('compartilhar o cuidado concluído, na Hoje (SPEC-045)', () => {
     fireEvent.press(s.getAllByText('Compartilhar')[0]!);
     expect(onShare).toHaveBeenCalledWith(expect.any(String));
     expect(onShare.mock.calls[0]![0]).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/i);
+  });
+});
+
+/**
+ * SPEC-051 (`P13`) — **o que ela notou**, na Hoje.
+ *
+ * ⚠️ O que estes testes guardam: o check-in continua sendo de **um toque** (a marcação vem depois e
+ * é opcional), a tela lê as marcações **do board** em vez de guardar cópia, e nenhum rótulo afirma
+ * nada sobre o cabelo dela.
+ */
+describe('Hoje — o que você notou (SPEC-051)', () => {
+  const feito = {
+    id: 'e1',
+    scheduledCareId: 'now',
+    executedAt: '2026-09-10T11:55:00.000Z',
+    executedOn: '2026-09-10',
+    voidedAt: null,
+  };
+  const comCheckIn = (checkInMarks: CareBoard['checkInMarks'] = []) =>
+    board({
+      executions: [feito],
+      checkIns: [{ id: 'ck1', careExecutionId: 'e1', overallFeel: 4 }],
+      checkInMarks,
+    });
+
+  it('a pergunta só aparece depois da nota, e o check-in continua sendo de um toque', async () => {
+    const care = makePort();
+    const screen = await renderScreen(care, comCheckIn());
+    await waitFor(() => screen.getByText('O que você notou?'));
+    // A nota já foi dada e continua sendo o único toque exigido — a escala some, a oferta aparece.
+    expect(screen.queryByText('Como ficou?')).toBeNull();
+    screen.getByText('Você marcou: 4/5');
+    // ⚠️ E a assinatura de `submitCheckIn` não mudou: passar marcações ali faria a pergunta de um
+    // toque virar formulário, a única coisa que o Blueprint §8 proíbe nesta capability.
+    expect(care.submitCheckIn).not.toHaveBeenCalled();
+  });
+
+  it('sem check-in, a pergunta não existe — não há a que ancorar', async () => {
+    const semCheckIn = board({ executions: [feito] });
+    const screen = await renderScreen(makePort(), semCheckIn);
+    await waitFor(() => screen.getByText('Como ficou?'));
+    expect(screen.queryByText('O que você notou?')).toBeNull();
+  });
+
+  it('oferece o vocabulário inteiro, e nada vem marcado', async () => {
+    const screen = await renderScreen(makePort(), comCheckIn());
+    await waitFor(() => screen.getByText('O que você notou?'));
+    for (const label of ['Maciez', 'Brilho', 'Frizz', 'Definição', 'Ressecamento']) screen.getByText(label);
+  });
+
+  it('marcar escreve pela porta, com o id do CHECK-IN', async () => {
+    const care = makePort();
+    const screen = await renderScreen(care, comCheckIn());
+    await waitFor(() => screen.getByText('Frizz'));
+
+    await fireEvent.press(screen.getByText('Frizz'));
+    await waitFor(() =>
+      expect(care.markCheckIn).toHaveBeenCalledWith({ checkInId: 'ck1', mark: 'frizz', used: true }),
+    );
+  });
+
+  /** ⚠️ A tela lê o board; uma segunda cópia discordaria dele no primeiro erro de escrita. */
+  it('o que já está marcado vem do board, e desmarcar é o segundo toque', async () => {
+    const care = makePort();
+    const screen = await renderScreen(care, comCheckIn([{ checkInId: 'ck1', mark: 'softness' }]));
+    await waitFor(() => screen.getByText('Maciez'));
+
+    await fireEvent.press(screen.getByText('Maciez'));
+    await waitFor(() =>
+      expect(care.markCheckIn).toHaveBeenCalledWith({ checkInId: 'ck1', mark: 'softness', used: false }),
+    );
+  });
+
+  /** ⚠️ **Registro, nunca diagnóstico** (D-26/D-70), e nenhuma cobrança por não responder. */
+  it('nenhum rótulo diagnostica, promete ou cobra', async () => {
+    const screen = await renderScreen(makePort(), comCheckIn());
+    await waitFor(() => screen.getByText('O que você notou?'));
+    const tree = JSON.stringify(screen.toJSON());
+    for (const proibido of [
+      /seu cabelo (est[áa]|ficou)/i,
+      /danificad|saud[áa]vel|desnutrid/i,
+      /recomendad|indicad|melhor para|ideal para/i,
+      /obrigat[óo]rio|complete|voc[êe] precisa|falta responder/i,
+      /coçando|descama|sens[íi]vel/i,
+    ])
+      expect(tree).not.toMatch(proibido);
   });
 });
