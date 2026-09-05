@@ -108,6 +108,64 @@ export type Observation = {
   readonly detail: string;
 };
 
+/**
+ * SPEC-050 (`P8`) — **A partir de quantos cuidados avaliados um par vale ser mostrado.**
+ *
+ * Guarda de exibição, não significância estatística — a mesma natureza declarada de
+ * `MIN_RATED_CARES`. Com dois cuidados, "padrão" é coincidência com cara de descoberta.
+ */
+export const MIN_PATTERN_CARES = 3;
+
+/**
+ * SPEC-050 — **quantos daqueles cuidados ela precisa ter avaliado bem para o padrão existir.**
+ *
+ * ⚠️ **Um, e isto é uma RECUSA, não um filtro de vaidade.** Um par que apareceu em 4 cuidados e em
+ * **nenhum** deles ela avaliou bem produziria o cartão *"apareceram juntos em 4 cuidados que você
+ * avaliou, e em 0 deles você avaliou bem"* — que não é observação, é **acusação**: a leitura
+ * inevitável é *"essa combinação não funciona"*, o espelho exato de *"essa combinação é ideal para
+ * você"* e igualmente uma alegação capilar (D-26/D-70).
+ *
+ * A direção negativa — o que evitar — é `P18`, atrás do próprio gate. Esta camada só conta o que
+ * andou junto em cuidados que ela **avaliou bem**, que é o que as observações de item já fazem.
+ *
+ * ⚠️ **O corte é só no zero.** *"…e em 1 deles você avaliou bem"* continua aparecendo, com o número
+ * honesto: esconder isso seria escolher a versão bonita do histórico dela.
+ */
+export const MIN_PATTERN_WELL_RATED = 1;
+
+/**
+ * SPEC-050 — **Quantos padrões cabem na tela.**
+ *
+ * ⚠️ **Teto de exibição, e está dito.** Não é significância e não finge ser: é a decisão do dono de
+ * que *"poucos padrões realmente informativos"* vale mais que cobertura. Uma tela cheia de
+ * combinações é uma tela estatística, e esta camada não é isso.
+ */
+export const MAX_PATTERNS = 3;
+
+/**
+ * SPEC-050 (`P8`) — **duas coisas que ela registrou no mesmo cuidado, e como ela avaliou aqueles
+ * cuidados.**
+ *
+ * ⚠️ **Co-ocorrência com resultado, nunca efeito.** *"Apareceram juntos em 5 cuidados que você
+ * avaliou, e em 4 deles você avaliou bem"* é contagem nos registros dela. *"Máscara X funciona
+ * melhor com Fitagem"*, *"Plopping melhorou seu cabelo"* e *"essa combinação é ideal para você"*
+ * são alegação capilar (D-26/D-70) e não existem em caminho de código nenhum.
+ *
+ * ⚠️ **Não é ranking** (`P7`): a ordem é por **contagem absoluta**, nunca por proporção. Ordenar
+ * por *"qual proporção foi melhor avaliada"* seria construir um ranking com amostra de três.
+ */
+export type Pattern = {
+  readonly key: string;
+  /** Os dois, pelo nome que a tela usa — em ordem alfabética, para não depender do banco. */
+  readonly subject: string;
+  /** Em quantos cuidados **avaliados** os dois apareceram juntos. É o denominador. */
+  readonly cares: number;
+  /** Em quantos **desses** ela avaliou bem. Nunca maior que `cares`. */
+  readonly wellRated: number;
+  /** A frase pronta — pelo mesmo motivo de `Observation`: redação espalhada é como a causa entra. */
+  readonly detail: string;
+};
+
 export type InsightsView = {
   /** `false` = a Huna ainda está conhecendo a rotina dela. Não é erro, é o começo. */
   readonly enoughData: boolean;
@@ -124,6 +182,12 @@ export type InsightsView = {
    */
   readonly ratedCaresWithRecord: number;
   readonly observations: readonly Observation[];
+  /**
+   * SPEC-050 (`P8`) — os pares de **tipos diferentes** que andaram juntos, no máximo
+   * `MAX_PATTERNS`. Lista vazia = *"A Huna ainda está conhecendo suas combinações"*, que é um
+   * estado honesto e não um erro.
+   */
+  readonly patterns: readonly Pattern[];
 };
 
 /**

@@ -23,6 +23,7 @@ const view = (over: Partial<InsightsView> = {}): InsightsView => ({
       detail: 'esteve em 4 dos 6 cuidados que você avaliou bem',
     },
   ],
+  patterns: [],
   ...over,
 });
 
@@ -216,5 +217,76 @@ describe('Seus padrões — por que ainda não há padrão (SPEC-047 fatia 3)', 
     const s = await vazio({ enoughData: true, ratedCares: 9, ratedCaresMissing: 0, ratedCaresWithRecord: 7 });
     s.getByText(/já está comparando os 7 cuidados/);
     s.getByText(/ainda não encontrou nada que se repita/);
+  });
+});
+
+/**
+ * SPEC-050 (`P8`) — **as combinações, na tela.**
+ *
+ * ⚠️ O que estes testes guardam: a seção diz **contagem**, nunca efeito; sem evidência ela **diz
+ * isso** em vez de preencher; e o gate premium continua valendo para ela como vale para o resto.
+ */
+describe('Seus padrões — as combinações (SPEC-050)', () => {
+  const PADRAO = {
+    key: 'pattern:product:p1|finish:plopping',
+    subject: 'Máscara da Ana + Plopping',
+    cares: 5,
+    wellRated: 4,
+    detail: 'apareceram juntos em 5 cuidados que você avaliou, e em 4 deles você avaliou bem',
+  };
+
+  it('mostra a combinação com as duas contagens', async () => {
+    const s = await screen({ view: view({ patterns: [PADRAO] }) });
+    s.getByText('Suas combinações');
+    s.getByText('Máscara da Ana + Plopping');
+    s.getByText('apareceram juntos em 5 cuidados que você avaliou, e em 4 deles você avaliou bem');
+  });
+
+  /**
+   * ⚠️ **As duas seções são rotuladas, e o rótulo é o que as separa.** Um cartão diz *"esteve em 4
+   * dos 5 cuidados que você avaliou bem"* e outro *"apareceram juntos em 5 cuidados que você
+   * avaliou"* — denominadores diferentes, números parecidos demais para ficarem sem título.
+   */
+  it('separa "o que se repete" de "suas combinações"', async () => {
+    const s = await screen({ view: view({ patterns: [PADRAO] }) });
+    const tree = JSON.stringify(s.toJSON());
+    expect(tree.indexOf('O que se repete')).toBeLessThan(tree.indexOf('Suas combinações'));
+  });
+
+  /** ⚠️ Estado honesto, não placeholder: sem par com amostra suficiente, a Huna diz exatamente isso. */
+  it('sem combinação, diz que ainda está conhecendo as combinações dela', async () => {
+    const s = await screen({ view: view({ patterns: [] }) });
+    s.getByText(/A Huna ainda está conhecendo suas combinações/);
+    // E não inventa cartão nenhum para preencher a seção.
+    expect(s.queryByText(/apareceram juntos em/)).toBeNull();
+  });
+
+  /**
+   * ⚠️ **SPEC-050 EC3** — um par pode alcançar a amostra enquanto nenhum item isolado alcança o
+   * mínimo de repetição: os denominadores são diferentes. A tela olhava só `observations` e
+   * esconderia padrões que existem.
+   */
+  it('mostra a combinação mesmo quando não há nenhuma repetição de item', async () => {
+    const s = await screen({ view: view({ observations: [], patterns: [PADRAO] }) });
+    s.getByText('Máscara da Ana + Plopping');
+    // E a seção de repetição diz o motivo verdadeiro em vez de sumir.
+    s.getByText('O que se repete');
+  });
+
+  /** ⚠️ D-26/D-70 — a fronteira que a capability inteira depende de não cruzar. */
+  it('nenhuma frase de combinação afirma efeito, indica ou promete', async () => {
+    const s = await screen({ view: view({ patterns: [PADRAO] }) });
+    expect(
+      s.queryByText(
+        /funciona melhor|melhorou|piorou|ajud|recomend|indicad|ideal para|combinação ideal|receita|fórmula|por causa/i,
+      ),
+    ).toBeNull();
+    expect(s.queryByText(/\d+\s?%|nota|score|ranking|média/i)).toBeNull();
+  });
+
+  it('sem a capability, nenhuma combinação aparece', async () => {
+    const s = await screen({ entitled: false, view: view({ patterns: [PADRAO] }) });
+    expect(s.queryByText('Suas combinações')).toBeNull();
+    expect(s.queryByText(/apareceram juntos em/)).toBeNull();
   });
 });

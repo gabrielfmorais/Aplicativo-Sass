@@ -1,4 +1,5 @@
 import type { FinishTechnique, WashDayTechnique } from '../../care-tracking/index.ts';
+import { buildPatterns } from './build-patterns.ts';
 import { countByCare } from './count-by-care.ts';
 import type { InsightFact, InsightsView, Observation } from '../domain/insights.ts';
 import {
@@ -58,8 +59,10 @@ export const buildInsights = (
       ratedCares,
       ratedCaresMissing: MIN_RATED_CARES - ratedCares,
       ratedCaresWithRecord,
-      // ⚠️ Nada é inventado para preencher a tela: sem volume, a lista é **vazia**, não estimada.
+      // ⚠️ Nada é inventado para preencher a tela: sem volume, as listas são **vazias**, não
+      // estimadas. SPEC-050 EC1 — abaixo do mínimo nem se chega a procurar padrão.
       observations: [],
+      patterns: [],
     };
   }
 
@@ -178,5 +181,17 @@ export const buildInsights = (
     ),
   ];
 
-  return { enoughData: true, ratedCares, ratedCaresMissing: 0, ratedCaresWithRecord, observations };
+  return {
+    enoughData: true,
+    ratedCares,
+    ratedCaresMissing: 0,
+    ratedCaresWithRecord,
+    observations,
+    /**
+     * SPEC-050 (`P8`) — os pares de tipos diferentes, sobre **todos** os cuidados avaliados e não
+     * só os bem avaliados: o denominador do padrão é o cuidado em que os dois apareceram, e é isso
+     * que faz a segunda contagem significar alguma coisa (BR2).
+     */
+    patterns: buildPatterns(rated, techniqueLabel, finishLabel),
+  };
 };

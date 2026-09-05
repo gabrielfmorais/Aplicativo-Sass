@@ -68,6 +68,8 @@ describe('Insights — sem dados suficientes, a Huna diz isso (SPEC-047)', () =>
       ratedCaresMissing: MIN_RATED_CARES,
       ratedCaresWithRecord: 0,
       observations: [],
+      // SPEC-050 EC1 — abaixo do mínimo nem se chega a procurar padrão.
+      patterns: [],
     });
   });
 });
