@@ -113,6 +113,7 @@ describe('wash day adapter (SPEC-024)', () => {
       techniques: [],
       scalpFeel: null,
       finishStatus: null,
+      finishTechnique: null,
     });
     // Uma consulta só. Buscar produtos de um hub que não existe é trabalho e é uma chance a mais de
     // a tela mostrar vazio por causa de erro.
@@ -132,6 +133,7 @@ describe('wash day adapter (SPEC-024)', () => {
       techniques: ['co_wash'],
       scalpFeel: null,
       finishStatus: null,
+      finishTechnique: null,
     });
     // BR3/AC4 — **sem** `archived_at is null`: o vidro que ela usou e depois tirou de casa continua
     // tendo sido usado, e o registro não pode esquecê-lo.

@@ -1,7 +1,13 @@
 import type { Product } from '../../hair-profile/index.ts';
 import type { CareTypeCode, ScheduledCare } from '../../schedule/index.ts';
 import type { CareExecution, CheckIn } from '../domain/care-tracking.ts';
-import type { FinishStatus, ScalpFeel, WashDayRecord, WashDayTechnique } from '../domain/wash-day.ts';
+import type {
+  FinishStatus,
+  FinishTechnique,
+  ScalpFeel,
+  WashDayRecord,
+  WashDayTechnique,
+} from '../domain/wash-day.ts';
 
 /** Everything the daily screen needs, in one read: the active plan, its cares and their executions. */
 /**
@@ -69,7 +75,12 @@ export type CareBoard = {
    * Só as respondidas aparecem: uma execução ausente daqui é "ainda não disse", que é diferente de
    * `skipped` (BR1). É a mesma distinção do `F35`, e ela mora na forma do dado, não num comentário.
    */
-  readonly careFinishes: readonly { readonly careExecutionId: string; readonly status: FinishStatus }[];
+  readonly careFinishes: readonly {
+    readonly careExecutionId: string;
+    readonly status: FinishStatus;
+    /** SPEC-048 (F38) — qual finalização, ou `null` para "ainda não disse qual". */
+    readonly technique: FinishTechnique | null;
+  }[];
   /**
    * Effective executions across ALL her plans, superseded included (SPEC-014). Counted rather than
    * fetched: the summary needs the number, never the rows.
@@ -162,6 +173,19 @@ export interface WashDayPort {
    * ter de apagar este método, e não só acrescentar um valor a uma lista.
    */
   setFinishStatus(input: { careExecutionId: string; finishStatus: FinishStatus | null }): Promise<void>;
+  /**
+   * SPEC-048 (F38) — **qual** finalização ela fez, ou `null` para tirar a resposta.
+   *
+   * ⚠️ **Registro, nunca recomendação:** guarda o que ela informou. Indicação, efeito, passo a passo
+   * e ranking seguem bloqueados por D-26/D-70.
+   *
+   * ⚠️ **Só faz sentido com a etapa em `done`**, e é o banco que garante isso — trocar a etapa para
+   * `skipped` limpa a técnica junto, senão a escrita cairia numa combinação que o `CHECK` recusa.
+   */
+  setFinishTechnique(input: {
+    careExecutionId: string;
+    finishTechnique: FinishTechnique | null;
+  }): Promise<void>;
   /**
    * SPEC-041 (F48) — os produtos que ela usou **da última vez** num cuidado deste tipo.
    *

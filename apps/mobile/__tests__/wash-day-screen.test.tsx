@@ -1,4 +1,11 @@
-import type { Product, ProductPort, WashDayPort, WashDayRecord } from '@app/core';
+import type {
+  FinishStatus,
+  FinishTechnique,
+  Product,
+  ProductPort,
+  WashDayPort,
+  WashDayRecord,
+} from '@app/core';
 import { InfrastructureError } from '@app/core';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
@@ -17,6 +24,7 @@ const EMPTY: WashDayRecord = {
   techniques: [],
   scalpFeel: null,
   finishStatus: null,
+  finishTechnique: null,
 };
 
 /** BR3/AC4 — ela usou e depois tirou da prateleira. O registro é do passado, e o passado não muda. */
@@ -36,6 +44,7 @@ const makeWashDays = (over: Partial<WashDayPort> = {}): WashDayPort => ({
   markTechnique: jest.fn(async () => undefined),
   setScalpFeel: jest.fn(async () => undefined),
   setFinishStatus: jest.fn(async () => undefined),
+  setFinishTechnique: jest.fn(async () => {}),
   lastUsedFor: jest.fn(async () => []),
   ...over,
 });
@@ -109,6 +118,7 @@ describe('WashDayScreen (SPEC-024)', () => {
         techniques: ['co_wash' as const],
         scalpFeel: null,
         finishStatus: null,
+        finishTechnique: null,
       })),
     });
     const s = await renderScreen(washDays);
@@ -140,6 +150,7 @@ describe('WashDayScreen (SPEC-024)', () => {
         techniques: [],
         scalpFeel: null,
         finishStatus: null,
+        finishTechnique: null,
       })),
     });
     const s = await renderScreen(washDays);
@@ -267,6 +278,7 @@ describe('WashDayScreen (SPEC-024)', () => {
         techniques: [],
         scalpFeel: 'balanced' as const,
         finishStatus: null,
+        finishTechnique: null,
       })),
     });
     const s = await renderScreen(washDays);
@@ -386,6 +398,7 @@ describe('WashDayScreen — a finalização (SPEC-039)', () => {
         techniques: [],
         scalpFeel: null,
         finishStatus: 'skipped' as const,
+        finishTechnique: null,
       })),
     });
     const s = await renderScreen(washDays);
@@ -411,5 +424,150 @@ describe('WashDayScreen — a finalização (SPEC-039)', () => {
 
     await fireEvent.press(s.getByText('Finalizei'));
     await waitFor(() => s.getByText(/Não foi possível marcar Finalizei/));
+  });
+});
+
+/**
+ * SPEC-048 (F38) — **qual** finalização, na tela que se chama "Seu registro".
+ *
+ * ⚠️ A validação a 390px é que achou o buraco: a pergunta *qual* existia só no cartão da Hoje, e a
+ * tela cheia de registro — a que ela alcança por "Ver o que contei" — perguntava *se* ela finalizou
+ * e nunca *qual*. Duas superfícies sobre o mesmo fato, uma delas mostrando metade dele.
+ */
+describe('WashDayScreen — qual finalização (SPEC-048)', () => {
+  const comEtapa = (finishTechnique: FinishTechnique | null, finishStatus: FinishStatus = 'done') =>
+    makeWashDays({
+      getFor: jest.fn(async () => ({
+        washDayId: 'w1',
+        products: [],
+        techniques: [],
+        scalpFeel: null,
+        finishStatus,
+        finishTechnique,
+      })),
+    });
+
+  it('a pergunta só aparece depois de ela dizer que finalizou', async () => {
+    const s = await renderScreen(makeWashDays());
+    await waitFor(() => s.getByText('Finalização'));
+    // Etapa ainda sem resposta: perguntar *qual* inverteria a ordem canônica (SPEC-039 FR2), e o
+    // banco recusa a combinação.
+    expect(s.queryByText('Qual finalização?')).toBeNull();
+    expect(s.queryByText('Plopping')).toBeNull();
+
+    await fireEvent.press(s.getByText('Finalizei'));
+    await waitFor(() => s.getByText('Qual finalização?'));
+  });
+
+  it('oferece o vocabulário inteiro, e nada vem marcado', async () => {
+    const s = await renderScreen(comEtapa(null));
+    await waitFor(() => s.getByText('Qual finalização?'));
+    for (const label of [
+      'Fitagem tradicional',
+      'Fitagem estruturada',
+      'Dedoliss',
+      'Rake and shake',
+      'Plopping',
+      'Twist out',
+      'Outra finalização',
+      'Não sei o nome',
+    ])
+      s.getByText(label);
+  });
+
+  it('escolher grava pela porta própria', async () => {
+    const washDays = comEtapa(null);
+    const s = await renderScreen(washDays);
+    await waitFor(() => s.getByText('Plopping'));
+
+    await fireEvent.press(s.getByText('Plopping'));
+    await waitFor(() =>
+      expect(washDays.setFinishTechnique).toHaveBeenCalledWith({
+        careExecutionId: EXECUTION,
+        finishTechnique: 'plopping',
+      }),
+    );
+    // Não é uma técnica de lavagem, e a porta é outra: a barreira da SPEC-039 §8 na fronteira da tela.
+    expect(washDays.markTechnique).not.toHaveBeenCalled();
+  });
+
+  it('tocar na marcada tira a resposta, e voltar a "ainda não disse" é estado dela', async () => {
+    const washDays = comEtapa('plopping');
+    const s = await renderScreen(washDays);
+    await waitFor(() => s.getByText('Finalização feita'));
+
+    await fireEvent.press(s.getByText('Plopping'));
+    await waitFor(() =>
+      expect(washDays.setFinishTechnique).toHaveBeenCalledWith({
+        careExecutionId: EXECUTION,
+        finishTechnique: null,
+      }),
+    );
+  });
+
+  /**
+   * ⚠️ O defeito que este teste impede: o adapter limpa a coluna na mesma escrita (o `CHECK` recusa
+   * "pulei, e a técnica foi fitagem"), então uma tela que guardasse a técnica antiga continuaria
+   * mostrando o que já não existe no banco — divergência que só o próximo reload revelaria.
+   */
+  it('sair de "Finalizei" apaga a técnica da tela, como apaga no banco', async () => {
+    const s = await renderScreen(comEtapa('plopping'));
+    await waitFor(() => s.getByText('Finalização feita'));
+
+    await fireEvent.press(s.getByText('Pulei dessa vez'));
+    await waitFor(() => expect(s.queryByText('Finalização feita')).toBeNull());
+
+    /*
+     * ⚠️ **É na VOLTA que a divergência apareceria.** Enquanto a etapa está em `skipped` a seção
+     * inteira some, e a técnica velha fica escondida em vez de corrigida — foi assim que a primeira
+     * versão deste teste passou com o defeito dentro. Dizer "Finalizei" de novo é o que revela: o
+     * banco tem `null` (a escrita do `skipped` limpou a coluna), então a tela precisa voltar a
+     * **perguntar**, e não a afirmar uma escolha que já não existe.
+     */
+    await fireEvent.press(s.getByText('Finalizei'));
+    await waitFor(() => s.getByText('Qual finalização?'));
+    expect(s.queryByText('Finalização feita')).toBeNull();
+  });
+
+  it('a escrita que falha volta atrás e diz qual foi', async () => {
+    const washDays = makeWashDays({
+      getFor: jest.fn(async () => ({
+        washDayId: 'w1',
+        products: [],
+        techniques: [],
+        scalpFeel: null,
+        finishStatus: 'done' as const,
+        finishTechnique: null,
+      })),
+      setFinishTechnique: jest.fn(async () => {
+        throw new Error('offline');
+      }),
+    });
+    const s = await renderScreen(washDays);
+    await waitFor(() => s.getByText('Dedoliss'));
+
+    await fireEvent.press(s.getByText('Dedoliss'));
+    await waitFor(() => s.getByText(/Não foi possível marcar Dedoliss/));
+  });
+
+  /**
+   * ⚠️ **Registro, nunca recomendação** (D-26/D-70). A tela pergunta o que ela fez; não indica, não
+   * ordena por perfil, não promete efeito e não ensina o passo a passo.
+   */
+  it('nenhum rótulo indica, promete ou ensina', async () => {
+    const s = await renderScreen(comEtapa(null));
+    await waitFor(() => s.getByText('Qual finalização?'));
+    const tree = JSON.stringify(s.toJSON());
+    for (const proibido of [
+      /melhor(es)? para/i,
+      /recomendad/i,
+      /indicad/i,
+      /ideal para/i,
+      /para o seu cabelo/i,
+      /passo a passo/i,
+      /defini(ç|c)(ã|a)o dos cachos/i,
+      /reduz o frizz/i,
+    ])
+      expect(tree).not.toMatch(proibido);
   });
 });

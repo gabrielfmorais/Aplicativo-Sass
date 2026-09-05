@@ -87,6 +87,40 @@ export const FinishStatusSchema = z.enum(FINISH_STATUSES);
 export type FinishStatus = z.infer<typeof FinishStatusSchema>;
 
 /**
+ * SPEC-048 (F38) — **QUAL finalização ela fez.** Vocabulário **CANDIDATE**, dado pelo dono em
+ * 2026-09-04.
+ *
+ * ⚠️ **Registro, nunca recomendação.** *"Eu fiz Fitagem"* é fato observável informado por ela;
+ * *"Fitagem é melhor para o seu cabelo"* continua **bloqueado por D-26/D-70** — junto com indicação
+ * por curvatura ou perfil, promessa de efeito, passo a passo substantivo e ranking de técnicas.
+ * Enquanto essas partes não passam pelo sign-off, **PUBLIC RELEASE segue bloqueado** (D-26/OQ-REL);
+ * o registro em si é utilizável em dev e beta interno, como toda regra `candidate`.
+ *
+ * ⚠️ **Disjunto de `WASH_DAY_TECHNIQUES`, e isso é trava de teste** (SPEC-039 §8). As catorze
+ * legadas ficam onde estão — seis delas são movimentos de finalização e continuam sendo técnicas,
+ * porque reclassificar reescreveria o registro que já é dela.
+ *
+ * **Sem texto livre** (SPEC-024): `other` é a finalização fora da lista, `unknown` é "fiz e não sei
+ * o nome". E `null` — a ausência — é **"ainda não disse qual"**, que não é nenhum dos dois.
+ *
+ * `day_after` **não** entra nesta versão, por decisão do dono: revitalização é conceito separado.
+ */
+export const FINISH_TECHNIQUES = [
+  'fitagem_tradicional',
+  'fitagem_estruturada',
+  'dedoliss',
+  'rake_and_shake',
+  'plopping',
+  'twist_out',
+  'other',
+  'unknown',
+] as const;
+
+export const FinishTechniqueSchema = z.enum(FINISH_TECHNIQUES);
+
+export type FinishTechnique = z.infer<typeof FinishTechniqueSchema>;
+
+/**
  * O registro de uma execução, como a tela o lê.
  *
  * `washDayId` nulo significa **nunca aberto** — não "vazio". A diferença importa uma vez: um
@@ -117,4 +151,12 @@ export type WashDayRecord = {
    * Campo próprio, e não um valor dentro de `techniques`: é a separação da BR3 aparecendo no tipo.
    */
   readonly finishStatus: FinishStatus | null;
+  /**
+   * SPEC-048 — **qual** finalização, ou `null` para "ainda não disse qual".
+   *
+   * ⚠️ Só existe quando `finishStatus === 'done'` — o banco recusa a combinação impossível, e é lá
+   * que ela fica impossível de verdade: uma checagem só de aplicação seria contornada por um
+   * segundo caminho de escrita.
+   */
+  readonly finishTechnique: FinishTechnique | null;
 };

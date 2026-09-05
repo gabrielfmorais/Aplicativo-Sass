@@ -82,11 +82,13 @@ const washDayPort = (over: Partial<WashDayPort> = {}): WashDayPort => ({
     techniques: [],
     scalpFeel: null,
     finishStatus: null,
+    finishTechnique: null,
   })),
   markProduct: jest.fn(async () => undefined),
   markTechnique: jest.fn(async () => undefined),
   setScalpFeel: jest.fn(async () => undefined),
   setFinishStatus: jest.fn(async () => undefined),
+  setFinishTechnique: jest.fn(async () => {}),
   lastUsedFor: jest.fn(async () => []),
   ...over,
 });
@@ -792,7 +794,7 @@ describe('finalização na Hoje (SPEC-039)', () => {
   it('respondida, a pergunta não volta — e o título vira o nome da etapa (FR3/FR5)', async () => {
     const s = await renderDone(
       washDayPort(),
-      doneBoard({ careFinishes: [{ careExecutionId: 'e1', status: 'done' }] }),
+      doneBoard({ careFinishes: [{ careExecutionId: 'e1', status: 'done', technique: null }] }),
     );
     await waitFor(() => s.getByText('Finalização'));
     expect(s.queryByText('Você finalizou?')).toBeNull();
@@ -802,7 +804,7 @@ describe('finalização na Hoje (SPEC-039)', () => {
     const washDays = washDayPort();
     const s = await renderDone(
       washDays,
-      doneBoard({ careFinishes: [{ careExecutionId: 'e1', status: 'skipped' }] }),
+      doneBoard({ careFinishes: [{ careExecutionId: 'e1', status: 'skipped', technique: null }] }),
     );
     await waitFor(() => s.getByText('Pulei dessa vez'));
 

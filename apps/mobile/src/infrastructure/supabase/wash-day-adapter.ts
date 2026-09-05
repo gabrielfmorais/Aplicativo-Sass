@@ -1,5 +1,6 @@
 import type {
   FinishStatus,
+  FinishTechnique,
   Product,
   ProductCategory,
   ScalpFeel,
@@ -89,14 +90,25 @@ export const createWashDayAdapter = (client: SupabaseClient, userId: () => strin
       const washDayId = (hub as { id: string } | null)?.id ?? null;
       // Nunca aberto: nada a buscar, e o vazio aqui é ausência, não resposta.
       if (!washDayId)
-        return { washDayId: null, products: [], techniques: [], scalpFeel: null, finishStatus: null };
+        return {
+          washDayId: null,
+          products: [],
+          techniques: [],
+          scalpFeel: null,
+          finishStatus: null,
+          finishTechnique: null,
+        };
       hubs.set(careExecutionId, washDayId);
 
       const [marks, techniques, scalp, finish] = await Promise.all([
         client.from(PRODUCTS).select('product_id').eq('wash_day_id', washDayId),
         client.from(TECHNIQUES).select('technique').eq('wash_day_id', washDayId),
         client.from(SCALP).select('scalp_feel').eq('wash_day_id', washDayId).maybeSingle(),
-        client.from(FINISH).select('finish_status').eq('wash_day_id', washDayId).maybeSingle(),
+        client
+          .from(FINISH)
+          .select('finish_status, finish_technique')
+          .eq('wash_day_id', washDayId)
+          .maybeSingle(),
       ]);
       if (marks.error) throw fail('care.wash_day_read_failed', marks.error);
       if (techniques.error) throw fail('care.wash_day_read_failed', techniques.error);
@@ -131,6 +143,8 @@ export const createWashDayAdapter = (client: SupabaseClient, userId: () => strin
         scalpFeel: (scalp.data as { scalp_feel: ScalpFeel } | null)?.scalp_feel ?? null,
         // SPEC-039 BR1 — linha ausente é "ainda não disse", que não é `skipped`.
         finishStatus: (finish.data as { finish_status: FinishStatus } | null)?.finish_status ?? null,
+        finishTechnique:
+          (finish.data as { finish_technique: FinishTechnique | null } | null)?.finish_technique ?? null,
       };
     },
 
@@ -263,12 +277,40 @@ export const createWashDayAdapter = (client: SupabaseClient, userId: () => strin
         if (error) throw fail('care.wash_day_finish_failed', error);
         return;
       }
-      const { error } = await client
-        .from(FINISH)
-        .upsert(
-          { wash_day_id: washDayId, finish_status: finishStatus, user_id: userId() },
-          { onConflict: 'wash_day_id' },
-        );
+      /**
+       * ⚠️ **Trocar a etapa para `skipped` limpa a técnica junto.** "Pulei, e a técnica foi
+       * fitagem" é a combinação impossível que o `CHECK` recusa (SPEC-048): sem limpar aqui, a
+       * escrita falharia e ela veria um erro por uma incoerência que o app é que deveria resolver.
+       */
+      const { error } = await client.from(FINISH).upsert(
+        {
+          wash_day_id: washDayId,
+          finish_status: finishStatus,
+          user_id: userId(),
+          ...(finishStatus === 'done' ? {} : { finish_technique: null }),
+        },
+        { onConflict: 'wash_day_id' },
+      );
+      if (error) throw fail('care.wash_day_finish_failed', error);
+    },
+
+    async setFinishTechnique({ careExecutionId, finishTechnique }): Promise<void> {
+      const washDayId = await hubFor(careExecutionId);
+      /**
+       * Uma escrita só, e não um par apaga-e-escreve: a mesma disciplina da etapa e do couro. O
+       * `upsert` garante a etapa em `done` junto da técnica — quem escolhe *qual* já finalizou, e
+       * deixar as duas colunas para escritas separadas abriria um instante em que o `CHECK` da
+       * coerência estaria violado.
+       */
+      const { error } = await client.from(FINISH).upsert(
+        {
+          wash_day_id: washDayId,
+          user_id: userId(),
+          finish_status: 'done',
+          finish_technique: finishTechnique,
+        },
+        { onConflict: 'wash_day_id' },
+      );
       if (error) throw fail('care.wash_day_finish_failed', error);
     },
   };
