@@ -107,6 +107,9 @@ que a IA vai **consultar** um dia.
   Faltam **couro** e **dia da semana**.
 - **OQ2 (CAN DEFER)** Mover a derivação para o servidor, tornando o gate premium um gate de **dado**
   (ver §6).
+- **OQ4 (decisão de produto)** A dimensão de **couro cabeludo**: é o único registro dela que é um
+  **estado observado** e não uma ação, e cruzá-lo com a avaliação lê como causa (§15). Precisa de
+  decisão, não de código.
 - **OQ3 (CAN DEFER)** O nome do Blueprint para a superfície é *"O que funciona comigo?"* (`P3`).
   Ficou como **"Seus padrões"** porque, hoje, a primeira frase prometeria **causa** e a camada
   entrega **repetição** — um título que afirma mais do que os dados sustentam é a forma mais difícil
@@ -117,6 +120,7 @@ que a IA vai **consultar** um dia.
 | Data | Mudança |
 |---|---|
 | 2026-09-04 | SPEC criada e implementada. Repetição de produto nos cuidados que ela avaliou bem, com estado honesto de poucos dados. |
+| 2026-09-05 | **§15 — auditoria do módulo:** pares redundantes descartados por regra (medido: 10 cartões de combinação para 5 produtos), e dois campos sem consumidor removidos. |
 | 2026-09-05 | **§14 — a dimensão de finalização** (SPEC-048). Terceiro verbo (*"você finalizou assim em"*), `other`/`unknown` fora da observação (OQ3 da SPEC-048, resolvida), a finalização contando como registro, e as três leituras do hub em paralelo. |
 
 ## 12. Evidência
@@ -225,3 +229,47 @@ sentidos (removida a regra, o teste falha).
 avaliados (3 `plopping`, 1 `dedoliss`, 1 `other`), a tela mostrou *"Plopping — você finalizou
 assim em 3 dos 5 cuidados que você avaliou bem"*, **sem** *"Outra finalização"* e **sem** `Dedoliss`
 (1 ocorrência, abaixo do mínimo). Zero problema de console.
+
+## 15. Auditoria do módulo — dois achados, os dois medidos
+
+### 15.1 ⚠️ O par redundante era o mesmo fato contado três vezes
+
+**Medido:** uma rotina estável com **5 produtos marcados em todo cuidado** produzia **10 cartões de
+combinação** ao lado dos 5 cartões de produto. Os dez diziam *"apareceram juntos em 5 dos 5"* sobre
+produtos que já diziam *"esteve em 5 dos 5"* cada um. ⚠️ **A tela ficava pior justamente para quem é
+mais consistente** — e é essa usuária que a capability existe para servir.
+
+**A correção é uma regra, não um teto arbitrário:** um par é descartado quando aparece tantas vezes
+quanto **os dois** membros — os dois nunca aparecem separados, e dizê-lo três vezes é ruído. Empatar
+com **um só** dos membros informa e o par fica: *"o Leave-in nunca apareceu sem a Máscara"* é um fato
+que nenhum cartão isolado carrega.
+
+⚠️ **Três testes de combinação caíram com a regra, e estavam descrevendo o comportamento antigo:**
+as fixtures deles punham os dois produtos **sempre juntos**, que é exatamente o caso redundante. As
+asserções ficaram as mesmas; o que mudou foi a fixture, para o caso que a regra cobre. Um quarto
+teste de linguagem ficou **vazio** pelo mesmo motivo — sem combinação nenhuma, um teste sobre a
+frase da combinação não prova nada — e agora afirma que existe pelo menos uma antes de percorrê-las.
+
+### 15.2 ⚠️ Dois campos de `InsightFact` sem consumidor nenhum
+
+`careTypeCode` e `executedOn` eram lidos do banco, atravessavam a porta e o tipo, e **nenhuma linha
+os consumia**. Regra de necessidade (§0.2, D-47/D-48): *future possibility ≠ current requirement* ⇒
+**removidos**, junto das colunas no `select` (a ordenação por `executed_on` é do servidor e não
+precisa da coluna selecionada).
+
+Voltam **com o consumidor**, não antes: **tipo de cuidado** quando a observação for segmentada
+(`P8`) e **data** quando entrar recência (`P17`). Voltar é uma linha no adapter e uma no tipo.
+
+⚠️ **Por que isto NÃO é o caso de `perceived_porosity`/`routine_availability`:** aquelas são
+**perguntas feitas a ela**, custam o tempo dela, e o dono determinou que ficassem como dívida
+visível. Estas são campos internos derivados de dado que já existe — removê-las não perde nada e não
+desfaz decisão nenhuma.
+
+### ⛔ O que NÃO entrou, e por quê
+
+**A dimensão de couro cabeludo (SPEC-025) continua fora**, e não por esquecimento. Produto, técnica e
+finalização são **coisas que ela fez**; o couro é **um estado que ela observou**. Correlacionar um
+estado observado com *"os cuidados que você avaliou bem"* é cruzar **dois resultados**, e a frase lê
+muito mais causal do que qualquer uma das três atuais — *"Equilibrado — esteve em 4 dos 5 cuidados
+que você avaliou bem"* convida a concluir que o equilíbrio causou a boa avaliação. É decisão de
+produto com risco de domínio, não código faltando: fica registrada como **OQ4**.

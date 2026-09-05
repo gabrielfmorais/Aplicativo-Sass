@@ -1,6 +1,4 @@
 import type { FinishTechnique, WashDayTechnique } from '../../care-tracking/index.ts';
-import type { CareTypeCode } from '../../schedule/index.ts';
-import type { LocalDate } from '../../shared/time/index.ts';
 
 /**
  * SPEC-047 (P2) — **Hair Intelligence, a camada determinística.**
@@ -36,11 +34,18 @@ export const MIN_OCCURRENCES = 3;
 /** A partir de quanto uma avaliação dela conta como "bem avaliado". A escala é de 1 a 5. */
 export const HIGH_FEEL = 4;
 
-/** Um cuidado atendido, com o que ela registrou nele. Tudo aqui é **fato dela**. */
+/**
+ * Um cuidado atendido, com o que ela registrou nele. Tudo aqui é **fato dela**.
+ *
+ * ⚠️ **`careTypeCode` e `executedOn` saíram daqui, e a ausência é a decisão.** Os dois eram lidos
+ * do banco, atravessavam a porta e o tipo, e **nenhuma linha os consumia** — regra de necessidade
+ * (§0.2, D-47/D-48): *future possibility ≠ current requirement*. Voltam no dia em que ganharem
+ * consumidor de verdade — **tipo de cuidado** quando a observação for segmentada (`P8`), e **data**
+ * quando entrar recência (`P17`) —, e voltar é uma linha no adapter e uma no tipo.
+ */
 export type InsightFact = {
+  /** A identidade do fato: um cuidado atendido, uma entrada. */
   readonly careExecutionId: string;
-  readonly careTypeCode: CareTypeCode;
-  readonly executedOn: LocalDate;
   /** A resposta do check-in, 1..5. `null` = ela não respondeu, que **não** é zero. */
   readonly feel: number | null;
   /** Os produtos que ela marcou naquele cuidado, com o nome que **ela** deu. */
