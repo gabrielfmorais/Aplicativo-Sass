@@ -22,6 +22,7 @@ const fact = (products: Product[]): InsightFact => ({
   feel: 5,
   products: products.map((p) => ({ id: p.id, name: p.name })),
   techniques: [],
+  finishTechnique: null,
 });
 
 const MASCARA = prod('p1', 'Máscara da feira');

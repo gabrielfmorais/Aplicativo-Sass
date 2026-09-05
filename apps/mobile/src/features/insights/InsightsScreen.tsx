@@ -154,8 +154,8 @@ export function InsightsScreen({
             palavra *nota* arrasta a ideia de avaliação **da Huna sobre o cabelo**, que é recusa
             registrada em três SPECs. A barreira de teste reprova a palavra, e está certa.
           */}
-          Tudo aqui sai do que você registrou: os cuidados que concluiu, o que marcou que usou e a resposta
-          que deu no check-in.
+          Tudo aqui sai do que você registrou: os cuidados que concluiu, o que marcou que usou, como fez e
+          finalizou, e a resposta que deu no check-in.
         </Text>
       </Stack>
     </Screen>
@@ -181,9 +181,9 @@ const missingReason = (view: InsightsView): string => {
     } para a Huna começar a comparar o que se repete.`;
   }
   if (view.ratedCaresWithRecord === 0) {
-    return `Você avaliou ${view.ratedCares} cuidados, e ainda não marcou o que usou em nenhum deles. A Huna compara o que você marca no registro — é dali que sai a repetição.`;
+    return `Você avaliou ${view.ratedCares} cuidados, e ainda não registrou nada em nenhum deles. A Huna compara o que você marca no registro — produto, técnica ou finalização —, e é dali que sai a repetição.`;
   }
   return `A Huna já está comparando os ${view.ratedCaresWithRecord} ${
     view.ratedCaresWithRecord === 1 ? 'cuidado' : 'cuidados'
-  } em que você marcou o que usou, e ainda não encontrou nada que se repita o bastante.`;
+  } em que você registrou alguma coisa, e ainda não encontrou nada que se repita o bastante.`;
 };

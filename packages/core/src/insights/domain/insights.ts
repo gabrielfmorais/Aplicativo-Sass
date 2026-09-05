@@ -1,4 +1,4 @@
-import type { WashDayTechnique } from '../../care-tracking/index.ts';
+import type { FinishTechnique, WashDayTechnique } from '../../care-tracking/index.ts';
 import type { CareTypeCode } from '../../schedule/index.ts';
 import type { LocalDate } from '../../shared/time/index.ts';
 
@@ -55,7 +55,37 @@ export type InsightFact = {
    * atrás do gate D-26/D-70, com barreira viva na SPEC-039 §8.
    */
   readonly techniques: readonly WashDayTechnique[];
+  /**
+   * SPEC-048 (`F38`) — **qual** finalização ela fez naquele cuidado. `null` = não disse qual.
+   *
+   * ⚠️ **Um valor, não uma lista** — ao contrário de produtos e técnicas. A finalização é uma
+   * escolha única por cuidado (`wash_day_finish` tem uma linha por hub), e tratá-la como lista
+   * abriria a porta para "duas finalizações no mesmo cuidado", que o modelo não representa.
+   *
+   * ⚠️ **Observar o que ela registrou não é o conteúdo do `F38`.** *"Você finalizou assim em 3 dos
+   * 5"* é contagem nos registros dela; *"fitagem é a melhor finalização para o seu cabelo"* é
+   * recomendação capilar e continua bloqueada por D-26/D-70 (SPEC-048 §8).
+   */
+  readonly finishTechnique: FinishTechnique | null;
 };
+
+/**
+ * SPEC-048 OQ3 — **as duas respostas que NÃO viram observação**, e o motivo é diferente em cada uma.
+ *
+ * - `other` é *"fiz uma finalização fora desta lista"*. Três cuidados marcados com `other` podem ser
+ *   **três técnicas diferentes**; dizer *"Outra finalização — você finalizou assim em 3 dos 5"*
+ *   afirmaria uma repetição que talvez não exista. Seria inventar insight, que é a recusa que abre
+ *   esta SPEC.
+ * - `unknown` é *"fiz, e não sei o nome"*. É **ausência de identificação**, não uma identificação
+ *   que se repete — a mesma distinção entre ausência e resposta que o `F35` teve de fazer.
+ *
+ * As duas continuam sendo **respostas legítimas** e continuam gravadas: o que elas não fazem é virar
+ * padrão. Um dia, com sign-off, `other` pode ganhar desdobramento; `unknown` não tem como ganhar.
+ */
+export const FINISH_TECHNIQUES_NOT_OBSERVABLE = [
+  'other',
+  'unknown',
+] as const satisfies readonly FinishTechnique[];
 
 /**
  * Uma repetição observada. **A frase inteira vem pronta**, e é de propósito: espalhar a redação por
@@ -63,8 +93,11 @@ export type InsightFact = {
  */
 export type Observation = {
   readonly key: string;
-  /** O que se repetiu: um produto dela, ou uma técnica do vocabulário aprovado. */
-  readonly kind: 'product' | 'technique' | 'combo';
+  /**
+   * O que se repetiu: um produto dela, uma técnica do vocabulário aprovado, um par de produtos, ou
+   * a **finalização** que ela registrou (SPEC-048).
+   */
+  readonly kind: 'product' | 'technique' | 'combo' | 'finish';
   readonly subject: string;
   /** O que se repetiu, em número. Nunca "porque", nunca "melhora". */
   readonly detail: string;
@@ -78,7 +111,7 @@ export type InsightsView = {
   /** Quantos ainda faltam para a Huna começar a comparar. `0` quando já dá. */
   readonly ratedCaresMissing: number;
   /**
-   * Quantos dos cuidados avaliados têm **algum registro** — produto ou técnica marcada.
+   * Quantos dos cuidados avaliados têm **algum registro** — produto, técnica ou finalização.
    *
    * ⚠️ **É o número que explica um silêncio que parecia bug.** Avaliar diz *como ficou*; marcar diz
    * *o que ela fez*. Sem o segundo não há o que comparar, e a tela precisa saber a diferença: dizer
