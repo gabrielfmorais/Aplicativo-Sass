@@ -157,6 +157,17 @@ congelá-lo ser do dono, e de esta SPEC parar exatamente antes da migration.
   (FR5) → responder a nota (**um toque**) → a oferta aparece → marcar duas → reload → persistidas →
   desmarcar uma → reload → só aquela saiu.
 
+### ⚠️ O guardrail pegou uma omissão minha
+
+A primeira PR **reprovou no pgTAP**, e no lugar certo: `tests.grants_allowlist` não conhecia
+`checkin_marks`, então **todo** teste de *"no unapproved grants"* falhou — não só o desta SPEC.
+
+⚠️ **A allowlist não é burocracia: é onde um grant é DECLARADO e JUSTIFICADO.** Tabela nova com
+grant novo que não passa por ela é privilégio existindo em silêncio, que é exatamente o que o
+guardrail impede. Declarada com a justificativa de cada privilégio — e **sem `UPDATE`**: uma
+marcação não muda de valor, ela existe ou não existe; conceder `UPDATE` permitiria reescrever
+`mark` numa linha existente, que é apagar-e-criar sem passar pelo `DELETE` que a policy audita.
+
 ### ⚠️ Um achado de MEDIÇÃO, não do produto: `aria-checked` não existe no preview web
 
 Ao tentar aferir o estado dos chips, a validação mediu **zero elementos com `aria-checked` na página
