@@ -66,61 +66,59 @@ export const createInsightsAdapter = (client: SupabaseClient): InsightsPort => (
     }[];
     const feelOf = new Map(checkInRows.map((c) => [c.care_execution_id, c.overall_feel]));
 
-    /**
-     * SPEC-051 (`P13`) — o que ela notou, por cuidado.
-     *
-     * ⚠️ **Escopo pelos check-ins da janela**, e só eles: sem check-in não há resultado registrado,
-     * e a marca não teria a que pertencer.
-     */
-    let marksByExecution = new Map<string, CheckInMark[]>();
-    if (checkInRows.length > 0) {
-      const marks = await client
-        .from('checkin_marks')
-        .select('checkin_id, mark')
-        .in(
-          'checkin_id',
-          checkInRows.map((c) => c.id),
-        );
-      if (marks.error) throw fail('insights.read_failed', marks.error);
-      const executionOfCheckIn = new Map(checkInRows.map((c) => [c.id, c.care_execution_id]));
-      marksByExecution = ((marks.data ?? []) as { checkin_id: string; mark: CheckInMark }[]).reduce(
-        (acc, m) => {
-          const executionId = executionOfCheckIn.get(m.checkin_id);
-          if (executionId) acc.set(executionId, [...(acc.get(executionId) ?? []), m.mark]);
-          return acc;
-        },
-        new Map<string, CheckInMark[]>(),
-      );
-    }
     const hubs = (washDays.data ?? []) as { id: string; care_execution_id: string }[];
+    const hubIds = hubs.map((h) => h.id);
+    const checkInIds = checkInRows.map((c) => c.id);
 
-    /** Sem hub não há marcação nenhuma — e aí as leituras seguintes não têm o que perguntar. */
+    /**
+     * ⚠️ **As QUATRO leituras de detalhe vão juntas.** Todas dependem só do passo anterior — três do
+     * hub do Wash Day, uma dos check-ins —, e nenhuma depende das outras. Em série, cada uma somaria
+     * uma viagem à rede na tela Premium que já é a mais cara do app.
+     *
+     * - técnicas: o vocabulário **já aprovado** da SPEC-024 — seis delas movimentos de finalização.
+     *   Nomear finalizações novas é o `F38`, atrás do gate D-26/D-70.
+     * - finalização: SPEC-048, **qual** ela registrou.
+     * - produtos: as marcações do Wash Day.
+     * - **o que ela notou** (SPEC-051): escopado pelos check-ins da janela, e só eles — sem check-in
+     *   não há resultado registrado, e a marca não teria a que pertencer.
+     *
+     * `null` quando não há a que perguntar: sem hub não existe marcação de Wash Day, e sem check-in
+     * não existe marcação de resultado.
+     */
+    const [techs, finishes, productRows, noticedRows] = await Promise.all([
+      hubIds.length > 0
+        ? client.from('wash_day_techniques').select('wash_day_id, technique').in('wash_day_id', hubIds)
+        : null,
+      hubIds.length > 0
+        ? client.from('wash_day_finish').select('wash_day_id, finish_technique').in('wash_day_id', hubIds)
+        : null,
+      hubIds.length > 0
+        ? client.from('wash_day_products').select('wash_day_id, product_id').in('wash_day_id', hubIds)
+        : null,
+      checkInIds.length > 0
+        ? client.from('checkin_marks').select('checkin_id, mark').in('checkin_id', checkInIds)
+        : null,
+    ]);
+    for (const r of [techs, finishes, productRows, noticedRows])
+      if (r?.error) throw fail('insights.read_failed', r.error);
+
+    /** SPEC-051 — o que ela notou, por cuidado. */
+    const executionOfCheckIn = new Map(checkInRows.map((c) => [c.id, c.care_execution_id]));
+    const marksByExecution = (
+      (noticedRows?.data ?? []) as { checkin_id: string; mark: CheckInMark }[]
+    ).reduce((acc, m) => {
+      const executionId = executionOfCheckIn.get(m.checkin_id);
+      if (executionId) acc.set(executionId, [...(acc.get(executionId) ?? []), m.mark]);
+      return acc;
+    }, new Map<string, CheckInMark[]>());
+
     let productsByExecution = new Map<string, { id: string; name: string }[]>();
     let techniquesByExecution = new Map<string, WashDayTechnique[]>();
     let finishByExecution = new Map<string, FinishTechnique>();
     if (hubs.length > 0) {
       const executionOfHub = new Map(hubs.map((h) => [h.id, h.care_execution_id]));
-      const hubIds = hubs.map((h) => h.id);
-
-      /**
-       * As três leituras do hub são **independentes entre si**, e vão juntas: em série, cada uma
-       * somaria uma viagem à rede na tela Premium que já é a mais cara do app.
-       *
-       * - técnicas: o vocabulário **já aprovado** da SPEC-024 — seis delas movimentos de
-       *   finalização. Nomear finalizações novas é o `F38`, atrás do gate D-26/D-70.
-       * - finalização: SPEC-048, **qual** ela registrou.
-       * - produtos: as marcações do Wash Day.
-       */
-      const [techs, finishes, marks] = await Promise.all([
-        client.from('wash_day_techniques').select('wash_day_id, technique').in('wash_day_id', hubIds),
-        client.from('wash_day_finish').select('wash_day_id, finish_technique').in('wash_day_id', hubIds),
-        client.from('wash_day_products').select('wash_day_id, product_id').in('wash_day_id', hubIds),
-      ]);
-      if (techs.error) throw fail('insights.read_failed', techs.error);
-      if (finishes.error) throw fail('insights.read_failed', finishes.error);
-      if (marks.error) throw fail('insights.read_failed', marks.error);
       techniquesByExecution = (
-        (techs.data ?? []) as { wash_day_id: string; technique: WashDayTechnique }[]
+        (techs?.data ?? []) as { wash_day_id: string; technique: WashDayTechnique }[]
       ).reduce((acc, t) => {
         const executionId = executionOfHub.get(t.wash_day_id);
         if (executionId) acc.set(executionId, [...(acc.get(executionId) ?? []), t.technique]);
@@ -133,14 +131,14 @@ export const createInsightsAdapter = (client: SupabaseClient): InsightsPort => (
        * espera: nenhuma das duas é uma resposta.
        */
       finishByExecution = (
-        (finishes.data ?? []) as { wash_day_id: string; finish_technique: FinishTechnique | null }[]
+        (finishes?.data ?? []) as { wash_day_id: string; finish_technique: FinishTechnique | null }[]
       ).reduce((acc, f) => {
         const executionId = executionOfHub.get(f.wash_day_id);
         if (executionId && f.finish_technique) acc.set(executionId, f.finish_technique);
         return acc;
       }, new Map<string, FinishTechnique>());
 
-      const marked = (marks.data ?? []) as { wash_day_id: string; product_id: string }[];
+      const marked = (productRows?.data ?? []) as { wash_day_id: string; product_id: string }[];
 
       if (marked.length > 0) {
         // ⚠️ O nome vem de `products`, que é **o nome que ela deu** — o app não inventa rótulo, e
