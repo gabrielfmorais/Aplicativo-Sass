@@ -1,4 +1,4 @@
-import type { CareTypeCode, InsightFact, InsightsPort, WashDayTechnique } from '@app/core';
+import type { CareTypeCode, FinishTechnique, InsightFact, InsightsPort, WashDayTechnique } from '@app/core';
 import { InfrastructureError, localDateFromString } from '@app/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -24,7 +24,7 @@ const HISTORY_WINDOW = 60;
  * ⚠️ **Só leitura, e só dela.** Nada é escrito, nada agrega com terceiros: a camada opera sobre o
  * histórico pessoal e nunca vira benchmark contra outras pessoas (Blueprint §12).
  *
- * ⚠️ **Cinco leituras curtas em vez de um `join` embutido**, pela mesma razão medida na SPEC-041: a
+ * ⚠️ **Leituras curtas em vez de um `join` embutido**, pela mesma razão medida na SPEC-041: a
  * FK de `wash_days` para `care_executions` é composta, e o PostgREST não promete embedding por FK
  * composta. Cada leitura é limitada ao histórico dela pela RLS.
  *
@@ -66,17 +66,28 @@ export const createInsightsAdapter = (client: SupabaseClient): InsightsPort => (
     /** Sem hub não há marcação nenhuma — e aí as leituras seguintes não têm o que perguntar. */
     let productsByExecution = new Map<string, { id: string; name: string }[]>();
     let techniquesByExecution = new Map<string, WashDayTechnique[]>();
+    let finishByExecution = new Map<string, FinishTechnique>();
     if (hubs.length > 0) {
       const executionOfHub = new Map(hubs.map((h) => [h.id, h.care_execution_id]));
       const hubIds = hubs.map((h) => h.id);
 
-      // As técnicas do vocabulário **já aprovado** (SPEC-024) — seis delas movimentos de
-      // finalização. Nomear finalizações novas é o `F38`, atrás do gate D-26/D-70.
-      const techs = await client
-        .from('wash_day_techniques')
-        .select('wash_day_id, technique')
-        .in('wash_day_id', hubIds);
+      /**
+       * As três leituras do hub são **independentes entre si**, e vão juntas: em série, cada uma
+       * somaria uma viagem à rede na tela Premium que já é a mais cara do app.
+       *
+       * - técnicas: o vocabulário **já aprovado** da SPEC-024 — seis delas movimentos de
+       *   finalização. Nomear finalizações novas é o `F38`, atrás do gate D-26/D-70.
+       * - finalização: SPEC-048, **qual** ela registrou.
+       * - produtos: as marcações do Wash Day.
+       */
+      const [techs, finishes, marks] = await Promise.all([
+        client.from('wash_day_techniques').select('wash_day_id, technique').in('wash_day_id', hubIds),
+        client.from('wash_day_finish').select('wash_day_id, finish_technique').in('wash_day_id', hubIds),
+        client.from('wash_day_products').select('wash_day_id, product_id').in('wash_day_id', hubIds),
+      ]);
       if (techs.error) throw fail('insights.read_failed', techs.error);
+      if (finishes.error) throw fail('insights.read_failed', finishes.error);
+      if (marks.error) throw fail('insights.read_failed', marks.error);
       techniquesByExecution = (
         (techs.data ?? []) as { wash_day_id: string; technique: WashDayTechnique }[]
       ).reduce((acc, t) => {
@@ -85,11 +96,19 @@ export const createInsightsAdapter = (client: SupabaseClient): InsightsPort => (
         return acc;
       }, new Map<string, WashDayTechnique[]>());
 
-      const marks = await client
-        .from('wash_day_products')
-        .select('wash_day_id, product_id')
-        .in('wash_day_id', hubIds);
-      if (marks.error) throw fail('insights.read_failed', marks.error);
+      /**
+       * SPEC-048 (`F38`) — `null` aqui é *"não disse qual"*, e a ausência da linha inteira é
+       * *"não disse nem se finalizou"*. As duas chegam ao core como `null`, e é isso que ele
+       * espera: nenhuma das duas é uma resposta.
+       */
+      finishByExecution = (
+        (finishes.data ?? []) as { wash_day_id: string; finish_technique: FinishTechnique | null }[]
+      ).reduce((acc, f) => {
+        const executionId = executionOfHub.get(f.wash_day_id);
+        if (executionId && f.finish_technique) acc.set(executionId, f.finish_technique);
+        return acc;
+      }, new Map<string, FinishTechnique>());
+
       const marked = (marks.data ?? []) as { wash_day_id: string; product_id: string }[];
 
       if (marked.length > 0) {
@@ -123,6 +142,7 @@ export const createInsightsAdapter = (client: SupabaseClient): InsightsPort => (
       feel: feelOf.get(r.id) ?? null,
       products: productsByExecution.get(r.id) ?? [],
       techniques: techniquesByExecution.get(r.id) ?? [],
+      finishTechnique: finishByExecution.get(r.id) ?? null,
     }));
   },
 });

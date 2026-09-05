@@ -143,7 +143,6 @@ mecanismo de registro, e registrar o que ela informou não afirma nada sobre cab
 
 - **OQ1 — a lista sai de `candidate` quando?** Depende do revisor de domínio (D-26/OQ-REL).
 - **OQ2 — `day_after`.** Fora por decisão do dono; entra se o roadmap justificar.
-- **OQ3 — `other` e `unknown` na agregação.** A SPEC-047 conta ocorrências; *"Outra finalização"*
-  agrega técnicas diferentes sob um rótulo só, e *"Não sei o nome"* é ausência de identificação.
-  Nenhum dos dois é observação útil sobre repetição, e a decisão pertence à fatia de integração ao
-  `P2`.
+- **OQ3 (RESOLVIDA)** — `other` e `unknown` **não viram observação** na SPEC-047 §14: a primeira
+  agregaria técnicas **diferentes** sob um rótulo só, a segunda é ausência de identificação. As duas
+  continuam sendo respostas legítimas e contando como registro; o que não fazem é virar padrão.

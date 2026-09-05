@@ -138,6 +138,34 @@ describe('Seus padrões (SPEC-047)', () => {
     s.getByText('você fez em 5 dos 6 cuidados que você avaliou bem');
     expect(s.queryByText(/melhorou|funciona|ajud|por causa/i)).toBeNull();
   });
+
+  /**
+   * SPEC-048 (`F38`) — a finalização entra como **terceiro verbo**, e a tela não a distingue das
+   * outras: é mais uma repetição nos registros dela.
+   *
+   * ⚠️ **Nada aqui indica.** *"Você finalizou assim em 3 dos 6"* é contagem; *"a melhor finalização
+   * para o seu cabelo"* é o conteúdo do `F38`, atrás de D-26/D-70 — e é a frase que esta barreira
+   * impede de aparecer por distração.
+   */
+  it('mostra a finalização registrada, sem indicar nenhuma', async () => {
+    const s = await screen({
+      view: view({
+        observations: [
+          {
+            key: 'finish:plopping',
+            kind: 'finish',
+            subject: 'Plopping',
+            detail: 'você finalizou assim em 3 dos 6 cuidados que você avaliou bem',
+          },
+        ],
+      }),
+    });
+    s.getByText('Plopping');
+    s.getByText('você finalizou assim em 3 dos 6 cuidados que você avaliou bem');
+    expect(
+      s.queryByText(/melhor|recomend|indicad|ideal|passo a passo|para o seu cabelo|defini(ç|c)|frizz/i),
+    ).toBeNull();
+  });
 });
 
 /**
@@ -177,7 +205,9 @@ describe('Seus padrões — por que ainda não há padrão (SPEC-047 fatia 3)', 
       ratedCaresMissing: 0,
       ratedCaresWithRecord: 0,
     });
-    s.getByText(/ainda não marcou o que usou em nenhum deles/);
+    s.getByText(/ainda não registrou nada em nenhum deles/);
+    // SPEC-048 — a frase nomeia as três dimensões, porque a finalização também é registro.
+    s.getByText(/produto, técnica ou finalização/);
     // E não manda alcançar um número que ela já passou.
     expect(s.queryByText(/A partir de 5|Faltam/)).toBeNull();
   });

@@ -9,7 +9,7 @@
 | Related ADRs | **D-26/D-70** (nada afirma sobre cabelo), **D-83** (premium é adição), D-31 (analytics), §0.4 §3.1 (IA por último) |
 | Related SPECs | SPEC-024 (o que ela usou), SPEC-006 (como ficou), SPEC-023 (a prateleira), SPEC-009 (`MIN_CHECKINS_FOR_AVERAGE`, a mesma disciplina) |
 | Capability | `P2` — **COMMITTED**, primeira fatia |
-| Criado / Atualizado | 2026-09-04 / 2026-09-04 (fatia 2: técnica) |
+| Criado / Atualizado | 2026-09-04 / 2026-09-05 (fatia 3: finalização, §14) |
 
 ## 1. Context
 
@@ -103,7 +103,8 @@ que a IA vai **consultar** um dia.
 
 - **OQ1 (parcialmente fechada)** ✅ **Técnica entrou** (fatia 2), com o vocabulário **já aprovado**
   da SPEC-024 e o rótulo vindo do app por um resolvedor — o core não guarda cópia de interface.
-  Faltam **couro** e **dia da semana**. ⛔ **Finalização nova (`F38`) NÃO entrou** — ver §13.
+  ✅ **Finalização (`F38`) entrou depois**, quando o dono forneceu o vocabulário — ver §13 e **§14**.
+  Faltam **couro** e **dia da semana**.
 - **OQ2 (CAN DEFER)** Mover a derivação para o servidor, tornando o gate premium um gate de **dado**
   (ver §6).
 - **OQ3 (CAN DEFER)** O nome do Blueprint para a superfície é *"O que funciona comigo?"* (`P3`).
@@ -116,6 +117,7 @@ que a IA vai **consultar** um dia.
 | Data | Mudança |
 |---|---|
 | 2026-09-04 | SPEC criada e implementada. Repetição de produto nos cuidados que ela avaliou bem, com estado honesto de poucos dados. |
+| 2026-09-05 | **§14 — a dimensão de finalização** (SPEC-048). Terceiro verbo (*"você finalizou assim em"*), `other`/`unknown` fora da observação (OQ3 da SPEC-048, resolvida), a finalização contando como registro, e as três leituras do hub em paralelo. |
 
 ## 12. Evidência
 
@@ -177,3 +179,49 @@ after, técnica por curvatura, …) precisa vir do dono ou de um revisor de dom�
 mão, o resto é pequeno — coluna `finish_technique` em `wash_day_finish`, `CHECK`, porta, chip na
 tela, e a quarta trava mantendo os vocabulários disjuntos.
 
+## 14. A dimensão de finalização (SPEC-048, fatia de integração)
+
+Com o vocabulário do `F38` na mão (SPEC-048), a finalização vira a **terceira dimensão** observável,
+ao lado de produto e técnica. **Zero migration** — é leitura de `wash_day_finish.finish_technique`,
+que a fatia de registro já grava.
+
+**O verbo muda de novo, e é o verbo que carrega a garantia:**
+
+| dimensão | frase |
+|---|---|
+| produto | *Máscara da feira — **esteve em** 4 dos 5 cuidados que você avaliou bem* |
+| técnica | *Secou naturalmente — **você fez em** 3 dos 5 …* |
+| **finalização** | *Plopping — **você finalizou assim em** 3 dos 5 …* |
+
+Nenhuma das três afirma efeito. ⚠️ **A finalização é a dimensão mais perto de virar conselho** —
+*"a melhor finalização para o seu cabelo"* é literalmente o que o `F38` promete **depois** do
+sign-off —, então a barreira de linguagem tem um teste só para ela, no core **e** na tela.
+
+### ⛔ `other` e `unknown` NUNCA viram observação (SPEC-048 OQ3, resolvida)
+
+Os dois motivos são diferentes, e os dois são sobre **não inventar insight**:
+
+- **`other`** é *"fiz uma finalização fora desta lista"*. Três cuidados marcados com `other` podem
+  ser **três técnicas diferentes** — dizer *"Outra finalização — você finalizou assim em 3 dos 5"*
+  afirmaria uma repetição que talvez não exista.
+- **`unknown`** é *"fiz, e não sei o nome"*: **ausência de identificação**, não uma identificação
+  que se repete. A mesma distinção entre ausência e resposta que o `F35` teve de fazer.
+
+As duas continuam sendo respostas legítimas, continuam gravadas e **continuam contando como
+registro** — o que elas não fazem é virar padrão. ⚠️ **O denominador não encolhe por causa delas:**
+os cuidados com `other`/`unknown` seguem no *"dos 5"*, porque aconteceram, e tirá-los inflaria a
+repetição das outras. Barreira de teste em `FINISH_TECHNIQUES_NOT_OBSERVABLE`, verificada nos dois
+sentidos (removida a regra, o teste falha).
+
+### Outros dois ajustes que vieram junto
+
+- **Dizer *qual* finalização já é registro.** `ratedCaresWithRecord` passou a contar a finalização;
+  sem isso, a tela mandaria *"marque o que usou"* para quem marcou a finalização e nada mais.
+- **As três leituras do hub foram para um `Promise.all`.** A leitura nova somaria um sexto round
+  trip em série na tela Premium que já é a mais cara do app; técnicas, finalização e produtos são
+  independentes entre si.
+
+✅ **Validada a 390px no DEV real**, com histórico semeado e depois **desfeito**: com 5 cuidados bem
+avaliados (3 `plopping`, 1 `dedoliss`, 1 `other`), a tela mostrou *"Plopping — você finalizou
+assim em 3 dos 5 cuidados que você avaliou bem"*, **sem** *"Outra finalização"* e **sem** `Dedoliss`
+(1 ocorrência, abaixo do mínimo). Zero problema de console.

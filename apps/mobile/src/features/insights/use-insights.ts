@@ -1,7 +1,7 @@
 import type { InsightsPort, InsightsView } from '@app/core';
 import { buildInsights } from '@app/core';
 
-import { TECHNIQUE_LABEL } from '@/features/care/WashDayScreen';
+import { FINISH_TECHNIQUE_LABEL, TECHNIQUE_LABEL } from '@/features/care/WashDayScreen';
 import { useCallback, useEffect, useState } from 'react';
 
 type Loadable = { view: InsightsView | null; loading: boolean; failed: boolean };
@@ -30,10 +30,14 @@ export const useInsights = (insights: InsightsPort, enabled: boolean): Loadable 
       .facts()
       .then((facts) => {
         if (!active) return;
-        // O rótulo da técnica é cópia de interface e já mora no app desde a SPEC-024 — o core
-        // recebe o resolvedor em vez de manter uma segunda lista que divergiria.
+        // Os rótulos são cópia de interface e já moram no app (SPEC-024, SPEC-048) — o core
+        // recebe os resolvedores em vez de manter listas paralelas que divergiriam.
         setState({
-          view: buildInsights(facts, (technique) => TECHNIQUE_LABEL[technique]),
+          view: buildInsights(
+            facts,
+            (technique) => TECHNIQUE_LABEL[technique],
+            (finish) => FINISH_TECHNIQUE_LABEL[finish],
+          ),
           loading: false,
           failed: false,
         });

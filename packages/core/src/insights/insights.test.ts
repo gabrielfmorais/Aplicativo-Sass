@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import type { WashDayTechnique } from '../care-tracking/index.ts';
+import type { FinishTechnique, WashDayTechnique } from '../care-tracking/index.ts';
 import { localDateFromString } from '../shared/time/index.ts';
 import { buildInsights } from './application/build-insights.ts';
-import { HIGH_FEEL, MIN_OCCURRENCES, MIN_RATED_CARES, type InsightFact } from './domain/insights.ts';
+import {
+  FINISH_TECHNIQUES_NOT_OBSERVABLE,
+  HIGH_FEEL,
+  MIN_OCCURRENCES,
+  MIN_RATED_CARES,
+  type InsightFact,
+} from './domain/insights.ts';
 
 /**
  * SPEC-047 (P2) — **Hair Intelligence determinística.**
@@ -23,6 +29,7 @@ const fact = (
   feel: number | null,
   products: { id: string; name: string }[] = [],
   techniques: WashDayTechnique[] = [],
+  finishTechnique: FinishTechnique | null = null,
 ): InsightFact => ({
   careExecutionId: `e${(n += 1)}`,
   careTypeCode: 'hydration',
@@ -30,6 +37,7 @@ const fact = (
   feel,
   products,
   techniques,
+  finishTechnique,
 });
 
 describe('Insights — sem dados suficientes, a Huna diz isso (SPEC-047)', () => {
@@ -360,5 +368,153 @@ describe('Insights — combinações (SPEC-049 OQ1)', () => {
         /funciona|melhor|receita|f[óo]rmula|combinação ideal|ajud/i,
       );
     }
+  });
+});
+
+/**
+ * SPEC-048 (`F38`) — **a dimensão de finalização, estritamente observacional.**
+ *
+ * ⚠️ O que estes testes guardam não é a contagem: é a **distância entre registrar e recomendar**.
+ * *"Você finalizou assim em 3 dos 5"* é fato dela; *"fitagem é a melhor finalização para o seu
+ * cabelo"* é recomendação capilar e continua bloqueada por D-26/D-70 (SPEC-048 §8).
+ */
+describe('Insights — a finalização registrada (SPEC-048)', () => {
+  const comFinalizacao = (feel: number, finish: FinishTechnique | null) => fact(feel, [], [], finish);
+
+  it('conta a finalização que se repete nos cuidados que ela avaliou bem', () => {
+    const v = buildInsights(
+      [
+        comFinalizacao(5, 'plopping'),
+        comFinalizacao(5, 'plopping'),
+        comFinalizacao(4, 'plopping'),
+        comFinalizacao(5, 'dedoliss'),
+        comFinalizacao(4, null),
+      ],
+      undefined,
+      (t) => (t === 'plopping' ? 'Plopping' : t),
+    );
+    const o = v.observations.find((x) => x.kind === 'finish');
+    expect(o?.subject).toBe('Plopping');
+    expect(o?.detail).toBe('você finalizou assim em 3 dos 5 cuidados que você avaliou bem');
+  });
+
+  it('abaixo do mínimo de ocorrências não vira observação', () => {
+    const v = buildInsights([
+      comFinalizacao(5, 'twist_out'),
+      comFinalizacao(5, 'twist_out'),
+      comFinalizacao(5, null),
+      comFinalizacao(5, null),
+      comFinalizacao(4, null),
+    ]);
+    expect(v.observations.filter((o) => o.kind === 'finish')).toEqual([]);
+  });
+
+  /**
+   * ⚠️ **A decisão que mais importa desta fatia** (SPEC-048 OQ3), e os dois motivos são diferentes:
+   *
+   * - `other` é *"fiz uma finalização fora desta lista"*. Três cuidados com `other` podem ser
+   *   **três técnicas diferentes** — dizer *"Outra finalização — você finalizou assim em 3 dos 5"*
+   *   afirmaria uma repetição que talvez não exista.
+   * - `unknown` é *"fiz, e não sei o nome"*: ausência de identificação, não identificação repetida.
+   *
+   * Chamar qualquer uma das duas de padrão seria **inventar insight**, que é a recusa que abre a
+   * SPEC-047.
+   */
+  it('"Outra finalização" e "Não sei o nome" NUNCA viram padrão', () => {
+    for (const naoObservavel of FINISH_TECHNIQUES_NOT_OBSERVABLE) {
+      const v = buildInsights([
+        comFinalizacao(5, naoObservavel),
+        comFinalizacao(5, naoObservavel),
+        comFinalizacao(5, naoObservavel),
+        comFinalizacao(5, naoObservavel),
+        comFinalizacao(4, naoObservavel),
+      ]);
+      expect(v.enoughData).toBe(true);
+      expect(v.observations.filter((o) => o.kind === 'finish')).toEqual([]);
+    }
+  });
+
+  /** E elas não atrapalham a contagem de uma finalização que É observável no mesmo histórico. */
+  it('mas continuam sendo registro, e não apagam a observação das outras', () => {
+    const v = buildInsights(
+      [
+        comFinalizacao(5, 'dedoliss'),
+        comFinalizacao(5, 'dedoliss'),
+        comFinalizacao(5, 'dedoliss'),
+        comFinalizacao(5, 'other'),
+        comFinalizacao(4, 'unknown'),
+      ],
+      undefined,
+      (t) => (t === 'dedoliss' ? 'Dedoliss' : t),
+    );
+    const finish = v.observations.filter((o) => o.kind === 'finish');
+    expect(finish).toHaveLength(1);
+    expect(finish[0]?.subject).toBe('Dedoliss');
+    // ⚠️ O denominador continua sendo **todos** os cuidados bem avaliados, `other` e `unknown`
+    // inclusive: eles aconteceram, e encolher o denominador inflaria a repetição.
+    expect(finish[0]?.detail).toBe('você finalizou assim em 3 dos 5 cuidados que você avaliou bem');
+    // E as duas contam como registro — ela marcou alguma coisa.
+    expect(v.ratedCaresWithRecord).toBe(5);
+  });
+
+  it('dizer qual finalização já é registro, mesmo sem produto nem técnica marcados', () => {
+    const v = buildInsights([
+      comFinalizacao(5, 'plopping'),
+      comFinalizacao(5, null),
+      comFinalizacao(5, null),
+      comFinalizacao(5, null),
+      comFinalizacao(4, null),
+    ]);
+    expect(v.ratedCaresWithRecord).toBe(1);
+  });
+
+  /**
+   * ⚠️ **A barreira de linguagem, aplicada à dimensão nova.** É a mesma da SPEC-047, e ela precisa
+   * valer aqui porque a finalização é a dimensão mais perto de virar conselho: "melhor finalização
+   * para o seu cabelo" é literalmente o que o `F38` promete **depois** do sign-off.
+   */
+  it('nenhuma frase de finalização indica, promete ou ensina', () => {
+    const v = buildInsights(
+      [
+        comFinalizacao(5, 'fitagem_tradicional'),
+        comFinalizacao(5, 'fitagem_tradicional'),
+        comFinalizacao(5, 'fitagem_tradicional'),
+        comFinalizacao(5, null),
+        comFinalizacao(4, null),
+      ],
+      undefined,
+      () => 'Fitagem tradicional',
+    );
+    for (const o of v.observations.filter((x) => x.kind === 'finish')) {
+      const frase = `${o.subject} ${o.detail}`;
+      expect(frase).not.toMatch(
+        /melhor|recomend|indicad|ideal|funciona|ajud|defini(ç|c)|frizz|volume|passo a passo|para o seu cabelo/i,
+      );
+      // Contagem, e nada além: o detalhe é sempre "N dos M".
+      expect(o.detail).toMatch(/^você finalizou assim em \d+ dos \d+ cuidados que você avaliou bem$/);
+    }
+  });
+
+  /**
+   * ⚠️ **Os dois vocabulários seguem disjuntos também aqui.** Uma técnica da SPEC-024 e uma
+   * finalização da SPEC-048 podem coexistir no mesmo cuidado, e cada uma vira a **sua** observação,
+   * com o **seu** verbo — fundi-las é o que a D-102 proibiu.
+   */
+  it('técnica e finalização coexistem, cada uma com o seu verbo', () => {
+    const v = buildInsights(
+      [
+        fact(5, [], ['diffuser'], 'plopping'),
+        fact(5, [], ['diffuser'], 'plopping'),
+        fact(5, [], ['diffuser'], 'plopping'),
+        fact(5),
+        fact(4),
+      ],
+      () => 'Difusor',
+      () => 'Plopping',
+    );
+    expect(v.observations.find((o) => o.kind === 'technique')?.detail).toMatch(/^você fez em 3 dos 5/);
+    expect(v.observations.find((o) => o.kind === 'finish')?.detail).toMatch(
+      /^você finalizou assim em 3 dos 5/,
+    );
   });
 });

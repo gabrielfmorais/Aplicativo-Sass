@@ -1,7 +1,12 @@
-import type { WashDayTechnique } from '../../care-tracking/index.ts';
+import type { FinishTechnique, WashDayTechnique } from '../../care-tracking/index.ts';
 import { countByCare } from './count-by-care.ts';
 import type { InsightFact, InsightsView, Observation } from '../domain/insights.ts';
-import { HIGH_FEEL, MIN_OCCURRENCES, MIN_RATED_CARES } from '../domain/insights.ts';
+import {
+  FINISH_TECHNIQUES_NOT_OBSERVABLE,
+  HIGH_FEEL,
+  MIN_OCCURRENCES,
+  MIN_RATED_CARES,
+} from '../domain/insights.ts';
 
 /**
  * SPEC-047 (P2) — as repetições, derivadas **só do que ela registrou**.
@@ -21,6 +26,11 @@ export const buildInsights = (
    * que divergem na primeira mudança.
    */
   techniqueLabel: (technique: WashDayTechnique) => string = (t) => t,
+  /**
+   * SPEC-048 — como cada finalização se chama na tela, pela mesma razão de `techniqueLabel`: o
+   * rótulo é cópia de interface e já mora no app.
+   */
+  finishLabel: (technique: FinishTechnique) => string = (t) => t,
 ): InsightsView => {
   /**
    * ⚠️ **O denominador é o que ela AVALIOU, não o que ela fez.** Um cuidado sem check-in não diz
@@ -33,7 +43,14 @@ export const buildInsights = (
    * contradizia: com doze cuidados avaliados e nenhum produto marcado, ela dizia *"a partir de 5 a
    * Huna começa a comparar"* — como se o problema fosse o volume que ela já tinha alcançado.
    */
-  const ratedCaresWithRecord = rated.filter((f) => f.products.length > 0 || f.techniques.length > 0).length;
+  const ratedCaresWithRecord = rated.filter(
+    (f) =>
+      f.products.length > 0 ||
+      f.techniques.length > 0 ||
+      // SPEC-048 — dizer *qual* finalização já é registro. Sem esta ponta, a tela mandaria "marque o
+      // que usou" para quem marcou a finalização e nada mais.
+      f.finishTechnique !== null,
+  ).length;
 
   if (ratedCares < MIN_RATED_CARES) {
     return {
@@ -116,6 +133,28 @@ export const buildInsights = (
       countByCare(best, (f) => f.techniques.map((t) => ({ id: t, name: techniqueLabel(t) }))),
       'technique',
       'você fez em',
+    ),
+    /**
+     * SPEC-048 (`F38`) — **qual finalização**, estritamente observacional.
+     *
+     * ⚠️ **"Você finalizou assim em N dos M"**, e nada além. É contagem nos registros dela; *"essa
+     * finalização é a melhor para o seu cabelo"* seria recomendação capilar (D-26/D-70) e continua
+     * bloqueada — a distância entre as duas frases é a razão de a fatia de registro poder existir
+     * antes do sign-off.
+     *
+     * ⚠️ **`other` e `unknown` ficam de fora** (`FINISH_TECHNIQUES_NOT_OBSERVABLE`): a primeira
+     * agregaria técnicas **diferentes** sob um rótulo só, a segunda é ausência de identificação.
+     * Nenhuma das duas é uma repetição, e chamá-las de padrão seria inventar insight.
+     */
+    ...named(
+      countByCare(best, (f) =>
+        f.finishTechnique === null ||
+        (FINISH_TECHNIQUES_NOT_OBSERVABLE as readonly string[]).includes(f.finishTechnique)
+          ? []
+          : [{ id: f.finishTechnique, name: finishLabel(f.finishTechnique) }],
+      ),
+      'finish',
+      'você finalizou assim em',
     ),
   ];
 
