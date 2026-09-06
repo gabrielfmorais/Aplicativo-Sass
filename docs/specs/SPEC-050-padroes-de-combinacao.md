@@ -75,8 +75,13 @@ de *"o que funciona comigo"*.
   saem dos registros dela.
 - **BR2 — o denominador do padrão é o cuidado AVALIADO em que os dois apareceram**, não o total de
   cuidados avaliados. É a única forma de a segunda contagem significar alguma coisa.
-- **BR3 — pares de tipos DIFERENTES.** Produto com produto já é o `combo` da SPEC-049 OQ1, com outra
-  frase e outro denominador; repeti-lo aqui seria a mesma coisa dita duas vezes.
+- **BR3 — ⚠️ qualquer par de duas coisas DISTINTAS, desde a OQ1 (2026-09-06).** A versão anterior
+  exigia **tipos diferentes**, e por uma razão só: produto com produto já era o `combo` da SPEC-049,
+  com outra frase e outro denominador, e repeti-lo aqui seria a mesma coisa dita duas vezes na mesma
+  tela. **A OQ1 recolheu o `combo` para cá**, e com isso a razão acabou — manter a restrição passaria
+  a ser arbitrário: não há por que dois produtos poderem andar juntos e duas técnicas não. **Uma
+  regra: dois itens distintos.** Nada mais foi afrouxado (BR2, BR4–BR9 valem igual, e o teto de 3
+  agora vale também para o par de produtos, que como `combo` **não tinha teto nenhum**).
 - **BR4 — ⛔ `other` e `unknown` nunca são membros de um padrão** (SPEC-047 §14). ⚠️ **Mas os
   cuidados que os carregam continuam contando**: um cuidado com finalização `other` que tenha a
   Máscara e o Difusor entra inteiro no padrão *"Máscara + Difusor"*. Excluí-los encolheria o
@@ -87,6 +92,18 @@ de *"o que funciona comigo"*.
 - **BR6 — o teto de 3 é guarda de EXIBIÇÃO, e está dito.** Não é significância estatística e não
   finge ser: é a decisão do dono de que *"poucos padrões realmente informativos"* vale mais que
   cobertura. A mesma natureza declarada de `MIN_RATED_CARES` e `MIN_CHECKINS_FOR_AVERAGE`.
+- **BR6b — ⚠️ a lista não gasta as três vagas na mesma FORMA de par (OQ1).** Escolhe o mais forte de
+  cada forma (`produto × produto`, `produto × técnica`, `produto × finalização`, …) e só então
+  completa por contagem. ⚠️ **Medida, não intuída:** com o par de produtos disputando o mesmo teto,
+  200 rotinas simuladas de 12 cuidados avaliados mostraram que **quem marca produto mais do que
+  técnica** — o caso comum, porque produto é um vidro na prateleira e técnica é uma lista para
+  lembrar — via **63% dos cartões virarem produto × produto**, e **45 rotinas em 200 não mostravam
+  nenhum par de tipos diferentes**; marcando as duas coisas parecido, 44% e 14 em 200. Com a regra:
+  **0 em 200**, nos três cenários. ⚠️ **Isso esvaziaria o que o `P8` acrescenta** — o par de produtos
+  a SPEC-049 já dava, e os dois exemplos aprovados pelo dono são cruzados. ⚠️ **É seleção, não
+  ordenação:** a lista final continua saindo por contagem (BR7), dentro de cada forma o escolhido é
+  o mais forte, nenhuma proporção é olhada, e a regra é **simétrica** — protege a forma em minoria,
+  seja ela qual for.
 - **BR7 — ⚠️ a ordem é por CONTAGEM ABSOLUTA, nunca por proporção.** Ordenar por *"qual proporção
   foi melhor avaliada"* é construir um ranking — `P7` entrando pela porta dos fundos, e com uma
   amostra de três. Ordena por quantos cuidados bem avaliados, depois pelo tamanho da amostra, e
@@ -174,10 +191,49 @@ A lição da SPEC-047 fatia 3 é que o silêncio precisa **nomear o que falta** 
 
 ## 12. Open Questions
 
-- **OQ1 (decisão do dono)** O `combo` de **produto × produto** (SPEC-049 OQ1) continua na tela com
-  outra frase e outro denominador. Não foi tocado — mudar comportamento já mergeado sem pedido seria
-  expandir escopo —, mas as duas seções falam de "coisas que andaram juntas" e talvez devessem ser
-  uma só. Fica registrado, não decidido pelo agente.
+- **OQ1** ✅ **Fechada em 2026-09-06 pelo dono**, com a diretriz: *"simplificar a experiência para a
+  usuária, evitando várias seções de insights, mas sem destruir a distinção conceitual/dados por
+  baixo."*
+
+  **Decisão: o par de produtos deixou de ser observação e virou `Pattern`.** O `combo` da SPEC-049
+  saiu de `observations`, e a tela passou a ter **uma** seção de par.
+
+  ⚠️ **O que estava errado não era haver três seções — era haver duas para a MESMA ideia.** *"O que
+  se repete"* misturava item isolado com par de produtos (*"apareceram juntos em 3 dos 5 cuidados que
+  você avaliou bem"*) enquanto *"Suas combinações"* tinha os pares de tipos diferentes (*"apareceram
+  juntos em 5 cuidados que você avaliou, e em 4 deles você avaliou bem"*): **duas frases, dois
+  denominadores e dois lugares para o mesmo conceito**, sem nada na tela explicando a diferença.
+
+  **Agora cada seção responde a uma pergunta, e a regra é legível sem instrução:**
+
+  | Seção | Pergunta | Denominador |
+  |---|---|---|
+  | O que você tem notado | o que ela **observou** | cuidados que você avaliou |
+  | O que se repete | **uma** coisa que ela fez | cuidados que você avaliou **bem** |
+  | Suas combinações | **duas** coisas juntas | cuidados em que as duas apareceram |
+
+  ⚠️ **Simplificou de verdade, e dá para contar:** o `combo` **não tinha teto** — cinco produtos
+  produziam até dez cartões, e a regra do par redundante (§15.1) foi escrita justamente porque isso
+  foi medido. Agora todo par disputa **um único `MAX_PATTERNS = 3`**, que é literalmente a instrução
+  do dono de *"poucos padrões realmente informativos"*.
+
+  ⚠️ **E a distinção de dado ficou intacta**, que era a outra metade do pedido: fundir as duas listas
+  numa só poria *"esteve em 4 dos 5 cuidados que você avaliou bem"* ao lado de *"apareceram juntos em
+  5 cuidados que você avaliou"* — números parecidos com significados diferentes. Isso seria
+  simplificar a tela **mentindo sobre o dado**, e foi recusado.
+
+  ⚠️ **Efeito colateral aceito, e é ganho:** o par de produtos passou a ser contado sobre **todos** os
+  cuidados avaliados e a mostrar **as duas contagens** — mais informação do que a frase anterior
+  carregava —, e passa pelas mesmas guardas de todo padrão (amostra mínima, corte do zero bem
+  avaliado, descarte do redundante, ordem por contagem absoluta).
+
+  ⚠️ **A auditoria mediu um custo e ele foi corrigido, não aceito:** o par de produtos passou a
+  disputar o mesmo teto de três, e com isso quase esvaziou o cruzamento que **é** o `P8` — daí a
+  **BR6b**, com os números acima.
+
+  **Barreiras nos dois sentidos, verificadas:** restaurada a proibição do par do mesmo tipo, **7
+  testes de core falham**; feitos os pares aparecerem também em *"O que se repete"*, **3 testes de
+  tela falham**; removida a regra de variedade, **1 teste de core falha**.
 - **OQ2 (CAN DEFER)** Couro cabeludo (SPEC-047 OQ4).
 - **OQ3 (CAN DEFER)** Recência: um padrão de seis meses atrás pesa igual a um de semana passada.
   Precisa de `executedOn` de volta em `InsightFact` (removido por falta de consumidor, SPEC-047

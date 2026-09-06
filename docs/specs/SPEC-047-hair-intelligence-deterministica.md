@@ -126,6 +126,7 @@ que a IA vai **consultar** um dia.
 | 2026-09-04 | SPEC criada e implementada. Repetição de produto nos cuidados que ela avaliou bem, com estado honesto de poucos dados. |
 | 2026-09-05 | **§16 — as marcas do `P13` consumidas**: *"você notou em N dos M cuidados que você avaliou"*, com denominador próprio e **sem atribuição**. ⛔ Atribuir a marca a uma entrada é D-26/D-70 (OQ5). |
 | 2026-09-05 | **§15 — auditoria do módulo:** pares redundantes descartados por regra (medido: 10 cartões de combinação para 5 produtos), e dois campos sem consumidor removidos. |
+| 2026-09-06 | **SPEC-050 OQ1 fechada pelo dono:** o par de produtos deixou de ser a observação `combo` e virou `Pattern`. `Observation['kind']` perdeu `'combo'`; a tela ficou com **uma** seção de par. A regra do §15.1 continua valendo — agora com o denominador da SPEC-050, num lugar só. |
 | 2026-09-05 | **§14 — a dimensão de finalização** (SPEC-048). Terceiro verbo (*"você finalizou assim em"*), `other`/`unknown` fora da observação (OQ3 da SPEC-048, resolvida), a finalização contando como registro, e as três leituras do hub em paralelo. |
 
 ## 12. Evidência

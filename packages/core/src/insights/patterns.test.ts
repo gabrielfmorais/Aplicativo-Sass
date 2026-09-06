@@ -102,12 +102,19 @@ describe('Padrões — a combinação contada, nunca explicada (SPEC-050)', () =
   });
 });
 
-describe('Padrões — os pares que NÃO existem (SPEC-050)', () => {
-  /**
-   * ⚠️ **Produto com produto já é o `combo` da SPEC-049 OQ1**, com outra frase e outro denominador.
-   * Repeti-lo aqui seria a mesma coisa dita duas vezes na mesma tela.
-   */
-  it('par do MESMO tipo não é padrão', () => {
+/**
+ * **SPEC-050 OQ1 (2026-09-06) — o par do mesmo tipo passou a ser padrão.**
+ *
+ * ⚠️ **A restrição antiga tinha uma razão só, e ela acabou.** Produto com produto era o `combo` da
+ * SPEC-049, com outra frase e outro denominador; admiti-lo aqui seria a mesma coisa dita duas vezes
+ * na mesma tela. Com o `combo` recolhido para cá, manter a restrição passaria a ser arbitrário —
+ * não há por que dois produtos poderem andar juntos e duas técnicas não.
+ *
+ * ⚠️ **Nada foi afrouxado além disso:** amostra mínima, corte do zero bem avaliado, descarte do
+ * redundante, ordem por contagem absoluta e teto de três valem igual, e têm os testes de sempre.
+ */
+describe('Padrões — qualquer par de duas coisas distintas (SPEC-050 OQ1)', () => {
+  it('dois produtos são um padrão, com a frase e o denominador de todo par', () => {
     const juntos = [P.mascara, P.leave];
     const v = padroes([
       fact(5, juntos),
@@ -116,10 +123,14 @@ describe('Padrões — os pares que NÃO existem (SPEC-050)', () => {
       fact(5, [P.mascara]),
       fact(4, [P.leave]),
     ]);
-    expect(v).toEqual([]);
+    expect(v).toHaveLength(1);
+    expect(v[0]?.subject).toBe('Leave-in azul + Máscara da Ana');
+    expect(v[0]?.detail).toBe(
+      'apareceram juntos em 3 cuidados que você avaliou, e em 3 deles você avaliou bem',
+    );
   });
 
-  it('duas técnicas no mesmo cuidado também não', () => {
+  it('duas técnicas também', () => {
     const v = padroes([
       fact(5, [], ['diffuser', 'air_dried']),
       fact(5, [], ['diffuser', 'air_dried']),
@@ -127,9 +138,23 @@ describe('Padrões — os pares que NÃO existem (SPEC-050)', () => {
       fact(5, [], ['diffuser']),
       fact(4, [], ['air_dried']),
     ]);
-    expect(v).toEqual([]);
+    expect(v).toHaveLength(1);
+    expect(v[0]?.subject).toBe('Difusor + Secou naturalmente');
   });
 
+  /** ⚠️ O par do mesmo tipo não escapa de nenhuma das guardas. */
+  it('e o par do mesmo tipo obedece à amostra mínima e ao descarte do redundante', () => {
+    const juntos = [P.mascara, P.leave];
+    // Duas vezes: abaixo da amostra mínima.
+    expect(padroes([fact(5, juntos), fact(5, juntos), fact(5), fact(5), fact(4)])).toEqual([]);
+    // Sempre juntos: o par não diz nada que os dois itens sozinhos não digam.
+    expect(
+      padroes([fact(5, juntos), fact(5, juntos), fact(5, juntos), fact(5, juntos), fact(4, juntos)]),
+    ).toEqual([]);
+  });
+});
+
+describe('Padrões — os pares que NÃO existem (SPEC-050)', () => {
   /** ⚠️ **Só pares.** Trios explodem em combinações e produzem coincidência com cara de padrão. */
   it('produto + técnica + finalização viram pares, nunca um trio', () => {
     const tres = () => fact(5, [P.mascara], ['diffuser'], 'plopping');
@@ -191,6 +216,66 @@ describe('Padrões — os pares que NÃO existem (SPEC-050)', () => {
     ]);
     expect(v).toHaveLength(1);
     expect(v[0]?.subject).toBe('Máscara da Ana + Plopping');
+  });
+});
+
+/**
+ * **SPEC-050 OQ1 — a regra de variedade, e por que ela existe.**
+ *
+ * ⚠️ **Medida, não intuída.** Com o par de produtos disputando o mesmo teto de três, 200 rotinas
+ * simuladas de 12 cuidados avaliados mostraram que **quem marca produto mais do que técnica** — o
+ * caso comum — via **63% dos cartões virarem produto × produto**, e **45 rotinas em 200 não
+ * mostravam nenhum par de tipos diferentes**. Com a regra: **0 em 200**, nos três cenários.
+ *
+ * ⚠️ **Isso esvaziaria o que o `P8` acrescenta.** O par de produtos a SPEC-049 já dava; o
+ * cruzamento é o que a SPEC-050 trouxe, e os dois exemplos aprovados pelo dono são cruzados.
+ */
+describe('Padrões — a lista não gasta as três vagas na mesma forma (SPEC-050 OQ1)', () => {
+  /**
+   * O desenho: por contagem pura, os três primeiros seriam **todos** produto × produto, e o par
+   * produto × técnica (3 cuidados) ficaria de fora.
+   */
+  it('o par de tipos diferentes entra mesmo perdendo na contagem para três pares de produto', () => {
+    const v = padroes([
+      fact(5, [P.mascara, P.leave], ['diffuser']),
+      fact(5, [P.mascara, P.leave, P.shampoo], ['diffuser']),
+      fact(5, [P.mascara, P.leave, P.shampoo], ['diffuser']),
+      fact(5, [P.mascara, P.leave, P.shampoo]),
+      fact(5, [P.mascara, P.leave, P.shampoo]),
+      fact(5, [P.mascara, P.shampoo]),
+    ]);
+    expect(v).toHaveLength(3);
+    // ⚠️ O cruzado está lá, apesar de 3 pares de produto o baterem na contagem.
+    expect(v.some((p) => p.subject.includes('Difusor'))).toBe(true);
+    // ⚠️ E a ordem continua sendo por contagem: o mais forte abre a lista (BR7).
+    expect(v[0]?.subject).toBe('Leave-in azul + Máscara da Ana');
+    expect(v.map((p) => p.cares)).toEqual([...v.map((p) => p.cares)].sort((a, b) => b - a));
+  });
+
+  /** ⚠️ **A regra é simétrica**: ela protege a forma que estiver em minoria, não o cruzamento. */
+  it('o par de produtos entra quando são os cruzados que dominam a contagem', () => {
+    const v = padroes([
+      fact(5, [P.mascara, P.leave], ['diffuser', 'air_dried']),
+      fact(5, [P.mascara, P.leave], ['diffuser', 'air_dried']),
+      fact(5, [P.mascara, P.leave], ['diffuser', 'air_dried']),
+      fact(5, [P.mascara, P.leave], ['diffuser', 'air_dried']),
+      fact(5, [P.mascara], ['diffuser']),
+      fact(5, [P.leave], ['air_dried']),
+    ]);
+    expect(v.some((p) => p.subject === 'Leave-in azul + Máscara da Ana')).toBe(true);
+  });
+
+  /** ⚠️ Havendo uma forma só, a lista não fica menor por isso — completa pela contagem. */
+  it('com uma forma só, as três vagas continuam sendo preenchidas', () => {
+    const v = padroes([
+      fact(5, [P.mascara, P.leave, P.shampoo]),
+      fact(5, [P.mascara, P.leave, P.shampoo]),
+      fact(5, [P.mascara, P.leave, P.shampoo]),
+      fact(5, [P.mascara, P.leave]),
+      fact(5, [P.mascara, P.shampoo]),
+      fact(5, [P.leave, P.shampoo]),
+    ]);
+    expect(v).toHaveLength(3);
   });
 });
 

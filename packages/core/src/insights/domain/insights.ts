@@ -109,10 +109,15 @@ export const FINISH_TECHNIQUES_NOT_OBSERVABLE = [
 export type Observation = {
   readonly key: string;
   /**
-   * O que se repetiu: um produto dela, uma técnica do vocabulário aprovado, um par de produtos, ou
-   * a **finalização** que ela registrou (SPEC-048).
+   * O que se repetiu: um produto dela, uma técnica do vocabulário aprovado, a **finalização** que
+   * ela registrou (SPEC-048), ou o que ela **notou** depois (SPEC-051).
+   *
+   * ⚠️ **`combo` saiu daqui, e a ausência é a decisão (SPEC-050 OQ1, 2026-09-06).** O par de
+   * produtos era uma observação com frase e denominador próprios, e a tela terminava com **duas**
+   * seções de "coisas que andaram juntas". Ele virou `Pattern` como qualquer outro par: uma coisa
+   * de cada vez aqui, duas coisas juntas lá.
    */
-  readonly kind: 'product' | 'technique' | 'combo' | 'finish' | 'noticed';
+  readonly kind: 'product' | 'technique' | 'finish' | 'noticed';
   readonly subject: string;
   /** O que se repetiu, em número. Nunca "porque", nunca "melhora". */
   readonly detail: string;
@@ -149,12 +154,19 @@ export const MIN_PATTERN_WELL_RATED = 1;
  * ⚠️ **Teto de exibição, e está dito.** Não é significância e não finge ser: é a decisão do dono de
  * que *"poucos padrões realmente informativos"* vale mais que cobertura. Uma tela cheia de
  * combinações é uma tela estatística, e esta camada não é isso.
+ *
+ * ⚠️ **E vale para TODO par desde a OQ1** — inclusive o de produtos, que como `combo` da SPEC-049
+ * não tinha teto nenhum. Um teto só é o que torna a decisão do dono verdadeira na tela.
  */
 export const MAX_PATTERNS = 3;
 
 /**
  * SPEC-050 (`P8`) — **duas coisas que ela registrou no mesmo cuidado, e como ela avaliou aqueles
  * cuidados.**
+ *
+ * ⚠️ **Qualquer duas coisas distintas** (SPEC-050 OQ1): dois produtos, produto e técnica, técnica e
+ * finalização. A restrição a *tipos diferentes* só existia para não repetir o `combo` da SPEC-049,
+ * que agora mora aqui — mantê-la seria arbitrário.
  *
  * ⚠️ **Co-ocorrência com resultado, nunca efeito.** *"Apareceram juntos em 5 cuidados que você
  * avaliou, e em 4 deles você avaliou bem"* é contagem nos registros dela. *"Máscara X funciona
@@ -193,9 +205,8 @@ export type InsightsView = {
   readonly ratedCaresWithRecord: number;
   readonly observations: readonly Observation[];
   /**
-   * SPEC-050 (`P8`) — os pares de **tipos diferentes** que andaram juntos, no máximo
-   * `MAX_PATTERNS`. Lista vazia = *"A Huna ainda está conhecendo suas combinações"*, que é um
-   * estado honesto e não um erro.
+   * SPEC-050 (`P8`) — **tudo o que andou junto**, no máximo `MAX_PATTERNS`. Lista vazia = *"A Huna
+   * ainda está conhecendo suas combinações"*, que é um estado honesto e não um erro.
    */
   readonly patterns: readonly Pattern[];
 };

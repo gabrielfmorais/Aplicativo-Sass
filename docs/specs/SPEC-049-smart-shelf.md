@@ -66,6 +66,10 @@ para ela**: quais desses vidros aparecem nos registros, e quais nunca apareceram
   juntos em 3 dos 5 cuidados que você avaliou bem"*. ⚠️ **Par, não receita** — um par soa mais causal
   que um item isolado justamente porque parece uma fórmula, e a frase é escolhida para não soar como
   uma. **Só pares**: trios explodem em combinações e produzem coincidência com cara de padrão.
+  ⚠️ **Atualização (SPEC-050 OQ1, 2026-09-06): o `combo` não existe mais como observação.** O par de
+  produtos virou `Pattern` como qualquer outro par — mesma frase, mesmo denominador, mesmo teto —,
+  porque a tela tinha ficado com **duas** seções para a mesma ideia. A capability é a mesma; o que
+  mudou foi onde ela mora.
 - **OQ2 (BLOQUEADA por decisão)** *"A avaliação dela associada a cada produto"* é o **`P7`**: média
   por produto é a forma mais direta de virar ranking, e ranking é outra decisão. Fora desta fatia de
   propósito.

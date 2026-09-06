@@ -144,10 +144,22 @@ export function InsightsScreen({
     <Screen footer={footer}>
       {header}
       {/*
-        ⚠️ **Duas seções, e o rótulo é o que as separa.** Um cartão diz *"esteve em 4 dos 5 cuidados
-        que você avaliou bem"* e outro *"apareceram juntos em 5 cuidados que você avaliou"* — os
-        denominadores são diferentes, e sem o título eles se pareceriam demais para números tão
-        parecidos.
+        ⚠️ **Três seções, e cada uma responde a UMA pergunta** — SPEC-050 OQ1, decidida em
+        2026-09-06 com a preferência do dono de simplificar a experiência **sem** apagar a distinção
+        de dado por baixo.
+
+        > *o que eu notei* · *o que se repete* (uma coisa) · *o que andou junto* (duas coisas)
+
+        ⚠️ **O que mudou foi a arrumação, não a fronteira.** O par de produtos era a observação
+        `combo` e vivia em *"O que se repete"*, contado dentro dos cuidados **bem avaliados**; a tela
+        ficava com **duas** seções de "coisas que andaram juntas", com frases e denominadores
+        diferentes, e a de cima ainda misturava item isolado com par. Agora todo par é `Pattern`,
+        com uma frase, um denominador e **um** teto de três para todos.
+
+        ⚠️ **O rótulo continua sendo o que separa os denominadores.** *"esteve em 4 dos 5 cuidados
+        que você avaliou bem"* e *"apareceram juntos em 5 cuidados que você avaliou"* são números
+        parecidos com significados diferentes — juntá-los numa lista só seria simplificar a tela
+        mentindo sobre o dado.
       */}
       {/*
         SPEC-051 (`P13`) — **o que ela tem notado.**
@@ -199,7 +211,10 @@ export function InsightsScreen({
       </Stack>
 
       {/*
-        SPEC-050 (`P8`) — **as combinações.**
+        SPEC-050 (`P8`) — **as combinações: duas coisas que ela registrou no mesmo cuidado.**
+
+        ⚠️ **É a única seção de par da tela** (OQ1). Dois produtos, produto e técnica, técnica e
+        finalização — todos entram por aqui, com a mesma frase.
 
         ⚠️ **Co-ocorrência com resultado, nunca efeito.** *"Apareceram juntos em 5 cuidados que você
         avaliou, e em 4 deles você avaliou bem"* é contagem nos registros dela; *"essa combinação é

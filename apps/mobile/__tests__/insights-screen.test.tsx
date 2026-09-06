@@ -253,6 +253,51 @@ describe('Seus padrões — as combinações (SPEC-050)', () => {
     expect(tree.indexOf('O que se repete')).toBeLessThan(tree.indexOf('Suas combinações'));
   });
 
+  /**
+   * **SPEC-050 OQ1 (2026-09-06) — UMA seção de par, e uma só.**
+   *
+   * ⚠️ **É a barreira da decisão inteira.** O par de produtos era a observação `combo` e caía em
+   * *"O que se repete"*: a tela ficava com **duas** seções de "coisas que andaram juntas", com
+   * frases e denominadores diferentes e nada explicando por quê. Se um par voltar a chegar por
+   * `observations`, este teste falha — e ele olha a tela **inteira**, com as três seções cheias,
+   * que é a única configuração em que a duplicação aparecia.
+   */
+  it('nenhum par aparece fora de "Suas combinações"', async () => {
+    const s = await screen({
+      view: view({
+        observations: [
+          {
+            key: 'noticed:frizz',
+            kind: 'noticed',
+            subject: 'Frizz',
+            detail: 'você notou em 4 dos 8 cuidados que você avaliou',
+          },
+          {
+            key: 'product:p1',
+            kind: 'product',
+            subject: 'Máscara da Ana',
+            detail: 'esteve em 4 dos 6 cuidados que você avaliou bem',
+          },
+        ],
+        patterns: [PADRAO],
+      }),
+    });
+    const tree = JSON.stringify(s.toJSON());
+    // As três seções, nesta ordem: o que ela notou · uma coisa · duas coisas juntas.
+    for (const [antes, depois] of [
+      ['O que você tem notado', 'O que se repete'],
+      ['O que se repete', 'Suas combinações'],
+    ] as const) {
+      expect(tree.indexOf(antes)).toBeGreaterThanOrEqual(0);
+      expect(tree.indexOf(antes)).toBeLessThan(tree.indexOf(depois));
+    }
+    // ⚠️ E **todo** cartão de par vem depois do rótulo "Suas combinações".
+    const combinacoes = tree.indexOf('Suas combinações');
+    for (const junto of ['apareceram juntos em', ' + ']) {
+      expect(tree.indexOf(junto)).toBeGreaterThan(combinacoes);
+    }
+  });
+
   /** ⚠️ Estado honesto, não placeholder: sem par com amostra suficiente, a Huna diz exatamente isso. */
   it('sem combinação, diz que ainda está conhecendo as combinações dela', async () => {
     const s = await screen({ view: view({ patterns: [] }) });
