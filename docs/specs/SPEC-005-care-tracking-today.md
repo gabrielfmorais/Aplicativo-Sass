@@ -50,7 +50,7 @@ Registrar um cuidado parece trivial e não é. Três coisas precisam ser verdade
 - **Progresso, adesão, gráficos, streaks** → SPEC-009 (streaks: D-25, sem tabela).
 - **Reavaliação** (novo perfil → novo plano) → SPEC-014. O supersede já existe desde a SPEC-004.
 - **Calendário em grade mensal.** A fatia entrega lista de hoje + próximos + histórico do plano ativo; a grade é UI que nenhum fluxo desta fatia exige.
-- **Execução avulsa** (`scheduled_care_id NULL`, cuidado sem agendamento) — DOMAIN-MAP §3.5 a permite, mas nenhum fluxo desta fatia a exige. DEFER (§8).
+- **Execução avulsa** (`scheduled_care_id NULL`, cuidado sem agendamento) — DOMAIN-MAP §3.5 a permite, mas nenhum fluxo desta fatia a exige. DEFER (§8). ✅ **Deixou de ser DEFER em 2026-09-06: SPEC-052.** O gatilho nomeado aqui — *"um fluxo que exija"* — chegou com `P2`/`P6`/`P8`/`P13`, que liam só o que o plano propôs.
 - **Nota livre na execução** e **motivo do pulo** — DEFER (§8); nota é território de check-in (SPEC-006).
 - **Fila offline / sincronização otimista.** O `executed_on` é calculado pelo servidor (§9); uma fila local reintroduziria exatamente o problema que a RPC resolve. Erro com retry explícito cobre rede instável.
 - **Analytics.** Nenhum evento nesta SPEC (precedente D-65) → SPEC-011.
@@ -308,7 +308,7 @@ Comentário `-- ROLLBACK:` na migration: drop das quatro funções → drop de `
 | ID | Classe | Pergunta | Recomendação |
 | --- | --- | --- | --- |
 | **OQ1** | **RESOLVED — decisão humana D-69 (D-12)** | Existe "desfazer" de uma execução? | **Sim, janela de 15 minutos** a partir de `executed_at`. A execução anulada **permanece** no histórico (`voided_at`), não é apagada. Objetivo é corrigir toque acidental — não há edição de histórico, correção de dias anteriores, undo ilimitado nem fluxo administrativo. |
-| **OQ2** | **RESOLVED — decisão humana D-69 (D-35)** | Um mesmo `scheduled_care` pode ter mais de uma execução? | **Não: 0 ou 1 execução efetiva**, garantido pelo banco (índice único parcial `WHERE voided_at IS NULL`). Uma execução anulada não conta, então após desfazer a usuária pode registrar de novo. Execução avulsa continua DEFER. |
+| **OQ2** | **RESOLVED — decisão humana D-69 (D-35)** | Um mesmo `scheduled_care` pode ter mais de uma execução? | **Não: 0 ou 1 execução efetiva**, garantido pelo banco (índice único parcial `WHERE voided_at IS NULL`). Uma execução anulada não conta, então após desfazer a usuária pode registrar de novo. ✅ **A execução avulsa entrou na SPEC-052 (2026-09-06), e o teto acima continua inteiro:** o índice único é sobre `scheduled_care_id`, cuja chave nunca é nula num cuidado planejado — e `NULL` não colide com `NULL`, então duas avulsas no mesmo dia são dois fatos. |
 | OQ3 | IMPORTANT — resolvida nesta SPEC | Guardar `status='completed'` além do fato de execução? | **Não** (§8.2): segunda fonte de verdade para o mesmo fato. |
 | OQ4 | IMPORTANT — resolvida nesta SPEC | Reagendar só cuidado atrasado, ou qualquer `planned`? | **Qualquer `planned`.** Uma regra só, e D-28 não restringe. |
 | OQ5 | CAN DEFER | Histórico atravessa planos superseded? | Não nesta fatia (BR9): histórico é do plano ativo. Reabrir na SPEC-009 (Progress), que é quem precisa de série longa. |

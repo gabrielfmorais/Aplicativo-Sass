@@ -52,7 +52,7 @@ Três coisas precisam ser verdade ao mesmo tempo:
 | Gráficos, tendências, adesão, streaks | Progress é a SPEC-009; streaks são DEFER (D-25) | SPEC-009 |
 | Editar ou apagar um check-in | Sem consumidor; a execução já tem seu próprio undo (D-12) | §8.3 |
 | Lembrete de check-in pendente | Intent `checkin_pending` é da SPEC-008 | SPEC-008 |
-| Check-in avulso, sem execução | Execução avulsa continua DEFER desde a SPEC-005 | quando aquela voltar |
+| Check-in avulso, sem execução | ✅ **Aquela voltou: SPEC-052 (2026-09-06).** O check-in pendura na **execução**, então o da avulsa chegou **sem nenhuma mudança aqui** — a âncora escolhida nesta SPEC é o que tornou isso de graça | fechado |
 | Analytics (`checkin_completed`) | Precedente D-65 → Fase 10 | SPEC-011 |
 | Tela ou rota própria | O cuidado já está na Hoje; tirar a usuária de lá aumenta o atrito que G1 tenta eliminar | — |
 
