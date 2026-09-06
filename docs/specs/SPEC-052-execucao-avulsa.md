@@ -388,8 +388,16 @@ DEV** (§4 de `CLAUDE.md`) — é o único gate desta SPEC.
 
 ## 21. Migration Plan
 
-Uma migration, `supabase/migrations/20260919000000_ad_hoc_care_execution.sql`. Compatível para trás:
-app antigo só chama `complete_care` e nunca produz `NULL`. Sem backfill.
+Duas migrations, **nesta ordem**:
+
+1. `20260919000000_ad_hoc_care_execution.sql` — a coluna anulável e a RPC.
+2. `20260919000001_journey_points_ignore_ad_hoc.sql` — ⚠️ **obrigatória, não opcional**: sem ela, um
+   único registro avulso faz `award_journey_points` lançar `23502` e **para a Jornada inteira**
+   (§22.1). Ela nasceu de medir o DEV depois da primeira, e é o motivo de a fatia ter tido **dois**
+   gates de aplicação em vez de um.
+
+Compatível para trás nas duas: app antigo só chama `complete_care` e nunca produz `NULL`. Sem
+backfill — nenhuma avulsa chegou a virar ponto, porque a função nunca completou.
 
 ## 22. Rollback Plan
 
