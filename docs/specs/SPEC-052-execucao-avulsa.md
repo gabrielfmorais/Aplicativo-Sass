@@ -3,7 +3,7 @@
 | Campo | Valor |
 | --- | --- |
 | ID | SPEC-052 |
-| Status | **Draft** (2026-09-06) — aprovada pelo dono na mesma conversa, com a fonte de verdade transcrita em §1.1 |
+| Status | **Implemented** (2026-09-06) — aprovada pelo dono na mesma conversa, com a fonte de verdade transcrita em §1.1 |
 | Owner | @gabrielfmorais (humano) |
 | Bounded Context | Care Tracking (Core) — DOMAIN-MAP §3.5 |
 | Related ADRs | ADR-001 (camadas), ADR-004 (Supabase/RLS/RPC), ADR-008 (dia civil da usuária) |
@@ -502,6 +502,19 @@ persistência que estava certa):
 - **anulada a avulsa, voltou a 6.** ⚠️ E a medição corrigiu uma leitura minha: a primeira passagem
   marcou `6 → 6` porque o driver leu a tela **ainda montada**; numa sessão nova o número é 7.
 
+### O conserto, medido no DEV com uma avulsa VIVA (depois da migration `20260919000001`)
+
+| | |
+|---|---|
+| `award_journey_points` | **200** — era `400 · 23502` |
+| pontos | **205 → 205**, zero apontando para avulsa |
+| ⚠️ **controle positivo** | **14 cuidados do plano continuam pagos** com a avulsa presente |
+| `lifetimeDoneCount` com o filtro | **14 → 14** |
+| ⚠️ **e sem o filtro** | **14 → 15** — a prova de que é o filtro que segura |
+| cronograma | **136 → 136** |
+
+**A 390px, com a avulsa viva, zero problema de console:** a **Jornada carrega** (*"Nível 3 · Constante · 205 pontos"*) — era exatamente esta tela que morria; a **Progresso diz "14 cuidados"**, não 15; **nenhum cartão de avulsa oferece *Compartilhar*** e o do plano continua oferecendo (controle positivo, 1 na tela); reload persistiu; *Desfazer* removeu (1 → 0).
+
 **Estado do DEV ao fim:** 14 execuções vivas, 205 pontos, base 6 — o de antes. Resíduo: duas
 execuções avulsas **anuladas** e um check-in preso a uma delas (append-only, invisível a toda
 agregação).
@@ -511,4 +524,5 @@ agregação).
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-09-06 | Criada. Concretiza a execução ad hoc do DOMAIN-MAP §3.5, adiada por SPEC-005 §8, SPEC-006 e SPEC-024 OQ4. | agente |
+| 2026-09-06 | ✅ **DONE.** Conserto validado no DEV com avulsa viva: Jornada em 200, 14 cuidados do plano ainda pagos, vitalícia 14 (15 sem o filtro), Compartilhar ausente na avulsa. | agente |
 | 2026-09-06 | **BLOCKER medido no DEV real (§22.1):** a avulsa fazia `award_journey_points` lançar `23502` e parava a Jornada inteira. Migration `20260919000001`, e a asserção de pgTAP que passava com o sistema quebrado foi refeita. | agente |
