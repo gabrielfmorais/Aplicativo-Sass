@@ -69,9 +69,6 @@ export const buildInsights = (
   }
 
   const best = rated.filter((f) => (f.feel ?? 0) >= HIGH_FEEL);
-  /** Contado uma vez só: a lista de produtos e o descarte de pares redundantes leem o mesmo mapa. */
-  const byProduct = countByCare(best, (f) => f.products);
-
   const named = (
     seen: Map<string, { name: string; count: number }>,
     kind: Observation['kind'],
@@ -110,63 +107,12 @@ export const buildInsights = (
         detail: `${verb} ${v.count} dos ${sobre.total} ${sobre.frase}`,
       }));
 
-  /**
-   * SPEC-049 OQ1 — **os produtos que aparecem JUNTOS** nos cuidados que ela avaliou bem.
-   *
-   * ⚠️ **Par, não receita.** "Apareceram juntos em 3 dos 5" é co-ocorrência contada nos registros
-   * dela; "essa combinação funciona para você" seria alegação capilar (D-26/D-70) — e um par soa
-   * mais causal que um item isolado justamente porque parece uma fórmula. A frase é escolhida para
-   * não soar como uma.
-   *
-   * Só **pares**, e de propósito: trios e além explodem em combinações e produzem coincidência com
-   * cara de padrão, que é exatamente o que o volume mínimo existe para evitar.
-   */
-  const pairs = new Map<string, { name: string; count: number; of: readonly [string, string] }>();
-  for (const fact of best) {
-    const items = [...new Map(fact.products.map((p) => [p.id, p])).values()].sort((x, y) =>
-      x.id.localeCompare(y.id),
-    );
-    for (let i = 0; i < items.length; i += 1) {
-      for (let j = i + 1; j < items.length; j += 1) {
-        const a = items[i];
-        const b2 = items[j];
-        if (!a || !b2) continue;
-        const key = `${a.id}|${b2.id}`;
-        const current = pairs.get(key);
-        pairs.set(key, {
-          // O nome sai em ordem alfabética para a frase não depender de qual id veio antes.
-          name: current?.name ?? [a.name, b2.name].sort((x, y) => x.localeCompare(y)).join(' + '),
-          count: (current?.count ?? 0) + 1,
-          of: [a.id, b2.id],
-        });
-      }
-    }
-  }
-
-  /**
-   * ⚠️ **O par que não diz nada além dos dois itens sozinhos é o MESMO FATO contado uma terceira
-   * vez** — e a tela ficava pior justamente para quem é mais consistente.
-   *
-   * Medido: uma rotina estável com **5 produtos marcados em todo cuidado** produzia **10 cartões de
-   * combinação** ao lado dos 5 cartões de produto. Todos os dez diziam "apareceram juntos em 5 dos
-   * 5" sobre produtos que já diziam "esteve em 5 dos 5" cada um — nenhuma informação nova, e as
-   * observações de item ficavam soterradas pelos pares derivados delas.
-   *
-   * A regra é exata, não um teto arbitrário: um par é **redundante** quando aparece tantas vezes
-   * quanto **os dois** membros — ou seja, os dois nunca aparecem separados, e dizer isso três vezes
-   * é ruído. Quando o par empata com **só um** dos membros, ele informa: *"o Leave-in nunca apareceu
-   * sem a Máscara"* é um fato que nenhum dos dois cartões isolados carrega.
-   */
-  const informative = new Map(
-    [...pairs.entries()].filter(([, v]) => {
-      const [x, y] = v.of;
-      return v.count !== (byProduct.get(x)?.count ?? 0) || v.count !== (byProduct.get(y)?.count ?? 0);
-    }),
-  );
-
   const observations = [
-    ...named(byProduct, 'product', 'esteve em'),
-    ...named(informative, 'combo', 'apareceram juntos em'),
+    ...named(
+      countByCare(best, (f) => f.products),
+      'product',
+      'esteve em',
+    ),
     ...named(
       countByCare(best, (f) => f.techniques.map((t) => ({ id: t, name: techniqueLabel(t) }))),
       'technique',
@@ -219,9 +165,16 @@ export const buildInsights = (
     ratedCaresWithRecord,
     observations,
     /**
-     * SPEC-050 (`P8`) — os pares de tipos diferentes, sobre **todos** os cuidados avaliados e não
-     * só os bem avaliados: o denominador do padrão é o cuidado em que os dois apareceram, e é isso
-     * que faz a segunda contagem significar alguma coisa (BR2).
+     * SPEC-050 (`P8`) — **tudo o que andou junto**, sobre **todos** os cuidados avaliados e não só
+     * os bem avaliados: o denominador do padrão é o cuidado em que os dois apareceram, e é isso que
+     * faz a segunda contagem significar alguma coisa (BR2).
+     *
+     * ⚠️ **SPEC-050 OQ1 (2026-09-06) — o par de produtos mora AQUI, e só aqui.** Ele era a
+     * observação `combo` da SPEC-049, contada dentro dos cuidados *bem avaliados* e sem teto; a
+     * tela terminava com **duas** seções de "coisas que andaram juntas", com frases e denominadores
+     * diferentes e nada explicando por quê. Agora um par é um par: uma regra, uma frase, um
+     * denominador e **um** teto de `MAX_PATTERNS` para todos — que é literalmente o pedido de
+     * *"poucos padrões realmente informativos"*, já que o `combo` não tinha teto nenhum.
      */
     patterns: buildPatterns(rated, techniqueLabel, finishLabel),
   };

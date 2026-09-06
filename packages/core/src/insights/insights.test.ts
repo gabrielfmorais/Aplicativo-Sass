@@ -305,12 +305,19 @@ describe('Insights — cobertura do registro (SPEC-047 fatia 3)', () => {
 });
 
 /**
- * SPEC-049 OQ1 — **os produtos que aparecem juntos** nos cuidados que ela avaliou bem.
+ * **O par de produtos, depois da SPEC-050 OQ1 (2026-09-06).**
+ *
+ * ⚠️ **Ele deixou de ser observação e virou padrão**, com a frase, o denominador e o teto de todo
+ * par. Antes vivia em `observations` como `kind: 'combo'`, contado dentro dos cuidados **bem
+ * avaliados** e **sem teto** — e a tela terminava com duas seções de "coisas que andaram juntas".
+ *
+ * ⚠️ **Estes testes continuam entrando por `buildInsights`, de propósito:** foi aqui que a explosão
+ * de dez cartões foi medida, e é aqui que ela tem de continuar não acontecendo.
  *
  * ⚠️ **Par, não receita.** Um par soa mais causal que um item isolado justamente porque parece uma
  * fórmula — e a frase é escolhida para não soar como uma.
  */
-describe('Insights — combinações (SPEC-049 OQ1)', () => {
+describe('Insights — o par de produtos é um padrão (SPEC-050 OQ1)', () => {
   it('nomeia o par que se repete, com o verbo no plural', () => {
     // ⚠️ A Máscara aparece **também sem** o Leave-in: é isso que faz o par dizer algo que os dois
     // cartões isolados não dizem — o Leave-in nunca apareceu sozinho.
@@ -321,9 +328,13 @@ describe('Insights — combinações (SPEC-049 OQ1)', () => {
       fact(5, [P.mascara]),
       fact(4, [P.shampoo]),
     ]);
-    const combo = v.observations.find((o) => o.kind === 'combo');
-    expect(combo?.subject).toBe('Leave-in azul + Máscara da Ana');
-    expect(combo?.detail).toBe('apareceram juntos em 3 dos 5 cuidados que você avaliou bem');
+    // ⚠️ Nenhuma observação de par: o par mora numa lista só, e é `patterns`.
+    expect(v.observations.every((o) => !o.subject.includes(' + '))).toBe(true);
+    expect(v.patterns).toHaveLength(1);
+    expect(v.patterns[0]?.subject).toBe('Leave-in azul + Máscara da Ana');
+    expect(v.patterns[0]?.detail).toBe(
+      'apareceram juntos em 3 cuidados que você avaliou, e em 3 deles você avaliou bem',
+    );
   });
 
   it('um par que apareceu duas vezes não vira padrão', () => {
@@ -334,7 +345,7 @@ describe('Insights — combinações (SPEC-049 OQ1)', () => {
       fact(5, []),
       fact(4, []),
     ]);
-    expect(v.observations.filter((o) => o.kind === 'combo')).toHaveLength(0);
+    expect(v.patterns).toEqual([]);
   });
 
   /** Só pares: trios explodem em combinações e produzem coincidência com cara de padrão. */
@@ -350,9 +361,8 @@ describe('Insights — combinações (SPEC-049 OQ1)', () => {
       fact(5, [P.leave]),
       fact(5, [P.shampoo]),
     ]);
-    const combos = v.observations.filter((o) => o.kind === 'combo');
-    expect(combos).toHaveLength(3);
-    for (const c of combos) expect(c.subject.split(' + ')).toHaveLength(2);
+    expect(v.patterns).toHaveLength(3);
+    for (const c of v.patterns) expect(c.subject.split(' + ')).toHaveLength(2);
   });
 
   it('o nome do par não depende da ordem em que os produtos vieram', () => {
@@ -363,7 +373,7 @@ describe('Insights — combinações (SPEC-049 OQ1)', () => {
       fact(5, [P.mascara]),
       fact(4, []),
     ]);
-    expect(a.observations.find((o) => o.kind === 'combo')?.subject).toBe('Leave-in azul + Máscara da Ana');
+    expect(a.patterns[0]?.subject).toBe('Leave-in azul + Máscara da Ana');
   });
 
   /**
@@ -387,7 +397,7 @@ describe('Insights — combinações (SPEC-049 OQ1)', () => {
     // Os dois produtos continuam sendo observação — o fato é deles.
     expect(v.observations.filter((o) => o.kind === 'product')).toHaveLength(2);
     // O par, não: os dois nunca apareceram separados, e dizer isso de novo é ruído.
-    expect(v.observations.filter((o) => o.kind === 'combo')).toEqual([]);
+    expect(v.patterns).toEqual([]);
   });
 
   it('mas empatar com UM só dos itens informa, e o par fica', () => {
@@ -399,14 +409,18 @@ describe('Insights — combinações (SPEC-049 OQ1)', () => {
       fact(4, [P.mascara]),
     ]);
     // "O Leave-in nunca apareceu sem a Máscara" é um fato que nenhum cartão isolado carrega.
-    const combo = v.observations.find((o) => o.kind === 'combo');
-    expect(combo?.subject).toBe('Leave-in azul + Máscara da Ana');
-    expect(combo?.detail).toBe('apareceram juntos em 3 dos 5 cuidados que você avaliou bem');
+    expect(v.patterns[0]?.subject).toBe('Leave-in azul + Máscara da Ana');
+    expect(v.patterns[0]?.detail).toBe(
+      'apareceram juntos em 3 cuidados que você avaliou, e em 3 deles você avaliou bem',
+    );
   });
 
   /**
    * ⚠️ **A medição que motivou a regra, como teste.** Cinco produtos sempre juntos davam dez
    * cartões de combinação; agora dão zero, e os cinco cartões de produto ficam legíveis.
+   *
+   * ⚠️ **E o teto passou a existir também para eles** (OQ1): mesmo que a redundância não os
+   * pegasse, `MAX_PATTERNS` cortaria em três — como `combo`, o par de produtos não tinha teto.
    */
   it('rotina estável de cinco produtos não vira dez cartões de combinação', () => {
     const cinco = [
@@ -418,7 +432,7 @@ describe('Insights — combinações (SPEC-049 OQ1)', () => {
     ];
     const v = buildInsights([fact(5, cinco), fact(5, cinco), fact(5, cinco), fact(5, cinco), fact(4, cinco)]);
     expect(v.observations.filter((o) => o.kind === 'product')).toHaveLength(5);
-    expect(v.observations.filter((o) => o.kind === 'combo')).toEqual([]);
+    expect(v.patterns).toEqual([]);
   });
 
   /** ⚠️ A barreira de linguagem vale igual para o par. */
@@ -432,8 +446,8 @@ describe('Insights — combinações (SPEC-049 OQ1)', () => {
     ]);
     // Sem isto o laço abaixo ficaria vazio: com os dois produtos sempre juntos, o par é redundante
     // e nem chega a existir — um teste de linguagem sobre nenhuma frase não prova nada.
-    expect(v.observations.some((o) => o.kind === 'combo')).toBe(true);
-    for (const o of v.observations) {
+    expect(v.patterns.length).toBeGreaterThan(0);
+    for (const o of [...v.observations, ...v.patterns]) {
       expect(`${o.subject} ${o.detail}`).not.toMatch(
         /funciona|melhor|receita|f[óo]rmula|combinação ideal|ajud/i,
       );
