@@ -112,6 +112,24 @@ export interface CareTrackingPort {
    * so a retry after a lost response cannot create a second execution (AC3).
    */
   complete(input: { scheduledCareId: string; clientExecutionId: string; timeZone: string }): Promise<void>;
+  /**
+   * SPEC-052 — **ela fez um cuidado que o plano não pediu.**
+   *
+   * ⚠️ **É a MESMA porta de execução, não uma segunda.** Cria uma linha em `care_executions` com
+   * `scheduled_care_id NULL`, e a partir daí produtos, técnica, finalização, check-in e marcas
+   * entram pelos caminhos que já existem — nada aqui duplica fluxo.
+   *
+   * ⚠️ **O tipo do cuidado é obrigatório** justamente porque não há linha planejada de onde tirá-lo,
+   * e **o dia é do servidor** (ADR-008): deixar o cliente mandar a data faria a verdade do histórico
+   * depender de um relógio que ele controla.
+   *
+   * Idempotente por `clientExecutionId`, como `complete`.
+   */
+  recordAdHocCare(input: {
+    careTypeCode: CareTypeCode;
+    clientExecutionId: string;
+    timeZone: string;
+  }): Promise<void>;
   skip(scheduledCareId: string): Promise<void>;
   reschedule(input: { scheduledCareId: string; newDate: string; timeZone: string }): Promise<void>;
   /**

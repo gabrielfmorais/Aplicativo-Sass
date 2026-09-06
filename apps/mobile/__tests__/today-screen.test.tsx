@@ -69,6 +69,7 @@ const makePort = (overrides: Partial<CareTrackingPort> = {}): jest.Mocked<CareTr
     skip: jest.fn(async () => undefined),
     reschedule: jest.fn(async () => undefined),
     undo: jest.fn(async () => undefined),
+    recordAdHocCare: jest.fn(async () => undefined),
     ...overrides,
   }) as unknown as jest.Mocked<CareTrackingPort>;
 
@@ -109,6 +110,8 @@ const renderScreen = (
   now: () => Instant = () => NOW,
   newExecutionId: () => string = () => 'exec-1',
   onReassess: () => void = jest.fn(),
+  /** SPEC-045 — ausente por padrão: a maior parte desta suíte é sobre o loop diário. */
+  onShare: ((careLabel: string) => void) | undefined = undefined,
 ) =>
   render(
     <TodayScreen
@@ -130,6 +133,7 @@ const renderScreen = (
       onResume={jest.fn()}
       onOpenCycle={jest.fn()}
       onReassess={onReassess}
+      onShare={onShare}
     />,
   );
 
@@ -1223,5 +1227,108 @@ describe('Hoje — o que você notou (SPEC-051)', () => {
       /coçando|descama|sens[íi]vel/i,
     ])
       expect(tree).not.toMatch(proibido);
+  });
+});
+
+/**
+ * SPEC-052 (F25) — **o que ela fez fora do cronograma.**
+ *
+ * ⚠️ O que estes testes guardam na tela: a porta **pergunta e não cobra**, o registro cai no
+ * **histórico** e **nunca** entre os cuidados planejados, e o cartão diz de onde aquilo veio.
+ */
+describe('TodayScreen — a execução avulsa (SPEC-052)', () => {
+  const avulsa = (over: Record<string, unknown> = {}) => ({
+    id: 'x1',
+    scheduledCareId: null as null,
+    careTypeCode: 'nutrition' as const,
+    executedAt: '2026-09-09T12:00:00.000Z',
+    executedOn: '2026-09-09',
+    voidedAt: null,
+    ...over,
+  });
+
+  it('a porta pergunta, e o vocabulário é o dos quatro tipos aprovados', async () => {
+    const screen = await renderScreen(makePort());
+    screen.getByText('Fez um cuidado fora do cronograma?');
+    await fireEvent.press(screen.getByText('Registrar um cuidado'));
+    screen.getByText('Qual cuidado você fez?');
+    for (const rotulo of ['Hidratação', 'Nutrição', 'Reconstrução', 'Restauração']) {
+      expect(screen.getAllByText(rotulo).length).toBeGreaterThan(0);
+    }
+  });
+
+  /**
+   * ⚠️ **NG5** — a porta não pode virar cobrança nem recompensa. Nada de *"você ainda não
+   * registrou"*, contagem de dias, elogio ou convite a fazer mais (D-103).
+   */
+  it('não cobra e não premia', async () => {
+    const screen = await renderScreen(makePort());
+    expect(
+      screen.queryByText(
+        /ainda não registrou|faz \d+ dias|que tal|aproveite|parabéns|muito bem|continue assim|mais um/i,
+      ),
+    ).toBeNull();
+  });
+
+  it('registra pela porta de execução, com o tipo escolhido e a chave de idempotência', async () => {
+    const care = makePort();
+    const onChanged = jest.fn();
+    const screen = await renderScreen(care, board(), onChanged);
+    await fireEvent.press(screen.getByText('Registrar um cuidado'));
+    await fireEvent.press(screen.getAllByText('Reconstrução')[0]!);
+    await waitFor(() => expect(care.recordAdHocCare).toHaveBeenCalled());
+    expect(care.recordAdHocCare).toHaveBeenCalledWith({
+      careTypeCode: 'reconstruction',
+      clientExecutionId: 'exec-1',
+      timeZone: 'America/Sao_Paulo',
+    });
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+  });
+
+  /** **AC4** — ela consegue ver o que registrou, e **AC3**: não entre os cuidados do plano. */
+  it('o registro aparece no histórico, marcado como fora do cronograma', async () => {
+    const screen = await renderScreen(makePort(), board({ executions: [avulsa()] }));
+    expect(screen.getAllByText('Fora do cronograma').length).toBe(1);
+    // ⚠️ E o cronograma não ganhou nada: o cuidado de hoje continua sendo o do plano.
+    expect(screen.queryByText('Atrasado')).not.toBeNull();
+  });
+
+  /** **AC6** — anulada não aparece, como qualquer execução desfeita. */
+  /**
+   * ⚠️ **OQ4 / D-103** — o card é a superfície onde o app comemora, e comemorar um cuidado feito
+   * fora do cronograma é premiar por fazer mais. O cuidado do **plano** continua oferecendo.
+   */
+  it('a avulsa não oferece compartilhar, e o cuidado do plano continua oferecendo', async () => {
+    const screen = await renderScreen(
+      makePort(),
+      board({
+        executions: [
+          avulsa(),
+          {
+            id: 'e-plano',
+            scheduledCareId: 'late',
+            executedAt: '2026-09-08T12:00:00.000Z',
+            executedOn: '2026-09-08',
+            voidedAt: null,
+          },
+        ],
+      }),
+      jest.fn(),
+      () => NOW,
+      () => 'exec-1',
+      jest.fn(),
+      jest.fn(),
+    );
+    // Um "Compartilhar" só: o do cuidado do plano. Sem o controle positivo, "a avulsa não oferece"
+    // passaria também quando ninguém oferece — que é a armadilha que esta SPEC já pisou uma vez.
+    expect(screen.getAllByText('Compartilhar')).toHaveLength(1);
+  });
+
+  it('uma avulsa desfeita não aparece', async () => {
+    const screen = await renderScreen(
+      makePort(),
+      board({ executions: [avulsa({ voidedAt: '2026-09-09T13:00:00.000Z' })] }),
+    );
+    expect(screen.queryByText('Fora do cronograma')).toBeNull();
   });
 });

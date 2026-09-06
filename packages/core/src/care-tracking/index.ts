@@ -6,7 +6,9 @@ export {
   UNDO_WINDOW_MINUTES,
   RESCHEDULE_HORIZON_DAYS,
   buildTodayView,
+  buildAdHocHistory,
   canUndo,
+  isAdHoc,
   rescheduleRange,
 } from './domain/care-tracking.ts';
 export type {

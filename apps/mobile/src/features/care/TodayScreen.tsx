@@ -2,6 +2,7 @@ import type {
   CareBoard,
   CareItem,
   CareTrackingPort,
+  CareTypeCode,
   CheckInMark,
   FinishStatus,
   FinishTechnique,
@@ -15,13 +16,16 @@ import type {
 } from '@app/core';
 import {
   CARE_GUIDES,
+  CARE_TYPE_CODES,
   CHECKIN_MARKS,
   CHECKIN_SCALE,
   FINISH_STATUSES,
   FINISH_TECHNIQUES,
+  buildAdHocHistory,
   buildTodayView,
   canCheckIn,
   canUndo,
+  isAdHoc,
 } from '@app/core';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -93,6 +97,83 @@ type WashDayAccess = {
   finishTechniqueOf: (careExecutionId: string) => FinishTechnique | null;
 };
 
+/**
+ * SPEC-052 — o id de "ocupado" enquanto a avulsa está sendo gravada. Não é id de cuidado nenhum,
+ * então nenhum cartão se acende por engano — e a mesma trava de escrita única continua valendo.
+ */
+const AD_HOC_BUSY = 'ad-hoc';
+
+/**
+ * SPEC-052 (F25) — **a porta para o que ela fez fora do cronograma.**
+ *
+ * ⚠️ **Pergunta, nunca instrução, e nunca contagem.** *"Fez um cuidado fora do cronograma?"* é uma
+ * porta que fica aberta; *"você ainda não registrou nada esta semana"* seria cobrança — a mesma que
+ * a SPEC-024 AC8 já proíbe no cartão do cuidado —, e um elogio por registrar seria recompensa por
+ * fazer mais cuidados, que é a proibição que abre a D-103.
+ *
+ * ⚠️ **Um toque abre, um toque registra.** Sem etapa de confirmação, pela mesma razão que
+ * "Concluir" não tem uma: o engano é coberto por *Desfazer*, ali mesmo, pelos mesmos 15 minutos.
+ */
+function AdHocPrompt({
+  blocked,
+  onRecord,
+}: {
+  blocked: boolean;
+  onRecord: (careTypeCode: CareTypeCode) => void;
+}) {
+  const [choosing, setChoosing] = useState(false);
+
+  if (!choosing) {
+    return (
+      <Card tone="muted">
+        <Stack gap="sm">
+          <Text tone="muted">Fez um cuidado fora do cronograma?</Text>
+          <Button
+            label="Registrar um cuidado"
+            variant="ghost"
+            size="sm"
+            onPress={() => setChoosing(true)}
+            style={styles.inlineStart}
+          />
+        </Stack>
+      </Card>
+    );
+  }
+
+  return (
+    <Card tone="muted">
+      <Stack gap="sm">
+        <Text tone="muted">Qual cuidado você fez?</Text>
+        {/*
+          ⚠️ **O vocabulário é o `CARE_TYPE_CODES` já aprovado** (D-67/SPEC-038). Não há campo de
+          texto e não há tipo novo: inventar um seria conteúdo capilar substantivo (D-26).
+        */}
+        <Row gap="sm">
+          {CARE_TYPE_CODES.map((code) => (
+            <Chip
+              key={code}
+              label={CARE_TYPE_LABEL[code]}
+              selected={false}
+              disabled={blocked}
+              onPress={() => {
+                setChoosing(false);
+                onRecord(code);
+              }}
+            />
+          ))}
+        </Row>
+        <Button
+          label="Cancelar"
+          variant="ghost"
+          size="sm"
+          onPress={() => setChoosing(false)}
+          style={styles.inlineStart}
+        />
+      </Stack>
+    </Card>
+  );
+}
+
 /** The planned day, plus how late it is when it is late — the same sentence, wherever it appears. */
 const whenOf = (item: CareItem): string =>
   item.outcome === 'overdue'
@@ -107,6 +188,12 @@ const whenOf = (item: CareItem): string =>
  * either place, so it is not produced at all.
  */
 const stateTagOf = (item: CareItem): { label: string; tone: 'danger' | 'success' | 'neutral' } | null => {
+  /**
+   * SPEC-052 — ⚠️ **a avulsa se identifica, e isso não é decoração.** Sem a distinção, o histórico
+   * diria que o plano continha um cuidado que ele nunca conteve — e o histórico é justamente onde
+   * ela vai conferir o que aconteceu. "Feito" continua sendo verdade; o que falta é *de onde veio*.
+   */
+  if (isAdHoc(item)) return { label: 'Fora do cronograma', tone: 'neutral' };
   switch (item.outcome) {
     case 'overdue':
       return { label: 'Atrasado', tone: 'danger' };
@@ -422,7 +509,14 @@ function CareActions({
             SPEC-045 (F46) — **o momento de orgulho, onde ele acontece.** É uma oferta discreta ao
             lado do registro, nunca um passo do fluxo: o cuidado está concluído com ou sem ela.
           */}
-          {onShare ? (
+          {/*
+            ⚠️ **SPEC-052 OQ4 — a avulsa NÃO vira card, e a auditoria pegou o contrário.** O card é a
+            superfície onde o app **comemora** (SPEC-042/045), e comemorar um cuidado feito fora do
+            cronograma é premiar por fazer mais — a proibição que abre a D-103, e a instrução
+            explícita do dono nesta fatia. O cuidado do **plano** continua oferecendo, porque ali a
+            conquista é a consistência com o que ela combinou consigo mesma.
+          */}
+          {onShare && !isAdHoc(item) ? (
             <Button
               label="Compartilhar"
               variant="ghost"
@@ -966,7 +1060,39 @@ export function TodayScreen({
   const notFocus = (item: CareItem) => item.id !== focus?.id;
   const restOverdue = view.overdue.filter(notFocus);
   const restToday = view.today.filter(notFocus);
-  const history = view.history.filter(notFocus);
+  /**
+   * SPEC-052 — o histórico do plano **mais** o que ela registrou por conta, numa ordem só.
+   *
+   * ⚠️ **A mistura acontece AQUI e não em `buildTodayView`**, e a razão é medida: `buildProgress` e
+   * `buildCycleView` reusam o `TodayView`, então a avulsa vazaria direto para a aderência e para o
+   * resumo de ciclo. O `TodayView` é o cronograma; esta linha é a tela pedindo o resto.
+   */
+  const history = buildAdHocHistory(view.history, board.executions, board.checkIns).filter(notFocus);
+
+  /**
+   * SPEC-052 — ⚠️ **mesma disciplina de chave que `complete`**: a chave por intenção é criada uma
+   * vez e reusada no retry, então uma resposta perdida não vira dois cuidados. A chave é por **tipo**
+   * porque é isso que a intenção tem de identidade aqui — e some assim que a escrita conclui.
+   */
+  const recordAdHoc = (careTypeCode: CareTypeCode) => {
+    if (busyId) return;
+    setBusyId(AD_HOC_BUSY);
+    setMessage(null);
+    setFailure(null);
+    const chave = keys.get(`adhoc:${careTypeCode}`) ?? newExecutionId();
+    keys.set(`adhoc:${careTypeCode}`, chave);
+    care
+      .recordAdHocCare({ careTypeCode, clientExecutionId: chave, timeZone })
+      .then(() => {
+        keys.delete(`adhoc:${careTypeCode}`);
+        onChanged();
+      })
+      .catch((error: unknown) => {
+        setMessage('Não foi possível registrar. Tente novamente.');
+        setFailure(reasonOf(error));
+      })
+      .finally(() => setBusyId(null));
+  };
 
   const act = (item: CareItem, action: Action) => {
     if (busyId) return; // one transition at a time; also the double-tap guard
@@ -1314,6 +1440,14 @@ export function TodayScreen({
             assessmentAlgorithmVersion={board.assessmentAlgorithmVersion}
             scheduleAlgorithmVersion={board.scheduleAlgorithmVersion}
           />
+
+          {/*
+            SPEC-052 §14.1 — ⚠️ **aqui, e a escolha foi medida contra as alternativas.** Em Cuidados
+            a porta ficaria numa aba e o resultado na outra; no cartão de foco competiria com a
+            **única ação primária** da tela (SPEC-016 fatia 2). Aqui ela fica **onde o registro
+            aparece**, abaixo da dobra — uma porta, nunca um lembrete.
+          */}
+          <AdHocPrompt blocked={busyId !== null} onRecord={recordAdHoc} />
 
           <Section
             title="Histórico"
