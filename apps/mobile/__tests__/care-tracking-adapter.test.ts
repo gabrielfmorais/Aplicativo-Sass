@@ -60,6 +60,8 @@ const makeClient = (
   finishes: Result = { data: [], error: null },
   // SPEC-051: o que ela notou, por check-in.
   marks: Result = { data: [], error: null },
+  // SPEC-052: as execuções avulsas da janela do plano ativo.
+  adHoc: Result = { data: [], error: null },
 ) => {
   const rpc = jest.fn(async (_fn: string, _args: Record<string, unknown>) => ({
     data: null,
@@ -76,7 +78,16 @@ const makeClient = (
       },
       eq: () => chain,
       in: () => Promise.resolve(result),
-      is: () => Promise.resolve(lifetime),
+      /**
+       * ⚠️ **`care_executions` termina em `.is()` de DUAS formas**, e o duplo distingue como o
+       * cliente real distingue: o contador vitalício resolve ali mesmo; a leitura das avulsas
+       * (SPEC-052) segue para `.gte().order()`. Um duplo que respondesse igual aos dois esconderia
+       * exatamente o erro de encadeamento que este arquivo existe para pegar.
+       */
+      is: () => ({
+        gte: () => ({ order: () => Promise.resolve(adHoc) }),
+        then: (resolve: (v: unknown) => unknown) => Promise.resolve(lifetime).then(resolve),
+      }),
       order: () => chain,
       maybeSingle: async () => result,
       then: (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve),
@@ -210,6 +221,87 @@ describe('care tracking adapter — reads (SPEC-005 §9)', () => {
     await expect(createCareTrackingAdapter(client, () => USER).getBoard()).rejects.toMatchObject({
       code: 'care.board_read_failed',
     });
+  });
+});
+
+/**
+ * SPEC-052 — a execução avulsa, na fronteira.
+ *
+ * ⚠️ A leitura dela é **própria** porque a das execuções planejadas é limitada pelos cuidados do
+ * plano — e tem de ser, senão uma execução de um plano substituído entraria neste board.
+ */
+describe('care tracking adapter — a execução avulsa (SPEC-052)', () => {
+  const avulsaRow = {
+    id: 'x1',
+    scheduled_care_id: null,
+    care_type_code: 'nutrition',
+    executed_at: '2026-09-09T12:00:00.000Z',
+    executed_on: '2026-09-09',
+    voided_at: null,
+  };
+
+  it('lê as avulsas da janela do plano e as entrega com o tipo — sem cuidado planejado, é ele que identifica', async () => {
+    const { client } = makeClient(
+      ok(planRow),
+      ok(careRows),
+      ok(executionRows),
+      null,
+      ok([]),
+      { count: 0, error: null },
+      { data: null, error: null },
+      ok([]),
+      ok([]),
+      ok([]),
+      ok([avulsaRow]),
+    );
+    const board = await createCareTrackingAdapter(client, () => USER).getBoard();
+    const avulsa = board?.executions.find((e) => e.id === 'x1');
+    expect(avulsa?.scheduledCareId).toBeNull();
+    expect(avulsa?.careTypeCode).toBe('nutrition');
+    // ⚠️ E as planejadas continuam lá: a leitura nova soma, não substitui.
+    expect(board?.executions.some((e) => e.scheduledCareId !== null)).toBe(true);
+  });
+
+  it('pede care_type_code no select — sem ele a avulsa chegaria sem tipo e a tela morreria', async () => {
+    const { client, selects } = makeClient(ok(planRow), ok(careRows), ok(executionRows));
+    await createCareTrackingAdapter(client, () => USER).getBoard();
+    expect(selects.some((s) => s.includes('care_type_code') && s.includes('scheduled_care_id'))).toBe(true);
+  });
+
+  it('falha de leitura das avulsas não vira board vazio em silêncio', async () => {
+    const { client } = makeClient(
+      ok(planRow),
+      ok(careRows),
+      ok(executionRows),
+      null,
+      ok([]),
+      { count: 0, error: null },
+      { data: null, error: null },
+      ok([]),
+      ok([]),
+      ok([]),
+      { data: null, error: { message: 'boom' } },
+    );
+    await expect(createCareTrackingAdapter(client, () => USER).getBoard()).rejects.toMatchObject({
+      code: 'care.board_read_failed',
+    });
+  });
+
+  it('registra pela RPC, com o tipo, a chave e o fuso — nunca com a data', async () => {
+    const { client: c, rpc } = makeClient(ok(planRow), ok(careRows), ok(executionRows));
+    await createCareTrackingAdapter(c, () => USER).recordAdHocCare({
+      careTypeCode: 'reconstruction',
+      clientExecutionId: 'k9',
+      timeZone: 'America/Sao_Paulo',
+    });
+    expect(rpc).toHaveBeenCalledWith('record_ad_hoc_care', {
+      p_care_type_code: 'reconstruction',
+      p_client_execution_id: 'k9',
+      p_timezone: 'America/Sao_Paulo',
+    });
+    // ⚠️ **Nenhuma data no corpo** (BR1): o dia civil é do servidor, e é isso que impede o histórico
+    // de depender de um relógio que o cliente controla.
+    expect(JSON.stringify(rpc.mock.calls[0]?.[1])).not.toMatch(/executed_on|p_date|20\d\d-/);
   });
 });
 

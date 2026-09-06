@@ -12,14 +12,41 @@ import { instantToEpochMs } from '../../shared/time/index.ts';
  */
 export type CareExecution = {
   readonly id: string;
-  readonly scheduledCareId: string;
   /** Server instant; the undo window is measured from it (D-69/D-12). */
   readonly executedAt: string;
   /** The user's civil day, computed server-side from her IANA timezone (T22). */
   readonly executedOn: string;
   /** Non-null once undone. The row stays in history — it is never deleted (BR4c). */
   readonly voidedAt: string | null;
-};
+} & (
+  | {
+      /** O cuidado do plano que ela cumpriu. O tipo vem da linha planejada, não daqui. */
+      readonly scheduledCareId: string;
+      readonly careTypeCode?: undefined;
+    }
+  | {
+      /**
+       * SPEC-052 — **a execução avulsa: ela fez, e o plano não tinha pedido.**
+       *
+       * ⚠️ **O tipo é uma união, e isso é a barreira, não estilo.** Sem cuidado planejado não há de
+       * onde tirar o tipo do cuidado, então `careTypeCode` passa a ser **obrigatório** exatamente
+       * neste ramo — *"quando `scheduled_care_id` for NULL, `care_type` continua obrigatório"*
+       * (DOMAIN-MAP §3.5, e a fonte de verdade da SPEC-052 §1.1). Um estado impossível que o
+       * compilador recusa não precisa de teste para lembrar de si mesmo.
+       */
+      readonly scheduledCareId: null;
+      readonly careTypeCode: CareTypeCode;
+    }
+);
+
+/**
+ * SPEC-052 — **ela registrou por conta, fora do cronograma.**
+ *
+ * ⚠️ **Derivado, nunca um campo novo** (D-47/D-48): a ausência do cuidado planejado *é* o fato, e
+ * guardar um booleano ao lado dele criaria duas verdades que podem discordar.
+ */
+export const isAdHoc = (item: CareItem): boolean =>
+  item.execution !== null && item.execution.scheduledCareId === null;
 
 /**
  * How the care went, as the user reported it (SPEC-006). Anchored to one execution, never to a
@@ -145,7 +172,9 @@ export const buildTodayView = (
 ): TodayView => {
   const effectiveByCare = new Map<string, CareExecution>();
   for (const execution of executions) {
-    if (isEffective(execution)) effectiveByCare.set(execution.scheduledCareId, execution);
+    // SPEC-052 — a avulsa não tem cuidado planejado a que se ligar; ela é tratada abaixo.
+    if (execution.scheduledCareId !== null && isEffective(execution))
+      effectiveByCare.set(execution.scheduledCareId, execution);
   }
   // Keyed by execution, so a check-in made before an undo stays with the execution it describes
   // and never reappears on the replacement (BR3).
@@ -183,6 +212,51 @@ export const buildTodayView = (
     upcoming: upcoming.sort(byDate(1)),
     history: history.sort(byDate(-1)),
   };
+};
+
+/**
+ * SPEC-052 — **o histórico do que ela registrou por conta, misturado ao do plano.**
+ *
+ * ⚠️ **Fora do `buildTodayView`, e essa é a decisão que carrega a fatia.** A primeira versão punha
+ * a avulsa no `history` do próprio `TodayView`, e **duas barreiras desta SPEC falharam na hora**:
+ * `buildProgress` e `buildCycleView` **reusam** `buildTodayView` (SPEC-019, para que a Hoje e o
+ * ciclo nunca discordem), então a avulsa vazava direto para a aderência e para o resumo de ciclo —
+ * exatamente o que a fonte de verdade proíbe.
+ *
+ * Consertar com um filtro em cada consumidor seria consertar os **dois que existem hoje**. Assim, o
+ * `TodayView` continua sendo **o cronograma e nada além**, e quem quiser a avulsa tem de pedir por
+ * ela — inclusive um consumidor que ainda não existe.
+ *
+ * ⚠️ **Devolve uma LISTA, nunca um `TodayView`**, pelo mesmo motivo: um `TodayView` "completo"
+ * poderia ser passado adiante e recriaria o vazamento por outro caminho.
+ *
+ * ⚠️ **`plannedDate` recebe o dia em que ela FEZ.** É o único dia que existe aqui — não há data de
+ * plano —, e `isAdHoc` deixa isso legível para quem renderiza.
+ */
+export const buildAdHocHistory = (
+  plannedHistory: readonly CareItem[],
+  executions: readonly CareExecution[],
+  checkIns: readonly CheckIn[] = [],
+): readonly CareItem[] => {
+  const checkInByExecution = new Map<string, CheckIn>();
+  for (const checkIn of checkIns) checkInByExecution.set(checkIn.careExecutionId, checkIn);
+
+  const adHoc: CareItem[] = [];
+  for (const execution of executions) {
+    if (execution.scheduledCareId !== null || !isEffective(execution)) continue;
+    adHoc.push({
+      // A própria execução é a identidade: não há cuidado planejado para emprestar a dele.
+      id: execution.id,
+      careTypeCode: execution.careTypeCode,
+      plannedDate: execution.executedOn,
+      outcome: 'done',
+      execution,
+      checkIn: checkInByExecution.get(execution.id) ?? null,
+      daysLate: 0,
+    });
+  }
+  // A mesma ordem do histórico do plano — do mais recente para o mais antigo, e determinística.
+  return [...plannedHistory, ...adHoc].sort(byDate(-1));
 };
 
 /**

@@ -2,6 +2,7 @@ import type {
   CareBoard,
   CareExecution,
   CareTrackingPort,
+  CareTypeCode,
   CheckIn,
   CheckInMark,
   FinishStatus,
@@ -20,7 +21,9 @@ type ResumeRow = { action: ResumeOutcome['action']; shift_days: number; care_cou
 const PLAN_COLUMNS =
   'id, starts_on, hair_profile_id, assessment_algorithm_version, schedule_algorithm_version';
 const CARE_COLUMNS = 'id, care_type_code, planned_date, status, rescheduled_to_id';
-const EXECUTION_COLUMNS = 'id, scheduled_care_id, executed_at, executed_on, voided_at';
+// SPEC-052 — `care_type_code` entra porque a execução **avulsa** não tem cuidado planejado de onde
+// tirar o tipo. Ele sempre existiu na tabela; passou a ter consumidor.
+const EXECUTION_COLUMNS = 'id, scheduled_care_id, care_type_code, executed_at, executed_on, voided_at';
 const CHECKIN_COLUMNS = 'id, care_execution_id, overall_feel';
 
 /**
@@ -44,7 +47,8 @@ type CareRow = {
 };
 type ExecutionRow = {
   id: string;
-  scheduled_care_id: string;
+  scheduled_care_id: string | null;
+  care_type_code: string;
   executed_at: string;
   executed_on: string;
   voided_at: string | null;
@@ -65,13 +69,22 @@ const toCheckIn = (r: CheckInRow): CheckIn => ({
   overallFeel: r.overall_feel,
 });
 
-const toExecution = (r: ExecutionRow): CareExecution => ({
-  id: r.id,
-  scheduledCareId: r.scheduled_care_id,
-  executedAt: r.executed_at,
-  executedOn: r.executed_on,
-  voidedAt: r.voided_at,
-});
+const toExecution = (r: ExecutionRow): CareExecution => {
+  const comum = {
+    id: r.id,
+    executedAt: r.executed_at,
+    executedOn: r.executed_on,
+    voidedAt: r.voided_at,
+  };
+  /**
+   * SPEC-052 — ⚠️ **o mapeamento respeita a união do domínio**, e não é preciosismo de tipo: sem
+   * cuidado planejado, `careTypeCode` é a **única** fonte do tipo, e o tipo do domínio torna
+   * impossível escrever uma avulsa sem ele.
+   */
+  return r.scheduled_care_id === null
+    ? { ...comum, scheduledCareId: null, careTypeCode: r.care_type_code as CareTypeCode }
+    : { ...comum, scheduledCareId: r.scheduled_care_id };
+};
 
 /**
  * SPEC-005 §9/§10 — reads go straight to the tables under RLS (SELECT is the only privilege the
@@ -127,6 +140,26 @@ export const createCareTrackingAdapter = (client: SupabaseClient, userId: () => 
         if (executionsError) throw fail('care.board_read_failed', executionsError);
         executions = (executionRows ?? []).map((r) => toExecution(r as ExecutionRow));
       }
+
+      /**
+       * SPEC-052 — **as execuções avulsas deste ciclo.**
+       *
+       * ⚠️ **Leitura própria porque a de cima é limitada pelos cuidados do plano** — e tem de ser:
+       * uma execução de um plano substituído não é deste board. A avulsa não pertence a plano
+       * nenhum, então o recorte honesto é **a janela do plano ativo**: do `starts_on` em diante.
+       *
+       * ⚠️ **O que fica de fora não se perde.** Uma avulsa de um ciclo anterior continua no
+       * histórico vitalício e continua contando na Hair Intelligence — exatamente como os cuidados
+       * do plano anterior, que também não aparecem neste board.
+       */
+      const { data: adHocRows, error: adHocError } = await client
+        .from('care_executions')
+        .select(EXECUTION_COLUMNS)
+        .is('scheduled_care_id', null)
+        .gte('executed_on', plan.starts_on)
+        .order('executed_on', { ascending: false });
+      if (adHocError) throw fail('care.board_read_failed', adHocError);
+      executions = [...executions, ...(adHocRows ?? []).map((r) => toExecution(r as ExecutionRow))];
 
       // Bounded by this board's executions, for the same reason the executions are bounded by the
       // plan's cares: a check-in from a superseded plan is not this board's.
@@ -262,6 +295,20 @@ export const createCareTrackingAdapter = (client: SupabaseClient, userId: () => 
         'care.complete_failed',
       ),
 
+    /**
+     * SPEC-052 — o cuidado que ela fez sem o plano ter pedido. **Mesma porta, mesma disciplina de
+     * chave**: o retry depois de uma resposta perdida cai no mesmo fato.
+     */
+    recordAdHocCare: ({ careTypeCode, clientExecutionId, timeZone }) =>
+      call(
+        'record_ad_hoc_care',
+        {
+          p_care_type_code: careTypeCode,
+          p_client_execution_id: clientExecutionId,
+          p_timezone: timeZone,
+        },
+        'care.record_ad_hoc_failed',
+      ),
     skip: (scheduledCareId) =>
       call('skip_care', { p_scheduled_care_id: scheduledCareId }, 'care.skip_failed'),
 

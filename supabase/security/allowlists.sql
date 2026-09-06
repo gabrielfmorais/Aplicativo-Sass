@@ -282,3 +282,13 @@ insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
   ('authenticated', 'checkin_marks', 'SELECT', 'SPEC-051'),
   ('authenticated', 'checkin_marks', 'INSERT', 'SPEC-051'),
   ('authenticated', 'checkin_marks', 'DELETE', 'SPEC-051');
+
+-- SPEC-052 §10 — a execução avulsa. `SECURITY DEFINER` pela mesma razão do `complete_care`: o dono
+-- e o dia civil dela são invariantes de servidor (ADR-008), e o cliente não tem nenhum privilégio de
+-- escrita em `care_executions`. Nenhum grant novo em tabela — a coluna anulável não muda privilégio.
+insert into tests.security_definer_allowlist (function_signature, spec, justification) values
+  (
+    'public.record_ad_hoc_care(p_care_type_code text, p_client_execution_id uuid, p_timezone text)',
+    'SPEC-052',
+    'Records a care she did outside the plan. Writes care_executions with scheduled_care_id NULL, which no client may write. care_type_code is validated by the table CHECK, never by the caller; executed_on is computed server-side from her IANA timezone (T22); idempotent by (user_id, client_execution_id) so a retry cannot create a second fact; user_id comes from auth.uid(), so a forged owner is impossible.'
+  );

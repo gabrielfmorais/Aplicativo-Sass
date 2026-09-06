@@ -252,8 +252,8 @@ Removida do modelo: no MVP a avaliação só existe para gerar um plano, nenhuma
 |---|---|---|
 | id | uuid PK | |
 | user_id | uuid not null, FK `auth.users` on delete cascade | RLS `user_id = auth.uid()` |
-| scheduled_care_id | uuid **not null**, FK composta `(scheduled_care_id, user_id) → scheduled_cares (id, user_id)` on delete cascade | execução avulsa (`null`) **DEFER**; soltar o NOT NULL depois é aditivo |
-| care_type_code | text CHECK (hydration/nutrition/reconstruction) | o **fato histórico**: sobrevive a renomeações do catálogo da SPEC-007 |
+| scheduled_care_id | uuid **nullable** (SPEC-052), FK composta `(scheduled_care_id, user_id) → scheduled_cares (id, user_id)` on delete cascade | `null` = **execução avulsa**: ela fez, e o plano não tinha pedido. ⚠️ A FK composta é `MATCH SIMPLE`, então uma linha com `null` **não é verificada** — o comportamento desejado, não um furo: não há a que apontar |
+| care_type_code | text **not null** CHECK (hydration/nutrition/reconstruction/restoration) | o **fato histórico**: sobrevive a renomeações do catálogo da SPEC-007. ⚠️ **E é a metade que a SPEC-052 tornou indispensável:** sem cuidado planejado, é ele que carrega a identidade do cuidado — DOMAIN-MAP §3.5, *"`care_type` obrigatório"* |
 | client_execution_id | uuid not null | `UNIQUE (user_id, client_execution_id)` — idempotência (T19) |
 | executed_at | timestamptz not null default now() | instante do servidor; a janela de undo é medida a partir dele |
 | executed_on | date not null | dia civil da usuária, **calculado no servidor** a partir da tz IANA + validação de plausibilidade (T22) |
@@ -262,6 +262,7 @@ Removida do modelo: no MVP a avaliação só existe para gerar um plano, nenhuma
 | ~~note~~ | **DEFER** | texto livre é PII e território de check-in (SPEC-006) |
 
 - **Invariante (D-69/D-35):** no máximo **uma execução efetiva** por `scheduled_care_id` — índice único **parcial** `WHERE voided_at IS NULL`. Uma execução anulada não ocupa a vaga, então desfazer libera o cuidado para ser registrado de novo.
+- **SPEC-052 — o que a coluna anulável NÃO afrouxa.** O teto acima continua inteiro, porque a chave dele **nunca é nula num cuidado planejado**; e `NULL` não colide com `NULL` em índice único, então **duas avulsas no mesmo dia são dois fatos** — que é o certo: são duas coisas que ela fez. ⚠️ E a avulsa **não cria linha em `scheduled_cares`**, não conta aderência (`Progress` e o ciclo iteram os cuidados planejados) e **não paga ponto** (`journey_points` chaveia o fato no cuidado planejado, e ela não tem um) — as três por construção, cada uma com barreira de teste.
 - **Imutabilidade:** `voided_at` é a **única** coluna mutável, e só pela RPC `void_execution`. Nunca UPDATE de `executed_at`, `executed_on`, `care_type_code` ou `scheduled_care_id`. Nunca DELETE pela usuária (sem grant).
 - **Escrita só server-side:** `authenticated` tem apenas SELECT próprio; toda transição passa por `complete_care` / `skip_care` / `reschedule_care` / `void_execution` (SECURITY DEFINER, allowlistadas).
 
