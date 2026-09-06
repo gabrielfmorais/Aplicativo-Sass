@@ -509,7 +509,14 @@ function CareActions({
             SPEC-045 (F46) — **o momento de orgulho, onde ele acontece.** É uma oferta discreta ao
             lado do registro, nunca um passo do fluxo: o cuidado está concluído com ou sem ela.
           */}
-          {onShare ? (
+          {/*
+            ⚠️ **SPEC-052 OQ4 — a avulsa NÃO vira card, e a auditoria pegou o contrário.** O card é a
+            superfície onde o app **comemora** (SPEC-042/045), e comemorar um cuidado feito fora do
+            cronograma é premiar por fazer mais — a proibição que abre a D-103, e a instrução
+            explícita do dono nesta fatia. O cuidado do **plano** continua oferecendo, porque ali a
+            conquista é a consistência com o que ela combinou consigo mesma.
+          */}
+          {onShare && !isAdHoc(item) ? (
             <Button
               label="Compartilhar"
               variant="ghost"

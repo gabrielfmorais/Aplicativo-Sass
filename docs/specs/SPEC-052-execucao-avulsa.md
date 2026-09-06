@@ -141,8 +141,12 @@ lembrete — é **endereço** para o que ela já fez.
 - **FR2** É **idempotente por `client_execution_id`**, com a mesma cláusula de replay concorrente do
   `complete_care` — mesma chave devolve o mesmo id e **não** cria um segundo fato.
 - **FR3** `care_type_code` fora de `CARE_TYPE_CODES` é recusado pelo `CHECK` que já existe (`23514`).
-- **FR4** `buildTodayView` recebe as execuções avulsas e as arquiva **em `history`**, nunca em
-  `overdue`/`today`/`upcoming`.
+- **FR4** ⚠️ **`buildAdHocHistory` — e NÃO `buildTodayView`.** A tela mistura as avulsas ao histórico
+  do plano; o `TodayView` continua sendo **o cronograma e nada além**. A primeira versão as punha
+  dentro dele e duas barreiras falharam na hora, porque `buildProgress` e `buildCycleView` **reusam**
+  `buildTodayView` (SPEC-019) — a avulsa vazava direto para a aderência e para o resumo de ciclo. Um
+  filtro em cada consumidor consertaria **os dois que existem hoje**; a função à parte protege
+  também o que ainda não existe. Ela devolve uma **lista**, nunca um `TodayView`, pela mesma razão.
 - **FR5** O cartão do histórico de uma execução avulsa é **o mesmo componente** do cuidado concluído:
   finalização, check-in, marcas, *"Contar esse cuidado"* e *"Meus produtos"*, sem ramo novo.
 - **FR6** A entrada fica na **Hoje**, imediatamente acima da seção *Histórico* (§14), e abre a
@@ -395,6 +399,38 @@ deixando a coluna anulável (inócua). Registrado no cabeçalho da migration.
 
 ---
 
+## 22.1 ⚠️ O BLOCKER que só o DEV real encontrou
+
+**A execução avulsa quebrava a Jornada inteira.**
+
+`award_journey_points` grava `fact_id = e.scheduled_care_id` nos **três** blocos — foi assim que a
+SPEC-043 consertou o pagamento duplo, ancorando o ponto no **cuidado planejado**. Com a coluna
+anulável, uma avulsa faz esse `select` produzir `fact_id = NULL`, e a coluna é `not null`. Medido
+contra o DEV depois de registrar **um** cuidado avulso:
+
+```
+400  23502  "Failing row contains (…, care_execution, null, 10, v1, 2026-09-06, …)"
+```
+
+⚠️ **O estrago não é o ponto que falta: é a função inteira que passa a lançar.** Um único registro
+avulso fazia ela **parar de ganhar pontos pelos cuidados do PLANO** também — `useJourney` cai no
+`catch`, a tela mostra o estado de falha, e nada diria por quê.
+
+⚠️ **E nenhum teste via, o que é o achado dentro do achado.** O pgTAP desta SPEC perguntava *"quantos
+pontos apontam para uma avulsa?"* e recebia **zero** — verdade, porque a função **abortava antes de
+inserir qualquer coisa**. **Uma asserção que passa quando o sistema falha é pior que nenhuma.** Ela
+passou a exigir que a função **conclua** (`lives_ok`) e que os cuidados planejados **continuem sendo
+pagos** com a avulsa presente — sem essa segunda, *"zero ponto de avulsa"* seguiria compatível com
+*"zero ponto nenhum"*.
+
+**Correção:** `and e.scheduled_care_id is not null` nos três blocos, em
+`supabase/migrations/20260919000001_journey_points_ignore_ad_hoc.sql`. A regra passa a estar dita —
+**só o cuidado planejado paga** — em vez de acontecer por acidente.
+
+⚠️ **Auditados os demais consumidores de `scheduled_care_id` no banco, e nenhum outro quebra:**
+`care_lock_actionable` e as duas subconsultas de `plan_pauses` comparam `= sc.id`, e `NULL` nunca
+iguala — a avulsa é invisível para elas, que é o comportamento correto.
+
 ## 23. Open Questions
 
 - **OQ1 (CAN DEFER) — registrar em data passada.** *"Lavei anteontem e esqueci de contar."* Fora
@@ -409,8 +445,62 @@ deixando a coluna anulável (inócua). Registrado no cabeçalho da migration.
 
 ---
 
+## 23.1 Evidência
+
+**Barreiras, e uma delas achou o defeito antes de o código existir.** A primeira versão punha a
+avulsa no `history` do próprio `TodayView`; **dois testes falharam na hora**, porque `buildProgress`
+e `buildCycleView` **reusam** `buildTodayView` (SPEC-019) e a avulsa vazava para a aderência e para
+o resumo de ciclo. `buildAdHocHistory` mantém o `TodayView` sendo o cronograma e nada além.
+
+**Barreiras verificadas nos dois sentidos** (defeito injetado ⇒ teste falha): avulsa marcada como
+`planned` → 1 teste de core; rótulo *"Fora do cronograma"* removido → 1 de tela; a tela deixando de
+pedir as avulsas → 1 de tela; `care_type_code` fora do `select` → 1 de adapter.
+
+**Barreira de tipo, não de teste:** `CareExecution` é união discriminada — *"avulsa sem
+`care_type_code`"* **não compila**.
+
+### Probe hostil contra o DEV real — 15/15
+
+| | |
+|---|---|
+| **AC8** tipo fora do `CHECK` | `400 · 23514` |
+| **AC7** `INSERT` direto em `care_executions` | `403 · 42501` |
+| **FR2** mesma chave duas vezes | mesmo id, **uma** linha |
+| **EC2** duas escritas **em paralelo** | mesmo id, **uma** linha |
+| **BR1** `executed_on` | dia civil do **servidor** |
+| cronograma | **136 → 136** cuidados planejados |
+| **AC1** pontos | **205 → 205**, zero apontando para avulsa |
+| **AC9** teto do plano | nenhum cuidado planejado com mais de uma execução efetiva |
+| **FR7** desfazer | `204`, mesma janela |
+
+### 390px no DEV real
+
+**Registrar → histórico → reload → desfazer**, com login de volta depois do reload (⚠️ a sessão do
+preview é **em memória**, D-85 — a primeira rodada mediu a tela de entrada e "reprovou" uma
+persistência que estava certa):
+
+- a porta lê *"Fez um cuidado fora do cronograma?" · "Registrar um cuidado"*, em cartão discreto,
+  **abaixo da dobra e imediatamente acima do Histórico**;
+- escolher o tipo grava, e o cartão aparece como **"Reconstrução · Fora do cronograma · dom, 06/09"**,
+  já oferecendo *"Você finalizou?"*, *"Como ficou?"*, *"Ver o que contei"* — **os mesmos componentes**;
+- **AC3** medido no texto da tela: nada de *"Fora do cronograma"* antes da seção *Histórico*;
+- **FR7**: *Desfazer* remove o cartão (3 → 2);
+- **NG5**: nenhuma cobrança, contagem de dias, elogio ou convite a fazer mais.
+
+### AC5/AC6 — Hair Intelligence, medida nos dois estados
+
+- respondido o check-in da avulsa, *"Seus padrões"* passou de **"Com base em 6"** para
+  **"Com base em 7 cuidados que você avaliou"** — e *"esteve em 4 dos 7 que você avaliou bem"*;
+- **anulada a avulsa, voltou a 6.** ⚠️ E a medição corrigiu uma leitura minha: a primeira passagem
+  marcou `6 → 6` porque o driver leu a tela **ainda montada**; numa sessão nova o número é 7.
+
+**Estado do DEV ao fim:** 14 execuções vivas, 205 pontos, base 6 — o de antes. Resíduo: duas
+execuções avulsas **anuladas** e um check-in preso a uma delas (append-only, invisível a toda
+agregação).
+
 ## 24. Change Log
 
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-09-06 | Criada. Concretiza a execução ad hoc do DOMAIN-MAP §3.5, adiada por SPEC-005 §8, SPEC-006 e SPEC-024 OQ4. | agente |
+| 2026-09-06 | **BLOCKER medido no DEV real (§22.1):** a avulsa fazia `award_journey_points` lançar `23502` e parava a Jornada inteira. Migration `20260919000001`, e a asserção de pgTAP que passava com o sistema quebrado foi refeita. | agente |

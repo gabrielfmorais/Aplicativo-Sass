@@ -5,7 +5,7 @@
 -- porque `journey_points` chaveia o fato no cuidado planejado e uma avulsa não tem um.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(13);
+select plan(15);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values
@@ -82,15 +82,33 @@ select is(
 -- ---------------------------------------------------------------- AC1 — nenhum ponto, e por quê
 --
 -- ⚠️ `award_journey_points` concede por **cuidado planejado**; a avulsa não tem um, então não há o
--- que conceder. **A barreira é a chave, não uma trava a mais** — a mesma correção medida na
--- SPEC-043, e a proibição que abre a D-103.
-select public.award_journey_points('America/Sao_Paulo');
+-- que conceder — a proibição que abre a D-103.
+--
+-- ⚠️ **A PRIMEIRA asserção é que a função CONCLUI, e ela existe porque a versão anterior deste
+-- arquivo passou com o sistema quebrado.** Ela perguntava apenas *"quantos pontos apontam para uma
+-- avulsa?"* e recebia **zero** — verdade, porque `award_journey_points` **abortava com 23502**
+-- (`fact_id` nulo) antes de inserir qualquer coisa. Medido no DEV real: **um** registro avulso
+-- fazia ela parar de ganhar pontos pelos cuidados do **plano** também. Uma asserção que passa
+-- quando o sistema falha é pior que nenhuma.
+select lives_ok(
+  $q$ select public.award_journey_points('America/Sao_Paulo') $q$,
+  'a Jornada continua funcionando com uma execução avulsa no histórico — ela não quebra a função');
+
 select is(
   (select count(*)::int from public.journey_points
     where user_id = '00000000-0000-4000-8000-000000000f11'
       and fact_id in (select id from public.care_executions where scheduled_care_id is null)),
   0,
   'nenhum ponto aponta para uma execução avulsa: fazer mais cuidados não é recompensado');
+
+-- ⚠️ E o cuidado do PLANO continua pagando — sem isto, "zero ponto de avulsa" seria compatível com
+-- "zero ponto nenhum", que é exatamente o defeito que passou despercebido.
+select cmp_ok(
+  (select count(*)::int from public.journey_points
+    where user_id = '00000000-0000-4000-8000-000000000f11'
+      and fact_id = '00000000-0000-4000-8000-000000000f41'),
+  '>', 0,
+  'o cuidado planejado que ela concluiu continua sendo pago, com a avulsa presente');
 
 -- ------------------------------------------------------------------- AC7 — cliente adulterado
 --

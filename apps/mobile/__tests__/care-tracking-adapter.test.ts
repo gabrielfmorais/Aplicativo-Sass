@@ -70,6 +70,8 @@ const makeClient = (
   // As colunas pedidas são capturadas: um select que perde uma coluna não quebra nada em runtime
   // — só devolve `undefined` — e sem isto o teste passaria enquanto a tela silenciosamente morre.
   const selects: string[] = [];
+  /** SPEC-052 — os filtros `.not(...)`, para o teste poder exigir o que a contagem exclui. */
+  const nots: string[] = [];
   const thenable = (result: Result) => {
     const chain = {
       select: (columns?: string) => {
@@ -77,6 +79,10 @@ const makeClient = (
         return chain;
       },
       eq: () => chain,
+      not: (column: string, ...rest: unknown[]) => {
+        nots.push([column, ...rest.map(String)].join(' '));
+        return chain;
+      },
       in: () => Promise.resolve(result),
       /**
        * ⚠️ **`care_executions` termina em `.is()` de DUAS formas**, e o duplo distingue como o
@@ -125,7 +131,7 @@ const makeClient = (
                   ? thenable(marks)
                   : thenable(checkIns),
   );
-  return { client: { from, rpc } as unknown as SupabaseClient, rpc, selects, from };
+  return { client: { from, rpc } as unknown as SupabaseClient, rpc, selects, nots, from };
 };
 
 const ok = (data: unknown): Result => ({ data, error: null });
@@ -285,6 +291,17 @@ describe('care tracking adapter — a execução avulsa (SPEC-052)', () => {
     await expect(createCareTrackingAdapter(client, () => USER).getBoard()).rejects.toMatchObject({
       code: 'care.board_read_failed',
     });
+  });
+
+  /**
+   * ⚠️ **AC2 — achado pela auditoria.** A contagem vitalícia é o *"você já fez N cuidados"* que
+   * sobrevive à troca de plano (SPEC-014 FR7): é aderência ao longo da vida, e a avulsa não conta.
+   * Sem o filtro, registrar um cuidado fora do cronograma inflava o número na Progresso.
+   */
+  it('a contagem vitalícia exclui a avulsa — ela não conta como aderência', async () => {
+    const { client, nots } = makeClient(ok(planRow), ok(careRows), ok(executionRows));
+    await createCareTrackingAdapter(client, () => USER).getBoard();
+    expect(nots.some((n) => n.startsWith('scheduled_care_id is'))).toBe(true);
   });
 
   it('registra pela RPC, com o tipo, a chave e o fuso — nunca com a data', async () => {

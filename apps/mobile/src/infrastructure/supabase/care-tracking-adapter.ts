@@ -259,11 +259,20 @@ export const createCareTrackingAdapter = (client: SupabaseClient, userId: () => 
         .maybeSingle();
       if (pauseError) throw fail('care.board_read_failed', pauseError);
 
-      // Across every plan, not just this one (SPEC-014): `head: true` asks for the count and no
-      // rows, so this stays one cheap round trip regardless of how long she has been using the app.
+      /**
+       * Across every plan, not just this one (SPEC-014): `head: true` asks for the count and no
+       * rows, so this stays one cheap round trip regardless of how long she has been using the app.
+       *
+       * ⚠️ **SPEC-052 — `scheduled_care_id not null`, e a auditoria achou isto.** Esta contagem é o
+       * *"você já fez N cuidados"* que sobrevive à troca de plano (SPEC-014 BR5/FR7) — é **aderência
+       * ao plano ao longo da vida**, e a fonte de verdade diz que a avulsa **não conta como
+       * aderência**. Sem o filtro, registrar um cuidado fora do cronograma inflava o número na
+       * Progresso, que é a superfície onde a comparação com o plano acontece.
+       */
       const { count, error: countError } = await client
         .from('care_executions')
         .select('id', { count: 'exact', head: true })
+        .not('scheduled_care_id', 'is', null)
         .is('voided_at', null);
       if (countError) throw fail('care.board_read_failed', countError);
 
