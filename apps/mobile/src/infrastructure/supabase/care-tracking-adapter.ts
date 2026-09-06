@@ -129,37 +129,37 @@ export const createCareTrackingAdapter = (client: SupabaseClient, userId: () => 
       if (caresError) throw fail('care.board_read_failed', caresError);
       const cares = (careRows ?? []).map((r) => toCare(r as CareRow));
 
-      // Bounded by the plan's own cares: an execution from a superseded plan is not this board's.
       const careIds = cares.map((c) => c.id);
-      let executions: CareExecution[] = [];
-      if (careIds.length > 0) {
-        const { data: executionRows, error: executionsError } = await client
-          .from('care_executions')
-          .select(EXECUTION_COLUMNS)
-          .in('scheduled_care_id', careIds);
-        if (executionsError) throw fail('care.board_read_failed', executionsError);
-        executions = (executionRows ?? []).map((r) => toExecution(r as ExecutionRow));
-      }
 
       /**
-       * SPEC-052 — **as execuções avulsas deste ciclo.**
+       * As execuções deste board: as **do plano** e as **avulsas**, e as duas vão juntas.
        *
-       * ⚠️ **Leitura própria porque a de cima é limitada pelos cuidados do plano** — e tem de ser:
-       * uma execução de um plano substituído não é deste board. A avulsa não pertence a plano
-       * nenhum, então o recorte honesto é **a janela do plano ativo**: do `starts_on` em diante.
+       * - planejadas: limitadas pelos cuidados do plano — e têm de ser, senão uma execução de um
+       *   plano substituído entraria neste board.
+       * - avulsas (SPEC-052): não pertencem a plano nenhum, então o recorte honesto é a **janela do
+       *   plano ativo**, do `starts_on` em diante. ⚠️ O que fica de fora não se perde: uma avulsa de
+       *   ciclo anterior segue no histórico vitalício e na Hair Intelligence, exatamente como os
+       *   cuidados do plano anterior, que também não aparecem aqui.
        *
-       * ⚠️ **O que fica de fora não se perde.** Uma avulsa de um ciclo anterior continua no
-       * histórico vitalício e continua contando na Hair Intelligence — exatamente como os cuidados
-       * do plano anterior, que também não aparecem neste board.
+       * ⚠️ **Juntas porque nenhuma depende da outra, e a auditoria `--full` mediu o custo de não
+       * juntar:** a leitura do board é a da tela **mais carregada do app**, e a SPEC-052 tinha
+       * acrescentado uma viagem **em série** a ela. `null` quando não há a que perguntar.
        */
-      const { data: adHocRows, error: adHocError } = await client
-        .from('care_executions')
-        .select(EXECUTION_COLUMNS)
-        .is('scheduled_care_id', null)
-        .gte('executed_on', plan.starts_on)
-        .order('executed_on', { ascending: false });
-      if (adHocError) throw fail('care.board_read_failed', adHocError);
-      executions = [...executions, ...(adHocRows ?? []).map((r) => toExecution(r as ExecutionRow))];
+      const [planejadas, avulsas] = await Promise.all([
+        careIds.length > 0
+          ? client.from('care_executions').select(EXECUTION_COLUMNS).in('scheduled_care_id', careIds)
+          : null,
+        client
+          .from('care_executions')
+          .select(EXECUTION_COLUMNS)
+          .is('scheduled_care_id', null)
+          .gte('executed_on', plan.starts_on)
+          .order('executed_on', { ascending: false }),
+      ]);
+      for (const r of [planejadas, avulsas]) if (r?.error) throw fail('care.board_read_failed', r.error);
+      const executions: CareExecution[] = [...(planejadas?.data ?? []), ...(avulsas?.data ?? [])].map((r) =>
+        toExecution(r as ExecutionRow),
+      );
 
       // Bounded by this board's executions, for the same reason the executions are bounded by the
       // plan's cares: a check-in from a superseded plan is not this board's.
