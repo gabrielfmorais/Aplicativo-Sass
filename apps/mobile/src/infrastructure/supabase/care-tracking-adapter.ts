@@ -120,161 +120,157 @@ export const createCareTrackingAdapter = (client: SupabaseClient, userId: () => 
         schedule_algorithm_version: string;
       };
 
-      const { data: careRows, error: caresError } = await client
-        .from('scheduled_cares')
-        .select(CARE_COLUMNS)
-        .eq('plan_id', plan.id)
-        .order('planned_date', { ascending: true })
-        .order('id', { ascending: true });
-      if (caresError) throw fail('care.board_read_failed', caresError);
-      const cares = (careRows ?? []).map((r) => toCare(r as CareRow));
-
-      const careIds = cares.map((c) => c.id);
-
       /**
-       * As execuções deste board: as **do plano** e as **avulsas**, e as duas vão juntas.
+       * ⚠️ **NÍVEL 2 — as quatro leituras que dependem só do plano, e vão juntas.**
        *
-       * - planejadas: limitadas pelos cuidados do plano — e têm de ser, senão uma execução de um
-       *   plano substituído entraria neste board.
-       * - avulsas (SPEC-052): não pertencem a plano nenhum, então o recorte honesto é a **janela do
-       *   plano ativo**, do `starts_on` em diante. ⚠️ O que fica de fora não se perde: uma avulsa de
-       *   ciclo anterior segue no histórico vitalício e na Hair Intelligence, exatamente como os
-       *   cuidados do plano anterior, que também não aparecem aqui.
+       * A leitura do board é a da tela **mais carregada do app** e tinha **dez viagens à rede em
+       * série** — medido pela auditoria `--full`. O grafo de dependências real permite **cinco
+       * níveis**, e é o que está escrito aqui. Nada foi afrouxado: cada recorte continua exatamente
+       * o que era, só deixou de esperar por quem não precisava esperar.
        *
-       * ⚠️ **Juntas porque nenhuma depende da outra, e a auditoria `--full` mediu o custo de não
-       * juntar:** a leitura do board é a da tela **mais carregada do app**, e a SPEC-052 tinha
-       * acrescentado uma viagem **em série** a ela. `null` quando não há a que perguntar.
+       * ⚠️ **A contagem vitalícia entra AQUI e não junto do plano**, embora não dependa dele: subindo
+       * um nível ela passaria a rodar também para quem **não tem plano ativo** — o `return null`
+       * acima —, e seria uma consulta jogada fora em quem está no onboarding.
        */
-      const [planejadas, avulsas] = await Promise.all([
-        careIds.length > 0
-          ? client.from('care_executions').select(EXECUTION_COLUMNS).in('scheduled_care_id', careIds)
-          : null,
+      const [caresRes, pauseRes, avulsasRes, countRes] = await Promise.all([
+        client
+          .from('scheduled_cares')
+          .select(CARE_COLUMNS)
+          .eq('plan_id', plan.id)
+          .order('planned_date', { ascending: true })
+          .order('id', { ascending: true }),
+        /**
+         * SPEC-022 — a pausa aberta, se houver. **Escopada ao plano ativo de propósito:** uma pausa
+         * cujo plano foi substituído por uma reavaliação já não pausa nada, e mostrá-la faria a Hoje
+         * dizer "pausado" sobre um cronograma novo em folha (EC5).
+         */
+        client
+          .from('plan_pauses')
+          .select('paused_on')
+          .eq('plan_id', plan.id)
+          .is('resumed_on', null)
+          .maybeSingle(),
+        /**
+         * SPEC-052 — as execuções **avulsas** deste ciclo. Não pertencem a plano nenhum, então o
+         * recorte honesto é a **janela do plano ativo**, do `starts_on` em diante. ⚠️ O que fica de
+         * fora não se perde: uma avulsa de ciclo anterior segue no histórico vitalício e na Hair
+         * Intelligence, exatamente como os cuidados do plano anterior, que também não aparecem aqui.
+         */
         client
           .from('care_executions')
           .select(EXECUTION_COLUMNS)
           .is('scheduled_care_id', null)
           .gte('executed_on', plan.starts_on)
           .order('executed_on', { ascending: false }),
+        /**
+         * Across every plan, not just this one (SPEC-014): `head: true` asks for the count and no
+         * rows, so this stays one cheap round trip regardless of how long she has been using the app.
+         *
+         * ⚠️ **SPEC-052 — `scheduled_care_id not null`, e a auditoria achou isto.** Esta contagem é o
+         * *"você já fez N cuidados"* que sobrevive à troca de plano (SPEC-014 BR5/FR7) — é **aderência
+         * ao plano ao longo da vida**, e a fonte de verdade diz que a avulsa **não conta como
+         * aderência**. Sem o filtro, registrar um cuidado fora do cronograma inflava o número na
+         * Progresso, que é a superfície onde a comparação com o plano acontece.
+         */
+        client
+          .from('care_executions')
+          .select('id', { count: 'exact', head: true })
+          .not('scheduled_care_id', 'is', null)
+          .is('voided_at', null),
       ]);
-      for (const r of [planejadas, avulsas]) if (r?.error) throw fail('care.board_read_failed', r.error);
-      const executions: CareExecution[] = [...(planejadas?.data ?? []), ...(avulsas?.data ?? [])].map((r) =>
+      for (const r of [caresRes, pauseRes, avulsasRes, countRes])
+        if (r.error) throw fail('care.board_read_failed', r.error);
+      const cares = (caresRes.data ?? []).map((r) => toCare(r as CareRow));
+      const careIds = cares.map((c) => c.id);
+      const pauseRow = pauseRes.data as { paused_on: string } | null;
+      const count = countRes.count;
+
+      /**
+       * ⚠️ **NÍVEL 3 — as execuções do PLANO, e só elas esperam pelos cuidados.**
+       *
+       * Limitadas pelos cuidados do plano, e têm de ser: uma execução de um plano substituído não é
+       * deste board. É essa dependência — e nenhuma outra — que impede os cinco níveis de virar
+       * quatro; trocá-la por uma janela de data admitiria a execução do plano velho.
+       */
+      const planejadas =
+        careIds.length > 0
+          ? await client.from('care_executions').select(EXECUTION_COLUMNS).in('scheduled_care_id', careIds)
+          : null;
+      if (planejadas?.error) throw fail('care.board_read_failed', planejadas.error);
+      const executions: CareExecution[] = [...(planejadas?.data ?? []), ...(avulsasRes.data ?? [])].map((r) =>
         toExecution(r as ExecutionRow),
       );
 
-      // Bounded by this board's executions, for the same reason the executions are bounded by the
-      // plan's cares: a check-in from a superseded plan is not this board's.
-      const executionIds = executions.map((e) => e.id);
-      let checkIns: CheckIn[] = [];
-      /** SPEC-051 — as marcações de resultado, uma linha por marcação. */
-      let checkInMarks: { checkInId: string; mark: CheckInMark }[] = [];
-      if (executionIds.length > 0) {
-        const { data: checkInRows, error: checkInsError } = await client
-          .from('checkins')
-          .select(CHECKIN_COLUMNS)
-          .in('care_execution_id', executionIds);
-        if (checkInsError) throw fail('care.board_read_failed', checkInsError);
-        checkIns = (checkInRows ?? []).map((r) => toCheckIn(r as CheckInRow));
-
-        /**
-         * SPEC-051 (`P13`) — o que ela notou, para as marcações não sumirem no reload.
-         *
-         * ⚠️ **Escopo pelos check-ins deste board**, não por `user_id`: uma marcação de um plano
-         * substituído não é deste board, exatamente como os check-ins e os registros do Wash Day.
-         */
-        if (checkIns.length > 0) {
-          const { data: markRows, error: marksError } = await client
-            .from('checkin_marks')
-            .select('checkin_id, mark')
-            .in(
-              'checkin_id',
-              checkIns.map((c) => c.id),
-            );
-          if (marksError) throw fail('care.board_read_failed', marksError);
-          checkInMarks = ((markRows ?? []) as { checkin_id: string; mark: CheckInMark }[]).map((r) => ({
-            checkInId: r.checkin_id,
-            mark: r.mark,
-          }));
-        }
-      }
-
       /**
-       * SPEC-024 FR7 — quais dessas execuções já têm um registro. Só os ids: a Hoje diz que o
-       * registro existe, e nunca precisou saber o que tem dentro. Mesmo escopo dos check-ins, pela
-       * mesma razão — um registro de um plano substituído não é deste board.
-       */
-      let washDayExecutionIds: string[] = [];
-      /**
-       * SPEC-039 FR5 — as etapas de finalização já respondidas, para a pergunta não voltar depois
-       * do reload. Só as respondidas: uma execução ausente daqui é "ainda não disse", que não é
-       * `skipped` (BR1).
-       */
-      let careFinishes: {
-        careExecutionId: string;
-        status: FinishStatus;
-        technique: FinishTechnique | null;
-      }[] = [];
-      if (executionIds.length > 0) {
-        const { data: washDayRows, error: washDaysError } = await client
-          .from('wash_days')
-          .select('id, care_execution_id')
-          .in('care_execution_id', executionIds);
-        if (washDaysError) throw fail('care.board_read_failed', washDaysError);
-        const hubs = (washDayRows ?? []) as { id: string; care_execution_id: string }[];
-        washDayExecutionIds = hubs.map((r) => r.care_execution_id);
-
-        if (hubs.length > 0) {
-          const { data: finishRows, error: finishError } = await client
-            .from('wash_day_finish')
-            .select('wash_day_id, finish_status, finish_technique')
-            .in(
-              'wash_day_id',
-              hubs.map((r) => r.id),
-            );
-          if (finishError) throw fail('care.board_read_failed', finishError);
-          const executionOfHub = new Map(hubs.map((r) => [r.id, r.care_execution_id]));
-          careFinishes = (finishRows ?? []).flatMap((row) => {
-            const { wash_day_id, finish_status, finish_technique } = row as {
-              wash_day_id: string;
-              finish_status: FinishStatus;
-              finish_technique: FinishTechnique | null;
-            };
-            const careExecutionId = executionOfHub.get(wash_day_id);
-            return careExecutionId
-              ? [{ careExecutionId, status: finish_status, technique: finish_technique ?? null }]
-              : [];
-          });
-        }
-      }
-
-      /**
-       * SPEC-022 — a pausa aberta, se houver. **Escopada ao plano ativo de propósito:** uma pausa
-       * cujo plano foi substituído por uma reavaliação já não pausa nada, e mostrá-la faria a Hoje
-       * dizer "pausado" sobre um cronograma novo em folha (EC5).
-       */
-      const { data: pauseRow, error: pauseError } = await client
-        .from('plan_pauses')
-        .select('paused_on')
-        .eq('plan_id', plan.id)
-        .is('resumed_on', null)
-        .maybeSingle();
-      if (pauseError) throw fail('care.board_read_failed', pauseError);
-
-      /**
-       * Across every plan, not just this one (SPEC-014): `head: true` asks for the count and no
-       * rows, so this stays one cheap round trip regardless of how long she has been using the app.
+       * ⚠️ **NÍVEL 4 — check-ins e registros de Wash Day, os dois sobre as mesmas execuções.**
        *
-       * ⚠️ **SPEC-052 — `scheduled_care_id not null`, e a auditoria achou isto.** Esta contagem é o
-       * *"você já fez N cuidados"* que sobrevive à troca de plano (SPEC-014 BR5/FR7) — é **aderência
-       * ao plano ao longo da vida**, e a fonte de verdade diz que a avulsa **não conta como
-       * aderência**. Sem o filtro, registrar um cuidado fora do cronograma inflava o número na
-       * Progresso, que é a superfície onde a comparação com o plano acontece.
+       * Limitados pelas execuções deste board, pela mesma razão que elas são limitadas pelos
+       * cuidados do plano: um check-in ou um registro de um plano substituído não é deste board.
        */
-      const { count, error: countError } = await client
-        .from('care_executions')
-        .select('id', { count: 'exact', head: true })
-        .not('scheduled_care_id', 'is', null)
-        .is('voided_at', null);
-      if (countError) throw fail('care.board_read_failed', countError);
+      const executionIds = executions.map((e) => e.id);
+      const [checkInsRes, washDaysRes] = await Promise.all([
+        executionIds.length > 0
+          ? client.from('checkins').select(CHECKIN_COLUMNS).in('care_execution_id', executionIds)
+          : null,
+        /**
+         * SPEC-024 FR7 — quais dessas execuções já têm um registro. Só os ids: a Hoje diz que o
+         * registro existe, e nunca precisou saber o que tem dentro.
+         */
+        executionIds.length > 0
+          ? client.from('wash_days').select('id, care_execution_id').in('care_execution_id', executionIds)
+          : null,
+      ]);
+      for (const r of [checkInsRes, washDaysRes]) if (r?.error) throw fail('care.board_read_failed', r.error);
+      const checkIns = (checkInsRes?.data ?? []).map((r) => toCheckIn(r as CheckInRow));
+      const hubs = (washDaysRes?.data ?? []) as { id: string; care_execution_id: string }[];
+      const washDayExecutionIds = hubs.map((r) => r.care_execution_id);
+
+      /**
+       * ⚠️ **NÍVEL 5 — o que pendura no que veio do nível 4.**
+       *
+       * - marcações (SPEC-051): escopadas pelos **check-ins deste board**, não por `user_id` — uma
+       *   marcação de um plano substituído não é deste board, como os check-ins e os registros.
+       * - finalização (SPEC-039 FR5): só as **respondidas**, para a pergunta não voltar depois do
+       *   reload. Uma execução ausente daqui é *"ainda não disse"*, que não é `skipped` (BR1).
+       */
+      const [marksRes, finishRes] = await Promise.all([
+        checkIns.length > 0
+          ? client
+              .from('checkin_marks')
+              .select('checkin_id, mark')
+              .in(
+                'checkin_id',
+                checkIns.map((c) => c.id),
+              )
+          : null,
+        hubs.length > 0
+          ? client
+              .from('wash_day_finish')
+              .select('wash_day_id, finish_status, finish_technique')
+              .in(
+                'wash_day_id',
+                hubs.map((r) => r.id),
+              )
+          : null,
+      ]);
+      for (const r of [marksRes, finishRes]) if (r?.error) throw fail('care.board_read_failed', r.error);
+
+      const checkInMarks = ((marksRes?.data ?? []) as { checkin_id: string; mark: CheckInMark }[]).map(
+        (r) => ({ checkInId: r.checkin_id, mark: r.mark }),
+      );
+
+      const executionOfHub = new Map(hubs.map((r) => [r.id, r.care_execution_id]));
+      const careFinishes = (finishRes?.data ?? []).flatMap((row) => {
+        const { wash_day_id, finish_status, finish_technique } = row as {
+          wash_day_id: string;
+          finish_status: FinishStatus;
+          finish_technique: FinishTechnique | null;
+        };
+        const careExecutionId = executionOfHub.get(wash_day_id);
+        return careExecutionId
+          ? [{ careExecutionId, status: finish_status, technique: finish_technique ?? null }]
+          : [];
+      });
 
       return {
         planId: plan.id,
