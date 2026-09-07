@@ -3,13 +3,13 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-038 |
-| Status | **Fatias 1 e 2 DONE** — quarto tipo validado no DEV real; motor v2 pronto e testado. **A versão corrente segue v1 por OQ4** (deriva medida em §19.1) |
+| Status | **Fatias 1 e 2 DONE** — quarto tipo validado no DEV real; motor v2 pronto e testado. **A versão corrente segue v1 por OQ2** (gate do dono; a OQ4 que bloqueava foi fechada pela SPEC-046). **Auditado de ponta a ponta em §21.** |
 | Owner | dono do produto |
 | Bounded Context | Schedule (`packages/core/src/schedule`) + Content + design tokens |
 | Related ADRs | **ADR-001 §2** (versão liberada é imutável), **ADR-007 A1** (registro de regras), D-26, D-67, D-102 |
 | Related SPECs | SPEC-004 (o motor v1), SPEC-007 (guias), SPEC-017 ("por que este cronograma"), SPEC-037 (a avaliação ampliada) |
 | Capability | `F36` motor de cronograma por necessidade + **Restauração** como quarto tipo |
-| Criado / Atualizado | 2026-09-03 / 2026-09-03 |
+| Criado / Atualizado | 2026-09-03 / 2026-09-07 |
 
 ## 1. Context
 
@@ -168,15 +168,125 @@ calaria corretamente, mas por um motivo evitável.
 Corrigido antes de a troca acontecer: `buildPlan` aceita a versão, e a tela reproduz com **a engine
 que gerou aquele plano**. Uma versão que o app não conhece continua calando a seção.
 
+## 21. Auditoria vertical do motor (2026-09-07) — diagnóstico → perfil → engine → cronograma
+
+Pedida pelo dono: *"quero saber de forma objetiva se Reconstrução e Restauração estão realmente
+sendo usadas para montar o cronograma e COMO. Não presuma que está correto apenas porque os tipos
+existem no código."* O que segue é **medição do output**, não leitura de código. A matriz é o produto
+cartesiano das respostas que o motor lê — **307.200 perfis** (6 padrões × 5 frequências × 16
+conjuntos de química × 4 usos de calor × 32 conjuntos de queixas × 5 objetivos) — e a barreira
+executável mora em `packages/core/src/schedule/schedule-matrix.test.ts`, sobre 57.600 deles (as 16
+químicas colapsam em três, porque as engines só leem se a lista está vazia ou não).
+
+### 21.1 Quantos cronogramas a Huna sabe montar
+
+| | v1 (corrente) | v2 (pronta, desligada) |
+|---|---|---|
+| cronogramas **distintos** para 307.200 perfis distintos | **12** | **19** |
+| composições distintas por tamanho de ciclo | 3 | 7–8 |
+| proporção hidratação:nutrição | **sempre meio a meio** | depende da ênfase |
+
+⚠️ **A personalização do v1 é a cadência, mais uma vaga.** A frequência de lavagem decide se o ciclo
+tem 4, 8 ou 12 cuidados; a ênfase decide **qual eixo abre**; e a reconstrução decide **se uma** das
+vagas troca de tipo. Nada mais varia. Aumentar isso não é trabalho de engenharia: é afirmar *"este
+perfil deve receber tal proporção"*, que é regra capilar e precisa de revisor (D-26/D-70).
+
+### 21.2 Reconstrução — quem recebe, e não há rigidez
+
+**Não existe regra fixa nem fallback que a force.** Ela entra por dois dos três sinais {química ·
+calor alto · dano}, e os dois lados existem, medidos sobre a matriz: **81,9%** dos perfis do espaço
+recebem exatamente **uma**, **18,1%** recebem **zero**, e **nunca** duas. O que faz a fatia parecer
+grande não é o motor: é que `damage` já é verdadeiro por **dois dos cinco objetivos** ou pela queixa
+`breakage`, então a condição se satisfaz com facilidade — e isso é a **régua do domínio** (worksheet
+§4), não um acidente de implementação. No v2 a contagem vira quantidade: 27,9% zero · 45,8% uma ·
+26,3% duas. **Posição:** no v1 a reconstrução cai sempre na primeira vaga a partir do dia 14.
+
+### 21.3 Restauração — existe, e nenhuma usuária real pode recebê-la
+
+| pergunta | resposta medida |
+|---|---|
+| existe no domínio? | **sim** — `CARE_TYPE_CODES`, CHECK das duas tabelas, cor, rótulo, guia |
+| existe no diagnóstico? | **não** — `AssessmentOutput` só tem `emphasis` e `includeReconstruction` |
+| existe no motor v1? | **não** — zero em 307.200 perfis, com barreira de teste |
+| existe no motor v2? | **sim** — 26,3% do espaço, teto de uma por ciclo |
+| qual motor a usuária real recebe? | **v1** — `CURRENT_SCHEDULE_VERSION` |
+| algum plano real pode conter restauração? | **não pelo caminho normal** |
+
+No DEV real, medido: **20 planos, 19 gravados `engine=v1` e 1 `engine=v2`** — o do experimento da
+§19.1, hoje `superseded`. É o **único** lugar do banco onde existe um cuidado de restauração.
+
+⚠️ **E uma consequência do mecanismo que ninguém decidiu, agora medida e fixada em teste:** num ciclo
+de **quatro vagas** (lava uma vez por semana ou menos) o peso 1 da restauração vira `0,4` e o
+arredondamento a zera. Quem tem **todos** os sinais de dano e lava pouco recebe reconstrução e nunca
+restauração — não porque uma regra diga isso, mas porque não sobra vaga.
+
+### 21.4 Quais respostas do diagnóstico realmente alteram o cronograma
+
+Invariância medida exaustivamente: para cada campo, em que fração dos perfis trocar **só aquela
+resposta** muda o cronograma produzido.
+
+| resposta | v1 | v2 | classificação |
+|---|---|---|---|
+| `wash_frequency` | **100%** | 100% | COLETADO + CONSUMIDO |
+| `primary_goal` | **100%** | 100% | COLETADO + CONSUMIDO |
+| `chemical_treatments` | 50% | 75% | COLETADO + CONSUMIDO (só *"tem ou não tem"*) |
+| `current_concerns` | 40% | 55% | COLETADO + CONSUMIDO |
+| `heat_usage` | 33% | 92% | COLETADO + CONSUMIDO |
+| `hair_pattern` | **0%** | <1% | CONSUMIDO PELA AVALIAÇÃO, **inerte no v1** |
+| `strand_thickness` | **nunca** | nunca | **COLETADO + NÃO CONSUMIDO** — sem veto e sem consumidor desde a SPEC-002 |
+| `scalp_tendency` | **nunca** | nunca | **COLETADO + NÃO CONSUMIDO** — idem (o vocabulário é reusado pelo `F31`, o valor do perfil não) |
+| `perceived_porosity` | **nunca** | nunca | **COLETADO + NÃO CONSUMIDO POR DECISÃO** (OQ1, D-26) |
+| `routine_availability` | **nunca** | nunca | **COLETADO + NÃO CONSUMIDO POR VETO DO DONO** (OQ1) |
+
+**Quatro das dez perguntas do onboarding não influenciam nada.** Duas por decisão registrada e com
+barreira de teste; **duas — espessura do fio e couro cabeludo — simplesmente nunca tiveram
+consumidor**, e isso não estava escrito em lugar nenhum até esta auditoria. ⛔ **Nenhuma foi
+removida**: dizer que espessura *deve* mudar frequência é exatamente a afirmação que a D-26 reserva
+ao revisor. O que muda é que o custo agora está registrado, em vez de invisível.
+
+### 21.5 O defeito que a medição achou, e que foi corrigido
+
+A avaliação tem uma regra de prioridade 3 — *"padrão com curvatura puxa para hidratação"* — que o
+**v1 não consegue expressar**, porque a ênfase só escolhe qual eixo abre o ciclo e `hydration` e
+`balanced` abrem os dois por hidratação. Mesmo assim o *"Por que este cronograma?"* exibia
+**"Cabelos com curvatura costumam pedir mais hidratação."** — em **960** perfis da matriz, e nos
+**960** o cronograma produzido é **idêntico** ao de um cabelo liso com as mesmas outras respostas.
+
+Explicação plausível e errada é o que a SPEC-017 FR4 proíbe, e a frase era a única **alegação
+capilar causal** do mapa de evidências. O v1 é imutável (ADR-001 §2), então quem estava errado era o
+texto: virou **"Você marcou que seu cabelo tem curvatura."**, a forma observacional das outras treze.
+Barreira de linguagem em `apps/mobile/__tests__/plan-rationale.test.tsx`, verificada nos dois
+sentidos. Junto: `EVIDENCE_LABEL` passou de `Record<string, …>` para `Record<EvidenceCode, …>` — sem
+isso, um código sem frase compilava e as duas telas caíam no `?? code`, mostrando o identificador em
+snake_case para a usuária.
+
+### 21.6 Preview × plano confirmado
+
+O contrato está inteiro: o preview e a Edge Function chamam o **mesmo** `buildPlan`, o cliente manda
+a versão com que previu (`PlanDraft.scheduleVersion`), o servidor a valida contra a allowlist e
+**recusa antes de escrever** o que não conhece (SPEC-046). A reavaliação também está certa: cada
+confirmação lê o snapshot corrente e gera um plano novo, e a explicação de um plano antigo é
+reproduzida **com a engine que o gerou**. ⚠️ **A deriva que sobra é a OQ3 da SPEC-046** e não é de
+versão: perfil e entitlement são relidos **no momento de gerar**, então reavaliar entre o preview e a
+confirmação ainda muda o plano em relação ao que ela viu.
+
 ## 23. Open Questions
 
-- OQ1 — ⚠️ **`perceived_porosity` e `routine_availability` continuam sem consumidor.** Foi decisão,
-  não esquecimento: as regras que os leem são as mais substantivas do conjunto e precisam de revisor
-  (D-26). Enquanto isso, o `F35` segue sendo coleta sem retorno visível — o custo está registrado.
+- OQ1 — ⚠️ **Quatro entradas do perfil não têm consumidor, e os motivos são diferentes** (medido em
+  §21.4). `perceived_porosity` e `routine_availability` foram decisão registrada: as regras que as
+  leem são as mais substantivas do conjunto, uma delas com veto explícito do dono, e ambas têm
+  barreira de teste. **`strand_thickness` e `scalp_tendency` são outra coisa:** estão coletadas desde
+  a SPEC-002, nunca tiveram consumidor e nunca tiveram veto — ninguém decidiu que elas não devem
+  contar, só não existe regra que as use. ⛔ **Escrever essa regra é D-26/D-70**, não engenharia.
+  Enquanto isso, quatro das dez perguntas do onboarding custam o tempo dela sem mudar nada.
 - OQ2 — **Quando trocar `CURRENT_SCHEDULE_VERSION` para v2** é decisão de produto, não técnica: muda
   o cronograma de quem gerar plano novo. Fica como gate do dono.
 - OQ3 — **PUBLIC RELEASE bloqueado** (D-26/D-70/OQ-REL) enquanto as regras forem `candidate`.
-- OQ4 — ⚠️ **BLOQUEIA A TROCA DE VERSÃO, e foi medido (§19.1).** Cliente e Edge Function versionam
+- OQ4 — ✅ **FECHADA pela SPEC-046 (2026-09-05), e o texto abaixo fica como registro do problema.** O
+  contrato existe e foi medido contra a função deployada: o cliente manda a versão com que previu, o
+  servidor usa **aquela** quando a conhece e **recusa com 400 antes de qualquer escrita** quando não
+  conhece. A troca de `CURRENT_SCHEDULE_VERSION` deixou de depender desta OQ e depende só da **OQ2**,
+  que é gate do dono. — Registro original: ⚠️ **BLOQUEIA A TROCA DE VERSÃO, e foi medido (§19.1).** Cliente e Edge Function versionam
   separado, então preview e plano gravado podem discordar — no DEV foi observado, e em produção é
   estrutural, porque o app é binário de loja. Saída provável: o cliente **manda a versão que
   previu** e o servidor a valida contra `isKnownScheduleVersion`, de modo que o que ela confirma
@@ -189,3 +299,4 @@ que gerou aquele plano**. Uma versão que o app não conhece continua calando a 
 |---|---|
 | 2026-09-03 | v0.1 — fatia 1: o quarto tipo no vocabulário, sem tocar no comportamento do v1. |
 | 2026-09-03 | v0.2 — fatia 2: motor v2 por necessidade. **Dois defeitos achados ao imprimir o plano e olhar**, não pelos testes: a quota de condicionamento era calculada e ignorada (a ênfase não mudava proporção nenhuma), e a escolha empatada abria pelo eixo errado. Barreira acrescentada. **Um terceiro achado ao ligar a versão:** escolha e despacho estavam em módulos diferentes, e a constante apontou para a v2 enquanto o padrão do `buildPlan` seguia na v1. |
+| 2026-09-07 | v0.3 — **auditoria vertical do motor (§21), a pedido do dono.** Medição do output sobre 307.200 perfis: o v1 monta **12 cronogramas distintos**, o v2 monta 19; a reconstrução não é forçada (18,1% do espaço recebe zero) e a restauração **não é alcançável por nenhuma usuária real** enquanto a corrente for a v1. **Um defeito corrigido:** o *"Por que este cronograma?"* afirmava *"Cabelos com curvatura costumam pedir mais hidratação."* sobre um plano medido como **idêntico** ao de cabelo liso em 960 de 960 perfis — a frase virou observação e ganhou barreira de linguagem. **Quatro entradas do perfil sem consumidor** classificadas em §21.4, duas delas (espessura, couro) sem veto e sem registro anterior — OQ1 ampliada. **OQ4 marcada como fechada** pela SPEC-046. |

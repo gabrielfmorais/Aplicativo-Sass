@@ -1,7 +1,9 @@
 import type { HairProfilePort, HairProfileSnapshot, LocalDate } from '@app/core';
+import { EVIDENCE_CODES } from '@app/core';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { PlanRationale } from '@/features/care/PlanRationale';
+import { EVIDENCE_LABEL } from '@/features/plan/copy';
 
 /** O snapshot que gerou o plano ativo — o de **origem**, não o de hoje. */
 const origem: HairProfileSnapshot = {
@@ -130,6 +132,63 @@ describe('PlanRationale (SPEC-017)', () => {
     for (const pattern of forbidden) expect(s.queryByText(pattern)).toBeNull();
     for (const sample of ['este cuidado', 'Hidratação está aqui porque']) {
       expect(forbidden.some((p) => p.test(sample))).toBe(true);
+    }
+  });
+});
+
+/**
+ * ⚠️ **As frases da explicação — a barreira que faltava, e ela achou uma frase errada.**
+ *
+ * Este mapa é a única superfície do app que **explica** o cronograma, e por isso é o lugar mais fácil
+ * de afirmar mais do que o motor faz. A auditoria vertical do motor (2026-09-07) mediu que
+ * *"Cabelos com curvatura costumam pedir mais hidratação."* era exibida enquanto o plano produzido
+ * era **idêntico** ao de um cabelo liso com as mesmas outras respostas — em 100% dos perfis em que a
+ * frase aparecia. O fato está preso em `packages/core/src/schedule/schedule-matrix.test.ts`; aqui
+ * fica a barreira de linguagem que impede a próxima frase da mesma família.
+ */
+describe('PlanRationale — as frases não afirmam efeito capilar (D-26/D-70, SPEC-017 FR4)', () => {
+  /**
+   * O tipo já garante isto em compilação (`Record<EvidenceCode, string>`); o teste garante que
+   * ninguém o afrouxe de volta para `Record<string, string>` sem o mapa ficar incompleto na hora.
+   */
+  it('todo código que o motor emite tem uma frase escrita', () => {
+    for (const code of EVIDENCE_CODES) {
+      expect(typeof EVIDENCE_LABEL[code]).toBe('string');
+      expect(EVIDENCE_LABEL[code].length).toBeGreaterThan(0);
+      // E nenhuma frase é o próprio identificador vazando pelo `?? code` das duas telas.
+      expect(EVIDENCE_LABEL[code]).not.toContain('_');
+    }
+    expect(Object.keys(EVIDENCE_LABEL).sort()).toEqual([...EVIDENCE_CODES].sort());
+  });
+
+  /**
+   * ⚠️ **Nenhuma frase diz o que o cabelo dela precisa.** Elas dizem o que ela respondeu e o que o
+   * cronograma fez com isso. A diferença entre *"você marcou X"* e *"cabelos assim pedem Y"* é a
+   * diferença entre observação e alegação capilar, e a segunda exige revisor de domínio.
+   */
+  it('nenhuma frase faz alegação capilar causal', () => {
+    const proibidos = [
+      /costum\w+/i,
+      /\bpede\b|\bpedem\b/i,
+      /\bprecisa\b|\bprecisam\b/i,
+      /\bmelhor\w*\b/i,
+      /ideal para|indicad\w+ para|recomendad\w+/i,
+      /para o seu cabelo/i,
+    ];
+    for (const code of EVIDENCE_CODES) {
+      for (const padrao of proibidos) {
+        expect(EVIDENCE_LABEL[code]).not.toMatch(padrao);
+      }
+    }
+
+    // A barreira verificada no outro sentido: ela **reprova** a frase que estava na tela.
+    const frasesQueEstavamErradas = [
+      'Cabelos com curvatura costumam pedir mais hidratação.',
+      'A melhor finalização para o seu cabelo.',
+      'Recomendado para cabelos com química.',
+    ];
+    for (const frase of frasesQueEstavamErradas) {
+      expect(proibidos.some((p) => p.test(frase))).toBe(true);
     }
   });
 });
