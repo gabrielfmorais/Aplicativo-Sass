@@ -246,6 +246,13 @@ insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
   ('authenticated', 'oil_routine_times', 'INSERT', 'SPEC-053'),
   ('authenticated', 'oil_routine_times', 'UPDATE', 'SPEC-053'),
   ('authenticated', 'oil_routine_times', 'DELETE', 'SPEC-053');
+-- SPEC-054 §10 (F32): o catálogo de produtos reais. ⛔ **SELECT e mais nada, e não é omissão.**
+-- A ingestão de produtos reais depende de contrato, feed e direito de imagem — TRUE HUMAN GATE
+-- (SPEC-054 OQ1) — e acontece fora de banda por service_role. Não dar grant de escrita é o que
+-- garante que a única forma de uma marca real entrar no app seja passando por quem tem o direito de
+-- colocá-la lá. A policy ainda filtra o não publicado: published_at is null não existe para o cliente.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'catalog_products', 'SELECT', 'SPEC-054');
 
 insert into tests.security_definer_allowlist (function_signature, spec, justification) values
   (

@@ -11,7 +11,7 @@ import type { InsightFact } from './domain/insights.ts';
  * média ou sugere trocar de produto — isso é `P7`/`P18`, e cada um tem o seu gate.
  */
 
-const prod = (id: string, name: string): Product => ({ id, name, category: 'mask' });
+const prod = (id: string, name: string): Product => ({ id, name, category: 'mask', catalog: null });
 
 let n = 0;
 const fact = (products: Product[]): InsightFact => ({

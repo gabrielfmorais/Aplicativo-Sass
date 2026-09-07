@@ -2,7 +2,6 @@ import type {
   FinishStatus,
   FinishTechnique,
   Product,
-  ProductCategory,
   ScalpFeel,
   WashDayPort,
   WashDayRecord,
@@ -10,6 +9,8 @@ import type {
 } from '@app/core';
 import { InfrastructureError } from '@app/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+import { PRODUCT_WITH_CATALOG_SELECT, toProductWithCatalog } from './product-adapter';
 
 const HUB = 'wash_days';
 const PRODUCTS = 'wash_day_products';
@@ -126,14 +127,11 @@ export const createWashDayAdapter = (client: SupabaseClient, userId: () => strin
       if (markedIds.length > 0) {
         const { data, error: productsError } = await client
           .from('products')
-          .select('id, name, category')
+          // SPEC-054 G4 — a MESMA identidade que a prateleira mostra, pelo mesmo select.
+          .select(PRODUCT_WITH_CATALOG_SELECT)
           .in('id', markedIds);
         if (productsError) throw fail('care.wash_day_read_failed', productsError);
-        products = (data as { id: string; name: string; category: ProductCategory }[]).map((r) => ({
-          id: r.id,
-          name: r.name,
-          category: r.category,
-        }));
+        products = (data as unknown[]).map(toProductWithCatalog);
       }
 
       return {
@@ -261,13 +259,12 @@ export const createWashDayAdapter = (client: SupabaseClient, userId: () => strin
 
       // Sem filtro de arquivado, como em `getFor` (SPEC-024 BR3): ela usou aquilo, e o passado não
       // muda porque o vidro acabou.
-      const { data, error } = await client.from('products').select('id, name, category').in('id', productIds);
+      const { data, error } = await client
+        .from('products')
+        .select(PRODUCT_WITH_CATALOG_SELECT)
+        .in('id', productIds);
       if (error) throw fail('care.wash_day_read_failed', error);
-      return (data as { id: string; name: string; category: ProductCategory }[]).map((r) => ({
-        id: r.id,
-        name: r.name,
-        category: r.category,
-      }));
+      return (data as unknown[]).map(toProductWithCatalog);
     },
 
     async setFinishStatus({ careExecutionId, finishStatus }): Promise<void> {

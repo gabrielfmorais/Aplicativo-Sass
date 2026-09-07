@@ -14,8 +14,8 @@ import { WashDayScreen } from '@/features/care/WashDayScreen';
 const EXECUTION = 'exec-1';
 
 const SHELF: readonly Product[] = [
-  { id: 'p1', name: 'Máscara da feira', category: 'mask' },
-  { id: 'p2', name: 'Shampoo do mercado', category: 'shampoo' },
+  { id: 'p1', name: 'Máscara da feira', category: 'mask', catalog: null },
+  { id: 'p2', name: 'Shampoo do mercado', category: 'shampoo', catalog: null },
 ];
 
 const EMPTY: WashDayRecord = {
@@ -28,11 +28,11 @@ const EMPTY: WashDayRecord = {
 };
 
 /** BR3/AC4 — ela usou e depois tirou da prateleira. O registro é do passado, e o passado não muda. */
-const ARCHIVED: Product = { id: 'p-old', name: 'Creme que acabou', category: 'leave_in' };
+const ARCHIVED: Product = { id: 'p-old', name: 'Creme que acabou', category: 'leave_in', catalog: null };
 
 const makeProducts = (over: Partial<ProductPort> = {}): ProductPort => ({
   list: jest.fn(async () => SHELF),
-  add: jest.fn(async ({ name, category }) => ({ id: 'p-new', name, category })),
+  add: jest.fn(async ({ name, category }) => ({ id: 'p-new', name, category, catalog: null })),
   rename: jest.fn(async () => undefined),
   archive: jest.fn(async () => undefined),
   ...over,

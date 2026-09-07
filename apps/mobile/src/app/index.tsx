@@ -6,6 +6,7 @@ import type {
   HairProfilePort,
   HunaAvatar,
   ProductPort,
+  ProductCatalogPort,
   JourneyPort,
   OilRoutinePort,
   WashDayPort,
@@ -100,6 +101,7 @@ function AuthenticatedApp({
   hairPlan,
   hairEvents,
   products,
+  productCatalog,
   washDays,
   oil,
   journeyPort,
@@ -117,6 +119,7 @@ function AuthenticatedApp({
   hairPlan: HairPlanPort;
   hairEvents: HairEventPort;
   products: ProductPort;
+  productCatalog: ProductCatalogPort;
   washDays: WashDayPort;
   oil: OilRoutinePort;
   journeyPort: JourneyPort;
@@ -596,7 +599,12 @@ function AuthenticatedApp({
    */
   if (tab === 'shelf')
     return shell(
-      <ShelfScreen products={products} profile={profileChip} onOpenUsage={() => openStacked('shelfUsage')} />,
+      <ShelfScreen
+        products={products}
+        catalog={productCatalog}
+        profile={profileChip}
+        onOpenUsage={() => openStacked('shelfUsage')}
+      />,
     );
 
   if (board === 'loading') return shell(<Loading label="Carregando seus cuidados…" />);
@@ -726,6 +734,7 @@ export default function IndexRoute() {
     hairPlan,
     hairEvents,
     products,
+    productCatalog,
     washDays,
     oil,
     journey,
@@ -767,6 +776,7 @@ export default function IndexRoute() {
       hairPlan={hairPlan}
       hairEvents={hairEvents}
       products={products}
+      productCatalog={productCatalog}
       washDays={washDays}
       oil={oil}
       journeyPort={journey}

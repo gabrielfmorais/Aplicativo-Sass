@@ -1,4 +1,4 @@
-import type { Product, ProductCategory, ProductPort } from '@app/core';
+import type { Product, ProductCatalogPort, ProductCategory, ProductPort } from '@app/core';
 import { PRODUCT_CATEGORIES, PRODUCT_NAME_MAX_LENGTH } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -17,6 +17,8 @@ import {
 } from '@/design/primitives';
 import { HIT_TARGET_MIN, color, space } from '@/design/tokens';
 import { useAddProduct } from '@/features/shelf/use-add-product';
+import { CatalogSearchSection } from '@/features/shelf/CatalogSearchSection';
+import { ProductCaption, ProductThumb } from '@/features/shelf/ProductIdentity';
 import { reasonOf } from '@/shared/failure-detail';
 
 /**
@@ -52,10 +54,19 @@ type Loadable<T> = 'loading' | 'error' | T;
 
 export function ShelfScreen({
   products,
+  catalog,
   profile,
   onOpenUsage,
 }: {
   products: ProductPort;
+  /**
+   * SPEC-054 (F32) — a leitura do catálogo de produtos reais.
+   *
+   * ⚠️ **Opcional, e não por conveniência:** a tela tem de funcionar inteira sem ele, porque é
+   * exatamente assim que ela funciona hoje e vai continuar funcionando até a ingestão acontecer
+   * (**TRUE HUMAN GATE**, OQ1). Sem esta prop, a busca não existe e digitar é o caminho completo.
+   */
+  catalog?: ProductCatalogPort;
   /**
    * SPEC-027 — a prateleira virou aba, então ela ganha o mesmo cabeçalho das outras: o avatar é a
    * porta de **Você**, e é a mesma porta em todas as abas. Uma aba sem avatar seria a única tela do
@@ -175,6 +186,15 @@ export function ShelfScreen({
         </Text>
       ) : null}
 
+      {/*
+        SPEC-054 (F32) — buscar o produto real vem **antes** de digitar, e some inteiro quando o
+        catálogo está vazio (FR8). ⚠️ Digitar continua logo abaixo, sempre: o catálogo chega **por
+        cima** da prateleira manual, nunca no lugar dela (G3).
+      */}
+      {formOpen && catalog ? (
+        <CatalogSearchSection catalog={catalog} busy={busy} onPick={add.fromCatalog} />
+      ) : null}
+
       {formOpen ? (
         <>
           <Field
@@ -237,14 +257,18 @@ export function ShelfScreen({
           <Card style={styles.list}>
             {list.map((product, index) => (
               <View key={product.id} style={[styles.row, index < list.length - 1 && styles.divided]}>
+                {/*
+                  SPEC-054 — a foto real quando existe, e um lugar neutro do mesmo tamanho quando
+                  não (FR7): a linha não pode pular de altura conforme o produto tenha imagem.
+                */}
+                <ProductThumb identity={product.catalog} />
                 <View style={styles.text}>
                   {/* Uma linha só: um nome comprido corta, e nunca empurra a categoria para fora. */}
                   <Text variant="bodyStrong" numberOfLines={1}>
                     {product.name}
                   </Text>
-                  <Text variant="caption" tone="muted">
-                    {CATEGORY_LABEL[product.category]}
-                  </Text>
+                  {/* ⚠️ A marca vem JUNTO da categoria, nunca no lugar do nome que ela escolheu. */}
+                  <ProductCaption product={product} categoryLabel={CATEGORY_LABEL[product.category]} />
                 </View>
                 <Button
                   label="Tirar"

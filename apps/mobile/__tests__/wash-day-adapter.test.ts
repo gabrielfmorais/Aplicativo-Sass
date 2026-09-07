@@ -129,7 +129,7 @@ describe('wash day adapter (SPEC-024)', () => {
     });
     await expect(adapterOf(client).getFor(EXECUTION)).resolves.toEqual({
       washDayId: HUB_ID,
-      products: [{ id: 'p1', name: 'Máscara da feira', category: 'mask' }],
+      products: [{ id: 'p1', name: 'Máscara da feira', category: 'mask', catalog: null }],
       techniques: ['co_wash'],
       scalpFeel: null,
       finishStatus: null,

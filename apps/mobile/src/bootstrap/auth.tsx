@@ -13,6 +13,7 @@ import type {
   NotificationPreferencesPort,
   NotificationSchedulerPort,
   PlanPreferencesPort,
+  ProductCatalogPort,
   ProductPort,
   ProfilePort,
   JourneyPort,
@@ -38,7 +39,7 @@ import { createHairPlanAdapter } from '@/infrastructure/supabase/hair-plan-adapt
 import { createHairProfileAdapter } from '@/infrastructure/supabase/hair-profile-adapter';
 import { createNotificationPreferencesAdapter } from '@/infrastructure/supabase/notification-preferences-adapter';
 import { createPlanPreferencesAdapter } from '@/infrastructure/supabase/plan-preferences-adapter';
-import { createProductAdapter } from '@/infrastructure/supabase/product-adapter';
+import { createProductAdapter, createProductCatalogAdapter } from '@/infrastructure/supabase/product-adapter';
 import { createJourneyAdapter } from '@/infrastructure/supabase/journey-adapter';
 import { createShareAdapter } from '@/infrastructure/sharing/share-adapter';
 import { createOilRoutineAdapter } from '@/infrastructure/supabase/oil-routine-adapter';
@@ -62,6 +63,7 @@ type AuthContextValue = {
   hairEvents: HairEventPort;
   /** SPEC-023 — a prateleira dela. */
   products: ProductPort;
+  productCatalog: ProductCatalogPort;
   /** SPEC-024 — o que ela realmente usou num cuidado. */
   washDays: WashDayPort;
   /** SPEC-040 (F39) — a rotina de óleo dela. */
@@ -153,6 +155,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ),
     [state],
   );
+  /**
+   * SPEC-054 (F32) — o catálogo é **global e só de leitura**, então não depende da sessão: nenhuma
+   * linha dele é de ninguém, e a policy já filtra o não publicado. `[]` de propósito.
+   */
+  const productCatalog = useMemo(() => createProductCatalogAdapter(supabase), []);
   const washDays = useMemo(
     () =>
       createWashDayAdapter(supabase, () => {
@@ -216,6 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         planPreferences,
         hairEvents,
         products,
+        productCatalog,
         washDays,
         oil,
         journey,

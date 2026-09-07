@@ -1,28 +1,14 @@
 import { z } from 'zod';
 
-/**
- * SPEC-023 (F26) — a prateleira dela.
- *
- * **O app guarda o que ela digitou e mais nada.** Nunca composição, indicação, preço, marca,
- * benefício ou link: ele não sabe nada disso, e inventar seria pior que não ter (§1.3 do Blueprint).
- *
- * **Categoria é organização de prateleira, não afirmação capilar.** Nenhum valor diz para que serve
- * ou o que faz — "máscara" é um tipo de vidro no banheiro, não uma promessa. É essa contenção que
- * mantém a capability fora do gate de domínio (D-26/D-70), e ela se perde na primeira palavra a
- * mais: "reconstrutor" já seria outra coisa.
- */
-export const PRODUCT_CATEGORIES = [
-  'shampoo',
-  'conditioner',
-  'mask',
-  'leave_in',
-  'oil',
-  'styler',
-  'other',
-] as const;
+import type { ProductCatalogIdentity } from './catalog-product.ts';
+import type { ProductCategory } from './product-category.ts';
 
-export const ProductCategorySchema = z.enum(PRODUCT_CATEGORIES);
-export type ProductCategory = z.infer<typeof ProductCategorySchema>;
+/**
+ * O vocabulário de categoria mora em `./product-category.ts` — ele é compartilhado com o catálogo
+ * (SPEC-054), e mantê-lo aqui criava um ciclo entre os dois arquivos. Reexportado para nenhum
+ * consumidor precisar saber disso.
+ */
+export { PRODUCT_CATEGORIES, ProductCategorySchema, type ProductCategory } from './product-category.ts';
 
 export const PRODUCT_NAME_MAX_LENGTH = 80;
 
@@ -40,4 +26,16 @@ export type Product = {
   readonly id: string;
   readonly name: string;
   readonly category: ProductCategory;
+  /**
+   * SPEC-054 (F32) — de qual produto do catálogo esta linha veio.
+   *
+   * ⚠️ **`null` é CADASTRO MANUAL, e manual é o caminho completo** (G3): o catálogo chega **por
+   * cima** da mesma linha, nunca no lugar dela. Toda prateleira que existe hoje é `null`, e continua
+   * funcionando sem ninguém fazer nada.
+   *
+   * ⚠️ **E o `name` acima continua sendo o DELA.** O catálogo preenche na hora de adicionar e **não
+   * manda depois** (BR3/FR5): corrigir — ou apagar — uma linha do catálogo não muda o nome que ela
+   * vê, pela mesma razão que a SPEC-017 explica um plano pelo snapshot que o gerou.
+   */
+  readonly catalog: ProductCatalogIdentity | null;
 };
