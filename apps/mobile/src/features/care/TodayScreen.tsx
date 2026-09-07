@@ -34,7 +34,7 @@ import { Button, Card, Chip, Row, Screen, ScreenHeader, Stack, Tag, Text } from 
 import { HomeSection } from '@/features/care/HomeSection';
 import { SuggestionsCard } from '@/features/care/SuggestionsCard';
 import { buildSuggestions, type Suggestion, type SuggestionKey } from '@/features/care/suggestions';
-import { HIT_TARGET_MIN, color, radius, space } from '@/design/tokens';
+import { HIT_TARGET_MIN, careColor, color, radius, space } from '@/design/tokens';
 import { CareGuidePanel } from '@/features/care/CareGuidePanel';
 import { CareProductsPanel } from '@/features/care/CareProductsPanel';
 import { CareTypeMark } from '@/features/care/CareTypeMark';
@@ -533,9 +533,16 @@ function CareActions({
 
   return (
     <Stack gap="md">
+      {/*
+        ⚠️ **SPEC-055 FR3 — `primary` no cartão de lista também.**
+
+        Era `secondary`: a ação **principal** do cartão pintada como as de apoio, pequena e colada
+        à esquerda, parecendo a menos importante dele. Um cartão só tem uma ação principal, e a
+        pintura tem de dizer qual é.
+      */}
       <Button
         label="Fiz hoje"
-        variant={emphasis === 'focus' ? 'primary' : 'secondary'}
+        variant="primary"
         size={emphasis === 'focus' ? 'md' : 'sm'}
         busy={busy}
         disabled={blocked}
@@ -546,9 +553,18 @@ function CareActions({
         {guide ? (
           // Never blocked: reading how to do the care is not a write, so an action in flight must
           // not take it away (SPEC-007 FR6/EC3).
+          /*
+            ⚠️ **SPEC-055 FR1 — contorno, porque uma coisa tocável tem de parecer tocável.**
+
+            As três de apoio eram `ghost`: fundo transparente e texto cinza. No cartão de foco isso
+            fica **cinza sobre tinta**, que lê como desabilitado — a usuária não tinha como saber que
+            eram botões a não ser tocando. Medido no repositório: `ghost` era a variante **mais
+            usada do app** (46 contra 30 de `secondary`), e 13 delas na Hoje. Usá-la como padrão de
+            "ação secundária" foi o que deixou o produto sem corpo (BR3).
+          */
           <Button
             label="Como fazer"
-            variant="ghost"
+            variant="secondary"
             size="sm"
             accessibilityState={{ expanded: showGuide }}
             onPress={() => setShowGuide((v) => !v)}
@@ -563,7 +579,7 @@ function CareActions({
         {shelf ? (
           <Button
             label="Meus produtos"
-            variant="ghost"
+            variant="secondary"
             size="sm"
             accessibilityState={{ expanded: showProducts }}
             onPress={() => setShowProducts((v) => !v)}
@@ -571,12 +587,18 @@ function CareActions({
         ) : null}
         <Button
           label="Reagendar"
-          variant="ghost"
+          variant="secondary"
           size="sm"
           disabled={blocked}
           accessibilityState={{ expanded: choosingDate }}
           onPress={() => setChoosingDate((v) => !v)}
         />
+        {/*
+          ⚠️ **SPEC-055 FR2 — `Pular` continua sem contorno, e agora isso SIGNIFICA alguma coisa.**
+
+          Quando tudo é invisível, invisível não comunica nada. Ao lado de irmãs com corpo, a mais
+          quieta lê como **a saída** — e é a única das quatro que desfaz um compromisso.
+        */}
         <Button
           label="Pular"
           variant="ghost"
@@ -649,7 +671,7 @@ function FocusCard({
   const state = stateTagOf(item);
   const guide = CARE_GUIDES[item.careTypeCode];
   return (
-    <Card tone="brand" style={styles.focus}>
+    <Card tone="brand" style={[styles.focus, careStripe(item.careTypeCode)]}>
       {state ? <Tag label={state.label} tone={state.tone} /> : <Tag label="Hoje" tone="accent" />}
       <CareTypeMark careTypeCode={item.careTypeCode} big />
       <Text variant="caption" tone="muted">
@@ -674,6 +696,28 @@ function FocusCard({
     </Card>
   );
 }
+
+/**
+ * ⚠️ **SPEC-055 FR4 — a cor do tipo de cuidado passa a pintar o CARTÃO.**
+ *
+ * Os tokens prometem, por escrito, que *"a cor é uma segunda forma de ler o plano de relance"*. Na
+ * tela real isso era **um ponto de 8px**: três cuidados de tipos diferentes eram três retângulos
+ * brancos idênticos, e a promessa não se cumpria em lugar nenhum.
+ *
+ * Uma faixa de 4px na borda esquerda resolve sem custo de altura — e **altura importa**, porque a
+ * SPEC-026 já mediu uma vez o preço de cartões que crescem: dez produtos viraram duas telas de
+ * rolagem.
+ *
+ * ⚠️ **É forma, não texto.** A faixa não carrega leitura, então não há requisito de contraste sobre
+ * ela; e é a **mesma cor** que a bolinha já usava — o que muda é o tamanho, não o vocabulário.
+ *
+ * ⛔ **E não vira cor de ação:** ameixa continua sendo a única (SPEC-026 FR16). A faixa diz *qual
+ * cuidado é*, e em lugar nenhum diz *o que fazer* (BR2).
+ */
+const careStripe = (careTypeCode: CareTypeCode) => ({
+  borderLeftWidth: 4,
+  borderLeftColor: careColor[careTypeCode].fg,
+});
 
 // ----------------------------------------------------------------------------------- list cards
 
@@ -715,7 +759,7 @@ function CareCard({
 }) {
   const state = stateTagOf(item);
   return (
-    <Card tone={tone}>
+    <Card tone={tone} style={careStripe(item.careTypeCode)}>
       <Row gap="sm" style={styles.cardHead}>
         <CareTypeMark careTypeCode={item.careTypeCode} />
         {state ? <Tag label={state.label} tone={state.tone} /> : null}
@@ -1368,9 +1412,10 @@ export function TodayScreen({
             concluídos, e é aqui que ela acabou de concluir um.
           */}
           {onOpenJourney ? (
+            /* SPEC-055 FR5 — é uma porta para outra tela, e portas se parecem com portas. */
             <Button
               label="Sua jornada"
-              variant="ghost"
+              variant="secondary"
               size="sm"
               onPress={onOpenJourney}
               style={styles.inlineStart}
