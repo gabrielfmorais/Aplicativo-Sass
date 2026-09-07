@@ -129,8 +129,14 @@ function AdHocPrompt({
         <Stack gap="sm">
           <Text tone="muted">Fez um cuidado fora do cronograma?</Text>
           <Button
+            /*
+              SPEC-055 fatia 2 — **contorno não é cobrança.** A SPEC-052 é explícita: *"não
+              transforme isso em cobrança para registrar mais"*. Dar corpo a este botão o torna
+              **encontrável**, não insistente — ele continua no fim da tela, dentro de um cartão
+              apagado, sem cor de ação e sem nada que peça para ela fazer mais.
+            */
             label="Registrar um cuidado"
-            variant="ghost"
+            variant="secondary"
             size="sm"
             onPress={() => setChoosing(true)}
             style={styles.inlineStart}
@@ -858,8 +864,12 @@ function Section({
          * seção declara o que está guardando.
          */
         <Button
+          /*
+            SPEC-055 fatia 2 — a porta para o resto do cronograma. Era texto cinza solto: a coisa
+            mais escondida da tela era justamente a que revela o que está escondido.
+          */
           label={`Ver mais ${hidden}`}
-          variant="ghost"
+          variant="secondary"
           size="sm"
           accessibilityLabel={`Ver mais ${hidden} em ${title}`}
           accessibilityState={{ expanded: false }}
@@ -1540,7 +1550,12 @@ export function TodayScreen({
           */}
           {focus || nothingLeft ? (
             <Row gap="sm">
-              <Button label="Ver meu ciclo" variant="ghost" onPress={onOpenCycle} />
+              <Button
+                label="Ver meu ciclo"
+                variant="secondary"
+                onPress={onOpenCycle}
+                style={styles.inlineStart}
+              />
             </Row>
           ) : null}
         </>

@@ -159,9 +159,32 @@ Progresso, que não tem faixa.
 
 **O ponto fica.** A redundância é o preço de manter o par palavra+tom, e é um preço barato.
 
+## 13. Fatia 2 — o resto da Hoje (2026-09-07)
+
+A primeira fatia arrumou **o cartão do cuidado** e parou ali. Olhando a Hoje **abaixo da dobra**, a
+metade de baixo continuava inteira sem corpo — e ela é a **mesma tela** que o dono nomeou.
+
+| era | virou |
+|---|---|
+| `Ver mais 4` — texto cinza | ⚠️ **a coisa mais escondida da tela era justamente a que revela o que está escondido** |
+| `Por que este cronograma?` — texto cinza | um controle que se vê abrir e fechar |
+| `Registrar um cuidado` — texto cinza | ⚠️ **contorno não é cobrança** (abaixo) |
+| `Pausar` e `Seus padrões` — caixa de largura total | largura de conteúdo: em largura total, um botão de contorno tem **a forma de um campo de texto** |
+| `Ver meu ciclo` — texto cinza | uma porta |
+
+⚠️ **`Registrar um cuidado` mereceu uma decisão, não um reflexo.** A SPEC-052 é explícita: *"não
+transforme isso em cobrança para registrar mais"*. **Dar corpo ao botão o torna encontrável, não
+insistente** — ele continua no fim da tela, dentro de um cartão apagado, sem cor de ação e sem uma
+palavra que peça para ela fazer mais. O que mudou é ela conseguir **ver** que existe.
+
+**Contagem depois das duas fatias: 46 → 38 `ghost`.** As oito que saíram eram todas ações que a
+usuária precisa **achar**; as 38 que ficaram são, na maioria, cancelar, fechar e desfazer — que é
+exatamente o que a BR3 diz que `ghost` deve ser.
+
 ## 11. Change Log
 
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-09-07 | v0.1 — a partir da auditoria visual pedida pelo dono, com as telas reais capturadas a 390px. | agente |
 | 2026-09-07 | v0.2 — **IMPLEMENTADA e validada a 390px**, com captura antes e depois (§12). A medição que abriu a rodada: `ghost` era a variante **mais usada do app** (46 × 30), com 13 na Hoje. Consertada de quebra uma **regressão da SPEC-054** — a miniatura reservava um quadrado cinza que, com o catálogo vazio, lia como imagem quebrada. | agente |
+| 2026-09-07 | v0.3 — **fatia 2 (§13): o resto da Hoje.** A primeira arrumou o cartão e parou ali; a metade de baixo da mesma tela continuava sem corpo. `Ver mais N`, `Por que este cronograma?`, `Registrar um cuidado` e `Ver meu ciclo` ganharam contorno; `Pausar` e `Seus padrões` deixaram de ter a forma de um campo de texto. **46 → 38 `ghost`**, e as que ficaram são cancelar/fechar/desfazer — o que a BR3 diz que a variante deve ser. | agente |

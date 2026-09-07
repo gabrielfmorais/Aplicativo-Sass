@@ -1,5 +1,6 @@
 import type { ResumeOutcome } from '@app/core';
 import { useState } from 'react';
+import { StyleSheet } from 'react-native';
 
 import { Button, Card, Stack, Text } from '@/design/primitives';
 import { formatPlannedDate } from '@/features/plan/copy';
@@ -60,7 +61,18 @@ export function PauseCard({
           Viagem, uma semana impossível, cabelo em proteção. Enquanto pausado, nada fica atrasado e nenhum
           lembrete chega — e nada do que você registrou se perde.
         </Text>
-        <Button label="Pausar" variant="secondary" disabled={busy} onPress={onPause} />
+        {/*
+          ⚠️ SPEC-055 — largura de conteúdo. Em largura total, um botão de contorno tem **a mesma
+          forma de um campo de texto**, e logo abaixo de um parágrafo era exatamente o que ele
+          parecia.
+        */}
+        <Button
+          label="Pausar"
+          variant="secondary"
+          disabled={busy}
+          onPress={onPause}
+          style={styles.inlineStart}
+        />
       </Card>
     );
   }
@@ -104,3 +116,8 @@ export function PauseCard({
     </Card>
   );
 }
+
+/** Um botão dentro do corpo não ocupa a linha inteira (mesma regra da SPEC-023/SPEC-024). */
+const styles = StyleSheet.create({
+  inlineStart: { alignSelf: 'flex-start' },
+});
