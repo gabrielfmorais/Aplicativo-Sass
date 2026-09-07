@@ -397,6 +397,106 @@ Ninguém faz UPDATE/DELETE (nem service role por policy de app; retenção via j
 
 **SPEC-001 (aprovada):** modelo mínimo — existência da linha = pedido ativo; cancelar = a usuária apaga a própria linha; sem coluna de status e sem `scheduled_purge_at` (a política de purga, imediata vs grace, é decisão humana pendente — D-55 — e lê `requested_at`). Escrita por acesso direto com grants mínimos (`SELECT/INSERT/DELETE` próprios, sem `UPDATE`) + RLS + PK; sem RPC. A exclusão efetiva de `auth.users` é privilegiada/server-owned (job/runbook futuro).
 
+### 3.16 `plan_pauses` — Care Tracking / pausa (SPEC-022, migration `20260906000000_plan_pauses.sql`)
+
+A pausa do cronograma. Uma linha por pausa; **aberta** enquanto `resumed_on` é `null`.
+
+| Coluna | Tipo | Notas |
+|---|---|---|
+| id | uuid **PK** | |
+| user_id | uuid not null, FK `auth.users` | RLS `user_id = auth.uid()` |
+| plan_id | uuid not null | **FK composta** `(plan_id, user_id) → hair_plans (id, user_id)`: sem ela, um cliente adulterado penduraria a pausa no plano de outra pessoa |
+| paused_on | date not null | o **dia civil dela** (ADR-008), decidido no servidor |
+| resumed_on | date null | `null` = pausa aberta. CHECK `resumed_on >= paused_on` |
+
+- ⚠️ **A pausa entra na DERIVAÇÃO, não numa checagem de tela.** Pausada, nada atrasa e nenhum lembrete toca — e é por isso que `buildTodayView` a recebe: uma trava só na tela deixaria o progresso continuando a contar.
+- **Escopada ao plano ativo de propósito:** uma pausa cujo plano foi substituído por uma reavaliação já não pausa nada (EC5).
+- **Escrita só por RPC** (`pause_plan` / `resume_plan`): o dia civil é invariante de servidor, e a previsão da volta vem da **mesma** função que executa, para a regra não existir também em TypeScript.
+
+### 3.17 `wash_day_finish` — Care Tracking / finalização (SPEC-039 + SPEC-048, migrations `20260912000000_wash_day_finish.sql` e `20260917000000_finish_technique.sql`)
+
+A etapa de **finalização** de um Wash Day. **1:1** com o hub.
+
+| Coluna | Tipo | Notas |
+|---|---|---|
+| wash_day_id | uuid **PK** | **FK composta** `(wash_day_id, user_id) → wash_days (id, user_id)` |
+| finish_status | text not null | `done` · `skipped`. ⚠️ **Sem `DEFAULT`:** `skipped` é uma resposta, ausência da linha é *"ainda não disse"* |
+| finish_technique | text null | SPEC-048 — **qual** finalização (`fitagem_tradicional`, `plopping`, …, `other`, `unknown`). ⚠️ `null` ≠ `unknown` |
+| user_id | uuid not null, FK `auth.users` | |
+
+- ⚠️ **Dois `CHECK`, e o segundo é o que importa:** *"pulei a finalização, e a técnica foi fitagem"* é estado impossível, e o banco é o único lugar onde ele fica impossível de verdade — trocar a etapa para `skipped` **limpa a técnica na mesma escrita**.
+- ⚠️ **Tabela e não coluna do hub**, pela razão medida na SPEC-025: `grant update (coluna)` mora em `pg_attribute.attacl`, **fora do alcance** de `tests.unapproved_grants()`.
+- ⚠️ **Os dois vocabulários são disjuntos** dos de `wash_day_techniques` (D-102), com CHECK nas duas pontas.
+
+### 3.18 `checkin_marks` — Check-ins / o que ela notou (SPEC-051, migration `20260918000000_checkin_marks.sql`)
+
+As marcações de um check-in: **maciez · brilho · frizz · definição · ressecamento**, vocabulário `candidate`.
+
+| Coluna | Tipo | Notas |
+|---|---|---|
+| checkin_id | uuid | **PK composta** `(checkin_id, mark)` — duplo toque cai aqui (`23505`) |
+| mark | text | CHECK no vocabulário V1 |
+| user_id | uuid not null, FK `auth.users` | **FK composta** `(checkin_id, user_id) → checkins (id, user_id)` |
+
+- ⚠️ **`checkins` é append-only; esta junção aceita `DELETE`**, e a diferença é deliberada: a nota é o **fato âncora**, a marcação é **junção**, e desmarcar é ela **corrigindo**, não apagando histórico.
+- ⛔ **A metade `couro` NÃO entra:** `itching`, `flaking` e `sensitive` são recusados pelo CHECK antes de qualquer revisão — sintoma clínico depende de base legal (D-32) **e** sign-off (D-26).
+
+### 3.19 `oil_routines` / `oil_events` — a rotina de óleo (SPEC-040, migration `20260913000000_oil_routine.sql`)
+
+Rotina **paralela ao cronograma** (⛔ nunca dentro dele: o plano é saída de motor versionado).
+
+`oil_routines` — **1:1** por usuária:
+
+| Coluna | Tipo | Notas |
+|---|---|---|
+| user_id | uuid **PK**, FK `auth.users` | ligar de novo cai num `on conflict do update`, sem acumular linha morta |
+| every_days | smallint not null | CHECK `between 1 and 60`. ⚠️ **Escolhido por ela, nunca recomendado** (D-26/D-70) |
+| started_on | date not null | o dia civil dela. **Não reseta ao trocar o intervalo** — a história é dela |
+
+`oil_events` — o que aconteceu:
+
+| Coluna | Tipo | Notas |
+|---|---|---|
+| id | uuid **PK** | |
+| user_id | uuid not null, FK `auth.users` | |
+| kind | text not null | `done` · `postponed`. ⚠️ Adiar é resposta legítima, não fracasso (D-28) |
+| happened_on | date not null | dia civil dela |
+| client_event_id | uuid not null | **unique `(user_id, client_event_id)`** — idempotência por intenção |
+
+- **Escrita só por RPC** (`set_oil_routine`, `record_oil_event`): dia civil e idempotência são invariantes de servidor. O cliente tem `SELECT` nas duas e `DELETE` só em `oil_routines` — desligar é dela, e **não alcança o histórico**.
+- ⚠️ **A próxima data deriva do ÚLTIMO FEITO**, não de uma contagem desde o começo: quem sumiu três semanas volta com **uma** ocorrência vencida, não com sete em fila.
+
+### 3.20 `oil_routine_times` — os horários do dia (SPEC-053, migration `20260920000000_oil_routine_times.sql`)
+
+| Coluna | Tipo | Notas |
+|---|---|---|
+| id | uuid **PK** | |
+| user_id | uuid not null | **FK para `oil_routines (user_id)`** `on delete cascade` — horário sem rotina é configuração que não descreve nada |
+| time_local | time not null | ⚠️ **Civil, sem fuso:** "12:00" é 12:00 onde ela estiver; quem converte em instante é o agendador (ADR-008) |
+| reminder_enabled | boolean not null default true | desligado, o horário **continua na rotina** e continua registrável |
+
+- **unique `(user_id, time_local)`** — o mesmo horário duas vezes não são dois lembretes.
+- ⚠️ **Sem RPC, e é o precedente da SPEC-023:** um `time` que ela escolhe não tem dia civil nem idempotência de servidor a proteger. RLS nas duas pontas (`using` **e** `with check`) e índice único.
+- ⚠️ **Sem horários = o comportamento da SPEC-040 inteiro**, que é o estado de toda rotina existente.
+- ⛔ **Nenhuma coluna em `oil_events` aponta para um horário:** ela existiria sem quem a escrevesse — o cliente não tem `UPDATE` ali e a RPC não recebe o horário (D-47/D-48).
+
+### 3.21 `catalog_products` — o catálogo de produtos reais (SPEC-054, migration `20260921000000_catalog_products.sql`)
+
+Global e **somente leitura** para o cliente. ⚠️ **Vazia hoje, e permanece até a ingestão** (TRUE HUMAN GATE).
+
+| Coluna | Tipo | Notas |
+|---|---|---|
+| id | uuid **PK** | |
+| brand · line? · name · variant? | text | **identidade comercial**. ⛔ `line`/`variant` identificam, não indicam |
+| category | text not null | o **mesmo** vocabulário de `products` — é o que torna as duas comparáveis |
+| ean | text null | **unique parcial** quando existe (`F33`-ready) |
+| image_url? · image_source? · image_rights? · image_credit? | text | ⛔ **CHECK:** `image_url` preenchida **obriga** `image_source` **e** `image_rights`; o vocabulário de direito é fechado (`brand_authorized` · `licensed_feed` · `owned`) e **não existe valor para "achei na internet"** |
+| source · source_ref? · verified_at? | | procedência da linha, rastreável até quem a inseriu |
+| published_at | timestamptz null | ⚠️ **`null` NÃO EXISTE para o app** — a policy filtra, não a tela |
+
+- ⛔ **Grants: `SELECT` e mais nada.** A ingestão acontece **fora de banda** por `service_role`; não dar escrita é o que garante que uma marca real só entre por quem tem o direito de colocá-la lá.
+- ⚠️ **`products.catalog_product_id`** (anulável, `on delete set null`) liga a prateleira dela. **`null` é o caminho completo** — o cadastro manual continua inteiro —, e o `name` continua sendo **o dela**: o catálogo preenche na hora de adicionar e **não manda depois**.
+
 ## 4. Matriz de dados pessoais (LGPD)
 
 **Derivada do schema real em 2026-08-31**, não do desenho original. Um inventário de privacidade que
