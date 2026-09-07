@@ -54,6 +54,8 @@ export function CareTabScreen({
       readonly onRemove: (id: string) => void;
     };
     readonly view: OilRoutineView;
+    readonly message?: string | null;
+    readonly failure?: string | null;
     readonly busy: boolean;
     readonly onChoose: (everyDays: number) => void;
     readonly onTurnOff: () => void;
@@ -95,6 +97,8 @@ export function CareTabScreen({
           busy={oil.busy}
           onChoose={oil.onChoose}
           onTurnOff={oil.onTurnOff}
+          message={oil.message ?? null}
+          failure={oil.failure ?? null}
           times={oil.times}
         />
       ) : null}

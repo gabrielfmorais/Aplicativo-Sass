@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-053 |
-| Status | **Draft** |
+| Status | **IMPLEMENTED** (2026-09-07) — validada a 390px no DEV real (§25) |
 | Owner | dono do produto |
 | Bounded Context | Care Tracking (`packages/core/src/oil-routine`) + Notifications |
 | Related ADRs | **ADR-008** (dia civil e fuso), **ADR-009** (política de volume de notificações), ADR-001 §2, D-26/D-70, D-74 |
@@ -280,8 +280,56 @@ release não aconteceu), e o código degrada para o comportamento da SPEC-040.
   persistência e a tela; **o disparo no horário certo só se exerce em build nativo**, que segue
   DEFERRED por constraint do dono.
 
+## 25. Evidência — validado a 390px no DEV real (2026-09-07)
+
+Migration aplicada pelo dono. O que segue foi observado no `localhost:8081` apontando para o DEV,
+num viewport de 390×844.
+
+| o que foi pedido | medido |
+|---|---|
+| múltiplos horários no mesmo dia | ✅ três cadastrados, **`07:30 · 10:00 · 18:00`** |
+| adicionar | ✅ pelo seletor, sem picker e sem dependência nova |
+| editar | ✅ `17:00 → 18:00` |
+| remover | ✅ saiu só ele; os outros ficaram |
+| ativar/desativar | ✅ desligado, **o horário continua na rotina** e continua registrável |
+| persistência / reload | ✅ os três voltaram, **em ordem cronológica**, com o desligado desligado |
+| timezone | ✅ `time` civil, gravado como escolhido (`10:00 → 10:00:00`), sem deslocamento |
+| notificações duplicadas | ✅ **3 toques → 3 linhas** no banco, nenhuma a mais |
+| regressão do fluxo antigo | ✅ intervalo, próxima data e desligar intactos |
+| console | ✅ **zero problema**, e **zero `4xx`** na jornada inteira |
+
+⚠️ **O `OilReminderInput` real foi medido, e é o ponto desta fatia.** Com uma sonda temporária no
+ponto exato onde o defeito morava, o app monta:
+
+```
+OilReminderInput {"dueOn":"2026-09-08","times":["07:30","10:00"],"everyDays":1}
+```
+
+Os **dois** horários com lembrete ligado, e **não** o das 18:00, que ela desligou — exatamente a FR3.
+Antes desta fatia, este objeto não existia: o parâmetro era opcional e a chamada não o passava, então
+a rotina de óleo lembrava **zero vezes**. A sonda foi removida.
+
+⚠️ **Um achado de MEDIÇÃO, não do produto.** O driver "leu" `12:00` e `17:00` como cadastrados
+porque o seletor mostra o **rascunho** com o mesmo formato de uma linha gravada. O banco desfez a
+dúvida: **três toques, três linhas**. Consequência para validações futuras: um valor na tela do
+seletor não é um valor gravado, e quem decide é a leitura do banco.
+
+⛔ **Pausa não foi exercida no DEV** — pausar mudaria o estado do cronograma da usuária de teste por
+uma garantia que já é herdada e tem barreira própria (`pausada, zero lembretes, com qualquer número
+de horários`). Fica dito em vez de disfarçado.
+
+### 25.1 O que a auditoria achou no próprio diff
+
+⚠️ **Uma escrita que falhava em SILÊNCIO.** O `failure` do hook era calculado desde a SPEC-040 e
+**nenhuma tela o lia**: ela tocava, nada mudava, e não havia como saber se o app ignorou o toque ou
+se a rede caiu. A leitura falha calada **de propósito** (sem ela a rotina apenas não aparece); uma
+**escrita**, não. A SPEC-053 multiplicava a superfície por quatro, e a lacuna foi fechada antes de
+crescer: cada operação nomeia o que falhou — *"Não foi possível adicionar o horário 08:00."* —, no
+padrão da SPEC-024.
+
 ## 24. Change Log
 
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-09-07 | v0.1 — rascunho a partir da fonte de verdade do dono. | agente |
+| 2026-09-07 | v0.2 — **IMPLEMENTADA e validada a 390px no DEV real** (§25). O `OilReminderInput` real foi medido no ponto exato onde o defeito morava. **A auditoria achou uma escrita que falhava em silêncio** desde a SPEC-040 — o `failure` era calculado e nenhuma tela o lia — e cada operação passou a nomear o que falhou. | agente |

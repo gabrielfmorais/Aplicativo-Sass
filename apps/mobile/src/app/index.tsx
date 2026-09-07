@@ -621,6 +621,8 @@ function AuthenticatedApp({
           busy: oilRoutine.busy,
           onChoose: oilRoutine.choose,
           onTurnOff: oilRoutine.turnOff,
+          message: oilRoutine.message,
+          failure: oilRoutine.failure,
           // SPEC-053 — as quatro ações dos horários, juntas: metade delas deixaria a tela
           // acrescentar e não remover.
           times: {

@@ -263,3 +263,31 @@ describe('SPEC-053 — os horários da rotina de óleo', () => {
     expect(s.queryByText(/hidrata|nutre|sela|repara|fortalec/i)).toBeNull();
   });
 });
+
+/**
+ * ⚠️ **Uma escrita que falha em silêncio é pior que uma que falha.**
+ *
+ * A leitura desta rotina falha calada de propósito (SPEC-040): sem ela, a rotina apenas não aparece.
+ * Uma **escrita** é outra coisa — ela tocou, nada mudou, e sem uma frase não tem como saber se o app
+ * ignorou o toque ou se a rede caiu. O `failure` era calculado desde a SPEC-040 e **nenhuma tela o
+ * lia**; a auditoria da SPEC-053 achou a lacuna antes de ela crescer.
+ */
+describe('rotina de óleo — uma escrita que falha DIZ qual falhou (SPEC-053 §16)', () => {
+  it('mostra a frase da falha, e nomeia o horário', async () => {
+    const s = await render(
+      <OilRoutineCard
+        view={view({ state: 'upcoming', everyDays: 3, dueOn: '2026-09-10' as never })}
+        busy={false}
+        onChoose={jest.fn()}
+        onTurnOff={jest.fn()}
+        message="Não foi possível adicionar o horário 08:00."
+      />,
+    );
+    s.getByText('Não foi possível adicionar o horário 08:00.');
+  });
+
+  it('sem falha, nenhuma frase de erro aparece', async () => {
+    const s = await renderCard({ state: 'upcoming', everyDays: 3, dueOn: '2026-09-10' as never });
+    expect(s.queryByText(/Não foi possível/)).toBeNull();
+  });
+});

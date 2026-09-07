@@ -30,12 +30,17 @@ export function OilRoutineCard({
   busy,
   onChoose,
   onTurnOff,
+  message,
+  failure,
   times,
 }: {
   view: OilRoutineView;
   busy: boolean;
   onChoose: (everyDays: number) => void;
   onTurnOff: () => void;
+  /** A frase de uma escrita que falhou, e o detalhe técnico só sob `__DEV__`. */
+  message?: string | null;
+  failure?: string | null;
   /**
    * SPEC-053 — as ações dos horários. **Opcional**, e não por conveniência: a Hoje monta este
    * cartão sem elas, e um cartão que oferecesse "adicionar horário" sem ninguém para atender seria
@@ -71,6 +76,17 @@ export function OilRoutineCard({
           />
         ))}
       </Row>
+
+      {message ? (
+        <Text tone="danger" accessibilityLiveRegion="polite">
+          {message}
+        </Text>
+      ) : null}
+      {__DEV__ && failure ? (
+        <Text variant="caption" tone="faint">
+          {failure}
+        </Text>
+      ) : null}
 
       {/*
         SPEC-053 — os horários só existem depois de a rotina existir: um horário sem rotina é
