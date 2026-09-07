@@ -13,6 +13,23 @@ export const NOTIFICATION_HORIZON_DAYS = 14;
 export const MAX_NOTIFICATIONS_PER_DAY = 2;
 
 /**
+ * SPEC-053 BR5 — ⚠️ **o teto que a PLATAFORMA impõe, e não um teto de produto.**
+ *
+ * O iOS mantém no máximo **64** notificações locais pendentes por app. Com o teto diário de 2 num
+ * horizonte de 14 dias, o resto do app já ocupa até 28 — sobram estas para o óleo.
+ *
+ * ⚠️ **Ele nunca recusa um horário dela.** O dono foi explícito: *"se quiser 10, pode"*, e *"não
+ * criar teto arbitrário baixo"*. O que este número faz é **encurtar o horizonte**: com três
+ * horários, agenda-se doze dias; com dez, três. A reconciliação a cada abertura repõe o resto, que é
+ * exatamente para isso que ela existe. **Ela escolhe quantos horários; o app escolhe quantos dias
+ * cabem** — e o que não cabe é o mais distante, nunca o mais próximo.
+ *
+ * Sem isto, dez horários gerariam 140 agendamentos, o sistema descartaria o excedente **em
+ * silêncio**, e ninguém saberia quais sobraram: o pior desfecho possível.
+ */
+export const OIL_NOTIFICATION_BUDGET = 64 - NOTIFICATION_HORIZON_DAYS * MAX_NOTIFICATIONS_PER_DAY;
+
+/**
  * Highest priority first — this order is what FR6 drops by when a day is over the cap.
  * `reassessment_due` is last on purpose: it is the only one that is not about today.
  */
@@ -42,6 +59,31 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   enabled: false,
   reminderTimeLocal: '19:00',
   checkinReminderEnabled: false,
+};
+
+/**
+ * SPEC-040 FR8 + SPEC-053 — tudo o que os lembretes de óleo precisam saber, **num parâmetro só e
+ * obrigatório**.
+ *
+ * ⚠️ **Os três campos vieram juntos por causa de um defeito real, e o pior tipo deles.** Antes, a
+ * data era um parâmetro **opcional** — e o app **nunca a passava**. O resultado: o `oil_due` existia
+ * no domínio, tinha teste no core, estava documentado como entregue… e **nunca tocou uma vez**. Uma
+ * capability inteira inerte, com tudo verde, porque esquecer um campo opcional não é erro de nada.
+ *
+ * Obrigatório, esquecer **não compila**. E os três juntos porque passar a data sem os horários teria
+ * a mesma forma de falha uma camada adiante: os lembretes que ela cadastrou um a um simplesmente não
+ * tocariam, e nada acusaria.
+ *
+ * ⚠️ **Os horários chegam como `HH:MM`, não como o tipo do outro contexto.** Notifications lê Care
+ * Tracking por linguagem publicada (DOMAIN-MAP §4), e um horário não precisa de mais que isso.
+ */
+export type OilReminderInput = {
+  /** A data da próxima ocorrência, ou `null` quando ela não tem rotina (EC6). */
+  readonly dueOn: string | null;
+  /** Os horários **com lembrete ligado**. Vazio = a rotina da SPEC-040: um lembrete, no horário global. */
+  readonly times: readonly string[];
+  /** O intervalo dela, para projetar as próximas ocorrências (FR9). */
+  readonly everyDays: number | null;
 };
 
 export type NotificationIntent = {
@@ -95,12 +137,27 @@ const copyFor = (type: NotificationIntentType, careCount: number): { title: stri
   }
 };
 
+/**
+ * ⚠️ **O id ganhou um `slot`, e sem ele a SPEC-053 seria silenciosamente impossível.**
+ *
+ * O id determinístico era `tipo:data` — o que significa **um por tipo por dia**. Com vários
+ * horários de óleo no mesmo dia, o segundo e o terceiro teriam o **mesmo id** do primeiro, e a
+ * reconciliação (que substitui por id) manteria **um**. Ela pediria três lembretes, receberia um, e
+ * nada acusaria o erro. O `slot` é o horário, então o id volta a identificar **uma** notificação.
+ */
 const intent = (
   type: NotificationIntentType,
   date: string,
   time: string,
   careCount: number,
-): NotificationIntent => ({ id: `${type}:${date}`, type, date, time, ...copyFor(type, careCount) });
+  slot?: string,
+): NotificationIntent => ({
+  id: slot ? `${type}:${date}:${slot}` : `${type}:${date}`,
+  type,
+  date,
+  time,
+  ...copyFor(type, careCount),
+});
 
 /** A care still worth reminding about: planned or overdue, never one already resolved (BR2). */
 const isActionable = (item: CareItem): boolean => item.outcome === 'planned' || item.outcome === 'overdue';
@@ -157,9 +214,10 @@ export const buildNotificationIntents = (input: {
    * cima dela a enfraqueceria. Pausa é ela dizendo *não me cobre esta semana*, e o aparelho não
    * sabe distinguir qual cobrança ela quis suspender.
    */
-  oilDueOn?: string | null;
+  oil: OilReminderInput;
 }): readonly NotificationIntent[] => {
-  const { view, preferences, today, nowLocalTime, paused = false, oilDueOn = null } = input;
+  const { view, preferences, today, nowLocalTime, paused = false, oil } = input;
+  const { dueOn: oilDueOn, times: oilTimes, everyDays: oilEveryDays } = oil;
   if (paused) return []; // FR2 — pausada, nada toca
   if (!preferences.enabled) return []; // BR1: opt-in, and the only way to get an empty set for free
 
@@ -203,9 +261,36 @@ export const buildNotificationIntents = (input: {
    * semana não vira sete notificações. Vencida antes de hoje, o lembrete cabe **hoje** — é o
    * primeiro dia em que ela ainda pode agir.
    */
+  /**
+   * SPEC-053 — ⚠️ **os intents de óleo saem daqui e NÃO passam pelo teto diário** (ver o final).
+   */
+  const oilIntents: NotificationIntent[] = [];
   if (oilDueOn !== null) {
     const due = (oilDueOn < today ? today : oilDueOn) as LocalDate;
-    if (due <= horizonEnd && usableToday(due)) intents.push(intent('oil_due', due, time, 0));
+    if (oilTimes.length === 0) {
+      // SPEC-040 intacta: sem horários, **um** lembrete, no horário global do app (FR4).
+      if (due <= horizonEnd && usableToday(due)) oilIntents.push(intent('oil_due', due, time, 0));
+    } else {
+      /**
+       * SPEC-053 FR9 — as próximas ocorrências, uma por horário.
+       *
+       * ⚠️ **Projetar a agenda que ELA configurou não é supor comportamento.** A SPEC-040 emitia um
+       * lembrete só, na data de vencimento, e estava certa quando não havia horários: a próxima data
+       * depende de ela fazer. Com horários que ela cadastrou um a um, dar só hoje deixaria quem não
+       * abre o app amanhã sem os lembretes que pediu.
+       *
+       * ⚠️ **Um horário só é usável hoje se ainda não passou** — e o que decide isso é o horário
+       * **dele**, não o global. Sem isso, um lembrete das 08:00 seria agendado às 14:00.
+       */
+      const step = oilEveryDays && oilEveryDays > 0 ? oilEveryDays : 1;
+      const ordenados = [...oilTimes].sort();
+      for (let date = due; date <= horizonEnd; date = addDays(date, step)) {
+        for (const at of ordenados) {
+          if (date === today && nowLocalTime >= at) continue;
+          oilIntents.push(intent('oil_due', date, at, 0, at));
+        }
+      }
+    }
   }
 
   const last = lastPlannedDate(view);
@@ -228,5 +313,23 @@ export const buildNotificationIntents = (input: {
       kept.set(candidate.date, sameDay);
     }
   }
-  return [...kept.values()].flat();
+
+  /**
+   * SPEC-053 BR6 — ⚠️ **os lembretes de óleo NÃO entram no teto diário, e isso é decisão, não
+   * esquecimento.**
+   *
+   * O teto de 2 existe para o que o **app** decide cutucar: cuidado de hoje, atrasado, check-in,
+   * reavaliação. Estes são **alarmes que ela programou um a um** — aplicar o teto significaria
+   * descartar em silêncio o segundo horário que ela pediu, que é a definição do *"teto arbitrário
+   * baixo"* que o dono proibiu.
+   *
+   * O que os limita é o **orçamento da plataforma**, e o corte é pelo tempo: ordena por quando
+   * tocam e mantém o que cabe, então o que se perde é sempre o **mais distante** — o que a
+   * reconciliação da próxima abertura repõe.
+   */
+  const oilKept = oilIntents
+    .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+    .slice(0, OIL_NOTIFICATION_BUDGET);
+
+  return [...[...kept.values()].flat(), ...oilKept];
 };

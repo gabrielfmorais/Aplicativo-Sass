@@ -949,6 +949,7 @@ describe('rotina de óleo na Hoje (SPEC-040)', () => {
     daysLate: 0,
     lastDoneOn: null,
     doneCount: 0,
+    times: [],
     ...over,
   });
 

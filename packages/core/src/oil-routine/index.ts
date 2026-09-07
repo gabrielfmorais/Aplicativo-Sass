@@ -7,6 +7,7 @@ export {
   type OilEventKind,
   type OilRoutine,
   type OilRoutineState,
+  type OilRoutineTime,
   type OilRoutineView,
 } from './domain/oil-routine.ts';
 export type { OilRoutinePort } from './application/ports.ts';

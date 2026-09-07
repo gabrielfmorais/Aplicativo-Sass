@@ -233,6 +233,20 @@ insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
   ('authenticated', 'oil_routines', 'DELETE', 'SPEC-040'),
   ('authenticated', 'oil_events', 'SELECT', 'SPEC-040');
 
+-- SPEC-053 §9 (F39, evolução): os horários da rotina. ⚠️ **As quatro escritas são DIRETAS, sem RPC, e
+-- isso é o precedente da SPEC-023 aplicado com o mesmo teste.** As duas tabelas acima exigem
+-- SECURITY DEFINER porque guardam invariante de servidor: o dia civil vem do fuso dela (ADR-008) e a
+-- idempotência é do servidor. Um **horário do dia** não tem nenhum dos dois — é um `time` que ela
+-- escolhe, sem relógio de servidor envolvido —, e a duplicidade cai no índice único
+-- (user_id, time_local). Uma RPC aqui seria mais uma função DEFINER nesta allowlist sem nenhum
+-- invariante para proteger. A posse é amarrada por RLS nas duas pontas: `using` no que ela alcança e
+-- `with check` no que ela deixa gravado, no INSERT e no UPDATE.
+insert into tests.grants_allowlist (grantee, table_name, privilege, spec) values
+  ('authenticated', 'oil_routine_times', 'SELECT', 'SPEC-053'),
+  ('authenticated', 'oil_routine_times', 'INSERT', 'SPEC-053'),
+  ('authenticated', 'oil_routine_times', 'UPDATE', 'SPEC-053'),
+  ('authenticated', 'oil_routine_times', 'DELETE', 'SPEC-053');
+
 insert into tests.security_definer_allowlist (function_signature, spec, justification) values
   (
     'public.set_oil_routine(p_every_days smallint, p_timezone text)',

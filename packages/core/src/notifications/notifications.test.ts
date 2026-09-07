@@ -31,6 +31,8 @@ const build = (
     preferences,
     today: TODAY,
     nowLocalTime,
+    // SPEC-053 — `oil` é obrigatório de propósito: era opcional, e o app nunca o passava (§22.1).
+    oil: { dueOn: null, times: [], everyDays: null },
   });
 
 /**
@@ -319,6 +321,7 @@ describe('pausa silencia os lembretes (SPEC-022 FR2)', () => {
       preferences: ON,
       today: TODAY,
       nowLocalTime: '07:00',
+      oil: { dueOn: null, times: [], everyDays: null },
     };
     // Sem pausa, com a preferência ligada, há o que lembrar.
     expect(buildNotificationIntents(base).length).toBeGreaterThan(0);
@@ -340,7 +343,7 @@ describe('rotina de óleo (SPEC-040 FR8)', () => {
       preferences: ON,
       today: TODAY,
       nowLocalTime: '07:00',
-      oilDueOn,
+      oil: { dueOn: oilDueOn, times: [], everyDays: null },
       ...extra,
     });
 
@@ -375,7 +378,7 @@ describe('rotina de óleo (SPEC-040 FR8)', () => {
         preferences: DEFAULT_NOTIFICATION_PREFERENCES,
         today: TODAY,
         nowLocalTime: '07:00',
-        oilDueOn: TODAY,
+        oil: { dueOn: TODAY, times: [], everyDays: null },
       }),
     ).toEqual([]);
   });

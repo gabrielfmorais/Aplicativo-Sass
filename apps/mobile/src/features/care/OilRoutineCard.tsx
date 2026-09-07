@@ -3,6 +3,7 @@ import { OIL_INTERVAL_OPTIONS } from '@app/core';
 import { StyleSheet } from 'react-native';
 
 import { Button, Card, Chip, Row, Stack, Text } from '@/design/primitives';
+import { OilTimesSection } from '@/features/care/OilTimesSection';
 import { formatPlannedDate } from '@/features/plan/copy';
 
 /**
@@ -29,11 +30,23 @@ export function OilRoutineCard({
   busy,
   onChoose,
   onTurnOff,
+  times,
 }: {
   view: OilRoutineView;
   busy: boolean;
   onChoose: (everyDays: number) => void;
   onTurnOff: () => void;
+  /**
+   * SPEC-053 — as ações dos horários. **Opcional**, e não por conveniência: a Hoje monta este
+   * cartão sem elas, e um cartão que oferecesse "adicionar horário" sem ninguém para atender seria
+   * o botão morto que a SPEC-027 mediu na aba Prateleira.
+   */
+  times?: {
+    readonly onAdd: (at: string) => void;
+    readonly onUpdate: (id: string, at: string) => void;
+    readonly onToggleReminder: (id: string, enabled: boolean) => void;
+    readonly onRemove: (id: string) => void;
+  };
 }) {
   const on = view.state !== 'none';
   return (
@@ -58,6 +71,21 @@ export function OilRoutineCard({
           />
         ))}
       </Row>
+
+      {/*
+        SPEC-053 — os horários só existem depois de a rotina existir: um horário sem rotina é
+        configuração que não descreve nada, e o banco recusa (a FK aponta para `oil_routines`).
+      */}
+      {on && times ? (
+        <OilTimesSection
+          times={view.times}
+          busy={busy}
+          onAdd={times.onAdd}
+          onUpdate={times.onUpdate}
+          onToggleReminder={times.onToggleReminder}
+          onRemove={times.onRemove}
+        />
+      ) : null}
 
       {on && view.dueOn ? (
         <Stack gap="sm">

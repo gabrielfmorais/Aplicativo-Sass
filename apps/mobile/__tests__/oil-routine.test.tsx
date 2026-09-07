@@ -19,6 +19,7 @@ const view = (over: Partial<OilRoutineView> = {}): OilRoutineView => ({
   daysLate: 0,
   lastDoneOn: null,
   doneCount: 0,
+  times: [],
   ...over,
 });
 
@@ -122,7 +123,18 @@ describe('rotina de óleo — o lugar dela (SPEC-040 FR7)', () => {
     const s = await render(
       <CareTabScreen
         profile={profile}
-        oil={{ view: view(), busy: false, onChoose: jest.fn(), onTurnOff: jest.fn() }}
+        oil={{
+          view: view(),
+          busy: false,
+          onChoose: jest.fn(),
+          onTurnOff: jest.fn(),
+          times: {
+            onAdd: jest.fn(),
+            onUpdate: jest.fn(),
+            onToggleReminder: jest.fn(),
+            onRemove: jest.fn(),
+          },
+        }}
       />,
     );
     await waitFor(() => s.getByText('Rotina de óleo'));
@@ -132,5 +144,122 @@ describe('rotina de óleo — o lugar dela (SPEC-040 FR7)', () => {
   it('sem a rotina carregada, a aba segue funcionando', async () => {
     const s = await render(<CareTabScreen profile={profile} />);
     expect(s.queryByText('Rotina de óleo')).toBeNull();
+  });
+});
+
+/**
+ * ⚠️ **SPEC-053 — os horários na tela.**
+ *
+ * O que estes testes protegem, em ordem: que **nenhuma ação que ela precisa exista sem quem a
+ * atenda** (o botão morto que a SPEC-027 mediu), que **desligar o lembrete não apague o horário**, e
+ * que a tela continue **sem opinião** sobre quantas vezes por dia.
+ */
+describe('SPEC-053 — os horários da rotina de óleo', () => {
+  const acoes = () => ({
+    onAdd: jest.fn(),
+    onUpdate: jest.fn(),
+    onToggleReminder: jest.fn(),
+    onRemove: jest.fn(),
+  });
+  const comHorarios = (times: OilRoutineView['times'], handlers = acoes()) => ({
+    handlers,
+    render: () =>
+      render(
+        <OilRoutineCard
+          view={view({ state: 'upcoming', everyDays: 3, dueOn: '2026-09-10' as never, times })}
+          busy={false}
+          onChoose={jest.fn()}
+          onTurnOff={jest.fn()}
+          times={handlers}
+        />,
+      ),
+  });
+  const t = (id: string, at: string, reminderEnabled = true) => ({ id, at, reminderEnabled });
+
+  /**
+   * ⚠️ **A seção só aparece com rotina ligada.** Um horário sem rotina é configuração que não
+   * descreve nada — e o banco recusa, porque a FK aponta para `oil_routines`.
+   */
+  it('sem rotina, a seção de horários não existe', async () => {
+    const s = await renderCard({}, { times: acoes() });
+    expect(s.queryByText('Horários')).toBeNull();
+  });
+
+  /**
+   * ⚠️ **E sem quem atenda, a seção também não aparece.** Oferecer "adicionar horário" num cartão
+   * que não recebeu as ações seria o botão morto que a SPEC-027 achou na aba Prateleira.
+   */
+  it('com rotina mas sem as ações, a seção não existe', async () => {
+    const s = await renderCard({ state: 'upcoming', everyDays: 3, dueOn: '2026-09-10' as never });
+    expect(s.queryByText('Horários')).toBeNull();
+  });
+
+  it('lista os horários dela e oferece acrescentar', async () => {
+    const s = await comHorarios([t('a', '08:00'), t('b', '20:00')]).render();
+    await waitFor(() => s.getByText('Horários'));
+    s.getByText('08:00');
+    s.getByText('20:00');
+    s.getByText('Adicionar horário');
+  });
+
+  it('acrescenta um horário pelo seletor, sem dependência de picker', async () => {
+    const { handlers, render: r } = comHorarios([]);
+    const s = await r();
+    await fireEvent.press(s.getByText('Adicionar horário'));
+    // 08:00 é o ponto de partida do seletor — não uma sugestão: nada na tela o chama de ideal.
+    await fireEvent.press(s.getByLabelText('Uma hora depois'));
+    await fireEvent.press(s.getByLabelText('Cinco minutos depois'));
+    const [botao] = s.getAllByText('Adicionar horário').reverse();
+    await fireEvent.press(botao as never);
+    expect(handlers.onAdd).toHaveBeenCalledWith('09:05');
+  });
+
+  it('edita um horário existente', async () => {
+    const { handlers, render: r } = comHorarios([t('a', '08:00')]);
+    const s = await r();
+    await fireEvent.press(s.getByLabelText('Editar o horário 08:00'));
+    await fireEvent.press(s.getByLabelText('Uma hora antes'));
+    await fireEvent.press(s.getByText('Salvar horário'));
+    expect(handlers.onUpdate).toHaveBeenCalledWith('a', '07:00');
+  });
+
+  /** FR3 — desligar o lembrete **não** remove o horário: ele continua na rotina e registrável. */
+  it('liga e desliga o lembrete de um horário sem removê-lo', async () => {
+    const { handlers, render: r } = comHorarios([t('a', '08:00', true)]);
+    const s = await r();
+    await fireEvent.press(s.getByText('Lembrete ligado'));
+    expect(handlers.onToggleReminder).toHaveBeenCalledWith('a', false);
+    expect(handlers.onRemove).not.toHaveBeenCalled();
+    // E o horário desligado continua visível, dizendo o próprio estado em palavra.
+    const s2 = await comHorarios([t('a', '08:00', false)]).render();
+    s2.getByText('08:00');
+    s2.getByText('Lembrete desligado');
+  });
+
+  it('remove um horário', async () => {
+    const { handlers, render: r } = comHorarios([t('a', '08:00'), t('b', '20:00')]);
+    const s = await r();
+    await fireEvent.press(s.getByLabelText('Remover o horário 20:00'));
+    expect(handlers.onRemove).toHaveBeenCalledWith('b');
+  });
+
+  /** ⛔ *"Se quiser 10, pode"* — e a tela não trata dez como demais. */
+  it('dez horários aparecem inteiros, sem aviso e sem corte', async () => {
+    const dez = Array.from({ length: 10 }, (_, i) => t(String(i), `${String(8 + i).padStart(2, '0')}:00`));
+    const s = await comHorarios(dez).render();
+    for (const h of dez) s.getByText(h.at);
+    expect(s.queryByText(/muitos|demais|limite|máximo|excesso/i)).toBeNull();
+  });
+
+  /**
+   * ⛔ **A barreira do D-26/D-103 nesta seção.** Nenhum horário recomendado, nenhuma quantidade
+   * elogiada, nenhuma comparação — e nada que diga o que o óleo faz.
+   */
+  it('nenhum texto recomenda, elogia ou compara quantidade', async () => {
+    const s = await comHorarios([t('a', '08:00'), t('b', '12:00'), t('c', '20:00')]).render();
+    expect(
+      s.queryByText(/recomend|ideal|melhor|indicad|parabéns|muito bem|continue assim|mais vezes/i),
+    ).toBeNull();
+    expect(s.queryByText(/hidrata|nutre|sela|repara|fortalec/i)).toBeNull();
   });
 });

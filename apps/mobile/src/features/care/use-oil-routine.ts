@@ -11,6 +11,7 @@ const EMPTY: OilRoutineView = {
   daysLate: 0,
   lastDoneOn: null,
   doneCount: 0,
+  times: [],
 };
 
 /**
@@ -42,10 +43,17 @@ export const useOilRoutine = (
 
   const load = useCallback(() => {
     let active = true;
-    Promise.all([oil.getRoutine(), oil.listEvents()])
-      .then(([routine, events]) => {
+    /**
+     * SPEC-053 — os horários entram na **mesma** leitura, e não numa segunda depois.
+     *
+     * Uma leitura à parte faria a tela existir por um instante com a rotina certa e a lista de
+     * horários vazia — e "vazia" é um estado com significado (é a rotina da SPEC-040), então piscar
+     * nele seria mostrar uma coisa falsa antes da verdadeira.
+     */
+    Promise.all([oil.getRoutine(), oil.listEvents(), oil.listTimes()])
+      .then(([routine, events, times]) => {
         if (!active) return;
-        setView(buildOilRoutineView({ routine, events, today }));
+        setView(buildOilRoutineView({ routine, events, today, times }));
       })
       .catch((error: unknown) => {
         if (!active) return;
@@ -87,5 +95,15 @@ export const useOilRoutine = (
     turnOff: () => run('oil:clear', () => oil.clearRoutine()),
     markDone: () => record('done'),
     postpone: () => record('postponed'),
+
+    /**
+     * SPEC-053 — cada mudança é uma escrita própria, **sem botão de salvar** (o padrão da SPEC-024).
+     * A que falha volta atrás sozinha dizendo qual foi, e as outras não são arrastadas junto.
+     */
+    addTime: (at: string) => run(`oil:time:add:${at}`, () => oil.addTime({ at })),
+    updateTime: (id: string, at: string) => run(`oil:time:${id}`, () => oil.updateTime({ id, at })),
+    setTimeReminder: (id: string, enabled: boolean) =>
+      run(`oil:time:${id}:reminder`, () => oil.setTimeReminder({ id, enabled })),
+    removeTime: (id: string) => run(`oil:time:${id}:remove`, () => oil.removeTime({ id })),
   };
 };
