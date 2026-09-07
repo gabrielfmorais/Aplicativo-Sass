@@ -43,7 +43,19 @@ export function CareTabScreen({
    * não é fazer: a Hoje mostra a ocorrência do dia, e esta aba guarda a rotina.
    */
   oil?: {
+    /**
+     * SPEC-053 — as ações dos horários vêm juntas ou não vêm: metade delas produziria uma tela que
+     * deixa acrescentar e não deixa remover.
+     */
+    readonly times: {
+      readonly onAdd: (at: string) => void;
+      readonly onUpdate: (id: string, at: string) => void;
+      readonly onToggleReminder: (id: string, enabled: boolean) => void;
+      readonly onRemove: (id: string) => void;
+    };
     readonly view: OilRoutineView;
+    readonly message?: string | null;
+    readonly failure?: string | null;
     readonly busy: boolean;
     readonly onChoose: (everyDays: number) => void;
     readonly onTurnOff: () => void;
@@ -80,7 +92,15 @@ export function CareTabScreen({
         dá endereço a uma capability que não tinha nenhum.
       */}
       {oil ? (
-        <OilRoutineCard view={oil.view} busy={oil.busy} onChoose={oil.onChoose} onTurnOff={oil.onTurnOff} />
+        <OilRoutineCard
+          view={oil.view}
+          busy={oil.busy}
+          onChoose={oil.onChoose}
+          onTurnOff={oil.onTurnOff}
+          message={oil.message ?? null}
+          failure={oil.failure ?? null}
+          times={oil.times}
+        />
       ) : null}
 
       <CareGuideLibrary />

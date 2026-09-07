@@ -9,7 +9,11 @@ import {
 } from './domain/oil-routine.ts';
 
 const d = (iso: string) => localDateFromString(iso);
-const done = (iso: string, id = iso): OilEvent => ({ id, kind: 'done', happenedOn: d(iso) });
+const done = (iso: string, id = iso): OilEvent => ({
+  id,
+  kind: 'done',
+  happenedOn: d(iso),
+});
 const postponed = (iso: string, id = `p${iso}`): OilEvent => ({
   id,
   kind: 'postponed',
@@ -222,5 +226,67 @@ describe('rotina de óleo — diária (SPEC-040)', () => {
       const expected = new Date(Date.UTC(2026, 8, 3 + days)).toISOString().slice(0, 10);
       expect(v.dueOn).toBe(expected);
     }
+  });
+});
+
+/**
+ * ⚠️ **SPEC-053 — os horários entram na visão, e NÃO entram na derivação.**
+ *
+ * É a BR1, e é a decisão que segura o desenho inteiro: o **dia** continua sendo a unidade da
+ * ocorrência. Fazer cada horário ter a própria cadência criaria N séries que dessincronizam na
+ * primeira vez que ela pula uma — quem faz o das 12:00 e esquece o das 17:00 passaria a ter duas
+ * rotinas andando em datas diferentes, e a tela teria de explicar isso.
+ */
+describe('SPEC-053 — os horários da rotina', () => {
+  const times = [
+    { id: 't2', at: '17:00', reminderEnabled: true },
+    { id: 't1', at: '08:00', reminderEnabled: false },
+  ];
+  const comHorarios = (today: string) =>
+    buildOilRoutineView({
+      routine: { everyDays: 3, startedOn: d('2026-09-01') },
+      events: [done('2026-09-03')],
+      today: d(today),
+      times,
+    });
+
+  it('devolve os horários em ordem cronológica, com ou sem lembrete', () => {
+    expect(comHorarios('2026-09-04').times.map((t) => t.at)).toEqual(['08:00', '17:00']);
+  });
+
+  /** FR3 — desligado, o horário **continua na rotina**: ele some do lembrete, não da vida dela. */
+  it('um horário com o lembrete desligado continua na lista', () => {
+    const desligado = comHorarios('2026-09-04').times.find((t) => t.at === '08:00');
+    expect(desligado?.reminderEnabled).toBe(false);
+  });
+
+  /**
+   * ⚠️ **A barreira da BR1.** Se um dia alguém fizer a próxima data depender dos horários, o plano
+   * de quem tem três horários deixa de ser o mesmo de quem não tem nenhum — e este teste cai antes
+   * de a tela mostrar duas datas diferentes para a mesma rotina.
+   */
+  it('a próxima data é EXATAMENTE a mesma com e sem horários (BR1/AC8)', () => {
+    const sem = view({ everyDays: 3, startedOn: '2026-09-01' }, [done('2026-09-03')], '2026-09-04');
+    const com = comHorarios('2026-09-04');
+    expect(com.dueOn).toBe(sem.dueOn);
+    expect(com.state).toBe(sem.state);
+    expect(com.daysLate).toBe(sem.daysLate);
+    expect(com.lastDoneOn).toBe(sem.lastDoneOn);
+    expect(com.doneCount).toBe(sem.doneCount);
+  });
+
+  /** FR4 — sem horários, a visão é a de antes desta SPEC, campo a campo. */
+  it('sem horários, a visão é byte a byte a da SPEC-040 (AC7)', () => {
+    const sem = view({ everyDays: 3, startedOn: '2026-09-01' }, [done('2026-09-03')], '2026-09-04');
+    expect(sem.times).toEqual([]);
+    expect({ ...sem, times: undefined }).toEqual({
+      state: 'upcoming',
+      everyDays: 3,
+      dueOn: '2026-09-06',
+      daysLate: 0,
+      lastDoneOn: '2026-09-03',
+      doneCount: 1,
+      times: undefined,
+    });
   });
 });

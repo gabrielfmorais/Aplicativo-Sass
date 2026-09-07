@@ -50,6 +50,24 @@ export type OilEvent = {
 };
 
 /**
+ * SPEC-053 (F39, evolução) — **um horário do dia em que ela quer lembrar do óleo.**
+ *
+ * ⚠️ **Um `time` civil, não um instante.** "12:00" é 12:00 onde ela estiver; quem o converte em
+ * instante é o agendador, com o fuso dela (ADR-008). É a mesma escolha do `reminderTimeLocal` da
+ * SPEC-008, e é o que faz a rotina sobreviver a uma viagem sem virar outra rotina.
+ *
+ * ⛔ **Nenhum horário é recomendado, sugerido ou ordenado por mérito.** Com que frequência ela
+ * deveria passar óleo é conteúdo capilar substantivo ⇒ D-26/D-70.
+ */
+export type OilRoutineTime = {
+  readonly id: string;
+  /** `HH:MM`, o horário civil dela. */
+  readonly at: string;
+  /** Desligado, ele **continua na rotina** e continua registrável — só não toca (FR3). */
+  readonly reminderEnabled: boolean;
+};
+
+/**
  * `none` só acontece sem rotina. Com rotina, sempre há uma próxima data — o que muda é se ela já
  * chegou.
  */
@@ -64,6 +82,13 @@ export type OilRoutineView = {
   readonly daysLate: number;
   readonly lastDoneOn: LocalDate | null;
   readonly doneCount: number;
+  /**
+   * SPEC-053 — os horários dela, **em ordem cronológica**, com ou sem lembrete.
+   *
+   * ⚠️ **Vazia é o estado de toda rotina anterior a esta SPEC**, e é o que faz a evolução não pedir
+   * nada de quem já usava: sem horários, tudo se comporta exatamente como antes (FR4).
+   */
+  readonly times: readonly OilRoutineTime[];
 };
 
 const EMPTY: OilRoutineView = {
@@ -73,6 +98,7 @@ const EMPTY: OilRoutineView = {
   daysLate: 0,
   lastDoneOn: null,
   doneCount: 0,
+  times: [],
 };
 
 /**
@@ -94,9 +120,25 @@ export const buildOilRoutineView = (input: {
   routine: OilRoutine | null;
   events: readonly OilEvent[];
   today: LocalDate;
+  /**
+   * SPEC-053 — os horários dela. Ausente = rotina sem horários, que é o estado de toda rotina
+   * anterior a esta SPEC e o comportamento da SPEC-040 inteiro (FR4).
+   */
+  times?: readonly OilRoutineTime[];
 }): OilRoutineView => {
-  const { routine, events, today } = input;
+  const { routine, events, today, times = [] } = input;
   if (!routine) return EMPTY;
+
+  /**
+   * ⚠️ **BR1 — o DIA continua sendo a unidade da ocorrência; o horário é quando lembrar.**
+   *
+   * A alternativa — cada horário com a própria cadência — cria **N séries independentes** que
+   * dessincronizam na primeira vez que ela pula uma: quem faz o das 12:00 e esquece o das 17:00
+   * passaria a ter duas rotinas andando em datas diferentes, e a tela teria de explicar isso. Por
+   * isso nada abaixo desta linha olha para `times`: a derivação da próxima data é **exatamente** a
+   * da SPEC-040, com teste de regressão provando que uma rotina sem horários não mudou nada.
+   */
+  const ordenados = [...times].sort((a, b) => a.at.localeCompare(b.at));
 
   let lastDoneOn: LocalDate | null = null;
   let doneCount = 0;
@@ -125,5 +167,6 @@ export const buildOilRoutineView = (input: {
     daysLate: state === 'overdue' ? diffDays(dueOn, today) : 0,
     lastDoneOn,
     doneCount,
+    times: ordenados,
   };
 };

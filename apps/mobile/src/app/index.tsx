@@ -293,13 +293,33 @@ function AuthenticatedApp({
           preferences: prefs,
           today: today(),
           nowLocalTime: localTimeOf(now()),
+          /**
+           * ⚠️ **SPEC-040 FR8 nunca funcionou até aqui, e nada acusava.**
+           *
+           * O `oil_due` existia no domínio, tinha teste no core e estava documentado como entregue —
+           * mas o parâmetro era **opcional** e esta chamada simplesmente **não o passava**. A rotina
+           * de óleo lembrava a usuária **zero vezes** desde que foi entregue, com tudo verde. É o
+           * mesmo defeito que a SPEC-041 mediu na `Section` que declarava `shelf` e não repassava:
+           * a peça existe, a ligação não.
+           *
+           * O parâmetro passou a ser **obrigatório e agrupado** (`OilReminderInput`), então esquecer
+           * qualquer uma das três partes deixou de compilar.
+           *
+           * SPEC-053 — `times` são só os **com lembrete ligado**: um horário desligado continua na
+           * rotina e continua registrável, ele só não toca (FR3).
+           */
+          oil: {
+            dueOn: oilRoutine.view.dueOn,
+            times: oilRoutine.view.times.filter((t) => t.reminderEnabled).map((t) => t.at),
+            everyDays: oilRoutine.view.everyDays,
+          },
         })
       : [];
     void notificationScheduler.reconcile(intents).catch(() => {
       // Scheduling is best effort: a failure here must not break the daily screen, and it must not
       // be reported as success either — the preference stays exactly as the server has it.
     });
-  }, [board_, prefs, notificationScheduler, today, now]);
+  }, [board_, prefs, notificationScheduler, today, now, oilRoutine.view]);
 
   /**
    * SPEC-047 (P2) — `advanced_insights`, decidido pelo SERVIDOR. A tela nunca conclui sozinha que
@@ -601,6 +621,16 @@ function AuthenticatedApp({
           busy: oilRoutine.busy,
           onChoose: oilRoutine.choose,
           onTurnOff: oilRoutine.turnOff,
+          message: oilRoutine.message,
+          failure: oilRoutine.failure,
+          // SPEC-053 — as quatro ações dos horários, juntas: metade delas deixaria a tela
+          // acrescentar e não remover.
+          times: {
+            onAdd: oilRoutine.addTime,
+            onUpdate: oilRoutine.updateTime,
+            onToggleReminder: oilRoutine.setTimeReminder,
+            onRemove: oilRoutine.removeTime,
+          },
         }}
       />,
     );
