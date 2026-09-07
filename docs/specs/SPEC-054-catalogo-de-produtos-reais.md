@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-054 |
-| Status | **Draft** |
+| Status | **IMPLEMENTED** (2026-09-07) — infraestrutura validada a 390px no DEV real com o catálogo **vazio**, que é o estado permanente até a ingestão (§25). ⛔ **A ingestão é TRUE HUMAN GATE** — as opções investigadas estão em §26. |
 | Owner | dono do produto |
 | Bounded Context | Products (`packages/core/src/products`) + Care Tracking (execução) |
 | Related ADRs | ADR-001, ADR-006, **D-104** (a cadeia inteira), D-26/D-70, D-47/D-48 |
@@ -93,8 +93,12 @@ para quem digitou.
   como hoje** quando não existem (FR7).
 - FR7 — ⚠️ **Fallback sem foto é caminho normal, não estado de erro.** Um produto de catálogo pode
   não ter imagem — e um sem imagem tem de ficar tão utilizável quanto um com.
-- FR8 — ⚠️ **Com o catálogo vazio, a superfície de busca NÃO aparece.** O fluxo de adicionar é o de
-  hoje, letra por letra.
+- FR8 — ⚠️ **Com o catálogo vazio, a tela DIZ que ele está em expansão** — e não esconde a busca, nem
+  finge que ela falhou. **A primeira versão escondia**, e o dono mostrou o custo: ele digitou
+  *"wella"*, não achou nada, e não teve como saber se o catálogo estava vazio ou se a busca tinha
+  quebrado. Os **dois vazios são distintos**: catálogo sem linhas diz *"ainda em expansão"*, termo sem
+  par diz *"não encontramos esse produto"*, e antes da resposta a tela **não afirma nada**. O cadastro
+  manual é nomeado ali mesmo (§25.1).
 
 ## 7. Business Rules
 
@@ -256,8 +260,160 @@ prateleira de hoje continua com `catalog_product_id = null`, que é o caminho ma
   um erro que a usuária vê e não pode consertar. Fora desta fatia (não há ingestão), mas **entra
   junto com a ingestão**, não depois.
 
+## 24.1 Evidência — validado a 390px no DEV real (2026-09-07)
+
+Migration aplicada pelo dono. Com o catálogo **vazio** — o estado permanente até a ingestão:
+
+| o que foi pedido | medido |
+|---|---|
+| catálogo vazio com UX correta | ✅ **"Catálogo de produtos ainda em expansão"**, e ⛔ **nunca** *"erro"* ou *"não encontramos"* |
+| produto manual continua funcionando | ✅ digitar → categoria → **Adicionar** → cadastrado → **persistiu no reload** → desfeito |
+| a prateleira dela intacta | ✅ os três produtos manuais, todos `catalog_product_id: null` |
+| busca consultando a tabela certa | ✅ `catalog_products` respondendo **200 `[]`**, não erro |
+| RLS e direito de imagem | ✅ `42501` no INSERT/UPDATE/DELETE do cliente; a trava de direito é pgTAP em CI |
+| nenhuma marca real ingerida | ✅ **zero linhas**, de qualquer origem |
+| console | ✅ zero problema |
+
+⚠️ **O que a validação a 390px NÃO prova, e por quê.** Buscar, escolher um produto real e ver a foto
+na prateleira e na execução exigem **linhas no catálogo**, e o cliente **não tem grant de escrita** —
+que é a garantia central desta SPEC, não uma limitação a contornar. Semear exigiria `service_role`,
+que não está aqui. Esses caminhos estão cobertos por **RNTL** (busca, escolha, marca/linha/variante na
+tela, identidade reutilizada na execução) e por **pgTAP** contra o Postgres real (RLS, publicação,
+direito de imagem, `on delete set null`). Fica dito em vez de disfarçado.
+
+⚠️ **Dois achados de MEDIÇÃO, não do produto.** (1) O `innerText` **não mostra placeholder**, então
+o campo de nome "sumia" para o driver enquanto estava lá. (2) Clicar por texto em *"Máscara"* pegava
+a **legenda de categoria de um produto da lista**, não o chip do formulário — e o cadastro parecia
+quebrado. Clicando o chip por `role="radio"`, o fluxo passou inteiro. **Consequência para validações
+futuras: num app com vocabulário fechado, o mesmo rótulo aparece em vários papéis — clicar por texto
+é clicar no primeiro que aparecer.**
+
+## 25. Diagnóstico da ingestão, medido no DEV (2026-09-07)
+
+O dono usou o produto, buscou *"wella"* e não achou nada. O diagnóstico pedido, medido contra o DEV
+real com a migration aplicada:
+
+| pergunta | medido |
+|---|---|
+| quantos `catalog_products` existem? | **0** (`Content-Range: */0`) |
+| a busca consulta mesmo essa tabela? | **sim** — `or(brand,name,line ilike)` e `ean=eq` em `catalog_products`, **HTTP 200 `[]`**, não erro |
+| o estado vazio está correto? | **sim** — `isAvailable()` devolve vazio, e a tela agora **diz por quê** (§25.1) |
+| alguma marca real foi ingerida? | **não** — zero linhas, de qualquer origem |
+| a prateleira manual sobreviveu? | **sim** — 3 produtos, todos `catalog_product_id: null` |
+| o cliente consegue escrever no catálogo? | **não** — `42501` no INSERT, no UPDATE e no DELETE |
+
+⚠️ **A infraestrutura está certa e o catálogo está vazio — as duas coisas ao mesmo tempo.** A busca
+funciona, aponta para a tabela certa e devolve zero porque **há zero**. Nada quebrou.
+
+### 25.1 O estado vazio deixou de esconder e passou a explicar
+
+⚠️ **A primeira versão ESCONDIA a busca com o catálogo vazio** (FR8 original), com o raciocínio de que
+uma busca que sempre volta vazia é um beco. **O dono usou o produto e mostrou o custo real:** ele
+digitou *"wella"*, não achou nada, e **não teve como saber se o catálogo estava vazio ou se a busca
+tinha quebrado**. Esconder não protege dela — apaga a informação de que a capability existe.
+
+A tela passou a distinguir **dois vazios que são coisas diferentes**:
+
+| situação | o que ela lê |
+|---|---|
+| catálogo sem linhas | **"Catálogo de produtos ainda em expansão"** — o app está crescendo, não falhou |
+| catálogo com linhas, termo sem par | *"Não encontramos esse produto"* — a busca rodou |
+| ainda não se sabe | **nada** — afirmar sobre o catálogo antes de consultá-lo seria inventar |
+
+E o caminho manual é **nomeado ali mesmo**: *"escreva o nome do jeito que você chama — é assim que a
+sua prateleira funciona, e nada se perde depois"*.
+
+## 26. Como POPULAR o catálogo — as opções, e o que depende do dono
+
+⛔ **Nada abaixo foi executado.** A ingestão é **TRUE HUMAN GATE**, e o que segue é a investigação
+pedida: o que existe, o que é legalmente utilizável, e o que exatamente o dono precisa conseguir.
+
+### 26.1 Rota A — GS1 Brasil / Cadastro Nacional de Produtos ⭐ **a recomendada**
+
+**O que é.** O registro oficial de código de barras no Brasil. A API do CNP devolve **marca,
+descrição do produto, classificação, NCM, peso, e `URL Foto`** — e o encaixe com o schema desta SPEC
+é praticamente um-para-um.
+
+⚠️ **É a rota com a melhor posição jurídica, e a razão é estrutural:** os dados só voltam quando **o
+dono da marca cadastrou o produto e autorizou compartilhar**. A autorização não é interpretada por
+nós — ela **é a condição de existência do dado**. É exatamente o que `image_rights = 'brand_authorized'`
+afirma, e aqui a afirmação é verificável na origem.
+
+⚠️ **HUMAN GATE — o que o dono precisa conseguir, e de quem:**
+1. **Associação da empresa à GS1 Brasil** (exige CNPJ; é uma associação anual, com custo).
+2. **Acesso à API do CNP**, solicitado à GS1 Brasil — atendimento por telefone **(11) 4000-1936**,
+   e-mail **atendimento@gs1br.org** ou chat, pelo portal `apicnp.gs1br.org`.
+3. **As credenciais** (chave de API) chegam aqui como secret de ambiente, nunca no repositório.
+
+**Limite conhecido:** só volta produto cujo fabricante cadastrou **e** liberou. A cobertura é da
+indústria, não nossa — e um produto ausente cai no cadastro manual, que continua inteiro.
+
+### 26.2 Rota B — autorização direta da marca (kit de imprensa / assessoria)
+
+**O que é.** Escrever para a marca e obter permissão **por escrito** para usar nome e foto oficial no
+app. É lento e é de graça.
+
+**Serve para o conjunto de lançamento:** 20 a 50 produtos das marcas que a usuária brasileira mais
+tem em casa, enquanto a Rota A é providenciada. ⚠️ **A permissão precisa ser escrita e guardada** — é
+ela que `image_rights = 'brand_authorized'` e `source_ref` passam a apontar.
+
+**HUMAN GATE:** é o dono quem pede e quem assina.
+
+### 26.3 Rota C — Open Beauty Facts (dado aberto)
+
+**O que é.** Base colaborativa de cosméticos, irmã do Open Food Facts. **Banco sob Open Database
+License, conteúdos sob Database Contents License, e as imagens sob Creative Commons
+Attribution-ShareAlike.** É legalmente utilizável **sem contrato**, com **atribuição**.
+
+⚠️ **Mas as fotos são de colaboradores, não oficiais** — e o pedido do dono é *"foto REAL/OFICIAL"*.
+Usá-la como fonte de imagem trocaria "oficial" por "aberta", que é outra coisa.
+
+✅ **Onde ela serve de verdade: como resolvedor de EAN → identidade.** Código de barras, marca e nome
+vindos de dado aberto, com a **foto ficando vazia** — e `image_url is null` já é caminho normal
+(FR7). É a única rota que **não** depende de decisão de ninguém, e por isso é a candidata natural a
+um piloto.
+
+⚠️ **Consequência de schema, se esta rota for escolhida:** `image_rights` teria de ganhar um valor
+para licença aberta (algo como `open_licensed`), e `image_credit` passaria a ser **obrigatório de
+exibir**, porque CC-BY-SA exige atribuição visível. ⛔ **Não foi acrescentado** — seria schema sem
+decisão (D-47/D-48).
+
+### 26.4 Rota D — feed de afiliado ⛔ **não recomendada para o catálogo**
+
+**O que é.** Redes de afiliados e APIs de varejo trazem catálogo com foto. A da Amazon (a PA-API foi
+descontinuada em janeiro de 2025 e substituída pela Creators API) licencia o conteúdo **apenas para
+levar tráfego para a Amazon**, exige conta de afiliado ativa, e proíbe usar o conteúdo apontando para
+qualquer outro lugar.
+
+⛔ **Isso muda o que o catálogo É.** Um catálogo cujas imagens só podem existir enquanto apontarem
+para um varejista transforma **cada cartão de produto numa colocação de afiliado** — e a D-104 diz,
+literalmente, que *"a Huna não vira marketplace"* e que afiliados são o **`T2`**, com contrato
+próprio e cinco obrigações. Não é uma decisão de `F32`; é uma decisão de `T2`, e vem depois.
+
+### 26.5 O que NÃO é opção, e por quê
+
+⛔ **Google Images, scraping, foto de e-commerce sem autorização, embalagem inventada e imagem
+gerada.** As cinco foram vetadas pelo dono, e o banco já as torna **impossíveis de gravar sem
+mentir**: `image_url` preenchida exige `image_source` **e** `image_rights`, e o vocabulário de
+direito é fechado — **não existe valor para *"achei na internet"***. A engenharia não consegue
+verificar se um direito é verdadeiro; consegue exigir que ele seja **declarado e rastreável**.
+
+### 26.6 A recomendação, em ordem
+
+1. **Rota A (GS1 CNP)** como espinha dorsal — oficial, autorizada na origem, nativa em EAN.
+2. **Rota B (autorização direta)** para o conjunto de lançamento, em paralelo.
+3. **Rota C (Open Beauty Facts)** como piloto de **identidade sem foto**, se o dono quiser ver a
+   capability viva antes de qualquer contrato. É a única que **não depende de ninguém**.
+4. **Rota D: não** — é `T2`, não `F32`.
+
+⚠️ **O que fica pronto para qualquer uma delas:** o schema, a busca, o vínculo com a prateleira, a
+reutilização na execução, o fallback sem foto, a rastreabilidade de origem e a trava de direito. A
+ingestão é um trabalho de **`service_role`, fora do app**, e ela **não muda uma linha** do que já
+está construído — troca apenas de onde vêm as linhas.
+
 ## 24. Change Log
 
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-09-07 | v0.1 — rascunho a partir da fonte de verdade do dono. | agente |
+| 2026-09-07 | v0.2 — **IMPLEMENTADA**, validada a 390px no DEV real com o catálogo vazio (§24.1). ⚠️ **FR8 mudou depois de o dono usar o produto:** a busca deixou de se esconder e passou a **dizer que o catálogo está em expansão**, distinguindo isso de *"não encontramos"*. **§25** traz o diagnóstico medido da ingestão e **§26** as rotas investigadas — GS1 Brasil CNP (recomendada), autorização direta, Open Beauty Facts (piloto sem foto) e ⛔ feed de afiliado (é `T2`, não `F32`). | agente |

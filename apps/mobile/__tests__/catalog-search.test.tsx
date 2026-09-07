@@ -34,23 +34,52 @@ const show = (catalog: ProductCatalogPort, onPick = jest.fn()) =>
 
 describe('CatalogSearchSection (SPEC-054)', () => {
   /**
-   * ⚠️ **A asserção mais importante do arquivo.** Enquanto a ingestão não acontecer — e ela depende
-   * de contrato, feed e direito de imagem (TRUE HUMAN GATE) —, esta é a única coisa que a usuária
-   * pode observar sobre o catálogo: **nada**.
+   * ⚠️ **A asserção mais importante do arquivo, e ela mudou depois de o dono usar o produto.**
+   *
+   * A primeira versão **escondia** a busca com o catálogo vazio. O dono digitou *"wella"*, não achou
+   * nada, e **não teve como saber se o catálogo estava vazio ou se a busca tinha quebrado**. Esconder
+   * não protege dela: apaga a informação de que a capability existe e está crescendo.
    */
-  it('com o catálogo vazio, a busca NÃO aparece (FR8)', async () => {
+  it('com o catálogo vazio, diz que está EM EXPANSÃO — nunca que falhou (FR8)', async () => {
     const catalog = port({ isAvailable: jest.fn(async () => false) });
     const s = await show(catalog);
-    await waitFor(() => expect(catalog.isAvailable).toHaveBeenCalled());
-    expect(s.queryByText('Procurar o produto')).toBeNull();
+    await waitFor(() => s.getByText('Catálogo de produtos ainda em expansão'));
+    // ⛔ E não pode parecer erro nem busca sem resultado.
+    expect(s.queryByText(/não foi possível|erro|falhou|não encontramos/i)).toBeNull();
+    // O caminho de sempre é nomeado ali mesmo.
+    s.getByText(/escreva o nome do jeito que você chama/i);
   });
 
-  /** Falhar em saber é o mesmo que não ter: a prateleira manual não pode depender disto. */
-  it('se a checagem falhar, a busca também não aparece', async () => {
+  /** Falhar em saber é tratado como vazio: "em expansão" é verdade nos dois casos. */
+  it('se a checagem falhar, também diz "em expansão", não "erro"', async () => {
     const catalog = port({ isAvailable: jest.fn(async () => Promise.reject(new Error('rede'))) });
     const s = await show(catalog);
-    await waitFor(() => expect(catalog.isAvailable).toHaveBeenCalled());
+    await waitFor(() => s.getByText('Catálogo de produtos ainda em expansão'));
+  });
+
+  /** ⚠️ Enquanto não se sabe, nada é afirmado — nem a busca, nem a expansão. */
+  it('antes da resposta, não afirma nada sobre o catálogo', async () => {
+    let resolver: (v: boolean) => void = () => {};
+    const catalog = port({ isAvailable: jest.fn(() => new Promise<boolean>((r) => (resolver = r))) });
+    const s = await show(catalog);
+    expect(s.queryByText('Catálogo de produtos ainda em expansão')).toBeNull();
     expect(s.queryByText('Procurar o produto')).toBeNull();
+    resolver(true);
+    await waitFor(() => s.getByText('Procurar o produto'));
+  });
+
+  /**
+   * ⚠️ **Os dois vazios são coisas diferentes, e a tela tem de distingui-los.** Catálogo vazio é *o
+   * app ainda está crescendo*; termo sem par é *a busca rodou e não achou*. Uma frase só para os dois
+   * faria a usuária culpar o produto errado.
+   */
+  it('catálogo com linhas e termo sem par diz OUTRA coisa', async () => {
+    const s = await show(port({ search: jest.fn(async () => []) }));
+    await waitFor(() => s.getByText('Procurar o produto'));
+    await fireEvent.changeText(s.getByLabelText('Marca ou nome do produto'), 'wella');
+    await fireEvent.press(s.getByText('Buscar'));
+    await waitFor(() => s.getByText(/Não encontramos esse produto/i));
+    expect(s.queryByText('Catálogo de produtos ainda em expansão')).toBeNull();
   });
 
   it('com catálogo, busca por texto e mostra marca, linha e variante', async () => {

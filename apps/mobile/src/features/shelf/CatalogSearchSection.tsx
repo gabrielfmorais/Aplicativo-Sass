@@ -9,14 +9,26 @@ import { ProductThumb } from '@/features/shelf/ProductIdentity';
 /**
  * SPEC-054 (F32) — **buscar o produto real em vez de digitar um apelido.**
  *
- * ⚠️ **Com o catálogo vazio, esta seção NÃO aparece** (FR8) — e vazio é o estado de hoje e o
- * permanente até a ingestão acontecer, porque ela depende de contrato, feed e direito de imagem
- * (**TRUE HUMAN GATE**, OQ1). Uma busca que sempre volta vazia é pior que uma busca que não existe:
- * ela promete um caminho e entrega um beco, toda vez.
+ * ⚠️ **O catálogo está VAZIO, e vai continuar até a ingestão acontecer** — ela depende de contrato,
+ * feed e direito de imagem (**TRUE HUMAN GATE**, OQ1). A pergunta de desenho é o que a tela faz
+ * enquanto isso, e a primeira resposta estava errada.
  *
- * ⚠️ **E digitar continua sendo o caminho completo** (G3), não o plano B. O catálogo chega **por
- * cima** da prateleira manual, nunca no lugar dela — quem tem um vidro que o app não conhece
- * continua tendo a prateleira inteira.
+ * ⚠️ **A primeira versão ESCONDIA a busca com o catálogo vazio**, com o raciocínio de que uma busca
+ * que sempre volta vazia é um beco. O dono usou o produto e mostrou o custo real: ele digitou
+ * *"wella"*, não achou nada, e **não teve como saber se o catálogo estava vazio ou se a busca tinha
+ * quebrado**. Esconder não protege dela — apaga a informação de que a capability existe e está
+ * crescendo.
+ *
+ * A correção é dizer a verdade em vez de sumir: **"Catálogo de produtos ainda em expansão"**, com o
+ * cadastro manual logo abaixo, inteiro. E os dois casos ficam **distintos**:
+ *
+ * | situação | o que ela lê |
+ * |---|---|
+ * | catálogo vazio | *"ainda em expansão"* — o app está crescendo, não falhou |
+ * | catálogo com linhas, termo sem par | *"não encontramos esse produto"* — a busca funcionou |
+ *
+ * ⚠️ **Digitar continua sendo o caminho completo** (G3), não o plano B: o catálogo chega **por cima**
+ * da prateleira manual, nunca no lugar dela.
  *
  * ⛔ **Nada aqui recomenda.** Sem *"popular"*, sem *"recomendado"*, sem *"para o seu cabelo"* e sem
  * ordenação por mérito: o primeiro seria o `T2`, o último a `P18`, e os dois têm gate próprio (NG3).
@@ -35,8 +47,8 @@ export function CatalogSearchSection({
   onPick: (product: CatalogProduct) => void;
 }) {
   /**
-   * ⚠️ `null` enquanto não se sabe, e **`null` não é "não tem"**: abrir a busca antes da resposta
-   * mostraria por um instante um caminho que pode não existir. É a mesma armadilha do
+   * ⚠️ `null` enquanto não se sabe, e **`null` não é "não tem"**: dizer *"em expansão"* antes da
+   * resposta seria afirmar sobre o catálogo sem tê-lo consultado. É a mesma armadilha do
    * `productCount: null` das sugestões (SPEC-026).
    */
   const [available, setAvailable] = useState<boolean | null>(null);
@@ -48,7 +60,8 @@ export function CatalogSearchSection({
     catalog
       .isAvailable()
       .then((yes) => active && setAvailable(yes))
-      // Falhar em saber é o mesmo que não ter: a prateleira manual não pode depender disto.
+      // Falhar em saber é tratado como vazio: a frase *"em expansão"* é verdadeira nos dois casos, e
+      // a prateleira manual não pode depender disto.
       .catch(() => active && setAvailable(false));
     return () => {
       active = false;
@@ -68,7 +81,28 @@ export function CatalogSearchSection({
       .catch(() => setResults([]));
   }, [catalog, term]);
 
-  if (available !== true) return null;
+  // Enquanto não se sabe, nada é afirmado — nem a busca, nem a expansão.
+  if (available === null) return null;
+
+  /**
+   * ⚠️ **O estado que o dono pediu, e o que ele NÃO pode parecer.** *"Não encontramos"* aqui faria
+   * parecer que a busca rodou e o produto dela não existe; *"erro"* faria parecer quebrado. O que é
+   * verdade é a terceira coisa: **o catálogo ainda está sendo montado**, e o caminho de sempre está
+   * logo abaixo.
+   */
+  if (available === false) {
+    return (
+      <Card tone="muted">
+        <Stack gap="xs">
+          <Text variant="bodyStrong">Catálogo de produtos ainda em expansão</Text>
+          <Text tone="muted">
+            Ainda estamos montando a lista de produtos com marca e foto. Enquanto isso, escreva o nome do
+            jeito que você chama — é assim que a sua prateleira funciona, e nada se perde depois.
+          </Text>
+        </Stack>
+      </Card>
+    );
+  }
 
   return (
     <Stack gap="sm">
@@ -100,8 +134,7 @@ export function CatalogSearchSection({
       {results === 'searching' ? <Loading label="Procurando…" /> : null}
 
       {Array.isArray(results) && results.length === 0 ? (
-        // ⚠️ Sem resultado NÃO é falha dela nem do app: é um produto que o catálogo não tem, e o
-        // caminho de digitar está logo abaixo, inteiro.
+        // ⚠️ Aqui o catálogo **tem** linhas: a busca rodou e não achou. É outra frase, de propósito.
         <Text tone="muted">Não encontramos esse produto. Você pode escrever o nome abaixo.</Text>
       ) : null}
 
