@@ -63,6 +63,19 @@ jobs:
       - name: Docs links referenced by CLAUDE.md exist
         run: pnpm check:docs-links
 
+      # ⚠️ Os três abaixo já estavam em `pnpm verify` — e NÃO rodavam no CI. A auditoria `--full`
+      # de 2026-09-07 mediu: um guardrail que só roda quando alguém digita o comando localmente não
+      # é um guardrail, é uma sugestão. Era a mesma classe do defeito que a mesma auditoria achou no
+      # `oilDueOn`: a peça existe, a ligação não.
+      - name: Every table in the migrations is described in the DATA-MODEL
+        run: pnpm check:data-model
+
+      - name: Migration versions are unique and well formed
+        run: pnpm check:migration-versions
+
+      - name: Entitlement catalogue matches the database
+        run: pnpm check:entitlement-parity
+
       - name: Mobile bundle validation (expo export, no EAS)
         run: pnpm --filter mobile run export:check
 
