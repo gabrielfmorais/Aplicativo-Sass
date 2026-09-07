@@ -107,7 +107,15 @@ export function ProgressTabScreen({
             encontra a explicação do que ele acrescenta, e não um botão que some sem dizer por quê.
           */}
           {onOpenInsights ? (
-            <Button label="Seus padrões" variant="secondary" onPress={onOpenInsights} />
+            /* SPEC-055 — largura de conteúdo: em largura total, um botão de contorno tem a forma
+               de um campo de texto. */
+            <Button
+              label="Seus padrões"
+              variant="secondary"
+              size="sm"
+              onPress={onOpenInsights}
+              style={styles.inlineStart}
+            />
           ) : null}
 
           {/*
@@ -234,6 +242,8 @@ function CareLine({ item }: { item: CareItem }) {
 }
 
 const styles = StyleSheet.create({
+  /** Um botão dentro do corpo não ocupa a linha inteira (mesma regra da SPEC-023/SPEC-024). */
+  inlineStart: { alignSelf: 'flex-start' },
   head: { alignItems: 'center', justifyContent: 'space-between' },
   /** `nowrap` porque tipo e data numa linha só é o que faz quatro semanas caberem numa tela. */
   line: { alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: space.sm },

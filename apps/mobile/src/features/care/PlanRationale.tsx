@@ -102,7 +102,7 @@ export function PlanRationale({
     <Card tone="muted">
       <Button
         label="Por que este cronograma?"
-        variant="ghost"
+        variant="secondary"
         size="sm"
         onPress={() => setOpen(!open)}
         accessibilityState={{ expanded: open }}
