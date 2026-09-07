@@ -5,7 +5,7 @@
 -- separadamente — que ela **alcança** só o que é dela, e que ela **deixa gravado** só o que é dela.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(14);
+select plan(16);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ot1@example.test'),
@@ -57,15 +57,18 @@ select throws_ok(
 -- ------------------------------------------------------------------ isolamento entre usuárias
 select tests.as_user('00000000-0000-4000-8000-0000000000a2');
 select is((select count(*)::int from public.oil_routine_times), 0, 'a outra usuária não enxerga nenhum horário alheio');
-select is(
-  (select count(*)::int from (
-     delete from public.oil_routine_times
-      where user_id = '00000000-0000-4000-8000-0000000000a1' returning 1) as d),
-  0,
-  'e o DELETE dela não alcança horário alheio — apaga zero, em vez de falhar');
+
+-- ⚠️ **A RLS FILTRA, não falha** — e é isso que precisa ser medido. Um `DELETE` mirando as linhas
+-- alheias não levanta erro: ele simplesmente não alcança nada. Testar só o erro deixaria passar o
+-- caso em que a policy some e o comando volta a apagar em silêncio.
+delete from public.oil_routine_times where user_id = '00000000-0000-4000-8000-0000000000a1';
 
 -- ------------------------------------------------------------------ o histórico sobrevive (EC6)
 select tests.as_user('00000000-0000-4000-8000-0000000000a1');
+select is(
+  (select count(*)::int from public.oil_routine_times),
+  10,
+  'o DELETE da outra usuária não apagou nada: os dez horários dela continuam lá');
 select public.record_oil_event('done', gen_random_uuid(), 'America/Sao_Paulo');
 update public.oil_events
    set routine_time_id = (select id from public.oil_routine_times where time_local = '08:00')
