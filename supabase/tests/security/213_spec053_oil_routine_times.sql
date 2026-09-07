@@ -5,7 +5,7 @@
 -- separadamente — que ela **alcança** só o que é dela, e que ela **deixa gravado** só o que é dela.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(14);
+select plan(16);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ot1@example.test'),
