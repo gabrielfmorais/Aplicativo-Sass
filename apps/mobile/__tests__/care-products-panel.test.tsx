@@ -11,9 +11,9 @@ import { CareProductsPanel } from '@/features/care/CareProductsPanel';
  * substantivo (D-26/D-70) — o que ele mostra é o registro que **ela** fez e a prateleira **dela**.
  */
 
-const MASK: Product = { id: 'p1', name: 'Máscara da feira', category: 'mask' };
-const SHAMPOO: Product = { id: 'p2', name: 'Shampoo do mercado', category: 'shampoo' };
-const OIL: Product = { id: 'p3', name: 'Óleo de coco', category: 'oil' };
+const MASK: Product = { id: 'p1', name: 'Máscara da feira', category: 'mask', catalog: null };
+const SHAMPOO: Product = { id: 'p2', name: 'Shampoo do mercado', category: 'shampoo', catalog: null };
+const OIL: Product = { id: 'p3', name: 'Óleo de coco', category: 'oil', catalog: null };
 
 const ports = (lastUsed: readonly Product[], shelf: readonly Product[]) => ({
   washDays: { lastUsedFor: jest.fn(async () => lastUsed) } as unknown as WashDayPort,
@@ -100,5 +100,64 @@ describe('produtos na execução (SPEC-041)', () => {
     const s = await renderPanel([MASK], [MASK, SHAMPOO]);
     await waitFor(() => s.getByText('Da última vez você usou'));
     expect(s.queryByText(/recomend|ideal|melhor|indicad|use |experimente|compre/i)).toBeNull();
+  });
+});
+
+/**
+ * ⚠️ **SPEC-054 G4/AC9 — o mesmo produto, a mesma marca, a mesma foto.**
+ *
+ * O que se protege aqui é a **continuidade**: se a prateleira mostra a embalagem e a execução mostra
+ * um nome solto, é o mesmo vidro parecendo dois produtos — e é exatamente o que o catálogo existe
+ * para acabar.
+ */
+describe('CareProductsPanel — a identidade do catálogo (SPEC-054)', () => {
+  const REAL: Product = {
+    id: 'p9',
+    name: 'Meu shampoo',
+    category: 'shampoo',
+    catalog: {
+      id: 'c1',
+      brand: 'Marca Fictícia',
+      line: 'Linha Teste',
+      name: 'Shampoo de Teste',
+      variant: '300ml',
+      category: 'shampoo',
+      imageUrl: 'https://exemplo.test/p.jpg',
+    },
+  };
+
+  it('mostra a marca junto do nome no que ela usou da última vez', async () => {
+    const s = await renderPanel([REAL], [REAL]);
+    await waitFor(() => s.getByText('Da última vez você usou'));
+    // ⚠️ O nome DELA continua sendo o título; a marca é a segunda linha.
+    s.getByText('Meu shampoo');
+    s.getByText('Marca Fictícia · Linha Teste · 300ml');
+  });
+
+  it('no resto da prateleira, a marca vem junto do nome, nunca no lugar dele', async () => {
+    const s = await renderPanel([MASK], [MASK, REAL]);
+    await waitFor(() => s.getByText('Também na sua prateleira'));
+    s.getByText('Marca Fictícia · Meu shampoo');
+  });
+
+  /**
+   * ⚠️ **A regressão que vale mais que as outras.** Toda prateleira que existe hoje é manual, e o
+   * catálogo vazio é o estado permanente até a ingestão acontecer.
+   */
+  it('sem catálogo, o painel é byte a byte o de antes (AC1)', async () => {
+    const s = await renderPanel([MASK], [MASK, SHAMPOO]);
+    await waitFor(() => s.getByText('Da última vez você usou'));
+    s.getByText('Máscara da feira');
+    s.getByText('Shampoo do mercado');
+    // Nenhuma segunda linha inventada onde não há catálogo.
+    expect(s.queryByText(/ · /)).toBeNull();
+  });
+
+  /** FR7 — produto de catálogo **sem foto** continua utilizável, e continua mostrando a marca. */
+  it('produto de catálogo sem imagem não perde a marca', async () => {
+    const semFoto: Product = { ...REAL, catalog: { ...REAL.catalog!, imageUrl: null } };
+    const s = await renderPanel([semFoto], [semFoto]);
+    await waitFor(() => s.getByText('Da última vez você usou'));
+    s.getByText('Marca Fictícia · Linha Teste · 300ml');
   });
 });

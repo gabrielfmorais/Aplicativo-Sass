@@ -25,6 +25,16 @@ import { CARE_TYPE_CODES, type CareTypeCode } from './index.ts';
 
 const STARTS_ON = localDateFromString('2026-09-07');
 
+/**
+ * ⚠️ **Orçamento de relógio, não asserção** — a mesma razão do `testTimeout` do `jest.config.js`.
+ *
+ * As varreduras aqui percorrem 57.600 perfis e levam ~4s numa máquina livre; num runner carregado,
+ * o teto padrão de 5s do vitest transforma um teste **correto** em vermelho. Um teste que reprova
+ * por relógio é pior que nenhum: ele ensina a ignorar a cor. Nada espera este tempo quando as coisas
+ * funcionam, e um laço infinito continua falhando.
+ */
+const BUDGET = 30_000;
+
 const PATTERNS = ['straight', 'wavy', 'curly', 'coily', 'transitioning_or_mixed', 'unknown'] as const;
 const WASH = [
   'once_or_less_weekly',
@@ -100,8 +110,21 @@ const MATRIX: readonly HairProfileSnapshot[] = (() => {
   return rows;
 })();
 
-const typesOf = (profile: HairProfileSnapshot, version: ScheduleVersion): readonly CareTypeCode[] =>
+const planOf = (profile: HairProfileSnapshot, version: ScheduleVersion): readonly CareTypeCode[] =>
   buildPlan(profile, STARTS_ON, undefined, version).cares.map((c) => c.careTypeCode);
+
+/**
+ * ⚠️ **As duas varreduras acontecem UMA vez, e não uma por asserção.**
+ *
+ * Cada teste abaixo percorre a matriz inteira; recalculando o plano em cada um, o arquivo fazia
+ * ~oito varreduras completas e passou a **encostar no timeout** do vitest numa máquina carregada —
+ * um teste correto que reprova por relógio é pior que nenhum, porque ensina a ignorar a cor.
+ *
+ * Calcular na carga do módulo mantém exatamente as mesmas asserções e tira o relógio da conta.
+ */
+const V1 = MATRIX.map((p) => planOf(p, 'v1'));
+const V2 = MATRIX.map((p) => planOf(p, 'v2'));
+const typesAt = (i: number, version: ScheduleVersion) => (version === 'v1' ? V1[i] : V2[i]) ?? [];
 
 const countOf = (types: readonly CareTypeCode[]): Record<CareTypeCode, number> => {
   const counts = Object.fromEntries(CARE_TYPE_CODES.map((t) => [t, 0])) as Record<CareTypeCode, number>;
@@ -138,10 +161,8 @@ describe('matriz de cenários — o que o motor produz sobre o espaço de respos
    * o teste faz é impedir que o número mude sem ninguém ver.
    */
   it('o v1 monta 12 cronogramas distintos, o v2 monta 19', () => {
-    const distinct = (version: ScheduleVersion) =>
-      new Set(MATRIX.map((p) => typesOf(p, version).join(','))).size;
-    expect(distinct('v1')).toBe(12);
-    expect(distinct('v2')).toBe(19);
+    expect(new Set(V1.map((t) => t.join(','))).size).toBe(12);
+    expect(new Set(V2.map((t) => t.join(','))).size).toBe(19);
   });
 
   /**
@@ -158,22 +179,30 @@ describe('matriz de cenários — o que o motor produz sobre o espaço de respos
    *
    * A barreira mora aqui porque o fato é do motor; a frase tem a dela em `plan-rationale.test.tsx`.
    */
-  it('o v1 é invariante ao padrão de curvatura — a ênfase só escolhe quem abre o ciclo', () => {
-    for (const p of MATRIX) {
-      if (p.hairPattern === 'straight') continue;
-      expect(typesOf(p, 'v1')).toEqual(typesOf({ ...p, hairPattern: 'straight' }, 'v1'));
-    }
-  });
+  it(
+    'o v1 é invariante ao padrão de curvatura — a ênfase só escolhe quem abre o ciclo',
+    () => {
+      for (const p of MATRIX) {
+        if (p.hairPattern === 'straight') continue;
+        expect(planOf(p, 'v1')).toEqual(planOf({ ...p, hairPattern: 'straight' }, 'v1'));
+      }
+    },
+    BUDGET,
+  );
 
   /** E no v2 a curvatura passa a mudar o plano — senão a regra de prioridade 3 seria decorativa. */
-  it('o v2 deixa de ser invariante ao padrão de curvatura', () => {
-    const muda = MATRIX.filter(
-      (p) =>
-        p.hairPattern !== 'straight' &&
-        typesOf(p, 'v2').join() !== typesOf({ ...p, hairPattern: 'straight' }, 'v2').join(),
-    );
-    expect(muda.length).toBeGreaterThan(0);
-  });
+  it(
+    'o v2 deixa de ser invariante ao padrão de curvatura',
+    () => {
+      const muda = MATRIX.filter(
+        (p) =>
+          p.hairPattern !== 'straight' &&
+          planOf(p, 'v2').join() !== planOf({ ...p, hairPattern: 'straight' }, 'v2').join(),
+      );
+      expect(muda.length).toBeGreaterThan(0);
+    },
+    BUDGET,
+  );
 
   /**
    * ⚠️ **"O sistema sempre coloca reconstrução" seria defeito de produto — e não é o caso, medido.**
@@ -181,20 +210,24 @@ describe('matriz de cenários — o que o motor produz sobre o espaço de respos
    * A reconstrução tem condição, ela é conservadora (dois dos três sinais) e existem perfis dos dois
    * lados. O teste prende as duas pontas: nenhum caminho força, e nenhum caminho esquece.
    */
-  it('a reconstrução entra pelos sinais e por mais nada — nos dois sentidos', () => {
-    const semSinal = MATRIX.filter((p) => damageCount(p) < 2);
-    const comSinal = MATRIX.filter((p) => damageCount(p) >= 2);
-    expect(semSinal.length).toBeGreaterThan(0);
-    expect(comSinal.length).toBeGreaterThan(0);
+  it(
+    'a reconstrução entra pelos sinais e por mais nada — nos dois sentidos',
+    () => {
+      const semSinal = MATRIX.map((p, i) => (damageCount(p) < 2 ? i : -1)).filter((i) => i >= 0);
+      const comSinal = MATRIX.map((p, i) => (damageCount(p) >= 2 ? i : -1)).filter((i) => i >= 0);
+      expect(semSinal.length).toBeGreaterThan(0);
+      expect(comSinal.length).toBeGreaterThan(0);
 
-    for (const p of semSinal) expect(countOf(typesOf(p, 'v1')).reconstruction).toBe(0);
-    for (const p of comSinal) expect(countOf(typesOf(p, 'v1')).reconstruction).toBe(1);
-  });
+      for (const i of semSinal) expect(countOf(typesAt(i, 'v1')).reconstruction).toBe(0);
+      for (const i of comSinal) expect(countOf(typesAt(i, 'v1')).reconstruction).toBe(1);
+    },
+    BUDGET,
+  );
 
   /** No v1 ela é sempre **uma**; o v2 é quem transforma a contagem de sinais em quantidade. */
   it('o v1 nunca passa de uma reconstrução; o v2 chega a duas', () => {
-    const v1 = [...new Set(MATRIX.map((p) => countOf(typesOf(p, 'v1')).reconstruction))].sort();
-    const v2 = [...new Set(MATRIX.map((p) => countOf(typesOf(p, 'v2')).reconstruction))].sort();
+    const v1 = [...new Set(V1.map((t) => countOf(t).reconstruction))].sort();
+    const v2 = [...new Set(V2.map((t) => countOf(t).reconstruction))].sort();
     expect(v1).toEqual([0, 1]);
     expect(v2).toEqual([0, 1, 2]);
   });
@@ -206,15 +239,19 @@ describe('matriz de cenários — o que o motor produz sobre o espaço de respos
    * matriz inteira o v1 produz **zero** restaurações; no v2 os três sinais são condição
    * **necessária**, e o teto por ciclo é um.
    */
-  it('restauração: zero no v1, e no v2 os três sinais são condição necessária', () => {
-    for (const p of MATRIX) expect(countOf(typesOf(p, 'v1')).restoration).toBe(0);
-    for (const p of MATRIX) {
-      const quantas = countOf(typesOf(p, 'v2')).restoration;
-      expect(quantas).toBeLessThanOrEqual(1);
-      if (damageCount(p) < 3) expect(quantas).toBe(0);
-    }
-    expect(MATRIX.some((p) => countOf(typesOf(p, 'v2')).restoration === 1)).toBe(true);
-  });
+  it(
+    'restauração: zero no v1, e no v2 os três sinais são condição necessária',
+    () => {
+      for (const t of V1) expect(countOf(t).restoration).toBe(0);
+      MATRIX.forEach((p, i) => {
+        const quantas = countOf(typesAt(i, 'v2')).restoration;
+        expect(quantas).toBeLessThanOrEqual(1);
+        if (damageCount(p) < 3) expect(quantas).toBe(0);
+      });
+      expect(V2.some((t) => countOf(t).restoration === 1)).toBe(true);
+    },
+    BUDGET,
+  );
 
   /**
    * ⚠️ **Mas necessária não é suficiente, e a exceção é do MECANISMO, não de regra capilar.**
@@ -232,8 +269,8 @@ describe('matriz de cenários — o que o motor produz sobre o espaço de respos
       currentConcerns: ['breakage'],
     } as const satisfies Partial<HairProfileInput>;
 
-    const curto = typesOf(snapshot({ ...todosOsSinais, washFrequency: 'once_or_less_weekly' }), 'v2');
-    const longo = typesOf(snapshot({ ...todosOsSinais, washFrequency: 'twice_weekly' }), 'v2');
+    const curto = planOf(snapshot({ ...todosOsSinais, washFrequency: 'once_or_less_weekly' }), 'v2');
+    const longo = planOf(snapshot({ ...todosOsSinais, washFrequency: 'twice_weekly' }), 'v2');
 
     expect(curto).toHaveLength(4);
     expect(countOf(curto).restoration).toBe(0);
@@ -250,17 +287,21 @@ describe('matriz de cenários — o que o motor produz sobre o espaço de respos
    * nenhum. Hoje isso não acontece em nenhum dos 57.600 perfis, e o teste é o que garante que a
    * primeira vez que acontecer seja em CI, e não na tela dela.
    */
-  it('o v2 entrega exatamente a quota que calculou', () => {
-    for (const p of MATRIX) {
-      const assessment = assess(p);
-      const result = generateScheduleV2(assessment, {
-        snapshot: p,
-        startsOn: STARTS_ON,
-        assessmentAlgorithmVersion: CURRENT_ASSESSMENT_VERSION,
-      });
-      const { weights } = __testing.needWeights(p, assessment);
-      const quota = __testing.quotaFromWeights(weights, result.cares.length);
-      expect(countOf(result.cares.map((c) => c.careTypeCode))).toEqual(quota);
-    }
-  });
+  it(
+    'o v2 entrega exatamente a quota que calculou',
+    () => {
+      for (const p of MATRIX) {
+        const assessment = assess(p);
+        const result = generateScheduleV2(assessment, {
+          snapshot: p,
+          startsOn: STARTS_ON,
+          assessmentAlgorithmVersion: CURRENT_ASSESSMENT_VERSION,
+        });
+        const { weights } = __testing.needWeights(p, assessment);
+        const quota = __testing.quotaFromWeights(weights, result.cares.length);
+        expect(countOf(result.cares.map((c) => c.careTypeCode))).toEqual(quota);
+      }
+    },
+    BUDGET,
+  );
 });

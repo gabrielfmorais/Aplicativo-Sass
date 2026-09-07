@@ -1,7 +1,10 @@
 import type { CareTypeCode, Product, ProductPort, WashDayPort } from '@app/core';
 import { useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { Card, Row, Stack, Tag, Text } from '@/design/primitives';
+import { space } from '@/design/tokens';
+import { ProductThumb } from '@/features/shelf/ProductIdentity';
 
 /**
  * SPEC-041 (F48) — **os produtos que ela já tem, no momento do cuidado.**
@@ -82,15 +85,35 @@ export function CareProductsPanel({
           <Stack gap="sm">
             {/* Um fato dela, com data implícita e sem nenhuma sugestão embutida (NG1). */}
             <Text variant="bodyStrong">Da última vez você usou</Text>
-            <Row>
-              {/* `Tag`, e não `Chip`: isto é leitura, não escolha. Um `Chip` sem ação se anuncia
-                  como rádio ou caixa de seleção para tecnologia assistiva e vira botão morto — o
-                  defeito exato que a auditoria da SPEC-027 encontrou na aba Prateleira. Marcar o que
-                  ela usou é na tela do registro (SPEC-024), que tem endereço próprio. */}
+            {/*
+              ⚠️ **SPEC-054 G4 — aqui, e só aqui, a embalagem aparece.**
+
+              Estes são os produtos **associados àquele cuidado**: é onde a foto carrega informação —
+              *"é este vidro"* — em vez de ser enfeite. O resto da prateleira continua em `Tag`,
+              porque ali a foto viraria uma parede de miniaturas sobre uma lista que ela só percorre.
+
+              ⚠️ Com o catálogo vazio — o estado de hoje — cada linha volta a ser **nome e nada
+              mais**, que é exatamente o que esta seção sempre mostrou.
+            */}
+            <Stack gap="xs">
               {state.lastUsed.map((product) => (
-                <Tag key={product.id} label={product.name} tone="accent" />
+                <View key={product.id} style={styles.usedRow}>
+                  <ProductThumb identity={product.catalog} />
+                  <View style={styles.usedText}>
+                    <Text variant="bodyStrong" numberOfLines={1}>
+                      {product.name}
+                    </Text>
+                    {product.catalog ? (
+                      <Text variant="caption" tone="muted" numberOfLines={1}>
+                        {[product.catalog.brand, product.catalog.line, product.catalog.variant]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
               ))}
-            </Row>
+            </Stack>
           </Stack>
         ) : null}
 
@@ -100,8 +123,16 @@ export function CareProductsPanel({
               {state.lastUsed.length > 0 ? 'Também na sua prateleira' : 'Na sua prateleira'}
             </Text>
             <Row>
+              {/* `Tag`, e não `Chip`: isto é leitura, não escolha. Um `Chip` sem ação se anuncia
+                  como rádio ou caixa de seleção para tecnologia assistiva e vira botão morto — o
+                  defeito exato que a auditoria da SPEC-027 encontrou na aba Prateleira. Marcar o que
+                  ela usou é na tela do registro (SPEC-024), que tem endereço próprio. */}
               {rest.map((product) => (
-                <Tag key={product.id} label={product.name} />
+                <Tag
+                  key={product.id}
+                  // SPEC-054 — a marca vem junto do nome, nunca no lugar dele.
+                  label={product.catalog ? `${product.catalog.brand} · ${product.name}` : product.name}
+                />
               ))}
             </Row>
           </Stack>
@@ -110,3 +141,9 @@ export function CareProductsPanel({
     </Card>
   );
 }
+
+const styles = StyleSheet.create({
+  usedRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  /** `flex: 1` deixa o nome encolher em vez de empurrar a miniatura para fora da linha. */
+  usedText: { flex: 1, gap: space.xs },
+});

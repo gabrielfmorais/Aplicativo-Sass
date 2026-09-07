@@ -64,7 +64,9 @@ describe('ShelfScreen (SPEC-023)', () => {
 
   it('lista o que ela tem e deixa tirar da prateleira', async () => {
     const products = makePort({
-      list: jest.fn(async () => [{ id: 'p1', name: 'Shampoo X', category: 'shampoo' as const }]),
+      list: jest.fn(async () => [
+        { id: 'p1', name: 'Shampoo X', category: 'shampoo' as const, catalog: null },
+      ]),
     });
     const s = await renderScreen(products);
     await waitFor(() => s.getByText('Shampoo X'));
@@ -95,7 +97,9 @@ describe('ShelfScreen (SPEC-023)', () => {
    */
   it('não afirma nada sobre o produto e não interpreta nada', async () => {
     const products = makePort({
-      list: jest.fn(async () => [{ id: 'p1', name: 'Shampoo X', category: 'shampoo' as const }]),
+      list: jest.fn(async () => [
+        { id: 'p1', name: 'Shampoo X', category: 'shampoo' as const, catalog: null },
+      ]),
     });
     const s = await renderScreen(products);
     await waitFor(() => s.getByText('Shampoo X'));

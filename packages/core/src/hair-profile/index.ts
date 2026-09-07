@@ -33,4 +33,11 @@ export {
   type Product,
   type ProductCategory,
 } from './domain/product.ts';
-export type { HairEventPort, HairProfilePort, ProductPort } from './application/ports.ts';
+export {
+  CatalogSearchSchema,
+  catalogFullName,
+  type CatalogProduct,
+  type CatalogSearch,
+  type ProductCatalogIdentity,
+} from './domain/catalog-product.ts';
+export type { HairEventPort, HairProfilePort, ProductPort, ProductCatalogPort } from './application/ports.ts';
