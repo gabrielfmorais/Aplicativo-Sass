@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-038 |
-| Status | **Fatias 1 e 2 DONE** — quarto tipo validado no DEV real; motor v2 pronto e testado. **A versão corrente segue v1 por OQ2** (gate do dono; a OQ4 que bloqueava foi fechada pela SPEC-046). **Auditado de ponta a ponta em §21.** |
+| Status | **DONE e ATIVA** — a **v2 é a versão corrente desde 2026-09-07**, por autorização do dono (§19, §22). Auditada de ponta a ponta em §21. ⛔ Ativação **não é sign-off**: as regras seguem `candidate` e PUBLIC RELEASE continua bloqueado (D-26/D-70). |
 | Owner | dono do produto |
 | Bounded Context | Schedule (`packages/core/src/schedule`) + Content + design tokens |
 | Related ADRs | **ADR-001 §2** (versão liberada é imutável), **ADR-007 A1** (registro de regras), D-26, D-67, D-102 |
@@ -127,9 +127,27 @@ Nenhum dado novo é coletado.
   `validated` existe fora do próprio teste de governança, e o v2 **não lê** porosidade nem
   disponibilidade — menciona as duas só em comentário, e há teste de invariância. ✅
 
-## 19. Ativação — o que falta, e por que não é do agente
+## 19. Ativação — ✅ LIGADA em 2026-09-07 (o texto abaixo fica como registro do que travava)
 
-⚠️ **A v2 está pronta e a versão corrente segue sendo a v1.** Não é hesitação: ligar exige duas
+⚠️ **O dono autorizou explicitamente a ativação para o ambiente de desenvolvimento/beta**, depois da
+auditoria de §21, e ela foi feita: `CURRENT_SCHEDULE_VERSION = v2`. ⛔ **A autorização é de
+ATIVAÇÃO, não de sign-off**: as regras seguem `candidate` e **PUBLIC RELEASE segue bloqueado**
+(D-26/D-70/OQ-REL), com o teste de governança que faz `assertProductionRules` lançar de pé.
+
+**As duas condições listadas abaixo estavam satisfeitas.** A migration foi aplicada pelo dono em
+2026-09-03, e a segunda **deixou de ser condição**: a SPEC-046 trocou "os dois bundles têm de ser o
+mesmo" por um **contrato de versão** — o cliente manda a versão com que previu e o servidor honra
+aquela. Medido nesta ativação: o preview mostrou `HID NUT HID REC NUT REC HID RES` e o plano gravado
+ficou **`engine=v2`, HID 3 · NUT 2 · REC 2 · RES 1** — a mesma coisa, sem redeploy.
+
+⚠️ **Um defeito de ativação que a troca revelou, e que valia por si:** `CURRENT_SCHEDULE_RULES` era
+`SCHEDULE_RULES_V1` escrito à mão no barril do módulo, sob o comentário *"as regras por trás de
+`CURRENT_SCHEDULE_VERSION`"*. Ligar a v2 sem tocar nele faria **o registro que o revisor de domínio
+lê descrever um motor que ninguém executa**, e nada quebraria. Passou a ser derivado da mesma tabela
+de despacho, com teste. Junto saiu `generateSchedule = generateScheduleV1` — export **sem um único
+consumidor** que fixava a v1 e contornava o `buildPlan` do AC3.
+
+— Registro original: ⚠️ **A v2 está pronta e a versão corrente segue sendo a v1.** Não é hesitação: ligar exige duas
 ações de ambiente que a governança não dá ao agente.
 
 1. **A migration `20260911000000_care_type_restoration.sql` precisa estar aplicada** no ambiente
@@ -270,6 +288,68 @@ reproduzida **com a engine que o gerou**. ⚠️ **A deriva que sobra é a OQ3 d
 versão: perfil e entitlement são relidos **no momento de gerar**, então reavaliar entre o preview e a
 confirmação ainda muda o plano em relação ao que ela viu.
 
+## 22. A ativação, medida no DEV real (2026-09-07)
+
+Autorizada pelo dono. Ligar foi **uma linha**; o que segue é o que a medição provou depois dela.
+
+**Bateria do motor (13 asserções, todas verdes):**
+
+| o que foi pedido | medido |
+|---|---|
+| a versão corrente é a v2 | ✅ e o rascunho sem versão explícita já nasce `v2` |
+| o plano carimba a mesma versão que o rascunho nomeia | ✅ |
+| perfil que **não** recebe Reconstrução | ✅ `HID NUT HID NUT HID NUT HID NUT` |
+| perfil com **1** Reconstrução | ✅ `… HID REC` (HID 4 · NUT 3 · REC 1) |
+| perfil com **2** Reconstruções | ✅ `HID NUT HID REC NUT REC HID RES` |
+| perfil que recebe **Restauração** | ✅ o mesmo acima |
+| ciclo curto zerando a Restauração | ✅ 4 vagas → `HID NUT HID REC`, RES 0 |
+| nenhum plano ultrapassa a quota | ✅ 0 desvios em 57.600 perfis |
+| todo ciclo fecha | ✅ a soma dos tipos é o número de vagas |
+| histórico v1 intacto | ✅ **20/20 planos do DEV reproduzem byte a byte** com a engine que os gerou |
+| nenhum plano reescrito | ✅ as versões gravadas continuam `{v1: 19, v2: 1}` antes do plano novo |
+
+**Jornada real a 390px — reavaliação → preview → confirmação:**
+
+```
+preview do cliente (v2):  HID 3 · NUT 2 · REC 2 · RES 1
+plano gravado:            engine=v2 · HID 3 · NUT 2 · REC 2 · RES 1     ← a mesma coisa
+cronograma na Hoje:       HID 07/09 · NUT 11/09 · HID 14/09 · REC 18/09
+                          NUT 21/09 · REC 25/09 · HID 28/09 · RES 02/10
+```
+
+⭐ **É o primeiro plano real da Huna com Restauração**, e o primeiro com **duas** Reconstruções. A
+explicação reproduziu a evidência certa — *"Você marcou quebra dos fios · Você faz química no cabelo
+· Você usa calor com frequência · A frequência dos cuidados acompanha a sua rotina de lavagem"* —, o
+guia do quarto tipo está em Cuidados, o ciclo mostra as quatro semanas **sem nota nem porcentagem**,
+e a Jornada, a execução avulsa e a rotina de óleo continuam inteiras. **Zero problema de console.**
+
+⚠️ **As datas caem em segundas e sextas porque a usuária do DEV tem `plan_customization`** — a
+SPEC-015 move **quando**, e a v2 decide **o quê**. As duas camadas continuam separadas (AC4).
+
+### 22.1 O 401 intermitente, causa raiz encontrada durante esta validação
+
+⚠️ **A primeira tentativa de validar a v2 no DEV falhou — e não pelo motor.** A tela abriu com
+*"Não foi possível carregar seu perfil"*, e o detalhe nomeava a causa: **`JWT issued at future`**.
+
+Era o 401 intermitente que a auditoria anterior tinha registrado sem explicação, batendo em
+`oil_routines`, `oil_events` e agora `hair_profiles` — ou seja, em **quem chegasse primeiro**. A
+medição fecha a conta: o token foi emitido às `18:28:50.909` e carimbado com `iat = 18:28:51.000`.
+O servidor de auth **arredonda o `iat` para o segundo**, então por até ~1 segundo o token afirma ter
+sido emitido no futuro, e quem valida o recusa. As primeiras leituras depois do login caem nessa
+janela; as seguintes passam. Daí a intermitência (~1 em 3), e daí nenhum teste jamais ver.
+
+**A consequência não era cosmética:** a rotina de óleo falha em silêncio por decisão (SPEC-040) e
+apenas sumia, mas o perfil **não** — a tela autenticada inteira exibia erro com "Tentar novamente",
+por causa de uma fração de segundo, no primeiro instante em que ela entra no app.
+
+**A correção é uma tentativa a mais, e só nessa condição**
+(`apps/mobile/src/infrastructure/supabase/clock-skew-retry.ts`). ⛔ **Não é retry genérico de 401** —
+mascarar autorização negada trocaria um defeito visível por um invisível; o gatilho é a mensagem do
+servidor dizendo que o token **ainda não vale**, condição que se resolve sozinha com o tempo.
+Repetir é seguro mesmo para escrita, porque um 401 é recusa **antes** de o servidor fazer qualquer
+coisa. Barreira de teste nos dois sentidos, com os 401 de RLS, de chave inválida e de token expirado
+**passando direto**, sem segunda tentativa.
+
 ## 23. Open Questions
 
 - OQ1 — ⚠️ **Quatro entradas do perfil não têm consumidor, e os motivos são diferentes** (medido em
@@ -279,7 +359,9 @@ confirmação ainda muda o plano em relação ao que ela viu.
   a SPEC-002, nunca tiveram consumidor e nunca tiveram veto — ninguém decidiu que elas não devem
   contar, só não existe regra que as use. ⛔ **Escrever essa regra é D-26/D-70**, não engenharia.
   Enquanto isso, quatro das dez perguntas do onboarding custam o tempo dela sem mudar nada.
-- OQ2 — **Quando trocar `CURRENT_SCHEDULE_VERSION` para v2** é decisão de produto, não técnica: muda
+- OQ2 — ✅ **RESPONDIDA pelo dono em 2026-09-07: ligada para desenvolvimento/beta** (§19, §22).
+  ⛔ **Não é sign-off:** as regras seguem `candidate` e o gate de PUBLIC RELEASE (OQ3) continua
+  inteiro. — Registro original: **Quando trocar `CURRENT_SCHEDULE_VERSION` para v2** é decisão de produto, não técnica: muda
   o cronograma de quem gerar plano novo. Fica como gate do dono.
 - OQ3 — **PUBLIC RELEASE bloqueado** (D-26/D-70/OQ-REL) enquanto as regras forem `candidate`.
 - OQ4 — ✅ **FECHADA pela SPEC-046 (2026-09-05), e o texto abaixo fica como registro do problema.** O
@@ -300,3 +382,4 @@ confirmação ainda muda o plano em relação ao que ela viu.
 | 2026-09-03 | v0.1 — fatia 1: o quarto tipo no vocabulário, sem tocar no comportamento do v1. |
 | 2026-09-03 | v0.2 — fatia 2: motor v2 por necessidade. **Dois defeitos achados ao imprimir o plano e olhar**, não pelos testes: a quota de condicionamento era calculada e ignorada (a ênfase não mudava proporção nenhuma), e a escolha empatada abria pelo eixo errado. Barreira acrescentada. **Um terceiro achado ao ligar a versão:** escolha e despacho estavam em módulos diferentes, e a constante apontou para a v2 enquanto o padrão do `buildPlan` seguia na v1. |
 | 2026-09-07 | v0.3 — **auditoria vertical do motor (§21), a pedido do dono.** Medição do output sobre 307.200 perfis: o v1 monta **12 cronogramas distintos**, o v2 monta 19; a reconstrução não é forçada (18,1% do espaço recebe zero) e a restauração **não é alcançável por nenhuma usuária real** enquanto a corrente for a v1. **Um defeito corrigido:** o *"Por que este cronograma?"* afirmava *"Cabelos com curvatura costumam pedir mais hidratação."* sobre um plano medido como **idêntico** ao de cabelo liso em 960 de 960 perfis — a frase virou observação e ganhou barreira de linguagem. **Quatro entradas do perfil sem consumidor** classificadas em §21.4, duas delas (espessura, couro) sem veto e sem registro anterior — OQ1 ampliada. **OQ4 marcada como fechada** pela SPEC-046. |
+| 2026-09-07 | v0.4 — **v2 ATIVADA** por autorização do dono (OQ2 respondida). §19 e §22 com a medição: preview e plano gravado idênticos (`engine=v2`, HID 3 · NUT 2 · REC 2 · RES 1), **o primeiro plano real da Huna com Restauração**, 20/20 planos históricos reproduzindo byte a byte com a engine que os gerou, e 0 desvios de quota em 57.600 perfis. **Dois defeitos que a ativação revelou:** o registro de governança (`CURRENT_SCHEDULE_RULES`) apontava para as regras da v1 e passaria a descrever um motor que ninguém executa — agora é derivado, com teste; e o export morto `generateSchedule` fixava a v1 contornando o `buildPlan` do AC3 — removido. **E a causa raiz do 401 intermitente (§22.1):** `JWT issued at future`, o `iat` arredondado para o segundo, corrigido com uma única repetição restrita a essa condição. |

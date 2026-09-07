@@ -7,6 +7,7 @@ import {
   CARE_TYPE_CODES,
   buildPlan,
   isKnownScheduleVersion,
+  scheduleRulesOf,
   type CareTypeCode,
 } from './index.ts';
 
@@ -161,15 +162,40 @@ describe('schedule rules governance (ADR-007 A1 / D-26 / D-67)', () => {
     }
   });
 
-  it('V1 rules are candidate — PUBLIC RELEASE stays gated on validated (AC12)', () => {
+  /**
+   * ⚠️ **A autorização do dono para ligar a v2 é de ATIVAÇÃO, não de sign-off** (2026-09-07). As
+   * regras da versão corrente continuam `candidate`, e tratar o motor como pronto para produção
+   * continua **lançando**. Se algum dia isto passar a não lançar sem um revisor ter assinado, o gate
+   * de PUBLIC RELEASE caiu por acidente.
+   */
+  it('as regras da versão corrente são candidate — PUBLIC RELEASE segue bloqueado (AC12)', () => {
     expect(CURRENT_SCHEDULE_RULES.every((r) => r.validation_status === 'candidate')).toBe(true);
     expect(() => assertProductionRules(CURRENT_SCHEDULE_RULES)).toThrow(/non-validated domain rules/);
   });
 
-  it('exposes the version stamped on every plan', () => {
-    // SPEC-038: a versao corrente passou a ser a v2. Este bloco continua sendo sobre o v1, e por isso
-    // todos os goldens acima nomeiam 'v1' explicitamente em vez de depender do padrao.
-    expect(CURRENT_SCHEDULE_VERSION).toBe('v1');
+  /**
+   * ⚠️ **O registro de governança tem de ser o da versão que EXECUTA.**
+   *
+   * `CURRENT_SCHEDULE_RULES` era `SCHEDULE_RULES_V1` escrito à mão no barril, com o comentário
+   * dizendo que eram as regras da versão corrente. Ligar a v2 sem tocar nele faria o registro que o
+   * revisor de domínio lê descrever **um motor que ninguém executa** — e nada quebraria. Agora ele é
+   * derivado, e este teste é o que garante que continue sendo.
+   */
+  it('o registro de regras é o da versão corrente, e não uma cópia ao lado', () => {
+    expect(CURRENT_SCHEDULE_RULES).toBe(scheduleRulesOf(CURRENT_SCHEDULE_VERSION));
+    expect(scheduleRulesOf('v1')).not.toBe(scheduleRulesOf('v2'));
+    // E toda versão que o despacho conhece tem registro: uma engine sem regras é uma engine que o
+    // revisor não consegue ler.
+    for (const v of ['v1', 'v2'] as const) {
+      expect(isKnownScheduleVersion(v)).toBe(true);
+      expect(scheduleRulesOf(v).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('a versão corrente é a v2 (ligada por autorização do dono, SPEC-038 OQ2)', () => {
+    // Os goldens acima continuam sendo sobre o v1 e por isso nomeiam 'v1' explicitamente, em vez de
+    // depender do padrão — foi essa disciplina que permitiu trocar a corrente sem reescrevê-los.
+    expect(CURRENT_SCHEDULE_VERSION).toBe('v2');
   });
 });
 
@@ -267,8 +293,15 @@ describe('a versão do motor viaja com o rascunho (SPEC-046)', () => {
     }
   });
 
-  /** ⚠️ A troca de versão **não** foi ligada aqui: a corrente continua a v1 até decisão do dono. */
-  it('a versão corrente continua sendo a v1 (OQ2 é gate do dono)', () => {
-    expect(CURRENT_SCHEDULE_VERSION).toBe('v1');
+  /**
+   * ⚠️ **A OQ2 foi respondida pelo dono em 2026-09-07: a corrente é a v2.**
+   *
+   * O contrato acima é o que torna a troca segura — o rascunho nomeia a versão que ele mesmo usou, e
+   * o servidor honra aquela. Um app antigo que não manda versão continua recebendo a corrente **do
+   * servidor**, que é o comportamento de sempre.
+   */
+  it('a versão corrente é a v2 (OQ2 respondida pelo dono)', () => {
+    expect(CURRENT_SCHEDULE_VERSION).toBe('v2');
+    expect(buildPlan(s, STARTS_ON).plan.scheduleAlgorithmVersion).toBe('v2');
   });
 });
