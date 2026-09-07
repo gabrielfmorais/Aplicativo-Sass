@@ -50,8 +50,19 @@ export interface HairPlanPort {
    * contra a allowlist e gera com ela — é isso que impede o app de prever um cronograma e receber
    * outro quando o binário de loja e a Edge Function versionam à parte. Omitida (app antigo), o
    * servidor usa a versão corrente **dele**, que é o comportamento que sempre existiu.
+   *
+   * ⚠️ **`hairProfileId` é a avaliação com que ELA VIU o preview** (SPEC-046 OQ3). Sem ele o
+   * servidor lia sempre a **mais recente**, então reavaliar num segundo aparelho — ou confirmar
+   * numa aba aberta há mais tempo — entre ver o cronograma e confirmá-lo fazia ela **confirmar um
+   * e receber outro**. Mandar o id **não autoriza nada**: a leitura acontece com a JWT dela, sob
+   * RLS, e um id que não é dela simplesmente não volta.
    */
-  generate(input: { clientRequestId: string; startsOn: string; scheduleVersion?: string }): Promise<HairPlan>;
+  generate(input: {
+    clientRequestId: string;
+    startsOn: string;
+    scheduleVersion?: string;
+    hairProfileId?: string;
+  }): Promise<HairPlan>;
 }
 
 /**

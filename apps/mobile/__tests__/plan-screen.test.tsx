@@ -110,6 +110,12 @@ describe('PlanScreen (SPEC-004 §5) — preview and confirmation only', () => {
       clientRequestId: 'req-1',
       startsOn: '2026-09-01',
       scheduleVersion: buildPlan(profile, '2026-09-01' as never).scheduleVersion,
+      /**
+       * SPEC-046 OQ3 — **e a avaliação também**, pela mesma razão e do mesmo lugar. Ler o perfil
+       * corrente na hora de confirmar reintroduziria a deriva pelo outro lado: o servidor geraria a
+       * partir de uma avaliação que ela nunca viu.
+       */
+      hairProfileId: buildPlan(profile, '2026-09-01' as never).plan.hairProfileId,
     });
     expect(plans.generate).toHaveBeenCalledTimes(1);
   });

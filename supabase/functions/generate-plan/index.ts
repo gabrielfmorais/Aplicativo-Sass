@@ -18,6 +18,7 @@ import {
 import { createClient } from '@supabase/supabase-js';
 
 import { CORS_HEADERS, preflight } from './cors.ts';
+import { resolvePinnedProfile } from './pinned-profile.ts';
 import { premiumPreferences } from './preferences.ts';
 import { resolveScheduleVersion } from './schedule-version.ts';
 
@@ -73,13 +74,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
   lastCallAt.set(userId, now);
 
   // Trust boundary: validate the two client-supplied values (SECURITY-BASELINE, zod-equivalent).
-  let body: { clientRequestId?: unknown; startsOn?: unknown; scheduleVersion?: unknown };
+  let body: {
+    clientRequestId?: unknown;
+    startsOn?: unknown;
+    scheduleVersion?: unknown;
+    hairProfileId?: unknown;
+  };
   try {
     body = await req.json();
   } catch {
     return json(400, { error: 'invalid_body' });
   }
-  const { clientRequestId, startsOn, scheduleVersion } = body;
+  const { clientRequestId, startsOn, scheduleVersion, hairProfileId } = body;
   if (typeof clientRequestId !== 'string' || !isUuid(clientRequestId)) {
     return json(400, { error: 'invalid_client_request_id' });
   }
@@ -100,16 +106,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!decided.ok) return json(400, { error: 'unsupported_schedule_version' });
   const engineVersion = decided.version;
 
-  // Her current snapshot, read under RLS with her own JWT — the client never supplies the profile.
-  const { data: profileRow, error: profileError } = await userClient
-    .from('hair_profiles')
-    .select(HAIR_PROFILE_COLUMNS)
-    .order('created_at', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  /**
+   * SPEC-046 OQ3 — a avaliação com que ela viu o preview. A decisão inteira mora em
+   * `resolvePinnedProfile`, incluindo por que o entitlement **não** pode ser fixado do mesmo jeito.
+   */
+  const pinned = resolvePinnedProfile(hairProfileId);
+  if (!pinned.ok) return json(400, { error: 'invalid_hair_profile_id' });
+
+  /**
+   * O snapshot dela, lido sob RLS com a própria JWT — o cliente nunca **envia** o perfil, no máximo
+   * **aponta** para um que já é dele. Um id de outra pessoa não volta, e vira 409 em vez de dados.
+   */
+  const profileQuery = userClient.from('hair_profiles').select(HAIR_PROFILE_COLUMNS);
+  const { data: profileRow, error: profileError } = await (pinned.hairProfileId
+    ? profileQuery.eq('id', pinned.hairProfileId).maybeSingle()
+    : profileQuery
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle());
   if (profileError) return json(503, { error: 'profile_read_failed' });
-  if (!profileRow) return json(409, { error: 'no_hair_profile' });
+  if (!profileRow) {
+    // Distinguir os dois é o que permite ao cliente saber se ela nunca respondeu (mandar para o
+    // onboarding) ou se apontou para uma avaliação que não é dela (não existe caminho de tela).
+    return json(409, { error: pinned.hairProfileId ? 'hair_profile_not_found' : 'no_hair_profile' });
+  }
 
   // Premium placement, decided server-side. Free (or unverifiable) callers get the engine default,
   // and either way the care types, their count and their cadence are the engine's alone (SPEC-015 G3).
