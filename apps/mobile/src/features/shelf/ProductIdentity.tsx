@@ -1,8 +1,8 @@
 import type { Product, ProductCatalogIdentity } from '@app/core';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 
 import { Text } from '@/design/primitives';
-import { color, radius, space } from '@/design/tokens';
+import { color, radius } from '@/design/tokens';
 
 /**
  * SPEC-054 (F32) — **o produto como ele é no mundo**, quando o app sabe qual é.
@@ -22,9 +22,19 @@ import { color, radius, space } from '@/design/tokens';
 
 const SIZE = 40;
 
-/** O lugar da foto quando não há foto: um quadrado neutro, do mesmo tamanho, para a linha não pular. */
+/**
+ * ⚠️ **SPEC-055 FR6 — sem imagem, NADA é renderizado. E isso é o conserto de uma regressão minha.**
+ *
+ * A primeira versão reservava um quadrado neutro *"para a linha não pular"*. Com o catálogo vazio —
+ * que é o estado de hoje e o **permanente** até a ingestão acontecer (SPEC-054 OQ1) — a Prateleira
+ * ganhou **três caixas cinza em branco**, e três caixas em branco leem como **imagem quebrada**.
+ *
+ * ⚠️ **Um espaço reservado que nunca vai ser preenchido é pior que nenhum**: ele promete uma foto
+ * que não existe e, pior, sugere que alguma coisa falhou ao carregar. A linha voltar a ser
+ * exatamente a de antes da SPEC-054 é o comportamento certo — e é o que a validação a 390px mostrou.
+ */
 export function ProductThumb({ identity }: { identity: ProductCatalogIdentity | null }) {
-  if (!identity?.imageUrl) return <View style={styles.thumbEmpty} accessibilityElementsHidden />;
+  if (!identity?.imageUrl) return null;
   return (
     <Image
       source={{ uri: identity.imageUrl }}
@@ -64,6 +74,4 @@ const thumbBase = {
 
 const styles = StyleSheet.create({
   thumb: { ...thumbBase, backgroundColor: color.surface },
-  thumbEmpty: { ...thumbBase, backgroundColor: color.surfaceMuted },
-  spacer: { width: space.sm },
 });

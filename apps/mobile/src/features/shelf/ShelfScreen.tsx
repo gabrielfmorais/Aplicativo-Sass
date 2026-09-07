@@ -172,7 +172,20 @@ export function ShelfScreen({
         vazia, "como você usa" não teria o que contar, e um botão que leva a nada é pior que nenhum.
       */}
       {onOpenUsage && Array.isArray(list) && list.length > 0 ? (
-        <Button label="Como você usa sua prateleira" variant="secondary" onPress={onOpenUsage} />
+        /*
+          ⚠️ **SPEC-055 — largura de conteúdo, não da tela.**
+
+          Em largura total, um botão `secondary` (branco, borda, cantos arredondados) tem **a mesma
+          forma de um campo de texto** — e logo abaixo de um cabeçalho, é exatamente o que ele
+          parecia. Um botão do tamanho do que ele diz volta a se parecer com um botão.
+        */
+        <Button
+          label="Como você usa sua prateleira"
+          variant="secondary"
+          size="sm"
+          onPress={onOpenUsage}
+          style={styles.inlineStart}
+        />
       ) : null}
 
       {/*
@@ -288,6 +301,8 @@ export function ShelfScreen({
 }
 
 const styles = StyleSheet.create({
+  /** Um botão dentro do corpo não ocupa a linha inteira (mesma regra da SPEC-023/SPEC-024). */
+  inlineStart: { alignSelf: 'flex-start' },
   /** Sem respiro no cartão: quem respira é a linha, e o filete precisa atravessar de borda a borda. */
   list: { paddingVertical: 0, paddingHorizontal: 0, gap: 0, overflow: 'hidden' },
   divided: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.border },
