@@ -1065,7 +1065,52 @@ Cada elo só existe porque o anterior existe — e é essa cadeia que justifica 
 
 **Estado.** **COMMITTED**, com dependência de contrato real.
 
-# 28. Como usar este documento
+# 28. Rotina noturna / proteção noturna — `F49`
+
+**Registrada em 2026-09-07 por decisão do dono, COMMITTED e explicitamente FORA da prioridade
+imediata:** *"não interrompa as prioridades atuais para construir essa frente agora"*.
+
+## O problema
+
+O produto conhece o cuidado do dia (`F7`), o registro do que ela fez (`F25`), a finalização (`F37`)
+e a rotina paralela do óleo (`F39`). **O que acontece entre deitar e acordar não existe para ele** —
+e para muita gente é a parte da rotina que mais se repete, todo dia, sem lembrete nenhum.
+
+## O que ela escolhe
+
+Fatos configuráveis, no mesmo espírito do `F39`: **touca de cetim · fronha de cetim · trança ·
+proteção/coque · cabelo solto · outra · nenhuma rotina específica.**
+
+Com **dias, horários, lembretes, registro e histórico** — a mesma forma da rotina de óleo, e é isso
+que a torna barata de construir: `oil_routines` + `oil_routine_times` + `oil_events` já são a prova
+de que o padrão funciona (rotina paralela ao cronograma, cadência dela, lembrete no horário dela,
+histórico append-only, escrita de dia civil por RPC).
+
+## ⛔ O que ela NÃO pode fazer
+
+⚠️ **A regra que define a capability, transcrita do dono:**
+
+> *"NÃO implemente recomendação do tipo 'você deve dormir de trança' ou 'você deve usar touca'.
+> Isso depende de D-26/D-70."*
+
+- ⛔ **Nenhuma opção é recomendada, ordenada por mérito ou marcada como a certa.** *"Touca de cetim
+  protege o cabelo"* é **alegação capilar** e precisa de revisor de domínio.
+- ⛔ **Nenhuma opção é apresentada como melhor que "cabelo solto"** — e *"nenhuma rotina específica"*
+  é uma resposta legítima, não uma falha a corrigir.
+- ⛔ **Nada de pontos, elogio ou sequência por proteger mais noites** (D-103): recompensar
+  consistência com o **plano** é a Jornada; recompensar *"fez mais"* é o que ela proíbe.
+- ⛔ **Não entra no cronograma** (a mesma NG1 do `F39`): o plano é saída de motor versionado.
+
+## Estado
+
+**COMMITTED**, `DEFERRED BY PRIORITY` — não por dependência técnica. O que ela **registra** é
+utilizável antes de qualquer sign-off, exatamente como o `F39` e o `F48`; o que ela **recomenda**
+não existe e depende do gate **D-26/D-70**.
+
+**Critério funcional de sucesso.** No fim de uma semana, ela consegue olhar o app e ver **o que fez
+à noite**, sem que o app tenha dito uma vez o que ela deveria ter feito.
+
+# 29. Como usar este documento
 
 **Ao escolher a próxima capability:** o [backlog](MASTER-PRODUCT-BACKLOG.md) diz o que falta e o que depende do quê; este documento diz o que a capability **significa**. Os dois juntos decidem; nenhum dos dois sozinho.
 
@@ -1075,7 +1120,7 @@ Cada elo só existe porque o anterior existe — e é essa cadeia que justifica 
 
 **Quando encontrar um caminho melhor:** use-o. Este documento fixa **o que resolver**, não como. Se a mudança alterar materialmente o objetivo ou a proposta de valor, aí é decisão material de produto ⇒ human gate.
 
-## 29. Change log
+## 30. Change log
 
 | Data | Mudança | Autor |
 |---|---|---|
