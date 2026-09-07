@@ -176,6 +176,10 @@ export function PlanScreen({
         // constante e despacho em módulos diferentes já produziram um plano da versão que ninguém
         // tinha escolhido (SPEC-038).
         scheduleVersion: draft.scheduleVersion,
+        // ⚠️ E a avaliação sai do mesmo rascunho, pela mesma razão (SPEC-046 OQ3): é a que produziu
+        // estes cuidados. Ler o perfil corrente aqui reintroduziria a deriva pelo outro lado — o
+        // servidor geraria a partir de uma avaliação que ela não viu.
+        hairProfileId: draft.plan.hairProfileId,
       })
       .then(() => {
         requestId.current = null;

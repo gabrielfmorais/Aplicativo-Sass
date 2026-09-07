@@ -204,9 +204,15 @@ describe('a versão do motor vai no corpo da chamada (SPEC-046)', () => {
       clientRequestId: 'req-1',
       startsOn: '2026-09-01',
       scheduleVersion: 'v2',
+      hairProfileId: 'hp-1',
     });
     expect(invokeFn).toHaveBeenCalledWith('generate-plan', {
-      body: { clientRequestId: 'req-1', startsOn: '2026-09-01', scheduleVersion: 'v2' },
+      body: {
+        clientRequestId: 'req-1',
+        startsOn: '2026-09-01',
+        scheduleVersion: 'v2',
+        hairProfileId: 'hp-1',
+      },
     });
   });
 
@@ -222,5 +228,7 @@ describe('a versão do motor vai no corpo da chamada (SPEC-046)', () => {
     // `in`, e não uma comparação de igualdade: uma chave presente valendo `undefined` passaria
     // despercebida por `toHaveBeenCalledWith` e chegaria ao servidor como campo existente.
     expect('scheduleVersion' in arg.body).toBe(false);
+    // SPEC-046 OQ3 — e o mesmo vale para a avaliação fixada.
+    expect('hairProfileId' in arg.body).toBe(false);
   });
 });

@@ -101,10 +101,16 @@ export const createHairPlanAdapter = (client: SupabaseClient): HairPlanPort => {
 
   return {
     getActive: readActive,
-    async generate({ clientRequestId, startsOn, scheduleVersion }) {
-      // SPEC-046 — a versão vai junto: o servidor gera com **a que ela previu**, ou recusa.
+    async generate({ clientRequestId, startsOn, scheduleVersion, hairProfileId }) {
+      // SPEC-046 — a versão E a avaliação vão juntas: o servidor gera com **as que ela previu**,
+      // ou recusa. Omitidas, ele cai no comportamento de sempre (app antigo).
       const { error } = await client.functions.invoke('generate-plan', {
-        body: { clientRequestId, startsOn, ...(scheduleVersion ? { scheduleVersion } : {}) },
+        body: {
+          clientRequestId,
+          startsOn,
+          ...(scheduleVersion ? { scheduleVersion } : {}),
+          ...(hairProfileId ? { hairProfileId } : {}),
+        },
       });
       if (error) throw new InfrastructureError('hair_plan.generate_failed', await invokeReason(error));
       const plan = await readActive();

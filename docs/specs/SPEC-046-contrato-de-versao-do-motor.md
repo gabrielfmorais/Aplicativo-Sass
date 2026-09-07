@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-046 |
-| Status | **DONE** — os três casos medidos contra a Edge Function deployada |
+| Status | **DONE** — os três casos medidos contra a Edge Function deployada. **OQ3 fechada em 2026-09-07 (§13):** a avaliação também vai fixada; ⚠️ falta o **redeploy** para essa metade entrar em vigor. |
 | Owner | dono do produto |
 | Bounded Context | Schedule (`packages/core/src/schedule`) + Edge Function `generate-plan` |
 | Related ADRs | **ADR-001 §2** (versão liberada é imutável), ADR-007 A1, D-26/D-70 |
@@ -116,11 +116,34 @@ versão usada no preview é uma coincidência de deploy.
   e "reprovou" um contrato que estava certo — a mesma armadilha que a SPEC-038 já tinha registrado.
   Medir contra o ambiente **antes** de acreditar no verde é o que a separou de um falso negativo.
 - **OQ2 (herdada, gate do dono)** Quando ligar a v2.
-- **OQ3** ⚠️ **A outra deriva, anterior a esta SPEC e não resolvida aqui:** perfil e entitlement são
-  relidos **no momento de gerar**, então reavaliar (ou virar premium) **entre o preview e a
-  confirmação** ainda muda o plano em relação ao que ela viu. Não é bug de versão e não se conserta
-  com allowlist — exigiria congelar o snapshot do preview e validá-lo no servidor, que é contrato
-  novo. Registrado para não passar por resolvido.
+- **OQ3** ✅ **RESOLVIDA em 2026-09-07 (§13), e as duas metades tiveram destinos diferentes — de
+  propósito.**
+
+  ⚠️ **A metade do PERFIL era a deriva de verdade, e foi fechada.** A função lia sempre a avaliação
+  **mais recente**, enquanto o preview foi construído a partir de **uma** avaliação específica.
+  Reavaliar num segundo aparelho, ou confirmar numa aba aberta há mais tempo, bastava para ela
+  **confirmar um cronograma e receber outro** — a mesma quebra do SPEC-004 AC3 que o contrato de
+  versão já tinha eliminado pelo outro lado. Agora o cliente manda `hairProfileId` junto com
+  `scheduleVersion`, saindo **do mesmo rascunho** (`draft.plan.hairProfileId`), e o servidor lê
+  **aquela** avaliação. Ausente = comportamento de sempre; malformado = **400 antes de qualquer
+  escrita**; id que não é dela = **409**, porque a leitura é feita com a JWT dela sob RLS e
+  simplesmente não volta. E como `hair_profiles` é imutável e append-only (D-62/D-64), fixar o id
+  **fixa o conteúdo**: a linha apontada não pode ter mudado no intervalo.
+
+  ⛔ **A metade do ENTITLEMENT foi resolvida por RECUSA, e a recusa é de segurança.** Deixar o
+  cliente fixar *"eu previ com preferências aplicadas"* seria deixá-lo **conceder a si mesmo** a
+  capability premium — e a SPEC-015 FR3 põe essa decisão no servidor exatamente para impedir isso.
+  O que sobra dessa borda é limitado **por construção, com barreira de teste**: preferências mexem
+  **só em datas** e nunca nos tipos, na quantidade ou na cadência (`placement.test.ts`). Ou seja,
+  virar premium — ou deixar de ser — entre o preview e a confirmação pode mudar **em que dias** os
+  cuidados caem, e nunca **quais cuidados são**; e sobre o direito dela a resposta do servidor é,
+  por definição, a correta. ⚠️ **Registrado como decisão, não como pendência:** não existe conserto
+  que não seja abrir um buraco maior.
+
+  ⚠️ **Falta o deploy para a metade do perfil entrar em vigor.** O cliente já manda o campo e o
+  contrato degrada com elegância — a função deployada **ignora um campo que não conhece**, medido ao
+  vivo (`generate-plan → 200`, plano criado normalmente). Até o redeploy, o comportamento é o de
+  hoje: a avaliação mais recente. **Deploy é ação §4** (Actions → `deploy-dev-functions`).
 
 ## 11. Change Log
 
@@ -168,3 +191,50 @@ deploy ele deve responder **400 `unsupported_schedule_version`** sem persistir n
 
 ⚠️ **Pendente:** os três casos do lado servidor só podem ser medidos **depois do deploy** — ação do
 dono, registrada em OQ1.
+| 2026-09-07 | v0.2 — **OQ3 resolvida (§13)**, e as duas metades tiveram destinos diferentes. **Perfil:** o cliente passa a mandar `hairProfileId` junto com `scheduleVersion`, saindo do mesmo rascunho, e o servidor gera com **aquela** avaliação — ausente é o comportamento de sempre, malformado é 400 antes de escrever, id alheio é 409 porque a leitura sob RLS não devolve nada. **Entitlement:** ⛔ **recusado por segurança** — deixar o cliente fixá-lo seria deixá-lo conceder a si mesmo a capability premium (SPEC-015 FR3); o que sobra é placement-only, com barreira de teste provando que preferências nunca mudam tipos, quantidade ou cadência. ⚠️ Falta o **redeploy** para a metade do perfil entrar em vigor; a compatibilidade foi medida ao vivo (`generate-plan → 200` com o campo novo ignorado pela função antiga). |
+
+## 13. A segunda metade do contrato — a avaliação que ela viu (OQ3, 2026-09-07)
+
+O contrato de versão fechou *"com que motor"*. Faltava *"a partir de quais respostas"*, e a lacuna
+tinha a mesma forma: o preview usa **uma** avaliação, e a Edge Function lia sempre a **mais recente**.
+
+**A borda é real e não precisa de má fé para acontecer:** reavaliar num segundo aparelho, deixar uma
+aba aberta e confirmar depois, ou abandonar uma reavaliação no meio e voltar ao preview antigo
+(SPEC-014 G3 — o perfil novo fica salvo mesmo sem confirmar). Em todos, ela **confirma um cronograma
+e recebe outro**.
+
+### 13.1 O contrato
+
+| o cliente manda | o servidor faz | por quê |
+|---|---|---|
+| nada | usa a avaliação **mais recente** | app antigo não conhece o campo; é o comportamento de sempre |
+| um uuid | usa **aquela**, lida com a JWT dela | ela recebe o plano da avaliação que viu |
+| lixo | **400** antes de qualquer escrita | um id malformado não vira "tanto faz" |
+| id que não é dela | **409 `hair_profile_not_found`** | a leitura sob RLS não devolve nada, e a resposta também não |
+
+⚠️ **Mandar um id não concede nada.** A leitura acontece com a **JWT dela**, então um id alheio não
+volta — a resposta é um código de erro, nunca os dados de outra pessoa. E `hair_profiles` é imutável
+e append-only (D-62/D-64): **fixar o id fixa o conteúdo**.
+
+⚠️ **O id sai do rascunho** (`draft.plan.hairProfileId`), como a versão. Ler o perfil corrente na
+hora de confirmar reintroduziria a deriva pelo outro lado — é a mesma disciplina que a SPEC-038
+aprendeu quando escolha e despacho moravam em módulos diferentes.
+
+### 13.2 O que foi RECUSADO, e é o mais importante desta fatia
+
+⛔ **O entitlement não pode ser fixado pelo cliente.** *"Eu previ com preferências aplicadas"* vindo
+do app seria o app **concedendo a si mesmo** a capability premium, e a SPEC-015 FR3 põe essa decisão
+no servidor exatamente por isso. Um cliente adulterado ganharia placement premium mandando um
+booleano.
+
+**E o que sobra dessa borda é pequeno por construção, com barreira de teste:** preferências mexem
+**só em datas**, nunca nos tipos, na quantidade ou na cadência (`placement.test.ts`). Virar premium —
+ou deixar de ser — entre o preview e a confirmação muda **em que dias** os cuidados caem, e nunca
+**quais cuidados são**. Sobre o direito dela, a resposta do servidor é por definição a correta.
+
+### 13.3 O que falta, e é gate
+
+⚠️ **A metade do perfil só entra em vigor no redeploy da Edge Function.** O contrato degrada com
+elegância e isso foi **medido ao vivo**: a função deployada **ignora o campo que não conhece** e
+respondeu `200`, criando o plano normalmente com o cronograma esperado. Até o redeploy, o
+comportamento é o de hoje. **Deploy é ação §4** — Actions → `deploy-dev-functions`.
