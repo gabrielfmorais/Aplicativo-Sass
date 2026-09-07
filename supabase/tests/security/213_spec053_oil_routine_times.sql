@@ -5,7 +5,7 @@
 -- separadamente — que ela **alcança** só o que é dela, e que ela **deixa gravado** só o que é dela.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(14);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ot1@example.test'),
@@ -28,7 +28,7 @@ select lives_ok(
 -- ⛔ *"Se quiser 10, pode"* — nada no banco impõe um teto de produto.
 select lives_ok(
   $q$ insert into public.oil_routine_times (user_id, time_local)
-      select '00000000-0000-4000-8000-0000000000a1', (make_time(h, 0, 0))
+      select '00000000-0000-4000-8000-0000000000a1', make_time(h, 0, 0)
         from generate_series(9, 17) as h $q$,
   'e mais nove: nenhum teto de quantidade no banco');
 select is((select count(*)::int from public.oil_routine_times), 10, 'dez horários, todos gravados');
@@ -60,35 +60,31 @@ select is((select count(*)::int from public.oil_routine_times), 0, 'a outra usu�
 
 -- ⚠️ **A RLS FILTRA, não falha** — e é isso que precisa ser medido. Um `DELETE` mirando as linhas
 -- alheias não levanta erro: ele simplesmente não alcança nada. Testar só o erro deixaria passar o
--- caso em que a policy some e o comando volta a apagar em silêncio.
+-- caso em que a policy some e o comando volta a apagar de verdade.
 delete from public.oil_routine_times where user_id = '00000000-0000-4000-8000-0000000000a1';
 
--- ------------------------------------------------------------------ o histórico sobrevive (EC6)
 select tests.as_user('00000000-0000-4000-8000-0000000000a1');
 select is(
   (select count(*)::int from public.oil_routine_times),
   10,
   'o DELETE da outra usuária não apagou nada: os dez horários dela continuam lá');
-select public.record_oil_event('done', gen_random_uuid(), 'America/Sao_Paulo');
-update public.oil_events
-   set routine_time_id = (select id from public.oil_routine_times where time_local = '08:00')
- where routine_time_id is null;
-select is(
-  (select count(*)::int from public.oil_events where routine_time_id is not null),
-  1,
-  'um evento pode apontar para um horário (FR5)');
 
--- ⚠️ Remover o horário **não** apaga o fato: `on delete set null`, nunca cascade. O passado não se
--- reescreve (D-69).
+-- ------------------------------------------------------------------ o histórico é independente
+-- ⚠️ **Os horários são CONFIGURAÇÃO; os eventos são HISTÓRIA**, e as duas coisas não se apagam.
+select public.record_oil_event('done', gen_random_uuid(), 'America/Sao_Paulo');
 delete from public.oil_routine_times where time_local = '08:00';
-select is((select count(*)::int from public.oil_events), 1, 'remover o horário não apaga o evento');
-select is(
-  (select routine_time_id from public.oil_events),
-  null,
-  'o evento volta a ser "registrei o dia", que é uma resposta legítima');
+select is((select count(*)::int from public.oil_routine_times), 9, 'remover um horário remove só ele');
+select is((select count(*)::int from public.oil_events), 1, 'e não toca no que ela já registrou (D-69)');
+
+-- ⚠️ **E o cliente continua sem escrever `oil_events`** — a tabela é append-only e a única escrita é
+-- a RPC. É por isso que `routine_time_id` **não** entrou nesta fatia: a coluna não teria quem a
+-- escrevesse (D-47/D-48), e schema morto num contrato de dados é dívida, não preparo.
+select throws_ok(
+  $q$ update public.oil_events set happened_on = current_date $q$,
+  '42501', null, 'o cliente não tem UPDATE em oil_events, então registrar por horário precisa da RPC');
 
 -- ------------------------------------------------------------------ desligar a rotina (FR8)
--- Os horários vão junto — são configuração, não história —, e o histórico fica.
+-- Os horários vão junto — são configuração —, e o histórico fica.
 delete from public.oil_routines;
 select is((select count(*)::int from public.oil_routine_times), 0, 'desligar a rotina leva os horários junto');
 select is((select count(*)::int from public.oil_events), 1, 'e NÃO leva o histórico (BR5 da SPEC-040)');

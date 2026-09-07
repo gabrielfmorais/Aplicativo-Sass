@@ -47,13 +47,6 @@ export type OilEvent = {
   readonly id: string;
   readonly kind: OilEventKind;
   readonly happenedOn: LocalDate;
-  /**
-   * SPEC-053 FR5 — qual horário este registro é.
-   *
-   * ⚠️ **`null` é "registrei o dia"**, e não ausência de dado: é todo o histórico anterior à
-   * SPEC-053 e continua sendo uma resposta legítima. A mesma distinção do `F35`.
-   */
-  readonly routineTimeId: string | null;
 };
 
 /**

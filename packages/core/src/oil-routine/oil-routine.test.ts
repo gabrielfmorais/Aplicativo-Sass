@@ -13,13 +13,11 @@ const done = (iso: string, id = iso): OilEvent => ({
   id,
   kind: 'done',
   happenedOn: d(iso),
-  routineTimeId: null,
 });
 const postponed = (iso: string, id = `p${iso}`): OilEvent => ({
   id,
   kind: 'postponed',
   happenedOn: d(iso),
-  routineTimeId: null,
 });
 
 const view = (routine: { everyDays: number; startedOn: string } | null, events: OilEvent[], today: string) =>
@@ -290,24 +288,5 @@ describe('SPEC-053 — os horários da rotina', () => {
       doneCount: 1,
       times: undefined,
     });
-  });
-
-  /** FR5 — o registro pode nomear um horário, e `null` é "registrei o dia" (todo o histórico anterior). */
-  it('um evento pode apontar para um horário, e null continua sendo resposta', () => {
-    const doHorario: OilEvent = {
-      id: 'e1',
-      kind: 'done',
-      happenedOn: d('2026-09-03'),
-      routineTimeId: 't1',
-    };
-    const v = buildOilRoutineView({
-      routine: { everyDays: 3, startedOn: d('2026-09-01') },
-      events: [doHorario, done('2026-09-02')],
-      today: d('2026-09-04'),
-      times,
-    });
-    expect(v.doneCount).toBe(2);
-    // ⚠️ E marcar UM horário não adianta a rotina: a cadência é do dia (BR1).
-    expect(v.dueOn).toBe('2026-09-06');
   });
 });

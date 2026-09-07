@@ -36,17 +36,13 @@ export const createOilRoutineAdapter = (client: SupabaseClient): OilRoutinePort 
   async listEvents(): Promise<readonly OilEvent[]> {
     const { data, error } = await client
       .from(EVENTS)
-      .select('id, kind, happened_on, routine_time_id')
+      .select('id, kind, happened_on')
       .order('happened_on', { ascending: false });
     if (error) throw fail('oil.events_read_failed', error);
-    return (
-      data as { id: string; kind: OilEventKind; happened_on: string; routine_time_id: string | null }[]
-    ).map((r) => ({
+    return (data as { id: string; kind: OilEventKind; happened_on: string }[]).map((r) => ({
       id: r.id,
       kind: r.kind,
       happenedOn: localDateFromString(r.happened_on),
-      // SPEC-053 FR5 — `null` é "registrei o dia", que é todo o histórico anterior a ela.
-      routineTimeId: r.routine_time_id ?? null,
     }));
   },
 

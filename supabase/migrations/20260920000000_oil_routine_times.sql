@@ -41,17 +41,18 @@ create index if not exists oil_routine_times_user
   on public.oil_routine_times (user_id, time_local);
 
 /**
- * SPEC-053 FR5 — qual horário este registro é.
+ * ⛔ **`oil_events.routine_time_id` NÃO entra aqui, e a razão é a regra de necessidade (D-47/D-48).**
  *
- * ⚠️ **`null` é "registrei o dia"**, que é todo o histórico anterior a esta migration e continua
- * sendo uma resposta legítima — não é ausência de dado a preencher. Sem `DEFAULT`, pela mesma razão
- * do `F35`: default é uma resposta que ninguém deu.
+ * A primeira versão desta migration acrescentava a coluna para que um registro pudesse dizer *"passei
+ * o das 12:00"*. O pgTAP derrubou: o cliente **não tem `UPDATE` em `oil_events`** — a tabela é
+ * append-only e a única escrita é `record_oil_event`, que não recebe o horário. A coluna nasceria
+ * **sem nenhum caminho de código capaz de escrevê-la**, o que é schema morto num contrato de dados.
  *
- * ⚠️ **`on delete set null`, nunca cascade:** remover um horário não pode apagar um fato que
- * aconteceu. O passado não se reescreve (D-69).
+ * As duas saídas eram acrescentar o parâmetro na RPC agora ou não criar a coluna. Como a tela desta
+ * fatia registra **o dia** (SPEC-053 OQ2), o parâmetro também não teria consumidor — então a coluna
+ * entra junto com quem a escreve **e** com quem a lê, numa fatia só. Registrar por horário é
+ * capability, não schema.
  */
-alter table public.oil_events
-  add column if not exists routine_time_id uuid references public.oil_routine_times (id) on delete set null;
 
 alter table public.oil_routine_times enable row level security;
 alter table public.oil_routine_times force row level security;
@@ -98,5 +99,5 @@ create policy oil_routine_times_owner_all on public.oil_routine_times
   for all to postgres using (true) with check (true);
 
 -- Rollback (sem dado de produção antes do release, SPEC-053 §22):
---   alter table public.oil_events drop column if exists routine_time_id;
+--   (nenhuma coluna acrescentada em oil_events — ver o bloco acima)
 --   drop table if exists public.oil_routine_times;

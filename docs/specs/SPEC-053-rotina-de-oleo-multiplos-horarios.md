@@ -77,8 +77,12 @@ ajuda a manter"*.
   registrado — ele só não toca.
 - FR4 — **Sem nenhum horário cadastrado, a rotina se comporta exatamente como hoje**: um lembrete na
   data de vencimento, no horário global. É o que faz a evolução não pedir nada de quem já usava.
-- FR5 — O registro (`feito`/`adiar`) pode nomear **qual horário** — *"passei o das 12:00"* —, e o
-  histórico guarda isso.
+- FR5 — ⛔ **RETIRADO desta fatia, e o pgTAP foi quem derrubou.** A ideia era o registro nomear
+  **qual horário** e a coluna `oil_events.routine_time_id` guardar isso. Mas o cliente **não tem
+  `UPDATE` em `oil_events`** — a tabela é append-only e a única escrita é `record_oil_event`, que não
+  recebe o horário. A coluna nasceria **sem nenhum caminho de código capaz de escrevê-la**: schema
+  morto num contrato de dados (D-47/D-48). Ela entra junto com quem a escreve **e** com quem a lê,
+  numa fatia só — ver OQ2.
 - FR6 — ⚠️ **A cadência continua sendo por DIA.** Marcar um horário como feito **não** empurra a
   próxima data; a data avança pela regra de sempre (BR1 da SPEC-040: `último feito + intervalo`).
 - FR7 — Horário duplicado é recusado — o mesmo `HH:MM` duas vezes não são dois lembretes.
@@ -130,9 +134,9 @@ oil_routine_times
 não descreve nada, e `record_oil_event` já recusa evento sem rotina. Desligar a rotina leva os
 horários junto (FR8) e **não** leva o histórico.
 
-`oil_events` ganha **`routine_time_id uuid null`** (FR5): `null` é *"registrei o dia"*, que é todo o
-histórico anterior e continua sendo uma resposta legítima. ⚠️ **`on delete set null`** — remover um
-horário não pode apagar um fato que aconteceu.
+⛔ **`oil_events` NÃO muda nesta fatia** (ver FR5): a coluna que nomearia o horário não teria quem a
+escrevesse, porque a tabela é append-only e a única escrita é a RPC. **Schema morto num contrato de
+dados é dívida, não preparo** (D-47/D-48).
 
 ## 9. API / Contracts
 
@@ -195,8 +199,8 @@ Nenhum. Não há provider (D-31).
   registrável; o app só não toca.
 - EC4 — **Pausa** — nada toca, incluindo todos os horários (SPEC-022, herdado e intocado).
 - EC5 — **Muitos horários** — nenhum é recusado; o horizonte encolhe (BR5), e a reconciliação repõe.
-- EC6 — **Remover um horário que tem histórico** — o horário some, o evento fica com
-  `routine_time_id = null`. O passado não se reescreve (D-69).
+- EC6 — **Remover um horário** — o horário some e o histórico **não é tocado**: eventos e horários são
+  coisas diferentes (história × configuração), e o passado não se reescreve (D-69).
 - EC7 — **Desligar a rotina** — horários vão junto, histórico fica (FR8).
 - EC8 — **Fuso** — o `time` é civil e não tem fuso; quem o converte em instante é o agendador, com o
   fuso dela, como já faz com o horário global.
@@ -254,8 +258,8 @@ invalida nenhuma linha existente** — uma rotina sem horários é o estado de t
 
 ## 22. Rollback Plan
 
-`drop table public.oil_routine_times;` e `alter table public.oil_events drop column routine_time_id;`
-— sem dado de produção (o release não aconteceu). O código degrada para o comportamento da SPEC-040.
+`drop table public.oil_routine_times;` — uma linha, e nada mais foi tocado. Sem dado de produção (o
+release não aconteceu), e o código degrada para o comportamento da SPEC-040.
 
 ## 23. Open Questions
 
@@ -267,9 +271,10 @@ invalida nenhuma linha existente** — uma rotina sem horários é o estado de t
   porque o pedido central desta SPEC é **múltiplos horários no mesmo dia**, que as duas leituras
   compartilham. ⚠️ **A (b) é uma capability a mais, não uma correção desta**: ela pede um terceiro
   modelo de cadência ao lado do intervalo, e a decisão de ter os dois é do dono.
-- **OQ2 — CAN DEFER — registro por horário na tela.** O dado suporta (`routine_time_id`), e a tela
-  desta fatia registra o **dia**. Marcar *"passei o das 12:00"* separadamente é uma superfície a
-  mais; entra quando houver evidência de que ela quer o detalhe.
+- **OQ2 — CAN DEFER — registrar por horário.** ⚠️ **Nem o dado nem a tela entraram, e isso é
+  deliberado** (FR5): marcar *"passei o das 12:00"* exige a coluna em `oil_events`, o parâmetro novo
+  em `record_oil_event` **e** a superfície na tela. Os três juntos, ou nenhum — foi o pgTAP que
+  mostrou por quê, ao recusar a escrita numa coluna que nenhum caminho de código alcançava.
 - **OQ3 — CAN DEFER — QA nativo.** O agendamento real e a folha do SO **não existem no preview web**
   (mesma família de `toDataURL` e do share). O que se valida aqui é o cálculo dos intents, a
   persistência e a tela; **o disparo no horário certo só se exerce em build nativo**, que segue
