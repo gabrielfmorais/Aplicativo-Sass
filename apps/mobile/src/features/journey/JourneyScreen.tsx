@@ -150,8 +150,16 @@ export function JourneyScreen({
           ))}
         </Row>
         <Text variant="caption" tone="muted">
-          {reached === 1 ? 'Você já conquistou 1 marco.' : `Você já conquistou ${reached} marcos.`}
-          {` ${view.caresAttended} cuidados do seu plano até aqui.`}
+          {/*
+            ⚠️ **O contador conta o que ela TEM, e some quando ainda não há.** *"Você já conquistou 0
+            marcos"* seria deflar em vez de celebrar (D-103: celebra, não cobra) — e é estado real
+            (plano recém-criado, nenhum cuidado feito ainda). Sem marco, sobra só a linha de cuidados,
+            que é o comportamento de sempre.
+          */}
+          {reached > 0
+            ? `${reached === 1 ? 'Você já conquistou 1 marco' : `Você já conquistou ${reached} marcos`}. `
+            : ''}
+          {`${view.caresAttended} cuidados do seu plano até aqui.`}
         </Text>
       </Stack>
 

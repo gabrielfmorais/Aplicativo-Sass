@@ -120,6 +120,25 @@ describe('Sua jornada (SPEC-043)', () => {
     s.getByText(/Você já conquistou 1 marco/); // conta o que ela tem, não o que falta
   });
 
+  /** ⚠️ Sem marco conquistado, o contador some — "conquistou 0 marcos" deflaria em vez de celebrar. */
+  it('quando ainda não conquistou nenhum marco, não diz "0 marcos"', async () => {
+    const s = await render(
+      <JourneyScreen
+        view={view({
+          caresAttended: 0,
+          milestones: [
+            { key: 'first_care', label: 'Primeiro cuidado', reached: false },
+            { key: 'cares_5', label: '5 cuidados do seu plano', reached: false },
+          ],
+        })}
+        loading={false}
+        onBack={jest.fn()}
+      />,
+    );
+    expect(s.queryByText(/conquistou 0/)).toBeNull();
+    s.getByText(/0 cuidados do seu plano até aqui/); // a linha de sempre continua
+  });
+
   it('enquanto carrega, não inventa número nenhum', async () => {
     const s = await render(<JourneyScreen view={null} loading onBack={jest.fn()} />);
     expect(s.queryByText('Sua jornada')).toBeNull();
