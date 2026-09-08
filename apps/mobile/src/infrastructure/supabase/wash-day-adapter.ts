@@ -291,6 +291,26 @@ export const createWashDayAdapter = (client: SupabaseClient, userId: () => strin
       if (error) throw fail('care.wash_day_finish_failed', error);
     },
 
+    /**
+     * SPEC-056 (F38, fatia shell) — as finalizações que ela registrou, para o catálogo.
+     *
+     * Uma leitura só: `finish_technique` das etapas em `done` com técnica nomeada. A policy
+     * `select_own` restringe à usuária — `user_id` não vai como filtro, `auth.uid()` decide (como
+     * em todas as leituras deste adapter). Sem join: a contagem por nome é a história, e o core
+     * (`buildFinishCatalog`) descarta `other`/`unknown`.
+     */
+    async finishHistory() {
+      const { data, error } = await client
+        .from(FINISH)
+        .select('finish_technique')
+        .eq('finish_status', 'done')
+        .not('finish_technique', 'is', null);
+      if (error) throw fail('care.wash_day_read_failed', error);
+      return (data as { finish_technique: FinishTechnique }[]).map((r) => ({
+        technique: r.finish_technique,
+      }));
+    },
+
     async setFinishTechnique({ careExecutionId, finishTechnique }): Promise<void> {
       const washDayId = await hubFor(careExecutionId);
       /**

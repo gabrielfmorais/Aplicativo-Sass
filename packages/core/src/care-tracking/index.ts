@@ -35,5 +35,12 @@ export {
   type WashDayTechnique,
 } from './domain/wash-day.ts';
 export type { CareBoard, CareTrackingPort, ResumeOutcome, WashDayPort } from './application/ports.ts';
+export {
+  NAMED_FINISH_TECHNIQUES,
+  buildFinishCatalog,
+  type FinishCatalogEntry,
+  type FinishHistoryRecord,
+  type NamedFinishTechnique,
+} from './domain/finish-catalog.ts';
 export { CYCLE_WEEKS, buildCycleView, groupIntoWeeks } from './domain/cycle.ts';
 export type { CycleView, CycleWeek, PlanWeek } from './domain/cycle.ts';

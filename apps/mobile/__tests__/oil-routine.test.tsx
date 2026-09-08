@@ -123,6 +123,7 @@ describe('rotina de óleo — o lugar dela (SPEC-040 FR7)', () => {
     const s = await render(
       <CareTabScreen
         profile={profile}
+        onOpenFinishes={jest.fn()}
         oil={{
           view: view(),
           busy: false,
@@ -142,7 +143,7 @@ describe('rotina de óleo — o lugar dela (SPEC-040 FR7)', () => {
 
   /** A aba continua inteira sem a rotina: uma leitura que não voltou não vira tela quebrada. */
   it('sem a rotina carregada, a aba segue funcionando', async () => {
-    const s = await render(<CareTabScreen profile={profile} />);
+    const s = await render(<CareTabScreen profile={profile} onOpenFinishes={jest.fn()} />);
     expect(s.queryByText('Rotina de óleo')).toBeNull();
   });
 });

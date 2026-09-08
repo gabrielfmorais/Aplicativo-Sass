@@ -1,6 +1,7 @@
 import type { Product } from '../../hair-profile/index.ts';
 import type { CareTypeCode, ScheduledCare } from '../../schedule/index.ts';
 import type { CareExecution, CheckIn, CheckInMark } from '../domain/care-tracking.ts';
+import type { FinishHistoryRecord } from '../domain/finish-catalog.ts';
 import type {
   FinishStatus,
   FinishTechnique,
@@ -232,4 +233,12 @@ export interface WashDayPort {
    * que é o estado normal no começo.
    */
   lastUsedFor(careTypeCode: CareTypeCode): Promise<readonly Product[]>;
+  /**
+   * SPEC-056 (F38, fatia shell) — as finalizações que ela **registrou**, para o catálogo contá-las.
+   *
+   * Só a técnica das etapas em `done` com uma técnica nomeada; RLS restringe à usuária. Sem `join`: o
+   * fato é *"ela fez esta finalização"*, e a contagem por nome é a história — o mesmo formato com que
+   * a SPEC-049 mede a prateleira. Registro, nunca recomendação (D-26/D-70).
+   */
+  finishHistory(): Promise<readonly FinishHistoryRecord[]>;
 }
