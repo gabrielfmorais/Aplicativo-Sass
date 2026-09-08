@@ -1,6 +1,6 @@
 # Beta readiness — o que falta, e de quem depende
 
-**Atualizado:** 2026-09-08 (checkpoint após SPEC-045 Wash Day e SPEC-056).
+**Atualizado:** 2026-09-08 (checkpoint após SPEC-057/058 catálogo populado e SPEC-059 Jornada; auditoria `--full` re-executada — limpa).
 **Resumo:** o produto está **funcional de ponta a ponta em dev/beta interno** — a jornada real (sign-in dev → onboarding → cronograma → Hoje → registro → check-in → jornada) foi medida no DEV real. O que separa isto de um **beta público** não é engenharia de features: é um conjunto de **TRUE HUMAN GATES** (credenciais externas, sign-off profissional, base legal, contas de loja, custo real) que só o dono pode destravar. O agente segue construindo o roadmap desbloqueado sem esperar por eles.
 
 Este documento é o registro **separado** desses gates (pedido do dono). O pacote de decisões que precisa de revisão profissional capilar está em **[DOMAIN-SIGNOFF-PACKAGE.md](DOMAIN-SIGNOFF-PACKAGE.md)**.
@@ -26,10 +26,10 @@ Cada gate tem: **o que é · quem age · o que desbloqueia**. Nenhum é resolví
 - **Quem age:** dono + jurídico.
 - **Desbloqueia:** **F28** (fotos de evolução), **P24** (foto de perfil própria), **P9/P10/P11** (progresso fotográfico, timeline, antes×depois), e a **metade `couro`** do check-in / **P15** (junto com G2).
 
-### G4 — Catálogo de produtos reais — ingestão (SPEC-054 §26)
-- **Estado:** a infraestrutura está pronta e testada (busca, EAN, imagem com trava de direito por `CHECK`, vínculo com a prateleira); **zero linha ingerida**. A prateleira manual funciona inteira sem ele.
-- **Quem age (dono):** acesso a uma fonte legalmente utilizável — **GS1 Brasil / CNP** (a API só devolve o produto quando o dono da marca autorizou compartilhar — a autorização é a condição de existência do dado; exige associação da empresa à GS1 e pedido de acesso), **autorização direta por marca**, ou **Open Beauty Facts** (identidade sem foto oficial). **Feed de afiliado não serve** (licença de imagem só vale para levar tráfego — vira `T2`, não `F32`). Direito de imagem e possível custo/contrato.
-- **Desbloqueia:** **F32** catálogo populado, **F33** scanner com significado, e a qualidade de **P18** (recomendações com produtos reais).
+### G4 — Catálogo de produtos reais (SPEC-057/058) — **o gate ENCOLHEU; a ingestão deixou de ser gate**
+- **Estado:** ✅ **o catálogo está POPULADO.** SPEC-057/058 ingeriram **~3.901 produtos de cabelo** do **Open Beauty Facts** (dados ODbL/DbCL, imagens CC BY-SA — **uso comercial permitido, sem contrato/pagamento/aceite**), com busca por **autocomplete** (RPC + trigram), EAN, foto (~90%) e cobertura BR (Eudora incluída). A ingestão OBF foi **resolvida autonomamente** e **não é mais gate** — conformidade cláusula a cláusula em `docs/legal/OPEN-BEAUTY-FACTS-COMPLIANCE.md`. A prateleira manual continua inteira por baixo.
+- **O que resta (dono, opcional para beta — qualidade, não bloqueio):** **fotos oficiais e profundidade** das marcas BR (esp. Grupo Boticário / Eudora / Siàge) exigem **GS1 Brasil / CNP** ou **autorização direta por marca**. Identidade real **sem** foto oficial já existe hoje, então isso é refinamento. **F33 scanner** soma dependência nativa de câmera (ver G7). Ampliar OBF para **produção** é decisão de release.
+- **Desbloqueia:** fotos oficiais BR e a qualidade máxima de **P18** — mas o **F32 em si já está utilizável** em dev/beta.
 
 ### G5 — IAP / assinaturas (SPEC-010 Parte 2, DEFERRED) — contas de loja + custo
 - **Estado:** toda a cadeia de entitlements é provider-agnóstica e testada; falta o **adapter nativo RevenueCat** (`react-native-purchases`), a conta RevenueCat e os produtos nas lojas. **Sem isso ninguém consegue virar premium** → a hipótese de monetização (H5) não é mensurável.
@@ -74,3 +74,13 @@ Varredura repositório-inteiro em três frentes (segurança/RLS · código morto
 - `DOMAIN-MAP.md` (mapa de contextos, não inventário) não lista ~7 tabelas recentes — por design; `DATA-MODEL.md` (o inventário) está completo e é verificado no CI.
 
 **Validação:** `pnpm verify` verde; pgTAP roda no CI (stack local de supabase indisponível nesta máquina — CI é o gate autoritativo do SQL).
+
+## 4. Auditoria `--full` de re-checkpoint (2026-09-08, após SPEC-057/058/059)
+
+Segunda varredura repositório-inteiro, focada na integração das três frentes recém-merged (catálogo real + Jornada visual) com o resto. **Resultado: zero BLOCKER, zero IMPORTANT.** Pressão-testados e limpos: `catalog_search` não vaza rascunho (`SECURITY INVOKER` + RLS + `published_at not null`, pgTAP prova); ingestão idempotente (`on conflict (ean)` casa o índice único parcial, `sqlLit` escapa aspas); matemática da Jornada sem divisão por zero nem valor negativo (`ProgressBar` guarda `total>0`, `levelSpan` sempre `>0` ou `null` no topo). Sem alegação capilar no catálogo/Jornada (D-26); sem cobrança/multiplicador na Jornada (D-103).
+
+**Corrigido autonomamente:**
+- **Deriva de doc** — `DATA-MODEL.md §3.21` dizia "catálogo vazio / TRUE HUMAN GATE" e omitia as colunas de SPEC-057/058 (`open_licensed`, `source_url`, `data_license`, `image_license`, `search_text`) e a RPC `catalog_search`. Atualizado para o estado medido (#163).
+- **Consistência de identidade** — o chip de marcação do Wash Day mostrava o nome solto enquanto a prateleira e a execução já mostravam a marca do catálogo; alinhado ao padrão da `CareProductsPanel` (SPEC-054 FR6/G4), validado a 390px (#164).
+
+**Aceito (follow-up, fora de blast radius):** nomes muito longos de OBF transbordam o `Chip` (primitiva compartilhada) — pré-existente, o prefixo de marca deixa a visão cortada mais identificável; rodada própria de `numberOfLines`/`maxWidth` quando valer.
