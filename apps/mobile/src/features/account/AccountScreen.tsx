@@ -47,6 +47,7 @@ export function AccountScreen({
   onNotificationPreferencesChanged,
   onReassess,
   onCustomize,
+  onOpenDataSources,
   onBack,
 }: {
   auth: AuthPort;
@@ -70,6 +71,8 @@ export function AccountScreen({
    * no active plan: the preview is already the next screen she sees, so there is nothing to open.
    */
   onCustomize?: () => void;
+  /** SPEC-057 — abre "Fontes de dados" (atribuição da Open Beauty Facts). */
+  onOpenDataSources?: () => void;
   /**
    * The way back to the cares. It lives inside this screen rather than beside it: the account is a
    * full page on the warm canvas now, and a control floating outside its frame would sit on a
@@ -234,6 +237,16 @@ export function AccountScreen({
           onPress={() => act(auth.signOut, 'Não foi possível sair.')}
         />
       </Stack>
+
+      {/* SPEC-057 — a atribuição das bases abertas do catálogo, num lugar só (Fontes de dados). */}
+      {onOpenDataSources ? (
+        <Stack gap="md">
+          <Text variant="overline" tone="faint" accessibilityRole="header">
+            Sobre
+          </Text>
+          <Button label="Fontes de dados" variant="ghost" onPress={onOpenDataSources} />
+        </Stack>
+      ) : null}
 
       {message ? (
         <Text accessibilityLiveRegion="polite" tone="danger">
