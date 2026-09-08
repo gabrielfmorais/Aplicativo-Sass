@@ -480,21 +480,24 @@ Rotina **paralela ao cronograma** (⛔ nunca dentro dele: o plano é saída de m
 - ⚠️ **Sem horários = o comportamento da SPEC-040 inteiro**, que é o estado de toda rotina existente.
 - ⛔ **Nenhuma coluna em `oil_events` aponta para um horário:** ela existiria sem quem a escrevesse — o cliente não tem `UPDATE` ali e a RPC não recebe o horário (D-47/D-48).
 
-### 3.21 `catalog_products` — o catálogo de produtos reais (SPEC-054, migration `20260921000000_catalog_products.sql`)
+### 3.21 `catalog_products` — o catálogo de produtos reais (SPEC-054 `20260921000000`, SPEC-057 `20260922000000`, SPEC-058 `20260923000000`)
 
-Global e **somente leitura** para o cliente. ⚠️ **Vazia hoje, e permanece até a ingestão** (TRUE HUMAN GATE).
+Global e **somente leitura** para o cliente. ✅ **POPULADO** — a SPEC-057 ingeriu o recorte de cabelo do Open Beauty Facts e a SPEC-058 ampliou a cobertura BR: **~3.901 linhas de OBF no DEV** (todas com EAN, ~90% com foto, Eudora incluída). A ingestão é **fora de banda** pelo workflow manual `ingest-catalog` (Management API + `SUPABASE_ACCESS_TOKEN`), **nunca pelo cliente**, e é idempotente por `on conflict (ean)`. **HUMAN GATE restante:** fotos oficiais das marcas BR (GS1 CNP / autorização direta) e produção — não a ingestão OBF.
 
 | Coluna | Tipo | Notas |
 |---|---|---|
 | id | uuid **PK** | |
 | brand · line? · name · variant? | text | **identidade comercial**. ⛔ `line`/`variant` identificam, não indicam |
 | category | text not null | o **mesmo** vocabulário de `products` — é o que torna as duas comparáveis |
-| ean | text null | **unique parcial** quando existe (`F33`-ready) |
-| image_url? · image_source? · image_rights? · image_credit? | text | ⛔ **CHECK:** `image_url` preenchida **obriga** `image_source` **e** `image_rights`; o vocabulário de direito é fechado (`brand_authorized` · `licensed_feed` · `owned`) e **não existe valor para "achei na internet"** |
-| source · source_ref? · verified_at? | | procedência da linha, rastreável até quem a inseriu |
+| ean | text null | **unique parcial** quando existe (`catalog_products_ean_unique`, `F33`-ready) |
+| image_url? · image_source? · image_rights? · image_credit? | text | ⛔ **CHECK:** `image_url` preenchida **obriga** `image_source` **e** `image_rights`; vocabulário de direito fechado (`brand_authorized` · `licensed_feed` · `owned` · **`open_licensed`** — SPEC-057) e **não existe valor para "achei na internet"** |
+| source · source_ref? · verified_at? | | procedência da linha, rastreável. `source` inclui **`open_beauty_facts`** (SPEC-057) |
+| source_url? · data_license? · image_license? | text | SPEC-057 — origem e licença **rastreáveis por linha**. ⛔ **CHECK:** `source='open_beauty_facts'` **obriga** `source_url`+`data_license`; imagem `open_licensed` **obriga** `image_credit`+`image_license`+`source_url` |
+| search_text | text **generated stored** | SPEC-058 — `lower(f_unaccent(brand line name variant ean))`, uma verdade só para a busca. Índice **GIN trigram** `catalog_products_search_trgm` (só `published_at is not null`) |
 | published_at | timestamptz null | ⚠️ **`null` NÃO EXISTE para o app** — a policy filtra, não a tela |
 
 - ⛔ **Grants: `SELECT` e mais nada.** A ingestão acontece **fora de banda** por `service_role`; não dar escrita é o que garante que uma marca real só entre por quem tem o direito de colocá-la lá.
+- **Busca:** RPC **`public.catalog_search(q, lim)`** (SPEC-058) — `SECURITY INVOKER` (a RLS decide: só `published`), `STABLE`, ranking **textual** (marca exata → prefixo → contém → foto), `grant execute to authenticated`, `revoke from public`. Acento/maiúscula-insensível via `public.f_unaccent` (immutable wrapper de `extensions.unaccent`). ⛔ **Nunca ordena por mérito capilar (D-26) nem comissão (T2).**
 - ⚠️ **`products.catalog_product_id`** (anulável, `on delete set null`) liga a prateleira dela. **`null` é o caminho completo** — o cadastro manual continua inteiro —, e o `name` continua sendo **o dela**: o catálogo preenche na hora de adicionar e **não manda depois**.
 
 ## 4. Matriz de dados pessoais (LGPD)
