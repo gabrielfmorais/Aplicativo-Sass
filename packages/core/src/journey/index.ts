@@ -7,6 +7,7 @@ export {
   type JourneyView,
 } from './domain/journey.ts';
 export { buildJourneyView } from './application/build-journey-view.ts';
+export { detectCelebration, type Celebration } from './domain/celebration.ts';
 export {
   JOURNEY_RULES_V1,
   JOURNEY_RULES_VERSION_V1,

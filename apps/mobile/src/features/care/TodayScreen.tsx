@@ -3,6 +3,7 @@ import type {
   CareItem,
   CareTrackingPort,
   CareTypeCode,
+  Celebration,
   CheckInMark,
   FinishStatus,
   FinishTechnique,
@@ -31,6 +32,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button, Card, Chip, Row, Screen, ScreenHeader, Stack, Tag, Text } from '@/design/primitives';
+import { CelebrationCard } from '@/features/journey/CelebrationCard';
 import { HomeSection } from '@/features/care/HomeSection';
 import { SuggestionsCard } from '@/features/care/SuggestionsCard';
 import { buildSuggestions, type Suggestion, type SuggestionKey } from '@/features/care/suggestions';
@@ -918,6 +920,9 @@ export function TodayScreen({
   onReassess,
   onOpenJourney,
   onShare,
+  celebration,
+  onCelebrationShare,
+  onCelebrationDismiss,
 }: {
   board: CareBoard;
   care: CareTrackingPort;
@@ -995,6 +1000,13 @@ export function TodayScreen({
    * mesma razão que a Jornada: o loop diário não depende disso.
    */
   onShare?: ((careLabel: string) => void) | undefined;
+  /**
+   * SPEC-043 OQ1 — a celebração no lugar dela. A rota detecta a conquista nova (diff da Jornada) e
+   * passa o cartão; a Hoje só o mostra, no topo, na hora. `null` quando não há nada a comemorar.
+   */
+  celebration?: Celebration | null;
+  onCelebrationShare?: () => void;
+  onCelebrationDismiss?: () => void;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -1261,6 +1273,19 @@ export function TodayScreen({
       <ScreenHeader title={formatLongDate(selected as LocalDate)} profile={profile} />
 
       <WeekStrip week={week} selected={selected} onSelect={setSelected} />
+
+      {/*
+        SPEC-043 OQ1 — a celebração, no topo, na hora. Aparece quando ela cruza um marco ou sobe de
+        nível (a rota detecta a conquista nova); é a única vez que a Jornada fala sem ela abrir a
+        tela dela. Discreta e fechável — a razão de a OQ1 ter esperado é que mal-feita vira ruído.
+      */}
+      {celebration ? (
+        <CelebrationCard
+          celebration={celebration}
+          onShare={onCelebrationShare ?? (() => undefined)}
+          onDismiss={onCelebrationDismiss ?? (() => undefined)}
+        />
+      ) : null}
 
       {/*
         Outro dia: a tela inteira passa a ser sobre ele. Mostrar o dia selecionado **junto** com as

@@ -4,10 +4,12 @@ import type {
   HairPlanPort,
   HairEventPort,
   HairProfilePort,
+  Celebration,
   HunaAvatar,
   ProductPort,
   ProductCatalogPort,
   JourneyPort,
+  JourneyView,
   OilRoutinePort,
   WashDayPort,
   HairProfileSnapshot,
@@ -25,13 +27,14 @@ import {
   buildNotificationIntents,
   buildProgress,
   buildTodayView,
+  detectCelebration,
   careDoneMoment,
   cycleMoment,
   journeyMoment,
   milestoneMoments,
   washDayMoment,
 } from '@app/core';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button, Card, Loading, Screen, Stack, Text } from '@/design/primitives';
@@ -361,6 +364,25 @@ function AuthenticatedApp({
    */
   const journey = useJourney(journeyPort, board !== 'loading' && board !== 'error' ? board : null, today());
 
+  /**
+   * SPEC-043 OQ1 — a celebração no lugar dela.
+   *
+   * A `useJourney` recarrega a cada mudança do board (concluir um cuidado muda o board), então uma
+   * conquista nova aparece como uma `JourneyView` diferente da anterior. `detectCelebration` compara
+   * as duas e **nunca comemora a linha de base** (a primeira leitura da sessão): dar parabéns na
+   * abertura por marcos antigos seria o oposto de "na hora". A referência guarda a última vista; o
+   * efeito só a atualiza quando há vista (uma releitura que falhou não pode virar celebração falsa).
+   */
+  const [celebration, setCelebration] = useState<Celebration | null>(null);
+  const lastJourney = useRef<JourneyView | null>(null);
+  useEffect(() => {
+    const next = journey.view;
+    if (!next) return;
+    const found = detectCelebration(lastJourney.current, next);
+    lastJourney.current = next;
+    if (found) setCelebration(found);
+  }, [journey.view]);
+
   if (askName === null || profile === 'loading') return <Loading label="Carregando seu perfil…" />;
   // Antes do cabelo, ela. A pergunta abre a primeira experiência e sai do caminho para sempre.
   if (askName) return <NameScreen profile={userProfile} onDone={() => setAskName(false)} />;
@@ -393,6 +415,8 @@ function AuthenticatedApp({
         onChange={(next) => {
           setStacked(null);
           setTab(next);
+          // A celebração é da Hoje, na hora: trocar de aba a encerra em vez de a carregar junto.
+          setCelebration(null);
         }}
       />
     </View>
@@ -764,6 +788,14 @@ function AuthenticatedApp({
       onReassess={() => setReassessing('profile')}
       onOpenJourney={() => openStacked('journey')}
       onShare={(careLabel) => openShare({ careLabel })}
+      celebration={celebration}
+      // Compartilhar a conquista leva à Jornada compartilhável (F45/F46), onde o marco alcançado
+      // está entre os momentos; fechar o cartão é só encerrar o momento.
+      onCelebrationShare={() => {
+        setCelebration(null);
+        openShare('journey');
+      }}
+      onCelebrationDismiss={() => setCelebration(null)}
     />,
   );
 }

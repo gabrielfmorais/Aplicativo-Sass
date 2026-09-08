@@ -147,8 +147,17 @@ linha aponta para o fato canônico que a originou, e é esse par que garante a i
 
 ## 10. Open Questions
 
-- **OQ1** Celebração no momento (microinteração) fica para a próxima fatia: sem ela a capability já é
-  verdadeira, e com ela mal-feita ela vira ruído.
+- **OQ1 — RESOLVIDA (2026-09-08).** A **celebração no lugar dela** existe: um cartão que aparece na
+  Hoje, no topo, quando ela cruza um marco ou sobe de nível, com "Compartilhar" e "Fechar". **A
+  detecção é pura** (`detectCelebration`, comparando a `JourneyView` de antes com a de agora) e **nunca
+  comemora a linha de base** — a primeira leitura da sessão não é conquista do momento, e dar parabéns
+  na abertura por marcos antigos seria o oposto de "na hora". **Uma conquista por evento** (marco tem
+  prioridade sobre subir de nível). ⚠️ **Fala de aderência, nunca de cabelo (D-26) nem de fazer mais
+  (D-103)** — *"Você chegou aqui mantendo o seu plano"* —, com barreira de teste; e como marco/nível
+  saem de fato de cuidado **planejado**, o ad-hoc (que não concede ponto) **não** pode dispará-la.
+  Entrada suave via `Reveal` (respeita redução de movimento), e some ao fechar, compartilhar ou trocar
+  de aba. **A razão de a OQ1 ter esperado — "mal-feita vira ruído" — virou a régua:** discreta,
+  fechável, e só numa conquista de verdade.
 - **OQ2** `F43` desafios e `F44` ranking dependem da Community — `DEFERRED BY DEPENDENCY`.
 - **OQ3** Compartilhar um marco é o `F45`, e ele é INEGOCIÁVEL — mas é outra SPEC.
 
@@ -158,3 +167,4 @@ linha aponta para o fato canônico que a originou, e é esse par que garante a i
 |---|---|
 | 2026-09-03 | SPEC criada. Aderência ao plano, com superfície própria e ponto como fato datado. |
 | 2026-09-04 | Validação no DEV real a 390px. Quatro defeitos corrigidos: hook condicional derrubando a tela autenticada (e `react-hooks/rules-of-hooks` adotada como guardrail); `caresAttended` derivado do board (EC7); cuidado adiantado fora da sequência (EC6); e **o ponto chavado pela execução, que pagava o mesmo cuidado planejado várias vezes** (BR7). |
+| 2026-09-08 | **OQ1 resolvida — a celebração no lugar dela.** `detectCelebration` puro no core (comparando duas `JourneyView`, nunca comemorando a linha de base, uma por evento), `CelebrationCard` na Hoje com entrada por `Reveal`. Aderência-only, gated a cuidado planejado (ad-hoc não concede ponto, então não dispara). **Validada a 390px no DEV real:** baseline silencioso apesar de marcos já alcançados; a `streak_3` comemorada **só** no cruzamento (conclusões 1 e 2 ficaram caladas); cartão discreto, console limpo. Zero migration, zero backend. |
