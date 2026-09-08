@@ -14,7 +14,14 @@ import { JourneyScreen } from '@/features/journey/JourneyScreen';
 
 const view = (over: Partial<JourneyView> = {}): JourneyView => ({
   points: 20,
-  level: { level: 1, name: 'Começando', toNext: 40, nextName: 'Em ritmo' },
+  level: {
+    level: 1,
+    name: 'Começando',
+    toNext: 40,
+    nextName: 'Em ritmo',
+    pointsIntoLevel: 20,
+    levelSpan: 60,
+  },
   streak: 2,
   caresAttended: 2,
   milestones: [
@@ -69,6 +76,48 @@ describe('Sua jornada (SPEC-043)', () => {
   it('não cobra nem ameaça a sequência', async () => {
     const s = await render(<JourneyScreen view={view()} loading={false} onBack={jest.fn()} />);
     expect(s.queryByText(/não perca|falta pouco para perder|você está atrasada|meta/i)).toBeNull();
+  });
+
+  /**
+   * SPEC-059 — a progressão de nível também é **vista**, não só lida. A barra mostra o que ela já fez
+   * dentro da faixa; e é rotulada como constância, sem a palavra "meta".
+   */
+  it('mostra a barra de progresso do nível como constância, não como meta', async () => {
+    const s = await render(<JourneyScreen view={view()} loading={false} onBack={jest.fn()} />);
+    s.getByLabelText(/Sua constância rumo a Em ritmo/);
+  });
+
+  /** ⚠️ No topo não há faixa a perseguir: sem barra, sem cobrança. */
+  it('no último nível não mostra barra a perseguir', async () => {
+    const s = await render(
+      <JourneyScreen
+        view={view({
+          level: {
+            level: 5,
+            name: 'Inabalável',
+            toNext: null,
+            nextName: null,
+            pointsIntoLevel: 100,
+            levelSpan: null,
+          },
+        })}
+        loading={false}
+        onBack={jest.fn()}
+      />,
+    );
+    expect(s.queryByLabelText(/rumo a/)).toBeNull();
+  });
+
+  /**
+   * SPEC-059 — os marcos viram uma **coleção**. Mostra a coleção inteira (conquistadas e por chegar)
+   * e conta **o que ela já tem**, nunca o que falta.
+   */
+  it('mostra as conquistas como coleção e conta o que ela já tem', async () => {
+    const s = await render(<JourneyScreen view={view()} loading={false} onBack={jest.fn()} />);
+    s.getByText('Conquistas');
+    s.getByText('Primeiro cuidado'); // conquistada
+    s.getByText('5 cuidados do seu plano'); // por chegar, ainda visível — é convite, não cobrança
+    s.getByText(/Você já conquistou 1 marco/); // conta o que ela tem, não o que falta
   });
 
   it('enquanto carrega, não inventa número nenhum', async () => {

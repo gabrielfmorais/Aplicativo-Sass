@@ -1,11 +1,11 @@
 import type { JourneyView } from '@app/core';
 import { StyleSheet, View } from 'react-native';
 
-import { Button, Card, Loading, Row, Screen, Stack, Tag, Text } from '@/design/primitives';
+import { Button, Card, Loading, ProgressBar, Row, Screen, Stack, Text } from '@/design/primitives';
 import { color, radius, space } from '@/design/tokens';
 
 /**
- * SPEC-043 (F40/F41/F42) — **Sua jornada**.
+ * SPEC-043 (F40/F41/F42) + SPEC-059 — **Sua jornada**.
  *
  * ⚠️ **Superfície própria, e isso é arquitetura, não estética** (D-103). A Jornada **não** é um
  * widget pendurado na Progresso nem na visão de ciclo: aquelas telas respondem *"o que aconteceu"* e
@@ -17,7 +17,8 @@ import { color, radius, space } from '@/design/tokens';
  * do gate; o preço dessa isenção é não se disfarçar.
  *
  * ⚠️ **E não cobra.** Não há barra de meta, não há "faltam X para não perder", não há vermelho. Um
- * marco não alcançado é apenas um marco que ainda não chegou.
+ * marco não alcançado é apenas um marco que ainda não chegou — e a barra de nível mostra **o que ela
+ * já fez** dentro da faixa, a mesma progressão que *"faltam X para Y"* já dizia em palavra.
  */
 export function JourneyScreen({
   view,
@@ -57,6 +58,8 @@ export function JourneyScreen({
     );
   }
 
+  const reached = view.milestones.filter((m) => m.reached).length;
+
   return (
     <Screen footer={<Button label="Voltar" variant="ghost" onPress={onBack} />}>
       <Stack gap="sm">
@@ -68,18 +71,40 @@ export function JourneyScreen({
       </Stack>
 
       <Card tone="accent">
-        <Stack gap="sm">
-          <Text variant="overline" tone="accent">
-            {`Nível ${view.level.level}`}
-          </Text>
-          <Text variant="display" accessibilityRole="header">
-            {view.level.name}
-          </Text>
+        <Stack gap="md">
+          {/*
+            SPEC-059 — o nível ganha um medalhão que **evolui de cor** com a faixa: começa quieto e
+            aprofunda na família da marca até o vinho no topo. É "subir de nível" visto, não só lido —
+            e continua sendo constância, nunca uma nota do cabelo.
+          */}
+          <View style={styles.levelRow}>
+            <LevelMedallion level={view.level.level} />
+            <Stack gap="xs" style={styles.levelText}>
+              <Text variant="overline" tone="accent">
+                {`Nível ${view.level.level}`}
+              </Text>
+              <Text variant="display" accessibilityRole="header">
+                {view.level.name}
+              </Text>
+            </Stack>
+          </View>
           <Text tone="muted">
             {view.level.toNext === null
               ? `${view.points} pontos de constância.`
               : `${view.points} pontos · faltam ${view.level.toNext} para ${view.level.nextName}.`}
           </Text>
+          {/*
+            A barra só existe quando há próxima faixa. **Não é meta nem cobrança:** mostra os pontos
+            que ela **já fez** dentro do nível — o preenchido é conquista, não dívida —, e no topo
+            (levelSpan null) ela some, porque não há próximo a perseguir (D-103).
+          */}
+          {view.level.levelSpan !== null ? (
+            <ProgressBar
+              value={view.level.pointsIntoLevel}
+              total={view.level.levelSpan}
+              label={`Sua constância rumo a ${view.level.nextName}`}
+            />
+          ) : null}
         </Stack>
       </Card>
 
@@ -109,19 +134,24 @@ export function JourneyScreen({
         </Stack>
       </Card>
 
+      {/*
+        SPEC-059 — os marcos viram uma **coleção**: cada um é uma medalha, conquistada (cheia, na cor
+        da marca) ou ainda por chegar (contorno quieto, nunca vermelha). Mostrar a coleção inteira é
+        o ponto — ver o que ainda vem é convite, não cobrança (a mesma regra dos marcos de sempre).
+        O contador conta **o que ela já tem**, não o que falta.
+      */}
       <Stack gap="md">
         <Text variant="overline" tone="accent" accessibilityRole="header">
-          Marcos
+          Conquistas
         </Text>
-        <Row>
+        <Row gap="md">
           {view.milestones.map((milestone) => (
-            <View key={milestone.key} style={[styles.milestone, milestone.reached && styles.reached]}>
-              <Tag label={milestone.label} tone={milestone.reached ? 'accent' : 'neutral'} />
-            </View>
+            <Badge key={milestone.key} label={milestone.label} reached={milestone.reached} />
           ))}
         </Row>
         <Text variant="caption" tone="muted">
-          {`${view.caresAttended} cuidados do seu plano até aqui.`}
+          {reached === 1 ? 'Você já conquistou 1 marco.' : `Você já conquistou ${reached} marcos.`}
+          {` ${view.caresAttended} cuidados do seu plano até aqui.`}
         </Text>
       </Stack>
 
@@ -135,8 +165,77 @@ export function JourneyScreen({
   );
 }
 
+/**
+ * SPEC-059 — o medalhão do nível. **A cor aprofunda com a faixa** (quieto → berry → ameixa → violeta
+ * → vinho), então subir de nível se vê. Todos os tons vêm da família da marca (tokens); nada aqui é
+ * cor de ação nem de sucesso — é identidade, não estado.
+ */
+const LEVEL_LOOK = [
+  { bg: color.surfaceMuted, fg: color.inkMuted, border: color.borderStrong },
+  { bg: color.berry, fg: color.onFilled, border: color.berry },
+  { bg: color.accent, fg: color.onFilled, border: color.accent },
+  { bg: color.violet, fg: color.onFilled, border: color.violet },
+  { bg: color.wine, fg: color.onFilled, border: color.wine },
+] as const;
+
+function LevelMedallion({ level }: { level: number }) {
+  const look = LEVEL_LOOK[Math.min(Math.max(level, 1), LEVEL_LOOK.length) - 1] ?? LEVEL_LOOK[0];
+  return (
+    <View
+      style={[styles.medallion, { backgroundColor: look.bg, borderColor: look.border }]}
+      accessibilityLabel={`Nível ${level}`}
+    >
+      <Text variant="title" style={{ color: look.fg }}>
+        {String(level)}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * Uma medalha da coleção. **Conquistada** é cheia, na ameixa da marca, com o traço de confirmação;
+ * **por chegar** é um contorno quieto — nunca vermelha, nunca um cadeado que leia como negação. O
+ * rótulo fica legível nos dois estados, porque ver o que ainda vem é parte da coleção.
+ */
+function Badge({ label, reached }: { label: string; reached: boolean }) {
+  return (
+    <View style={styles.badge}>
+      <View style={[styles.badgeMark, reached ? styles.badgeMarkOn : styles.badgeMarkOff]}>
+        {reached ? (
+          <Text variant="heading" tone="onFilled">
+            ✓
+          </Text>
+        ) : null}
+      </View>
+      <Text variant="caption" tone={reached ? 'default' : 'faint'} center>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  /** Alcançado ganha borda; não alcançado fica quieto. **Nada fica vermelho** — não há falha aqui. */
-  milestone: { borderRadius: radius.pill, borderWidth: 1, borderColor: 'transparent', padding: space.xs },
-  reached: { borderColor: color.accentBorder },
+  levelRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  levelText: { flexShrink: 1 },
+  medallion: {
+    width: space.xxxl,
+    height: space.xxxl,
+    borderRadius: radius.pill,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  /** Três por linha a 390px; o rótulo centra sob a medalha. */
+  badge: { width: '30%', alignItems: 'center', gap: space.xs },
+  badgeMark: {
+    width: space.xxxl,
+    height: space.xxxl,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+  },
+  badgeMarkOn: { backgroundColor: color.accent, borderColor: color.accent },
+  /** Por chegar: contorno quieto, sem preenchimento. **Nada fica vermelho** — não há falha aqui. */
+  badgeMarkOff: { backgroundColor: color.surfaceMuted, borderColor: color.border },
 });

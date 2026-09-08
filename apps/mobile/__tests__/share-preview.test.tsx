@@ -13,7 +13,14 @@ import { SharePreviewScreen } from '@/features/sharing/SharePreviewScreen';
 
 const journey: JourneyView = {
   points: 135,
-  level: { level: 2, name: 'Em ritmo', toNext: 45, nextName: 'Constante' },
+  level: {
+    level: 2,
+    name: 'Em ritmo',
+    toNext: 45,
+    nextName: 'Constante',
+    pointsIntoLevel: 75,
+    levelSpan: 120,
+  },
   streak: 5,
   caresAttended: 9,
   milestones: [],

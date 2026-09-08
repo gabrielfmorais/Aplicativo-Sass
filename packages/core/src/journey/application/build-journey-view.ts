@@ -75,6 +75,10 @@ const levelOf = (points: number) => {
     name: reached.name,
     toNext: next ? next.from - points : null,
     nextName: next ? next.name : null,
+    // SPEC-059 — a faixa do nível atual, para a barra. `pointsIntoLevel` nunca é negativo (reached é
+    // o maior limiar já cruzado); `levelSpan` é `null` no topo, onde não há próximo a perseguir.
+    pointsIntoLevel: points - reached.from,
+    levelSpan: next ? next.from - reached.from : null,
   };
 };
 

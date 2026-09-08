@@ -5,7 +5,14 @@ import type { JourneyMilestone, JourneyView } from './domain/journey.ts';
 
 const view = (over: Partial<JourneyView> = {}): JourneyView => ({
   points: 100,
-  level: { level: 2, name: 'Em ritmo', toNext: 80, nextName: 'Constante' },
+  level: {
+    level: 2,
+    name: 'Em ritmo',
+    toNext: 80,
+    nextName: 'Constante',
+    pointsIntoLevel: 40,
+    levelSpan: 120,
+  },
   streak: 3,
   caresAttended: 5,
   milestones: [
@@ -54,14 +61,32 @@ describe('detectCelebration (SPEC-043 OQ1)', () => {
 
   it('sobe de nível quando não há marco novo', () => {
     const before = view();
-    const after = view({ level: { level: 3, name: 'Constante', toNext: 220, nextName: 'Firme' } });
+    const after = view({
+      level: {
+        level: 3,
+        name: 'Constante',
+        toNext: 220,
+        nextName: 'Firme',
+        pointsIntoLevel: 0,
+        levelSpan: 220,
+      },
+    });
     expect(detectCelebration(before, after)).toEqual({ kind: 'level', level: 3, name: 'Constante' });
   });
 
   it('o marco tem prioridade sobre subir de nível — o mesmo cuidado pode cruzar os dois', () => {
     const before = view();
     const after = withReached(
-      view({ level: { level: 3, name: 'Constante', toNext: 220, nextName: 'Firme' } }),
+      view({
+        level: {
+          level: 3,
+          name: 'Constante',
+          toNext: 220,
+          nextName: 'Firme',
+          pointsIntoLevel: 0,
+          levelSpan: 220,
+        },
+      }),
       'cares_10',
     );
     expect(detectCelebration(before, after)).toEqual({
