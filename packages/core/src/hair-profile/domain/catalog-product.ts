@@ -49,8 +49,9 @@ export type CatalogProduct = {
 export type ProductCatalogIdentity = Omit<CatalogProduct, 'ean'>;
 
 export const CatalogSearchSchema = z.object({
-  /** Texto livre: marca, linha ou nome. */
-  text: z.string().trim().min(2).max(80).optional(),
+  /** Texto livre: marca, linha ou nome. **Min 1** para o autocomplete (SPEC-058): a busca começa a
+   * sugerir com a primeira letra, e o ranking do servidor põe a marca certa na frente. */
+  text: z.string().trim().min(1).max(80).optional(),
   /** `F33` — busca exata. O scanner ainda não existe; a busca por código já. */
   ean: z
     .string()

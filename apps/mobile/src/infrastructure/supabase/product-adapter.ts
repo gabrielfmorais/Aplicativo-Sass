@@ -187,27 +187,17 @@ export const createProductCatalogAdapter = (client: SupabaseClient): ProductCata
 
   async search(input): Promise<readonly CatalogProduct[]> {
     const { text, ean, limit } = CatalogSearchSchema.parse(input);
-    if (!text && !ean) return [];
-
-    let query = client.from('catalog_products').select(`${CATALOG_FIELDS}, ean`);
-    if (ean) {
-      query = query.eq('ean', ean);
-    } else if (text) {
-      // ⚠️ Escapa `%` e `_` e a vírgula: sem isso, um nome com vírgula quebraria o `or` do
-      // PostgREST em dois filtros, e um `%` digitado viraria curinga silencioso.
-      const termo = text.replace(/[%_,()]/g, ' ').trim();
-      if (!termo) return [];
-      query = query.or(`brand.ilike.%${termo}%,name.ilike.%${termo}%,line.ilike.%${termo}%`);
-    }
+    // SPEC-058 — a busca vai para o servidor, indexada e com ranking de relevância. Um termo só (`q`);
+    // o `search_text` do servidor inclui o EAN, então busca por código passa pelo mesmo caminho.
+    const q = (ean ?? text ?? '').trim();
+    if (!q) return [];
 
     /**
-     * ⛔ **A ordem é por identidade, nunca por mérito** (NG3). Ordenar por popularidade seria a
-     * `P18` entrando pela porta dos fundos; por patrocínio, o `T2` — e os dois têm gate próprio.
+     * ⚠️ **RPC `catalog_search`, não `ilike` no cliente.** Acento/maiúscula-insensível, índice trigram,
+     * e a ordem é por **correspondência textual + foto** — marca exata → prefixo → contém. Nunca por
+     * mérito capilar (NG3/D-26/P18) nem por comissão (T2): o ranking é da SPEC, e é textual.
      */
-    const { data, error } = await query
-      .order('brand', { ascending: true })
-      .order('name', { ascending: true })
-      .limit(limit);
+    const { data, error } = await client.rpc('catalog_search', { q, lim: limit });
     if (error) throw fail('hair_profile.catalog_search_failed', error);
 
     return (data as unknown as (CatalogRow & { ean: string | null })[]).map((row) => ({
