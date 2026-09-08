@@ -459,6 +459,10 @@ export function WashDayScreen({
                     selected={selected}
                     onPress={() => toggleProduct(product, !selected)}
                     accessibilityLabel={`${label} — ${CATEGORY_LABEL[product.category]}`}
+                    // Nome de catálogo pode ser longo (OBF); corta com reticências em vez de escapar
+                    // do quadro. A marca, no começo, continua legível. O accessibilityLabel mantém o
+                    // rótulo inteiro para a tecnologia assistiva.
+                    numberOfLines={1}
                   />
                 );
               })}
