@@ -31,11 +31,14 @@ import { OilRoutineCard } from '@/features/care/OilRoutineCard';
  */
 export function CareTabScreen({
   onOpenHairEvents,
+  onOpenFinishes,
   profile,
   oil,
 }: {
   /** SPEC-020 — contar o que mudou; ausente quando a capability não está disponível. */
   onOpenHairEvents?: () => void;
+  /** SPEC-056 (F38) — a área de Finalizações: os nomes e o que ela já registrou. */
+  onOpenFinishes: () => void;
   /** SPEC-026 fatia 7 — o acesso a **Você**, no cabeçalho. A tela só repassa. */
   profile: { readonly name: string | null; readonly onPress: () => void };
   /**
@@ -102,6 +105,22 @@ export function CareTabScreen({
           times={oil.times}
         />
       ) : null}
+
+      {/*
+        SPEC-056 (F38, shell) — Finalizações ganha lugar, no padrão dos outros cartões: diz o que é,
+        depois oferece. Aqui mora **o nome e o que ela já fez**; "melhor para você" e "como fazer" são
+        o resto do F38, atrás do gate D-26/D-70.
+      */}
+      <Card>
+        <Text variant="heading" accessibilityRole="header">
+          Finalizações
+        </Text>
+        <Text tone="muted">
+          As formas de finalizar que você registra nos seus cuidados — os nomes, e quantas vezes você já fez
+          cada uma.
+        </Text>
+        <Button label="Ver finalizações" variant="secondary" onPress={onOpenFinishes} style={styles.action} />
+      </Card>
 
       <CareGuideLibrary />
     </Screen>

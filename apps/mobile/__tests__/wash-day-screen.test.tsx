@@ -46,6 +46,7 @@ const makeWashDays = (over: Partial<WashDayPort> = {}): WashDayPort => ({
   setFinishStatus: jest.fn(async () => undefined),
   setFinishTechnique: jest.fn(async () => {}),
   lastUsedFor: jest.fn(async () => []),
+  finishHistory: jest.fn(async () => []),
   ...over,
 });
 

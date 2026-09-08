@@ -54,7 +54,11 @@ describe('CareTabScreen (SPEC-026 / SPEC-027 / SPEC-034)', () => {
   it('guarda "meu cabelo mudou" e os guias, que antes não tinham lugar', async () => {
     const onOpenHairEvents = jest.fn();
     const s = await render(
-      <CareTabScreen profile={{ name: 'Ana', onPress: jest.fn() }} onOpenHairEvents={onOpenHairEvents} />,
+      <CareTabScreen
+        profile={{ name: 'Ana', onPress: jest.fn() }}
+        onOpenHairEvents={onOpenHairEvents}
+        onOpenFinishes={jest.fn()}
+      />,
     );
     await fireEvent.press(s.getByText('Contar o que mudou'));
     expect(onOpenHairEvents).toHaveBeenCalled();
@@ -69,7 +73,11 @@ describe('CareTabScreen (SPEC-026 / SPEC-027 / SPEC-034)', () => {
    */
   it('não oferece uma segunda porta para a prateleira nem para o ciclo, que agora são abas', async () => {
     const s = await render(
-      <CareTabScreen profile={{ name: 'Ana', onPress: jest.fn() }} onOpenHairEvents={jest.fn()} />,
+      <CareTabScreen
+        profile={{ name: 'Ana', onPress: jest.fn() }}
+        onOpenHairEvents={jest.fn()}
+        onOpenFinishes={jest.fn()}
+      />,
     );
     expect(s.queryByText(/prateleira/i)).toBeNull();
     expect(s.queryByText('Ver meu ciclo')).toBeNull();
@@ -83,7 +91,11 @@ describe('CareTabScreen (SPEC-026 / SPEC-027 / SPEC-034)', () => {
    */
   it('funciona sem plano ativo, porque nada aqui depende de cronograma', async () => {
     const s = await render(
-      <CareTabScreen profile={{ name: 'Ana', onPress: jest.fn() }} onOpenHairEvents={jest.fn()} />,
+      <CareTabScreen
+        profile={{ name: 'Ana', onPress: jest.fn() }}
+        onOpenHairEvents={jest.fn()}
+        onOpenFinishes={jest.fn()}
+      />,
     );
     expect(s.getByText('Contar o que mudou')).toBeTruthy();
     expect(s.queryByText(/Seu ciclo aparece assim que/)).toBeNull();

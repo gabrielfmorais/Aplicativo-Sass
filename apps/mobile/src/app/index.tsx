@@ -40,6 +40,7 @@ import { TabBar, type TabKey } from '@/design/TabBar';
 import { useAuth } from '@/bootstrap/auth';
 import { AccountScreen } from '@/features/account/AccountScreen';
 import { CareTabScreen } from '@/features/care/CareTabScreen';
+import { FinishesScreen } from '@/features/care/FinishesScreen';
 import { useOilRoutine } from '@/features/care/use-oil-routine';
 import { JourneyScreen } from '@/features/journey/JourneyScreen';
 import { useJourney } from '@/features/journey/use-journey';
@@ -170,7 +171,7 @@ function AuthenticatedApp({
     };
   }, [products]);
   const [stacked, setStacked] = useState<
-    null | 'hairEvents' | 'you' | 'journey' | 'share' | 'insights' | 'shelfUsage'
+    null | 'hairEvents' | 'you' | 'journey' | 'share' | 'insights' | 'shelfUsage' | 'finishes'
   >(null);
   /**
    * SPEC-045 (F46) — **de onde ela veio decide o que o card pode ser**. A tela de compartilhar é uma
@@ -184,8 +185,9 @@ function AuthenticatedApp({
     setShareFrom(from);
     setStacked('share');
   };
-  const openStacked = (screen: 'hairEvents' | 'you' | 'journey' | 'share' | 'insights' | 'shelfUsage') =>
-    setStacked(screen);
+  const openStacked = (
+    screen: 'hairEvents' | 'you' | 'journey' | 'share' | 'insights' | 'shelfUsage' | 'finishes',
+  ) => setStacked(screen);
   const closeStacked = () => setStacked(null);
   /**
    * SPEC-024 — o registro do que ela usou, aberto a partir de um cuidado concluído. Guarda a
@@ -586,6 +588,11 @@ function AuthenticatedApp({
     );
   }
 
+  /** SPEC-056 (F38, shell) — Finalizações: os nomes e o que ela já registrou. Lê `wash_day_finish`. */
+  if (stacked === 'finishes') {
+    return shell(<FinishesScreen washDays={washDays} onBack={() => setStacked(null)} />);
+  }
+
   if (stacked === 'you') {
     return shell(
       <AccountScreen
@@ -653,6 +660,7 @@ function AuthenticatedApp({
       <CareTabScreen
         profile={profileChip}
         onOpenHairEvents={() => openStacked('hairEvents')}
+        onOpenFinishes={() => openStacked('finishes')}
         oil={{
           view: oilRoutine.view,
           busy: oilRoutine.busy,
