@@ -87,6 +87,25 @@ describe('Jornada — pontos e níveis (SPEC-043 F40)', () => {
     expect(emRitmo.level.nextName).toBe('Constante');
   });
 
+  /** SPEC-059 — a barra da tela lê `pointsIntoLevel / levelSpan`, a progressão dentro da faixa. */
+  it('expõe a progressão dentro da faixa do nível atual', () => {
+    const v = view([], [], [point(100)]); // 100 pts → "Em ritmo" (de 60), próximo "Constante" (180)
+    expect(v.level.name).toBe('Em ritmo');
+    expect(v.level.pointsIntoLevel).toBe(40); // 100 - 60
+    expect(v.level.levelSpan).toBe(120); // 180 - 60
+  });
+
+  it('no topo não há faixa a perseguir: levelSpan é null', () => {
+    const v = view(
+      [],
+      [],
+      Array.from({ length: 9 }, () => point(100)),
+    ); // 900 ≥ 800
+    expect(v.level.name).toBe('Inabalável');
+    expect(v.level.pointsIntoLevel).toBe(100); // 900 - 800
+    expect(v.level.levelSpan).toBeNull();
+  });
+
   it('no último nível não há próximo a perseguir', () => {
     const v = view(
       [],

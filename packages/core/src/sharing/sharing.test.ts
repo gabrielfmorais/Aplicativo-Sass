@@ -23,7 +23,14 @@ import { SHARE_MOMENT_KINDS } from './domain/share-moment.ts';
 
 const journey = (over: Partial<JourneyView> = {}): JourneyView => ({
   points: 135,
-  level: { level: 2, name: 'Em ritmo', toNext: 45, nextName: 'Constante' },
+  level: {
+    level: 2,
+    name: 'Em ritmo',
+    toNext: 45,
+    nextName: 'Constante',
+    pointsIntoLevel: 75,
+    levelSpan: 120,
+  },
   streak: 5,
   caresAttended: 9,
   milestones: [

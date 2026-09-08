@@ -29,6 +29,16 @@ export type JourneyLevel = {
   /** Quantos pontos faltam para o próximo, ou `null` no último. */
   readonly toNext: number | null;
   readonly nextName: string | null;
+  /**
+   * SPEC-059 — a progressão dentro da faixa do nível atual, para a barra da tela.
+   *
+   * `pointsIntoLevel` são os pontos já feitos **desde que entrou neste nível**; `levelSpan` é a
+   * largura da faixa (deste limiar ao próximo). A barra é `pointsIntoLevel / levelSpan`. **Não é
+   * cobrança:** é a mesma progressão que a frase *"faltam X para Y"* já dizia, agora também vista —
+   * e no último nível `levelSpan` é `null`, então não há barra a perseguir (D-103: nada de meta).
+   */
+  readonly pointsIntoLevel: number;
+  readonly levelSpan: number | null;
 };
 
 export type JourneyMilestone = {
