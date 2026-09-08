@@ -928,10 +928,11 @@ export function TodayScreen({
   onChanged: () => void;
   /** SPEC-017 — para ler o snapshot que gerou o plano ativo, não o perfil de hoje. */
   hairProfile: HairProfilePort;
-  /** SPEC-022 — pausar, prever a volta e voltar. A rota é quem chama o port. */
-  onPause: () => void;
+  /** SPEC-022 — pausar, prever a volta e voltar. A rota é quem chama o port; a escrita devolve a
+   * promessa para o `PauseCard` travar o duplo toque e nomear a falha. */
+  onPause: () => Promise<void>;
   onPreviewResume: () => Promise<ResumeOutcome>;
-  onResume: () => void;
+  onResume: () => Promise<void>;
   /**
    * SPEC-019 — a forma do mês, a partir da tela que mostra o dia.
    *

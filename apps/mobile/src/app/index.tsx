@@ -730,15 +730,21 @@ function AuthenticatedApp({
       timeZone={timeZone()}
       newExecutionId={newRequestId}
       onChanged={loadBoard}
-      onPause={() => {
-        // Pausar e retomar recarregam o board: o estado pausado muda atraso, lembretes e progresso
-        // de uma vez, e reconstruir a partir do servidor é mais barato que reproduzir a mudança aqui.
-        void careTracking.pause(timeZone()).then(loadBoard).catch(loadBoard);
-      }}
+      // Pausar e retomar recarregam o board: o estado pausado muda atraso, lembretes e progresso de
+      // uma vez, e reconstruir a partir do servidor é mais barato que reproduzir a mudança aqui. A
+      // promessa é **devolvida** (sem `.catch` que engula): o `PauseCard` trava o duplo toque
+      // enquanto ela está no ar e mostra a falha — antes o board recarregava calado ainda despausado.
+      onPause={() =>
+        careTracking.pause(timeZone()).then(() => {
+          loadBoard();
+        })
+      }
       onPreviewResume={() => careTracking.resume({ timeZone: timeZone(), commit: false })}
-      onResume={() => {
-        void careTracking.resume({ timeZone: timeZone(), commit: true }).then(loadBoard).catch(loadBoard);
-      }}
+      onResume={() =>
+        careTracking.resume({ timeZone: timeZone(), commit: true }).then(() => {
+          loadBoard();
+        })
+      }
       // SPEC-034 — o ciclo é uma **aba**, então "ver meu mês" troca de aba, como a sugestão da
       // prateleira já fazia. Não há mais cópia empilhada dele para abrir por cima da Hoje.
       onOpenCycle={() => setTab('progress')}

@@ -1,7 +1,7 @@
 -- SPEC-024 §11 — o Wash Day sob cliente hostil: posse, isolamento, unicidade e a cascata da anulação.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(19);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values ('00000000-0000-4000-8000-000000000d11', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'd11@example.test'),
@@ -83,6 +83,12 @@ select is(
   (select count(*)::int from public.wash_day_products),
   0,
   'nem os produtos que D11 marcou');
+-- A mesma isolação, provada também para as técnicas: a policy de SELECT tem a forma das outras duas,
+-- e sem esta asserção um alargamento futuro dela não reprovaria nenhum teste.
+select is(
+  (select count(*)::int from public.wash_day_techniques),
+  0,
+  'nem as técnicas que D11 registrou');
 -- `with check` valida o dono da **linha**; quem valida o dono do **hub** é a FK composta. Sem ela,
 -- D22 penduraria a própria linha no Wash Day de D11: ninguém leria — nem a vítima — mas ela
 -- contaria quando `P8` agregasse por `wash_day_id`.

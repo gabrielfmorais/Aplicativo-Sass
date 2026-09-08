@@ -43,12 +43,32 @@ export function PauseCard({
   /** `null` quando o cronograma está andando. */
   pausedOn: string | null;
   busy: boolean;
-  onPause: () => void;
+  /**
+   * ⚠️ **Devolve a promessa da escrita.** Pausar e voltar são escritas no servidor, e este cartão é
+   * o dono do botão — então é ele que trava o duplo toque enquanto a escrita está no ar e diz quando
+   * ela falha. Antes o pai engolia a falha (`.catch(loadBoard)`) e o board recarregava ainda
+   * despausado, sem uma palavra: ela tocava "Pausar", nada mudava, e não havia como saber por quê.
+   */
+  onPause: () => Promise<void>;
   /** Pergunta ao servidor o que aconteceria, sem escrever nada. */
   onPreviewResume: () => Promise<ResumeOutcome>;
-  onResume: () => void;
+  onResume: () => Promise<void>;
 }) {
   const [preview, setPreview] = useState<ResumeOutcome | 'asking' | null>(null);
+  /** A escrita de pausar/voltar no ar, e a falha dela — locais, como o `preview` já é. */
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const blocked = busy || running;
+
+  /** Trava o duplo toque e nomeia a falha: uma escrita que falha calada é o defeito, não a lenta. */
+  const run = (write: () => Promise<void>) => {
+    if (blocked) return;
+    setRunning(true);
+    setError(null);
+    write()
+      .catch(() => setError('Não foi possível agora. Tente de novo.'))
+      .finally(() => setRunning(false));
+  };
 
   if (pausedOn === null) {
     return (
@@ -69,10 +89,15 @@ export function PauseCard({
         <Button
           label="Pausar"
           variant="secondary"
-          disabled={busy}
-          onPress={onPause}
+          disabled={blocked}
+          onPress={() => run(onPause)}
           style={styles.inlineStart}
         />
+        {error ? (
+          <Text tone="danger" accessibilityLiveRegion="polite">
+            {error}
+          </Text>
+        ) : null}
       </Card>
     );
   }
@@ -87,7 +112,7 @@ export function PauseCard({
       {preview === null ? (
         <Button
           label="Quero voltar"
-          disabled={busy}
+          disabled={blocked}
           onPress={() => {
             setPreview('asking');
             // Falhar em prever não pode virar uma retomada às cegas: some a pergunta e ela tenta
@@ -104,15 +129,20 @@ export function PauseCard({
           {/* A explicação **antes** do botão, e não depois: é o que FR4 pede, e é a diferença
               entre ela decidir e ela descobrir. */}
           <Text accessibilityLiveRegion="polite">{outcomeLine(preview, pausedOn)}</Text>
-          <Button label="Voltar aos meus cuidados" disabled={busy} onPress={onResume} />
+          <Button label="Voltar aos meus cuidados" disabled={blocked} onPress={() => run(onResume)} />
           <Button
             label="Continuar pausado"
             variant="ghost"
-            disabled={busy}
+            disabled={blocked}
             onPress={() => setPreview(null)}
           />
         </Stack>
       )}
+      {error ? (
+        <Text tone="danger" accessibilityLiveRegion="polite">
+          {error}
+        </Text>
+      ) : null}
     </Card>
   );
 }

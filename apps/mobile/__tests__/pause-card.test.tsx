@@ -15,9 +15,9 @@ const renderCard = (props: Partial<React.ComponentProps<typeof PauseCard>> = {})
     <PauseCard
       pausedOn={null}
       busy={false}
-      onPause={jest.fn()}
+      onPause={jest.fn(async () => {})}
       onPreviewResume={jest.fn(async () => shifted())}
-      onResume={jest.fn()}
+      onResume={jest.fn(async () => {})}
       {...props}
     />,
   );
@@ -28,7 +28,7 @@ const renderCard = (props: Partial<React.ComponentProps<typeof PauseCard>> = {})
  */
 describe('PauseCard (SPEC-022)', () => {
   it('andando, oferece pausar e diz o que a pausa faz por ela', async () => {
-    const onPause = jest.fn();
+    const onPause = jest.fn(async () => {});
     const s = await renderCard({ onPause });
     s.getByText(/nada fica atrasado e nenhum lembrete chega/);
     await fireEvent.press(s.getByText('Pausar'));
@@ -45,7 +45,7 @@ describe('PauseCard (SPEC-022)', () => {
 
   /** FR4 — a diferença entre ela decidir e ela descobrir. */
   it('mostra o que vai acontecer ANTES de oferecer o botão de voltar', async () => {
-    const onResume = jest.fn();
+    const onResume = jest.fn(async () => {});
     const s = await renderCard({ pausedOn: '2026-08-28', onResume });
 
     // Antes de perguntar, não há botão de confirmar.
@@ -60,7 +60,7 @@ describe('PauseCard (SPEC-022)', () => {
   });
 
   it('continuar pausado é uma saída de verdade, não um link escondido', async () => {
-    const onResume = jest.fn();
+    const onResume = jest.fn(async () => {});
     const s = await renderCard({ pausedOn: '2026-08-28', onResume });
     await fireEvent.press(s.getByText('Quero voltar'));
     await s.findByText('Continuar pausado');
@@ -82,7 +82,7 @@ describe('PauseCard (SPEC-022)', () => {
 
   /** Falhar em prever não pode virar uma retomada às cegas. */
   it('se a previsão falha, a pergunta volta em vez de o app confirmar o que não sabe explicar', async () => {
-    const onResume = jest.fn();
+    const onResume = jest.fn(async () => {});
     const s = await renderCard({
       pausedOn: '2026-08-28',
       onPreviewResume: jest.fn(async () => Promise.reject(new Error('rede'))),
@@ -92,6 +92,31 @@ describe('PauseCard (SPEC-022)', () => {
     await waitFor(() => s.getByText('Quero voltar'));
     expect(s.queryByText('Voltar aos meus cuidados')).toBeNull();
     expect(onResume).not.toHaveBeenCalled();
+  });
+
+  /**
+   * ⚠️ **A escrita que falha calada é o defeito.** Antes, o pai engolia a falha e o board recarregava
+   * ainda despausado, sem uma palavra — ela tocava "Pausar" e nada acontecia. Agora o cartão nomeia.
+   */
+  it('quando a pausa falha, a tela diz — não engole', async () => {
+    const onPause = jest.fn(async () => {
+      throw new Error('rede');
+    });
+    const s = await renderCard({ onPause });
+    await fireEvent.press(s.getByText('Pausar'));
+    expect(await s.findByText('Não foi possível agora. Tente de novo.')).toBeTruthy();
+  });
+
+  /** Duplo toque não dispara duas escritas: enquanto a de pausar está no ar, o botão trava. */
+  it('trava o duplo toque enquanto a escrita de pausar está no ar', async () => {
+    let resolve: (() => void) | undefined;
+    const onPause = jest.fn(() => new Promise<void>((r) => (resolve = r)));
+    const s = await renderCard({ onPause });
+    const button = s.getByText('Pausar');
+    await fireEvent.press(button);
+    await fireEvent.press(button);
+    expect(onPause).toHaveBeenCalledTimes(1);
+    resolve?.();
   });
 
   /**
