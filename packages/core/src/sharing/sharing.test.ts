@@ -3,7 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { MILESTONES_V1, type JourneyView } from '../journey/index.ts';
 import type { Progress } from '../progress/index.ts';
 import { buildShareCard } from './application/build-share-card.ts';
-import { careDoneMoment, cycleMoment, journeyMoment, milestoneMoments } from './application/moments.ts';
+import {
+  careDoneMoment,
+  cycleMoment,
+  journeyMoment,
+  milestoneMoments,
+  washDayMoment,
+} from './application/moments.ts';
 import { DEFAULT_SHARE_OPTIONS, SHARE_FORMATS, captureSizeOf } from './domain/share-card.ts';
 import { SHARE_MOMENT_KINDS } from './domain/share-moment.ts';
 
@@ -178,6 +184,22 @@ describe('Momentos — cada gatilho, um card (SPEC-045 F46)', () => {
     expect(m.footnote).toBeNull();
   });
 
+  /**
+   * ⚠️ **O Wash Day é o cuidado, do lugar onde ela conta o ritual.** O herói é o cuidado e a
+   * sequência é o contexto — nada do que ela marcou (quantos produtos, quais técnicas) vira número no
+   * card, porque contagem lê como "quanto mais, melhor" (D-103).
+   */
+  it('Wash Day: o ritual do dia, com a sequência como contexto', () => {
+    const m = washDayMoment({ careLabel: 'Hidratação', journey: journey() });
+    expect(m.value).toBe('Hidratação');
+    expect(m.valueLabel).toBe('o meu ritual de hoje');
+    expect(m.footnote).toBe('5 em sequência');
+  });
+
+  it('e sem sequência, o Wash Day se basta', () => {
+    expect(washDayMoment({ careLabel: 'Nutrição', journey: null }).footnote).toBeNull();
+  });
+
   it('ciclo: contagem, e o total da vida quando é maior', () => {
     const m = cycleMoment(progress());
     expect(m.value).toBe('10');
@@ -198,6 +220,7 @@ describe('Momentos — cada gatilho, um card (SPEC-045 F46)', () => {
       journeyMoment(journey()),
       ...milestoneMoments(journey()),
       careDoneMoment({ careLabel: 'Hidratação', journey: journey() }),
+      washDayMoment({ careLabel: 'Hidratação', journey: journey() }),
       cycleMoment(progress()),
     ];
     expect(new Set(todos.map((m) => m.key)).size).toBe(todos.length);
@@ -211,6 +234,8 @@ describe('Momentos — o que NENHUM deles pode dizer (D-26/D-70 e SPEC-009/019/0
     ...milestoneMoments(journey()),
     careDoneMoment({ careLabel: 'Hidratação', journey: journey() }),
     careDoneMoment({ careLabel: 'Reconstrução', journey: null }),
+    washDayMoment({ careLabel: 'Hidratação', journey: journey() }),
+    washDayMoment({ careLabel: 'Reconstrução', journey: null }),
     cycleMoment(progress()),
     cycleMoment(progress({ done: 1, lifetimeDone: 1 })),
   ];
@@ -267,8 +292,8 @@ describe('Share card — os formatos que as redes esperam (SPEC-044 FR2)', () =>
  * momento entrar **sem** verbo próprio e sem barreira de linguagem.
  */
 describe('Momentos — o vocabulário congelado (SPEC-045)', () => {
-  it('os quatro momentos são exatamente estes', () => {
-    expect([...SHARE_MOMENT_KINDS]).toEqual(['journey', 'milestone', 'care_done', 'cycle']);
+  it('os momentos são exatamente estes', () => {
+    expect([...SHARE_MOMENT_KINDS]).toEqual(['journey', 'milestone', 'care_done', 'cycle', 'wash_day']);
   });
 
   it('todo momento produzido pelo core declara um kind conhecido', () => {
@@ -276,6 +301,7 @@ describe('Momentos — o vocabulário congelado (SPEC-045)', () => {
       journeyMoment(journey()),
       ...milestoneMoments(journey()),
       careDoneMoment({ careLabel: 'Hidratação', journey: journey() }),
+      washDayMoment({ careLabel: 'Hidratação', journey: journey() }),
       cycleMoment(progress()),
     ];
     const conhecidos = new Set<string>(SHARE_MOMENT_KINDS);

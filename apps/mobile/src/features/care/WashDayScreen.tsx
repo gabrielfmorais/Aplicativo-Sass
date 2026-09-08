@@ -150,6 +150,7 @@ export function WashDayScreen({
   washDays,
   products,
   onBack,
+  onShare,
 }: {
   careExecutionId: string;
   /** O cuidado a que este registro pertence, para ela saber sobre qual dia está falando. */
@@ -157,6 +158,12 @@ export function WashDayScreen({
   washDays: WashDayPort;
   products: ProductPort;
   onBack: () => void;
+  /**
+   * SPEC-045 (F46) — a oferta de card **deste** lugar. Ausente para registro avulso (SPEC-052 OQ4):
+   * comemorar o que ela fez fora do cronograma é premiar por fazer mais. A Hoje decide passá-lo só
+   * para cuidado do plano, como já faz no cuidado concluído.
+   */
+  onShare?: () => void;
 }) {
   const [state, setState] = useState<Loadable<Ready>>('loading');
   /** Quantas marcações estão no ar. Existe só para "Pronto" não sair no meio de uma escrita. */
@@ -565,6 +572,14 @@ export function WashDayScreen({
           </Stack>
         ) : null}
       </Stack>
+
+      {/*
+        SPEC-045 (F46) — **o card do Wash Day, deste lugar.** Oferta discreta ao fim da tela, no mesmo
+        tom de "Compartilhar meu ciclo" e "minha jornada": o registro está completo com ou sem ela, e
+        compartilhar continua sendo escolha (SPEC-044 NG5). Só aparece para cuidado do plano — a Hoje
+        não passa `onShare` para a avulsa (SPEC-052 OQ4).
+      */}
+      {onShare ? <Button label="Compartilhar meu Wash Day" variant="secondary" onPress={onShare} /> : null}
     </Screen>
   );
 }
