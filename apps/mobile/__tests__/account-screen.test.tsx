@@ -89,6 +89,20 @@ describe('AccountScreen — the deletion read has to end somewhere (SPEC-016 FR4
     expect(current).toHaveBeenCalledTimes(2);
   });
 
+  /** Uma escrita de conta por vez: solicitar exclusão é irreversível o bastante para o duplo toque
+   * não poder disparar duas. */
+  it('não solicita a exclusão duas vezes num duplo toque', async () => {
+    let resolve: (() => void) | undefined;
+    const request = jest.fn(() => new Promise<void>((r) => (resolve = r)));
+    const screen = await renderScreen(ports({ request } as Partial<DeletionRequestPort>));
+    await waitFor(() => screen.getByText('Solicitar exclusão da conta'));
+    const button = screen.getByText('Solicitar exclusão da conta');
+    await fireEvent.press(button);
+    await fireEvent.press(button);
+    expect(request).toHaveBeenCalledTimes(1);
+    resolve?.();
+  });
+
   /** Signing out must not depend on a read that failed — it is the one way out of a broken state. */
   it('still offers sign-out while the deletion status is unreadable', async () => {
     const p = ports({

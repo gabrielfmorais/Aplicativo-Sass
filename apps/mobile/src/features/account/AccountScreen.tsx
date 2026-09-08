@@ -95,10 +95,18 @@ export function AccountScreen({
     void refresh();
   }, [refresh]);
 
-  const act = (op: () => Promise<void>, fallback: string) =>
+  // Uma escrita de conta por vez: solicitar/cancelar exclusão e sair são irreversíveis o bastante
+  // para o duplo toque não poder disparar duas. O feedback de erro já existia; faltava a trava.
+  const [busy, setBusy] = useState(false);
+  const act = (op: () => Promise<void>, fallback: string) => {
+    if (busy) return;
+    setBusy(true);
+    setMessage(null);
     void op()
       .then(refresh)
-      .catch(() => setMessage(fallback));
+      .catch(() => setMessage(fallback))
+      .finally(() => setBusy(false));
+  };
 
   return (
     <Screen>
@@ -207,6 +215,7 @@ export function AccountScreen({
             <Button
               label="Cancelar exclusão"
               variant="secondary"
+              disabled={busy}
               onPress={() => act(deletion.cancel, 'Não foi possível cancelar.')}
             />
           </Card>
@@ -214,12 +223,14 @@ export function AccountScreen({
           <Button
             label="Solicitar exclusão da conta"
             variant="ghost"
+            disabled={busy}
             onPress={() => act(deletion.request, 'Não foi possível solicitar.')}
           />
         )}
         <Button
           label="Sair"
           variant="secondary"
+          disabled={busy}
           onPress={() => act(auth.signOut, 'Não foi possível sair.')}
         />
       </Stack>
