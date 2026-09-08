@@ -250,6 +250,7 @@ export function Chip({
   multi = false,
   disabled = false,
   accessibilityLabel,
+  numberOfLines,
 }: {
   label: string;
   selected: boolean;
@@ -262,6 +263,14 @@ export function Chip({
    * is what a screen reader has to say, and three letters read aloud are not a weekday.
    */
   accessibilityLabel?: string;
+  /**
+   * Opt-in truncation. **Default é `undefined` (quebra em linhas, o comportamento de sempre)** — as
+   * opções curtas do onboarding/cuidado/finalização não mudam. Só quem carrega rótulo dinâmico e
+   * longo passa `1`: com o catálogo populado, "Wella Professionals · Invigo Nutri-Enrich Deep
+   * Nourishing Mask" transbordava o chip; com `numberOfLines={1}` ele corta com reticências e o chip
+   * respeita a largura da linha (a marca, no começo, continua legível).
+   */
+  numberOfLines?: number;
 }) {
   /**
    * SPEC-018 fatia 3 — a resposta ao toque, na própria opção escolhida.
@@ -290,7 +299,9 @@ export function Chip({
   }, [selected, reduce, pop]);
 
   return (
-    <Animated.View style={{ transform: [{ scale: pop }] }}>
+    // `maxWidth: '100%'` prende o chip à largura da linha; sem isso um rótulo longo cresce além dela
+    // e escapa do quadro (o `Text` só corta com reticências quando tem uma largura para respeitar).
+    <Animated.View style={[styles.chipWrap, { transform: [{ scale: pop }] }]}>
       <Pressable
         onPress={onPress}
         disabled={disabled}
@@ -306,7 +317,11 @@ export function Chip({
           disabled && styles.off,
         ]}
       >
-        <Text variant={selected ? 'bodyStrong' : 'body'} tone={selected ? 'accent' : 'default'}>
+        <Text
+          variant={selected ? 'bodyStrong' : 'body'}
+          tone={selected ? 'accent' : 'default'}
+          {...(numberOfLines ? { numberOfLines } : {})}
+        >
           {label}
         </Text>
       </Pressable>
@@ -685,6 +700,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   tagLabel: { fontWeight: '700' },
+  chipWrap: { maxWidth: '100%' },
   chip: {
     minHeight: HIT_TARGET,
     justifyContent: 'center',
