@@ -100,6 +100,29 @@ export const careDoneMoment = (input: { careLabel: string; journey: JourneyView 
 });
 
 /**
+ * O Wash Day que ela acabou de registrar — o mesmo orgulho do cuidado concluído, mas do lugar onde
+ * ela conta o ritual inteiro (produtos, técnica, finalização).
+ *
+ * ⚠️ **Diz que ela FEZ o Wash Day, nunca o que ele fez com o cabelo** (D-26/D-70). E **nada do que
+ * ela registrou vira número no card:** quantos produtos ou técnicas ela marcou é contagem que lê
+ * como "quanto mais, melhor" — o incentivo por quantidade que a D-103 proíbe. O herói é o cuidado; a
+ * sequência é o contexto, como no cuidado concluído.
+ *
+ * ⚠️ **Só cuidado do plano.** Registro avulso (SPEC-052) chega aqui pela mesma tela, mas não vira
+ * card: comemorar o que ela fez fora do cronograma é premiar por fazer mais (SPEC-052 OQ4). O gate
+ * é na oferta (a Hoje não passa `onShare` para a avulsa), como já vale no cuidado concluído.
+ */
+export const washDayMoment = (input: { careLabel: string; journey: JourneyView | null }): ShareMoment => ({
+  kind: 'wash_day',
+  key: 'wash_day',
+  chip: 'Meu Wash Day',
+  headline: 'Wash Day feito',
+  value: input.careLabel,
+  valueLabel: 'o meu ritual de hoje',
+  footnote: input.journey && input.journey.streak > 0 ? `${input.journey.streak} em sequência` : null,
+});
+
+/**
  * O ciclo dela, em **contagem**.
  *
  * ⚠️ **Sem denominador, sem porcentagem e sem a média de como ela se sentiu.** "12 de 14" convida a

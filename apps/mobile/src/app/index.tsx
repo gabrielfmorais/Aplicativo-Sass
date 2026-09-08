@@ -29,6 +29,7 @@ import {
   cycleMoment,
   journeyMoment,
   milestoneMoments,
+  washDayMoment,
 } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -176,8 +177,10 @@ function AuthenticatedApp({
    * só (SPEC-044 G5: o F46 acrescenta gatilhos, não outro caminho); o que muda é a lista de momentos
    * que cada lugar entrega.
    */
-  const [shareFrom, setShareFrom] = useState<'journey' | 'progress' | { careLabel: string }>('journey');
-  const openShare = (from: 'journey' | 'progress' | { careLabel: string }) => {
+  const [shareFrom, setShareFrom] = useState<'journey' | 'progress' | { careLabel: string; washDay?: true }>(
+    'journey',
+  );
+  const openShare = (from: 'journey' | 'progress' | { careLabel: string; washDay?: true }) => {
     setShareFrom(from);
     setStacked('share');
   };
@@ -426,12 +429,34 @@ function AuthenticatedApp({
   // Empilhadas: abrem sobre a aba de origem e voltam para ela (FR4). A barra continua visível —
   // sair de uma tela nunca deve exigir encontrar o botão certo antes.
   if (washDay) {
+    /**
+     * SPEC-045 (F46) — o card do Wash Day **só para cuidado do plano**. Um registro avulso
+     * (SPEC-052) chega a esta tela pela mesma porta, e comemorá-lo premiaria fazer mais (OQ4). A
+     * distinção é o `scheduledCareId` da execução: `null` é avulso. Fail-closed — se o board não
+     * estiver carregado para confirmar, não se oferece o card.
+     */
+    const planCare =
+      board !== null &&
+      board !== 'loading' &&
+      board !== 'error' &&
+      board.executions.some((e) => e.id === washDay.careExecutionId && e.scheduledCareId !== null);
     return (
       <WashDayScreen
         careExecutionId={washDay.careExecutionId}
         careTitle={washDay.careTitle}
         washDays={washDays}
         products={products}
+        {...(planCare
+          ? {
+              onShare: () => {
+                // Sair para o card fecha o registro: recarrega o board (como o "Pronto" faria) para
+                // a Hoje dizer "Você registrou o que usou" quando ela voltar.
+                setWashDay(null);
+                loadBoard();
+                openShare({ careLabel: washDay.careTitle, washDay: true });
+              },
+            }
+          : {})}
         // Recarregar ao sair é o que faz a Hoje dizer "Você registrou o que usou" na volta (FR7):
         // o board carrega quais execuções têm registro, e ela acabou de criar um.
         onBack={() => {
@@ -499,7 +524,11 @@ function AuthenticatedApp({
     const view = journey.view;
     const moments = [
       ...(typeof shareFrom === 'object'
-        ? [careDoneMoment({ careLabel: shareFrom.careLabel, journey: view })]
+        ? [
+            shareFrom.washDay
+              ? washDayMoment({ careLabel: shareFrom.careLabel, journey: view })
+              : careDoneMoment({ careLabel: shareFrom.careLabel, journey: view }),
+          ]
         : []),
       ...(shareFrom === 'progress' && board && board !== 'loading' && board !== 'error'
         ? [

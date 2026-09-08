@@ -41,7 +41,8 @@ ela mais quer mostrar — **o cuidado que acabou de fazer** — não produzia na
 ## 5. Functional Requirements
 
 - **FR1** `ShareMoment` é **dado**: cada momento carrega o texto pronto.
-- **FR2** Quatro momentos nesta fatia: **jornada**, **marco**, **cuidado concluído**, **ciclo**.
+- **FR2** Cinco momentos: **jornada**, **marco**, **cuidado concluído**, **ciclo** e **Wash Day** — este
+  entregue depois (2026-09-08), da tela do registro (SPEC-024) e só para cuidado do plano.
 - **FR3** A tela recebe uma **lista**, e o primeiro é o padrão — o momento do lugar de onde ela veio.
 - **FR4** O seletor só aparece com **mais de um** momento.
 - **FR5** Três entradas: **Hoje** (no cuidado concluído), **Jornada**, **Progresso**.
@@ -80,10 +81,12 @@ ela mais quer mostrar — **o cuidado que acabou de fazer** — não produzia na
 
 ## 10. Open Questions
 
-- **OQ1 (CAN DEFER)** Gatilhos que faltam do `F46`: **Wash Day**, **progresso detalhado** e
-  **comparação de ciclos**. Os dois últimos pedem decisão de conteúdo — comparar ciclos é a porta
-  mais curta para "melhorou/piorou", que é avaliação capilar (D-26/D-70). O `F46` fica
-  **IN PROGRESS** até eles.
+- **OQ1 (CAN DEFER)** Gatilhos que faltam do `F46`: **progresso detalhado** e **comparação de
+  ciclos** — os dois pedem decisão de conteúdo, e comparar ciclos é a porta mais curta para
+  "melhorou/piorou", que é avaliação capilar (D-26/D-70). ✅ **Wash Day entregue (2026-09-08)**: o card
+  do registro (SPEC-024), **só para cuidado do plano** — registro avulso (SPEC-052) chega à mesma tela
+  mas não vira card, porque comemorá-lo premiaria fazer mais (SPEC-052 OQ4). O `F46` segue
+  **IN PROGRESS** até os dois restantes.
 - **OQ2 (BLOQUEADA)** Antes × Depois e Hair Progress — mídia com base legal (D-32).
 
 ## 11. Change Log
@@ -91,6 +94,7 @@ ela mais quer mostrar — **o cuidado que acabou de fazer** — não produzia na
 | Data | Mudança |
 |---|---|
 | 2026-09-04 | SPEC criada e implementada. Quatro momentos, três entradas, um caminho só. |
+| 2026-09-08 | **Quinto momento: Wash Day** (OQ1). Card da tela de registro (SPEC-024), oferta discreta no fim da tela, no tom de "Compartilhar meu ciclo". **Herói é o cuidado, não a contagem** — quantos produtos/técnicas ela marcou não vira número no card (contagem lê como "quanto mais, melhor", D-103). **Só cuidado do plano:** o gate é o `scheduledCareId` da execução (`null` = avulso), fail-closed quando o board não está carregado — a Hoje não passa `onShare` para a avulsa (SPEC-052 OQ4), como já valia no cuidado concluído. Zero migration, zero backend. |
 
 ## 12. Evidência
 
@@ -114,3 +118,14 @@ ela mais quer mostrar — **o cuidado que acabou de fazer** — não produzia na
 
 ⚠️ **A limitação da SPEC-044 continua valendo:** `toDataURL` e a folha do sistema não existem no
 preview web, então a rasterização e o share só se exercem em build nativo.
+
+**Wash Day — validado a 390px no DEV real (2026-09-08):**
+
+- **Cuidado do plano** → concluir Hidratação → "Contar" → registro → **"Compartilhar meu Wash Day"**
+  → preview `WASH DAY FEITO · Hidratação · o meu ritual de hoje · 1 em sequência`, **nome desligado**
+  por padrão, "Meu Wash Day" como primeiro momento (FR3), card abstrato (SPEC-036) sem nada cortado.
+- **Registro avulso** (Restauração `Fora do cronograma`, SPEC-052) → mesma tela de registro → **nenhum
+  botão de compartilhar** (footer só "Pronto"). O gate de `scheduledCareId` segurou, como o cartão de
+  cuidado concluído já segura.
+- Console limpo (só as depreciações ambientes do `react-native-web`), e os dois artefatos criados no
+  DEV foram desfeitos.
