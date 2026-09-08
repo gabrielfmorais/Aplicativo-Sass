@@ -110,6 +110,34 @@ describe('WashDayScreen (SPEC-024)', () => {
     });
   });
 
+  /**
+   * SPEC-054 FR6/G4 — **a mesma identidade em toda superfície.** Com o catálogo populado, o chip de
+   * marcação mostra a marca (como a prateleira e a execução já fazem); "Invigo" solto perderia o que
+   * distingue dois shampoos.
+   */
+  it('mostra a marca do catálogo no chip de marcação', async () => {
+    const catalogProduct: Product = {
+      id: 'pc',
+      name: 'Invigo Nutri-Enrich',
+      category: 'shampoo',
+      catalog: {
+        id: 'cat1',
+        brand: 'Wella',
+        line: null,
+        name: 'Invigo Nutri-Enrich',
+        variant: null,
+        category: 'shampoo',
+        imageUrl: null,
+      },
+    };
+    const s = await renderScreen(
+      makeWashDays(),
+      makeProducts({ list: jest.fn(async () => [catalogProduct]) }),
+    );
+    s.getByText('Wella · Invigo Nutri-Enrich');
+    expect(s.getByLabelText('Wella · Invigo Nutri-Enrich — Shampoo')).toBeTruthy();
+  });
+
   /** AC3 — sair no meio e voltar preserva o que ela marcou; o servidor é quem lembra, não a tela. */
   it('reabre com o que já estava marcado', async () => {
     const washDays = makeWashDays({

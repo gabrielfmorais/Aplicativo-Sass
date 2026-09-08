@@ -447,14 +447,18 @@ export function WashDayScreen({
             <Row>
               {offered.map((product) => {
                 const selected = state.marked.products.some((p) => p.id === product.id);
+                // Mesma identidade em toda superfície (SPEC-054 FR6/G4): com o catálogo populado, o
+                // chip mostra a marca — "Wella · Invigo", não "Invigo" solto —, do jeito que a
+                // prateleira e a execução (CareProductsPanel) já mostram. Sem catálogo, é o nome dela.
+                const label = product.catalog ? `${product.catalog.brand} · ${product.name}` : product.name;
                 return (
                   <Chip
                     key={product.id}
-                    label={product.name}
+                    label={label}
                     multi
                     selected={selected}
                     onPress={() => toggleProduct(product, !selected)}
-                    accessibilityLabel={`${product.name} — ${CATEGORY_LABEL[product.category]}`}
+                    accessibilityLabel={`${label} — ${CATEGORY_LABEL[product.category]}`}
                   />
                 );
               })}
