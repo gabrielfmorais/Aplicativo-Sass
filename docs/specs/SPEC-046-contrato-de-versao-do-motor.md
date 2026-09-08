@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | SPEC-046 |
-| Status | **DONE** — os três casos medidos contra a Edge Function deployada. **OQ3 fechada em 2026-09-07 (§13):** a avaliação também vai fixada; ⚠️ falta o **redeploy** para essa metade entrar em vigor. |
+| Status | **DONE e EM VIGOR** — os três casos medidos contra a Edge Function deployada. **OQ3 fechada em 2026-09-07 (§13)** e **no ar desde o redeploy do mesmo dia (§14)**: a avaliação vai fixada, e o servidor recusa antes de escrever o que não reconhece. |
 | Owner | dono do produto |
 | Bounded Context | Schedule (`packages/core/src/schedule`) + Edge Function `generate-plan` |
 | Related ADRs | **ADR-001 §2** (versão liberada é imutável), ADR-007 A1, D-26/D-70 |
@@ -140,10 +140,38 @@ versão usada no preview é uma coincidência de deploy.
   por definição, a correta. ⚠️ **Registrado como decisão, não como pendência:** não existe conserto
   que não seja abrir um buraco maior.
 
-  ⚠️ **Falta o deploy para a metade do perfil entrar em vigor.** O cliente já manda o campo e o
+  ✅ **EM VIGOR desde o redeploy de 2026-09-07 (§14)**, medido contra a função deployada: um
+  `hairProfileId` malformado devolve **400 `invalid_hair_profile_id`** e um id que não é dela
+  devolve **409 `hair_profile_not_found`** — **as duas strings só existem no código novo**, então a
+  resposta é a prova de que ele está no ar. — Registro do que faltava: ⚠️ **Falta o deploy para a metade do perfil entrar em vigor.** O cliente já manda o campo e o
   contrato degrada com elegância — a função deployada **ignora um campo que não conhece**, medido ao
   vivo (`generate-plan → 200`, plano criado normalmente). Até o redeploy, o comportamento é o de
   hoje: a avaliação mais recente. **Deploy é ação §4** (Actions → `deploy-dev-functions`).
+
+## 14. O redeploy, e o que ele provou (2026-09-07)
+
+Autorizado explicitamente pelo dono. Executado pelo workflow manual `deploy-dev-functions` — **deploy
+é ação §4**, e o workflow existe justamente para que seja uma decisão que alguém toma, nunca efeito
+colateral de um merge. Todas as etapas verdes, incluindo as duas que o próprio workflow impõe: **toda
+função esperada é servida** e **o `generate-plan` deployado responde ao preflight do navegador**
+(D-90) — sem isso, uma versão sem CORS passaria e o preview web não a alcançaria.
+
+⚠️ **Três sondas contra a função deployada, e as três recusam ANTES de escrever** — então a
+verificação não custou um plano à usuária do DEV (**22 antes, 22 depois**):
+
+| sonda | resposta |
+|---|---|
+| `hairProfileId` malformado | **400 `invalid_hair_profile_id`** |
+| `hairProfileId` de outra pessoa | **409 `hair_profile_not_found`** |
+| `scheduleVersion: "v99"` (regressão) | **400 `unsupported_schedule_version`** |
+
+⚠️ **A primeira sonda é a prova de que o código novo está no ar, e não uma verificação qualquer.** A
+versão anterior **ignorava** um `hairProfileId` desconhecido e teria **criado um plano**; a string
+`invalid_hair_profile_id` não existe nela. A resposta só pode vir do código novo.
+
+⛔ **O que estas sondas NÃO provam:** o caminho **positivo** — gerar um plano a partir da avaliação
+fixada — exige uma escrita, e escrever superseder o plano ativo dela por uma verificação que já está
+coberta por `deno test` e RNTL não vale o custo. Fica dito em vez de disfarçado.
 
 ## 11. Change Log
 
@@ -234,7 +262,8 @@ ou deixar de ser — entre o preview e a confirmação muda **em que dias** os c
 
 ### 13.3 O que falta, e é gate
 
-⚠️ **A metade do perfil só entra em vigor no redeploy da Edge Function.** O contrato degrada com
+✅ **Feito em 2026-09-07 — ver §14.** — Registro do que travava: ⚠️ **A metade do perfil só entra em vigor no redeploy da Edge Function.** O contrato degrada com
 elegância e isso foi **medido ao vivo**: a função deployada **ignora o campo que não conhece** e
 respondeu `200`, criando o plano normalmente com o cronograma esperado. Até o redeploy, o
 comportamento é o de hoje. **Deploy é ação §4** — Actions → `deploy-dev-functions`.
+| 2026-09-07 | v0.3 — **redeploy feito, autorizado pelo dono: a OQ3 está EM VIGOR (§14).** Medido contra a função deployada: `hairProfileId` malformado → **400 `invalid_hair_profile_id`**, id alheio → **409 `hair_profile_not_found`**, `v99` → **400 `unsupported_schedule_version`**. ⚠️ As duas primeiras strings **só existem no código novo** — a versão anterior ignorava o campo e teria criado um plano —, então a resposta é a prova de que ele está no ar. **As três recusam antes de escrever: 22 planos antes, 22 depois.** |
