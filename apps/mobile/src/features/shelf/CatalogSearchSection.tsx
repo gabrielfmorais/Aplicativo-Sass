@@ -1,40 +1,29 @@
 import type { CatalogProduct, ProductCatalogPort, ProductCategory } from '@app/core';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Button, Card, Field, Loading, Row, Stack, Text } from '@/design/primitives';
+import { Button, Card, Field, Row, Stack, Text } from '@/design/primitives';
 import { color, space } from '@/design/tokens';
 import { ProductThumb } from '@/features/shelf/ProductIdentity';
 
 /**
- * SPEC-054 (F32) — **buscar o produto real em vez de digitar um apelido.**
+ * SPEC-054 (F32) — buscar o produto real. **SPEC-058 — em tempo real (autocomplete).**
  *
- * ⚠️ **O catálogo está VAZIO, e vai continuar até a ingestão acontecer** — ela depende de contrato,
- * feed e direito de imagem (**TRUE HUMAN GATE**, OQ1). A pergunta de desenho é o que a tela faz
- * enquanto isso, e a primeira resposta estava errada.
+ * Antes: digitar → clicar "Buscar". Agora a Huna sugere **enquanto ela digita** — a busca vai para o
+ * servidor (RPC `catalog_search`, indexada, acento/maiúscula-insensível), com **debounce** e guarda
+ * de resposta velha, e mostra **marcas** primeiro, depois **produtos**.
  *
- * ⚠️ **A primeira versão ESCONDIA a busca com o catálogo vazio**, com o raciocínio de que uma busca
- * que sempre volta vazia é um beco. O dono usou o produto e mostrou o custo real: ele digitou
- * *"wella"*, não achou nada, e **não teve como saber se o catálogo estava vazio ou se a busca tinha
- * quebrado**. Esconder não protege dela — apaga a informação de que a capability existe e está
- * crescendo.
+ * ⛔ **Nada aqui recomenda nem ordena por mérito** (NG3). O ranking é textual (marca exata → prefixo →
+ * contém) + foto; "melhor para você" é `P18`/D-26 e patrocínio é `T2`, cada um com seu gate.
  *
- * A correção é dizer a verdade em vez de sumir: **"Catálogo de produtos ainda em expansão"**, com o
- * cadastro manual logo abaixo, inteiro. E os dois casos ficam **distintos**:
- *
- * | situação | o que ela lê |
- * |---|---|
- * | catálogo vazio | *"ainda em expansão"* — o app está crescendo, não falhou |
- * | catálogo com linhas, termo sem par | *"não encontramos esse produto"* — a busca funcionou |
- *
- * ⚠️ **Digitar continua sendo o caminho completo** (G3), não o plano B: o catálogo chega **por cima**
- * da prateleira manual, nunca no lugar dela.
- *
- * ⛔ **Nada aqui recomenda.** Sem *"popular"*, sem *"recomendado"*, sem *"para o seu cabelo"* e sem
- * ordenação por mérito: o primeiro seria o `T2`, o último a `P18`, e os dois têm gate próprio (NG3).
+ * ⚠️ **Digitar continua sendo o caminho completo** (G3): o catálogo chega por cima da prateleira
+ * manual, nunca no lugar dela.
  */
 
-const MIN_TERM = 2;
+const MIN_TERM = 1;
+const DEBOUNCE_MS = 250;
+
+type Results = 'idle' | 'searching' | readonly CatalogProduct[];
 
 export function CatalogSearchSection({
   catalog,
@@ -43,53 +32,73 @@ export function CatalogSearchSection({
 }: {
   catalog: ProductCatalogPort;
   busy: boolean;
-  /** Ela escolheu um produto real: a tela de cima preenche o formulário e o vínculo. */
   onPick: (product: CatalogProduct) => void;
 }) {
-  /**
-   * ⚠️ `null` enquanto não se sabe, e **`null` não é "não tem"**: dizer *"em expansão"* antes da
-   * resposta seria afirmar sobre o catálogo sem tê-lo consultado. É a mesma armadilha do
-   * `productCount: null` das sugestões (SPEC-026).
-   */
   const [available, setAvailable] = useState<boolean | null>(null);
   const [term, setTerm] = useState('');
-  const [results, setResults] = useState<'idle' | 'searching' | readonly CatalogProduct[]>('idle');
+  const [results, setResults] = useState<Results>('idle');
+  /** Sequência para ignorar resposta velha: digitar rápido dispara várias buscas, e a última vence. */
+  const seq = useRef(0);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let active = true;
     catalog
       .isAvailable()
       .then((yes) => active && setAvailable(yes))
-      // Falhar em saber é tratado como vazio: a frase *"em expansão"* é verdadeira nos dois casos, e
-      // a prateleira manual não pode depender disto.
       .catch(() => active && setAvailable(false));
     return () => {
       active = false;
     };
   }, [catalog]);
 
-  const search = useCallback(() => {
-    const texto = term.trim();
-    if (texto.length < MIN_TERM) return;
-    setResults('searching');
-    catalog
-      // Um termo só de dígitos é um código de barras (`F33`): ela pode digitar o que o scanner
-      // ainda não lê.
-      .search(/^[0-9]{8,14}$/.test(texto) ? { ean: texto } : { text: texto })
-      .then((rows) => setResults(rows))
-      // Uma busca que falhou não é um erro a mostrar: digitar continua ali, e é o caminho completo.
-      .catch(() => setResults([]));
-  }, [catalog, term]);
+  const run = useCallback(
+    (q: string) => {
+      const mine = ++seq.current;
+      setResults('searching');
+      catalog
+        // Um termo só de dígitos é um código de barras (`F33`): ela pode digitar o que o scanner
+        // ainda não lê. O `search_text` do servidor inclui o EAN, então o mesmo caminho serve.
+        .search(/^[0-9]{8,14}$/.test(q) ? { ean: q } : { text: q })
+        .then((rows) => {
+          if (mine === seq.current) setResults(rows);
+        })
+        // Uma busca que falhou não é um erro a mostrar: digitar continua ali, e é o caminho completo.
+        .catch(() => {
+          if (mine === seq.current) setResults([]);
+        });
+    },
+    [catalog],
+  );
 
-  // Enquanto não se sabe, nada é afirmado — nem a busca, nem a expansão.
+  const onChange = (t: string) => {
+    setTerm(t);
+    if (timer.current) clearTimeout(timer.current);
+    const q = t.trim();
+    if (q.length < MIN_TERM) {
+      seq.current++; // cancela qualquer resposta em voo
+      setResults('idle');
+      return;
+    }
+    timer.current = setTimeout(() => run(q), DEBOUNCE_MS);
+  };
+
+  const pickBrand = (brand: string) => {
+    if (timer.current) clearTimeout(timer.current);
+    setTerm(brand);
+    run(brand);
+  };
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+
   if (available === null) return null;
 
-  /**
-   * ⚠️ **O estado que o dono pediu, e o que ele NÃO pode parecer.** *"Não encontramos"* aqui faria
-   * parecer que a busca rodou e o produto dela não existe; *"erro"* faria parecer quebrado. O que é
-   * verdade é a terceira coisa: **o catálogo ainda está sendo montado**, e o caminho de sempre está
-   * logo abaixo.
-   */
+  // Catálogo sem nenhuma linha: convite honesto, não beco (SPEC-054 — estado mantido por segurança).
   if (available === false) {
     return (
       <Card tone="muted">
@@ -104,72 +113,92 @@ export function CatalogSearchSection({
     );
   }
 
+  const rows = Array.isArray(results) ? results : [];
+  // Marcas em destaque: as distintas dos resultados (o servidor já pôs a marca certa na frente),
+  // até três, como atalho para filtrar. Toque → busca aquela marca.
+  const brands = [...new Set(rows.map((r) => r.brand))].slice(0, 3);
+
   return (
     <Stack gap="sm">
       <Text variant="overline" tone="accent" accessibilityRole="header">
         Procurar o produto
       </Text>
-      <Row>
-        <View style={styles.field}>
-          <Field
-            value={term}
-            onChangeText={setTerm}
-            accessibilityLabel="Marca ou nome do produto"
-            placeholder="Marca, nome ou código de barras"
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!busy}
-            onSubmitEditing={search}
-          />
-        </View>
-        <Button
-          label="Buscar"
-          variant="secondary"
-          size="sm"
-          disabled={busy || term.trim().length < MIN_TERM}
-          onPress={search}
-        />
-      </Row>
+      <Field
+        value={term}
+        onChangeText={onChange}
+        accessibilityLabel="Marca ou nome do produto"
+        placeholder="Marca, nome ou código de barras"
+        autoCapitalize="none"
+        autoCorrect={false}
+        editable={!busy}
+      />
 
-      {results === 'searching' ? <Loading label="Procurando…" /> : null}
+      {results === 'searching' && rows.length === 0 ? (
+        <Text variant="caption" tone="faint">
+          Procurando…
+        </Text>
+      ) : null}
 
       {Array.isArray(results) && results.length === 0 ? (
-        // ⚠️ Aqui o catálogo **tem** linhas: a busca rodou e não achou. É outra frase, de propósito.
         <Text tone="muted">Não encontramos esse produto. Você pode escrever o nome abaixo.</Text>
       ) : null}
 
-      {Array.isArray(results) && results.length > 0 ? (
-        <Card style={styles.list}>
-          {results.map((p, index) => (
-            <View key={p.id} style={[styles.row, index < results.length - 1 && styles.divided]}>
-              <ProductThumb identity={p} />
-              <View style={styles.text}>
-                <Text variant="bodyStrong" numberOfLines={1}>
-                  {p.name}
-                </Text>
-                <Text variant="caption" tone="muted" numberOfLines={1}>
-                  {[p.brand, p.line, p.variant].filter(Boolean).join(' · ')}
-                </Text>
-              </View>
+      {brands.length > 0 ? (
+        <Stack gap="xs">
+          <Text variant="caption" tone="faint" accessibilityRole="header">
+            Marcas
+          </Text>
+          <Row>
+            {brands.map((b) => (
               <Button
-                label="Adicionar"
-                variant="ghost"
+                key={b}
+                label={b}
+                variant="secondary"
                 size="sm"
                 disabled={busy}
-                accessibilityLabel={`Adicionar ${p.brand} ${p.name} à prateleira`}
-                onPress={() => onPick(p)}
+                accessibilityLabel={`Ver produtos da ${b}`}
+                onPress={() => pickBrand(b)}
               />
-            </View>
-          ))}
-        </Card>
+            ))}
+          </Row>
+        </Stack>
+      ) : null}
+
+      {rows.length > 0 ? (
+        <Stack gap="xs">
+          <Text variant="caption" tone="faint" accessibilityRole="header">
+            Produtos
+          </Text>
+          <Card style={styles.list}>
+            {rows.map((p, index) => (
+              <View key={p.id} style={[styles.row, index < rows.length - 1 && styles.divided]}>
+                <ProductThumb identity={p} />
+                <View style={styles.text}>
+                  <Text variant="bodyStrong" numberOfLines={1}>
+                    {p.name}
+                  </Text>
+                  <Text variant="caption" tone="muted" numberOfLines={1}>
+                    {[p.brand, p.line, p.variant].filter(Boolean).join(' · ')}
+                  </Text>
+                </View>
+                <Button
+                  label="Adicionar"
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  accessibilityLabel={`Adicionar ${p.brand} ${p.name} à prateleira`}
+                  onPress={() => onPick(p)}
+                />
+              </View>
+            ))}
+          </Card>
+        </Stack>
       ) : null}
 
       {/*
-        SPEC-057 — **crédito onde as fotos aparecem.** As imagens e os dados dos resultados vêm da Open
-        Beauty Facts (CC BY-SA / ODbL); a atribuição completa mora em "Fontes de dados" (Conta). Uma
-        linha só, discreta, e não por cartão — o suficiente para a licença, sem poluir a lista.
+        SPEC-057 — crédito onde as fotos aparecem. Atribuição completa em "Fontes de dados" (Conta).
       */}
-      {Array.isArray(results) && results.length > 0 ? (
+      {rows.length > 0 ? (
         <Text variant="caption" tone="faint">
           Fotos e informações dos produtos: Open Beauty Facts (CC BY-SA)
         </Text>
@@ -179,7 +208,6 @@ export function CatalogSearchSection({
 }
 
 const styles = StyleSheet.create({
-  field: { flex: 1 },
   list: { paddingVertical: 0, paddingHorizontal: 0, gap: 0, overflow: 'hidden' },
   divided: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.border },
   row: {

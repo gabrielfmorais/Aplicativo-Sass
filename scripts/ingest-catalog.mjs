@@ -24,7 +24,10 @@ const PRODUCT_BASE = 'https://world.openbeautyfacts.org/product/';
 const DATA_LICENSE = 'ODbL-1.0';
 const IMAGE_LICENSE = 'CC-BY-SA-3.0';
 const IMAGE_CREDIT = 'Open Beauty Facts contributors (CC BY-SA 3.0)';
-const MIGRATION = 'supabase/migrations/20260922000000_catalog_open_data.sql';
+const MIGRATIONS = [
+  'supabase/migrations/20260922000000_catalog_open_data.sql', // SPEC-057 — conformidade
+  'supabase/migrations/20260923000000_catalog_search.sql', // SPEC-058 — busca (search_text + RPC)
+];
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(name);
@@ -36,20 +39,102 @@ const has = (name) => process.argv.includes(name);
 const LIMIT = Number(arg('--limit', '2000'));
 const OUT = arg('--out', 'catalog-rows.ndjson');
 
-/** Nossa categoria (vocabulário fechado da SPEC-054), a partir das categories_tags da OBF. */
+/**
+ * Nossa categoria (vocabulário fechado da SPEC-054), a partir das `categories_tags` **e do nome** —
+ * a OBF tem muitos produtos BR com nome em português e tag vazia ou só em `pt:`. Cada regra olha o
+ * texto combinado (tags + nome, minúsculo, sem acento).
+ */
 export const CATEGORY_RULES = [
-  ['shampoo', (t) => t.includes('shampoo') && !t.includes('conditioner')],
-  ['conditioner', (t) => t.includes('conditioner')],
-  ['mask', (t) => t.includes('mask')],
-  ['oil', (t) => t.includes('hair-oil') || t.includes('hair-oils') || t.includes('serum')],
-  ['leave_in', (t) => t.includes('leave-in') || t.includes('leave-on') || t.includes('hair-cream')],
-  ['styler', (t) => /styling|-gel|mousse|hairspray|hair-spray|pomade|wax|texturi|finish/.test(t)],
+  ['shampoo', (t) => /shampoo|xampu/.test(t) && !/condition|condicion/.test(t)],
+  ['conditioner', (t) => /conditioner|condicionador/.test(t)],
+  ['mask', (t) => /\bmask|mascara capilar|masque-capillaire|masque capillaire|mascaras-capilares/.test(t)],
+  ['oil', (t) => /hair-oil|oleo capilar|\boleo\b|\bserum\b|serum capilar/.test(t)],
+  [
+    'leave_in',
+    (t) => /leave-?in|leave-on|hair-cream|creme de pentear|creme para pentear|creme para cabelo/.test(t),
+  ],
+  [
+    'styler',
+    (t) =>
+      /styling|-gel|\bgel\b|mousse|hair-?spray|pomade|pomada|wax|texturi|finish|modelador|finalizador|gelatina|ativador de cachos/.test(
+        t,
+      ),
+  ],
 ];
-/** Um produto é de cabelo se qualquer tag sinalizar cabelo. */
-export const isHair = (tags) => /hair|shampoo|conditioner/.test(tags);
-export const categoryOf = (tags) => {
-  for (const [cat, test] of CATEGORY_RULES) if (test(tags)) return cat;
+export const categoryOf = (tags, name = '') => {
+  const t = norm(tags + ' ' + name);
+  for (const [cat, test] of CATEGORY_RULES) if (test(t)) return cat;
   return 'other';
+};
+
+/** minúsculo + sem acento, para casar "óleo"/"oleo", "máscara"/"mascara". */
+export const norm = (s) =>
+  (s ?? '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
+
+/**
+ * Marcas relevantes no mercado BR (pesquisa multi-sinal: varejo, drogaria, best-sellers, setor —
+ * `docs/product/BR-HAIR-MARKET.md`). **Sinal de RANKING, não de recomendação nem de exclusão:** só
+ * decide a ordem quando o `--limit` corta, para o catálogo ser representativo do Brasil, não maior.
+ */
+export const BR_PRIORITY_BRANDS = [
+  'elseve',
+  "l'oreal",
+  'loreal',
+  'seda',
+  'pantene',
+  'dove',
+  'tresemme',
+  'siage',
+  'eudora',
+  'novex',
+  'embelleze',
+  'salon line',
+  'skala',
+  'natura',
+  'boticario',
+  'amend',
+  'bio extratus',
+  'clear',
+  'wella',
+  'kerastase',
+  'redken',
+  'truss',
+  'brae',
+  'cadiveu',
+  'schwarzkopf',
+  'inoar',
+  'forever liss',
+  'haskell',
+  'lola',
+  'felps',
+  'joico',
+  'alfaparf',
+  'lowell',
+  'keune',
+];
+export const isBrPriorityBrand = (brand) => {
+  const b = norm(brand);
+  return BR_PRIORITY_BRANDS.some((p) => b.includes(p));
+};
+
+/** Tag/nome que denuncia produto **não capilar** — evita puxar skincare/maquiagem por palavra ambígua. */
+const NONHAIR =
+  /en:face|face-care|skin-care|skincare|en:makeup|maquiagem|deodorant|desodorante|perfume|fragrance|eau-de|en:soaps|sabonete|toothpaste|dentifr|sunscreen|protetor-solar|en:lipstick|\bbatom\b|foundation|en:mascaras|cils|cilios|\bnail|\bunha|body-lotion|hand-cream|creme-de-barbear|shaving/;
+/** Sinal FORTE de cabelo (tag ou nome), em EN e PT. */
+const HAIR =
+  /hair|cabelo|capila|capilla|shampoo|xampu|condicion|conditioner|modelador-capilar|leave-?in|matiza|anti-?caspa|antiqueda|ativador de cachos|reconstrutor|finalizador|to de cachos|de cachos|hidratacao capilar|umecta/;
+/**
+ * Um produto é de cabelo se tiver **sinal forte** de cabelo e **nenhum** sinal de não-cabelo. O nome
+ * entra na decisão (não só a tag), porque é o que os produtos BR trazem — e a exclusão vem primeiro,
+ * para "máscara"/"óleo"/"creme" ambíguos não virarem skincare.
+ */
+export const isHair = (tags, name = '') => {
+  const t = norm(tags + ' ' + name);
+  if (NONHAIR.test(t)) return false;
+  return HAIR.test(t);
 };
 
 /** EAN válido: só dígitos, comprimento GTIN (8/12/13/14). OBF tem códigos internos que não são EAN. */
@@ -112,8 +197,9 @@ async function buildRows(filePath) {
       stats.malformed++;
       continue;
     }
-    const tags = (f[idx.categories_tags] || '').toLowerCase();
-    if (!isHair(tags)) {
+    const tags = f[idx.categories_tags] || '';
+    const nameRaw = f[idx.product_name] || '';
+    if (!isHair(tags, nameRaw)) {
       stats.notHair++;
       continue;
     }
@@ -123,7 +209,7 @@ async function buildRows(filePath) {
       continue;
     }
     const brand = clean((f[idx.brands] || '').split(',')[0], 80);
-    const name = clean(f[idx.product_name], 160);
+    const name = clean(nameRaw, 160);
     if (!brand || !name) {
       stats.noBrandName++;
       continue;
@@ -136,7 +222,7 @@ async function buildRows(filePath) {
       line: null,
       name,
       variant: clean(f[idx.quantity], 60) || null,
-      category: categoryOf(tags),
+      category: categoryOf(tags, name),
       ean: code,
       image_url: image,
       image_source: image ? 'open_beauty_facts' : null,
@@ -148,6 +234,7 @@ async function buildRows(filePath) {
       source_url: `${PRODUCT_BASE}${code}`,
       data_license: DATA_LICENSE,
       _brazil: brazil,
+      _brBrand: isBrPriorityBrand(brand),
     };
     // Dedup por EAN: fica a mais completa (com imagem > sem; nome mais longo desempata).
     const prev = byEan.get(code);
@@ -158,9 +245,11 @@ async function buildRows(filePath) {
     if (better) byEan.set(code, row);
   }
 
-  // Ranking: Brasil primeiro, depois com foto, depois nome mais completo. Corte no --limit.
+  // Ranking: marca relevante no BR primeiro, depois tag de Brasil, depois com foto, depois nome mais
+  // completo. Isso é REPRESENTATIVIDADE, não recomendação — só decide a ordem quando o `--limit` corta.
   const ranked = [...byEan.values()].sort(
     (a, b) =>
+      Number(b._brBrand) - Number(a._brBrand) ||
       Number(b._brazil) - Number(a._brazil) ||
       Number(!!b.image_url) - Number(!!a.image_url) ||
       b.name.length - a.name.length,
@@ -168,6 +257,7 @@ async function buildRows(filePath) {
   const rows = ranked.slice(0, LIMIT).map((r) => {
     const out = { ...r };
     delete out._brazil; // interno ao ranking; não vai para o banco
+    delete out._brBrand;
     return out;
   });
   return { rows, stats, totalMatched: byEan.size, brazilMatched: ranked.filter((r) => r._brazil).length };
@@ -267,9 +357,13 @@ async function main() {
   console.log(`\nrows escritas em ${OUT}`);
 
   if (has('--apply')) {
-    console.log('\n=== --apply: migration + upsert no DEV ===');
-    console.log('aplicando migration', MIGRATION);
-    await mgmtQuery(readFileSync(MIGRATION, 'utf8'));
+    console.log('\n=== --apply: migrations + upsert no DEV ===');
+    // Todas as migrations do catálogo, idempotentes e em ordem: conformidade (SPEC-057) e busca
+    // (SPEC-058). Aplicar as duas aqui mantém o schema do DEV em dia a cada enriquecimento.
+    for (const m of MIGRATIONS) {
+      console.log('aplicando migration', m);
+      await mgmtQuery(readFileSync(m, 'utf8'));
+    }
     let done = 0;
     for (let i = 0; i < rows.length; i += 500) {
       const batch = rows.slice(i, i + 500);
