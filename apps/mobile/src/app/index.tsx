@@ -42,6 +42,7 @@ import { TabBar, type TabKey } from '@/design/TabBar';
 
 import { useAuth } from '@/bootstrap/auth';
 import { AccountScreen } from '@/features/account/AccountScreen';
+import { DataSourcesScreen } from '@/features/account/DataSourcesScreen';
 import { CareTabScreen } from '@/features/care/CareTabScreen';
 import { FinishesScreen } from '@/features/care/FinishesScreen';
 import { useOilRoutine } from '@/features/care/use-oil-routine';
@@ -174,7 +175,7 @@ function AuthenticatedApp({
     };
   }, [products]);
   const [stacked, setStacked] = useState<
-    null | 'hairEvents' | 'you' | 'journey' | 'share' | 'insights' | 'shelfUsage' | 'finishes'
+    null | 'hairEvents' | 'you' | 'journey' | 'share' | 'insights' | 'shelfUsage' | 'finishes' | 'dataSources'
   >(null);
   /**
    * SPEC-045 (F46) — **de onde ela veio decide o que o card pode ser**. A tela de compartilhar é uma
@@ -189,7 +190,8 @@ function AuthenticatedApp({
     setStacked('share');
   };
   const openStacked = (
-    screen: 'hairEvents' | 'you' | 'journey' | 'share' | 'insights' | 'shelfUsage' | 'finishes',
+    screen:
+      'hairEvents' | 'you' | 'journey' | 'share' | 'insights' | 'shelfUsage' | 'finishes' | 'dataSources',
   ) => setStacked(screen);
   const closeStacked = () => setStacked(null);
   /**
@@ -617,6 +619,11 @@ function AuthenticatedApp({
     return shell(<FinishesScreen washDays={washDays} onBack={() => setStacked(null)} />);
   }
 
+  /** SPEC-057 (F32) — Fontes de dados: a atribuição da Open Beauty Facts. Volta para a Conta. */
+  if (stacked === 'dataSources') {
+    return shell(<DataSourcesScreen onBack={() => setStacked('you')} />);
+  }
+
   if (stacked === 'you') {
     return shell(
       <AccountScreen
@@ -632,6 +639,7 @@ function AuthenticatedApp({
         notificationPreferences={notificationPreferences}
         notificationScheduler={notificationScheduler}
         onNotificationPreferencesChanged={setPrefs}
+        onOpenDataSources={() => setStacked('dataSources')}
         // SPEC-027: "Meu cabelo mudou" saiu daqui e foi para **Cuidados** — contar que fez química
         // é rotina de cabelo, não configuração de conta. Aqui ficou o que é mesmo conta.
         // Empilhada sobre a aba de origem, então a saída é explícita: tocar numa aba também sai, mas

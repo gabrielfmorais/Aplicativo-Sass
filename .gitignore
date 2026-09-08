@@ -58,3 +58,6 @@ references/
 # copy of core in git is a second source of truth that ages in silence (D-91).
 supabase/functions/_core/
 supabase/functions/import_map.deploy.json
+
+# SPEC-057 — saída efêmera da ingestão do catálogo
+catalog-rows.ndjson

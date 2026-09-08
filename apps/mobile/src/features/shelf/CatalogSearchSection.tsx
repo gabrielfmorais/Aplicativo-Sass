@@ -163,6 +163,17 @@ export function CatalogSearchSection({
           ))}
         </Card>
       ) : null}
+
+      {/*
+        SPEC-057 — **crédito onde as fotos aparecem.** As imagens e os dados dos resultados vêm da Open
+        Beauty Facts (CC BY-SA / ODbL); a atribuição completa mora em "Fontes de dados" (Conta). Uma
+        linha só, discreta, e não por cartão — o suficiente para a licença, sem poluir a lista.
+      */}
+      {Array.isArray(results) && results.length > 0 ? (
+        <Text variant="caption" tone="faint">
+          Fotos e informações dos produtos: Open Beauty Facts (CC BY-SA)
+        </Text>
+      ) : null}
     </Stack>
   );
 }

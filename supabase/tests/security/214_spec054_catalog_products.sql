@@ -7,7 +7,7 @@
 -- imagem que não afirme qual é**, e é isso que está medido aqui.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(19);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values ('00000000-0000-4000-8000-0000000000b1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'cat1@example.test');
@@ -56,6 +56,31 @@ select throws_ok(
   $q$ insert into public.catalog_products (brand, name, category, source, ean)
       values ('Outra Fictícia', 'Outro', 'other', 'fixture', '7891234567895') $q$,
   '23505', null, 'EAN duplicado é recusado');
+
+-- SPEC-057 — a conformidade da fonte aberta é CHECK, não confiança do script.
+-- Linha de open_beauty_facts sem a origem rastreável (source_url + data_license) é recusada.
+select throws_ok(
+  $q$ insert into public.catalog_products (brand, name, category, source)
+      values ('OBF', 'Sem rastreio', 'shampoo', 'open_beauty_facts') $q$,
+  '23514', null, 'linha de open_beauty_facts sem source_url/data_license é recusada');
+-- Imagem open_licensed sem licença e crédito é recusada (a regra do dono, no banco).
+select throws_ok(
+  $q$ insert into public.catalog_products
+        (brand, name, category, source, source_url, data_license, image_url, image_source, image_rights)
+      values ('OBF', 'Foto sem licença', 'shampoo', 'open_beauty_facts',
+              'https://world.openbeautyfacts.org/product/1', 'ODbL-1.0',
+              'https://images.openbeautyfacts.org/x.jpg', 'open_beauty_facts', 'open_licensed') $q$,
+  '23514', null, 'imagem open_licensed sem image_license/image_credit é recusada');
+-- Com tudo declarado (source_url, data_license, e a imagem com licença + crédito), a linha de OBF entra.
+select lives_ok(
+  $q$ insert into public.catalog_products
+        (id, brand, name, category, source, source_url, data_license,
+         image_url, image_source, image_rights, image_credit, image_license)
+      values ('00000000-0000-4000-8000-0000000000c4', 'Wella', 'Invigo Shampoo', 'shampoo', 'open_beauty_facts',
+              'https://world.openbeautyfacts.org/product/4064666301945', 'ODbL-1.0',
+              'https://images.openbeautyfacts.org/x.jpg', 'open_beauty_facts', 'open_licensed',
+              'Open Beauty Facts contributors (CC BY-SA 3.0)', 'CC-BY-SA-3.0') $q$,
+  'linha de OBF com origem e imagem rastreáveis entra (rascunho, sem published_at)');
 
 -- Rascunho de ingestão: existe no banco, e não existe para o cliente (FR2).
 insert into public.catalog_products (id, brand, name, category, source)

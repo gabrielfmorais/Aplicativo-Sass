@@ -60,6 +60,9 @@ jobs:
       - name: Unit tests (core + mobile)
         run: pnpm test
 
+      - name: Catalog ingestion mapping tests (SPEC-057, pure functions)
+        run: pnpm check:ingest-map
+
       - name: Docs links referenced by CLAUDE.md exist
         run: pnpm check:docs-links
 
