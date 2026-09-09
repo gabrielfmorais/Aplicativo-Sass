@@ -59,7 +59,31 @@ Cada gate tem: **o que é · quem age · o que desbloqueia**. Nenhum é resolví
 - **Banco DEV** provisionado: `check:remote-schema` → todas as 25 tabelas + colunas presentes (ref `ayecidupmxmirwfzwtea`).
 - **Edge Functions** deployadas: `check:remote-functions` → 3 funções.
 - **Auth dev + jornada real** validada de ponta a ponta a 390px.
-- **Guardrails executáveis** verdes: `pnpm verify` (typecheck, lint, testes, boundaries, dep-cruise, data-model, migration-versions, security-exceptions, entitlement-parity, **safe-area**), pgTAP de segurança, `deno test` das functions, e as proteções LEVEL 2 da `main`.
+- **Guardrails executáveis** verdes: `pnpm verify` (typecheck, lint, testes, boundaries, dep-cruise, data-model, migration-versions, security-exceptions, entitlement-parity, **safe-area**, **label-owners**), pgTAP de segurança, `deno test` das functions, e as proteções LEVEL 2 da `main`.
+
+## 2.1 Bloco de 2026-09-09 — sete frentes de produto e uma auditoria
+
+⚠️ **Nenhuma delas moveu um gate**: são todas apresentação, leitura ou arrumação, e nenhuma atravessa
+D-26/D-70, D-32 ou toca produção.
+
+| SPEC | O que mudou para ela | PR |
+|---|---|---|
+| **062** | *"Como fazer"* premium — o piloto da UI Intelligence, com chip de duração, passos numerados e bloco de atenção | #176 |
+| **063** | A prateleira **dentro do cuidado** com foto real; ⛔ a auditoria pedida pelo dono derrubou três rótulos do próprio pedido, e o BLOCKER do `lastUsedFor` (destaque mudo para quem tem histórico) | #177 |
+| **064** | *"Seus padrões"* diz **de que dimensão** cada achado fala | #178 |
+| **065** | *"Seu registro"* mostra o produto como coisa que se reconhece; ⛔ nada pré-marcado, por integridade do dado que a inteligência lê | #179 |
+| **066** | A prateleira em uso ganha o vidro e **a última vez** | #180 |
+| **067** | A aba Cuidados **abre pelo cuidado** — os guias saíram de 1393px para 177px | #181 |
+| **068** | O `F46` fechado até onde é honesto: **ciclo encerrado** e **progresso**; `F46` = **PARTIAL** | #184 |
+| **069** | A Jornada vira **resumo compacto** na home, na ordem que o dono pediu | #185 |
+| *(fix)* | A oferta de contar usa a **data do que ela fez**, não a do plano | #182 |
+| *(audit)* | `FINISH_LABEL` com **um dono só** + guardrail `check:label-owners` | #186 |
+
+**Testes:** core **476**, mobile **613**. Tudo validado a **390px no DEV real**, console limpo.
+
+⚠️ **O que este bloco NÃO resolve, e é o ponto:** os gates G1–G7 continuam **exatamente** onde
+estavam. O trabalho de engenharia **desbloqueado** do roadmap ficou fino — o que resta de
+substantivo depende de credencial, contrato, sign-off, base legal ou ambiente nativo, tudo do dono.
 
 ## 3. Auditoria técnica de checkpoint (2026-09-08)
 
