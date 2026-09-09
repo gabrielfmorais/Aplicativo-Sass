@@ -69,7 +69,19 @@ export const buildSuggestions = (input: {
   if (unrecorded?.execution) {
     out.push({
       key: 'wash_day',
-      text: `Você fez ${CARE_TYPE_LABEL[unrecorded.careTypeCode].toLowerCase()} em ${formatPlannedDate(unrecorded.plannedDate)} e ainda não contou o que usou.`,
+      /**
+       * ⚠️ **A data é a do que ela FEZ, não a do que estava planejado.**
+       *
+       * A frase diz *"você fez … em X"*, e X vinha do `plannedDate` — então ela estava errada
+       * **sempre que o cuidado não caiu exatamente no dia previsto**, que é a maior parte das vezes:
+       * atrasar é comum e o app existe para não cobrar por isso (D-28), e adiantar também acontece.
+       * Medido no DEV real em 2026-09-09: um cuidado planejado para **14/09** aparecia como
+       * *"Você fez hidratação em seg, 14/09"* — uma data no **futuro**, no passado.
+       *
+       * ⛔ Conflar planejado e executado é exatamente o que a ADR-001 §2 separa (*"planejado ≠
+       * executado"*), e aqui a confusão saía na tela em português.
+       */
+      text: `Você fez ${CARE_TYPE_LABEL[unrecorded.careTypeCode].toLowerCase()} em ${formatPlannedDate(unrecorded.execution.executedOn)} e ainda não contou o que usou.`,
       /**
        * **"Contar", e não "Contar esse cuidado".** O cartão do histórico já usa o rótulo longo, e
        * ter os dois na mesma tela seria a mesma ação dita duas vezes, do mesmo jeito. O texto acima
