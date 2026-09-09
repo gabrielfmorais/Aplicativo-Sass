@@ -111,11 +111,15 @@ describe('WashDayScreen (SPEC-024)', () => {
   });
 
   /**
-   * SPEC-054 FR6/G4 — **a mesma identidade em toda superfície.** Com o catálogo populado, o chip de
-   * marcação mostra a marca (como a prateleira e a execução já fazem); "Invigo" solto perderia o que
-   * distingue dois shampoos.
+   * SPEC-054 FR6/G4 — **a mesma identidade em toda superfície.**
+   *
+   * ⚠️ **A asserção mudou de forma, não de intenção, e pelo mesmo motivo da SPEC-063.** Ela dizia
+   * `'Wella · Invigo Nutri-Enrich'` num texto só — a apresentação antiga —, e a 390px essa
+   * concatenação truncava **o nome dela** quando a marca era longa. O que a SPEC-054 protege é
+   * *"a marca vem junto do nome, nunca no lugar dele"*: com o nome sozinho na primeira linha e a
+   * marca na segunda, isso fica **mais** verdadeiro, não menos.
    */
-  it('mostra a marca do catálogo no chip de marcação', async () => {
+  it('mostra a marca do catálogo junto do nome dela, sem substituí-lo', async () => {
     const catalogProduct: Product = {
       id: 'pc',
       name: 'Invigo Nutri-Enrich',
@@ -134,8 +138,11 @@ describe('WashDayScreen (SPEC-024)', () => {
       makeWashDays(),
       makeProducts({ list: jest.fn(async () => [catalogProduct]) }),
     );
-    s.getByText('Wella · Invigo Nutri-Enrich');
-    expect(s.getByLabelText('Wella · Invigo Nutri-Enrich — Shampoo')).toBeTruthy();
+    s.getByText('Invigo Nutri-Enrich');
+    s.getByText(/Wella/);
+    // O rótulo acessível continua trazendo produto e categoria como **uma** coisa: a linha visual
+    // separa em dois textos, e anunciá-los soltos daria dois fragmentos em vez de um produto.
+    expect(s.getByLabelText('Invigo Nutri-Enrich — Shampoo')).toBeTruthy();
   });
 
   /** AC3 — sair no meio e voltar preserva o que ela marcou; o servidor é quem lembra, não a tela. */

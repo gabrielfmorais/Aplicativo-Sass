@@ -192,3 +192,22 @@ export function GrowthIcon({ color, size = 22 }: IconProps) {
     </Svg>
   );
 }
+
+/**
+ * A marca de seleção — o único ícone deste arquivo que **não** é da barra de abas.
+ *
+ * ⚠️ **Ele existe porque cor sozinha não é estado.** É a mesma regra que a `Tag` cumpre em palavra
+ * (SPEC-016 §14) e que a SPEC-035 mediu na pastilha invisível da aba: quem enxerga pouco, quem não
+ * distingue matiz ou quem olha a tela no sol recebe **nada** de um fundo levemente rosado. Numa lista
+ * em que ela marca vários, o segundo canal precisa ser uma forma.
+ *
+ * Segue as regras do conjunto — grade de 24, traço 2.15, pontas redondas — para não parecer um glifo
+ * de outra família colado no meio do app.
+ */
+export function CheckIcon({ color, size = 22 }: IconProps) {
+  return (
+    <Svg {...base(size)}>
+      <Path d="M5 12.6 L 9.8 17.3 L 19 6.9" {...stroke(color)} />
+    </Svg>
+  );
+}
