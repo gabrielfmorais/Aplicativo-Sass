@@ -3,7 +3,13 @@ import { instantFromString } from '@app/core';
 
 import { MAX_SUGGESTIONS, buildSuggestions } from '@/features/care/suggestions';
 
-const done = (id: string, executionId: string, plannedDate: string): CareItem =>
+/**
+ * ⚠️ **`executedOn` é parâmetro, e o padrão de igualar ao planejado era o que escondia um defeito.**
+ *
+ * Com `executedOn: plannedDate` fixo, nenhum teste deste arquivo podia ver a diferença entre as duas
+ * datas — e a frase da oferta usava a **planejada** numa sentença sobre o que ela **fez**.
+ */
+const done = (id: string, executionId: string, plannedDate: string, executedOn = plannedDate): CareItem =>
   ({
     id,
     careTypeCode: 'hydration',
@@ -14,7 +20,7 @@ const done = (id: string, executionId: string, plannedDate: string): CareItem =>
       id: executionId,
       scheduledCareId: id,
       executedAt: instantFromString('2026-09-09T10:00:00.000Z'),
-      executedOn: plannedDate,
+      executedOn,
       voidedAt: null,
     },
   }) as unknown as CareItem;
@@ -120,5 +126,34 @@ describe('buildSuggestions (SPEC-026)', () => {
     for (const line of all) {
       expect(forbidden.some((p) => p.test(line))).toBe(false);
     }
+  });
+});
+
+/**
+ * ⚠️ **A data da oferta é a do que ela FEZ, não a do que estava planejado.**
+ *
+ * Medido no DEV real em 2026-09-09: um cuidado planejado para **14/09**, concluído adiantado,
+ * produzia *"Você fez hidratação em seg, 14/09"* — uma data no **futuro**, no passado. E o caso
+ * comum é o inverso: atrasar acontece o tempo todo, e o app existe para não cobrar por isso (D-28).
+ *
+ * ⛔ É a confusão que a ADR-001 §2 separa — *"planejado ≠ executado"* — saindo na tela em português.
+ */
+describe('a oferta de contar usa a data da execução', () => {
+  it('cuidado feito depois do previsto reporta o dia em que ela fez', () => {
+    const s = buildSuggestions({
+      ...base,
+      view: view([done('c1', 'e1', '2026-09-07', '2026-09-12')]),
+    });
+    expect(s[0]?.text).toContain('12/09');
+    expect(s[0]?.text).not.toContain('07/09');
+  });
+
+  it('cuidado feito adiantado também', () => {
+    const s = buildSuggestions({
+      ...base,
+      view: view([done('c1', 'e1', '2026-09-14', '2026-09-09')]),
+    });
+    expect(s[0]?.text).toContain('09/09');
+    expect(s[0]?.text).not.toContain('14/09');
   });
 });

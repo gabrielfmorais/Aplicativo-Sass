@@ -159,7 +159,15 @@ primeira linha fica mais verdadeira, não menos.
 
 **Jornada inteira:** marcar *"Máscara da feira"* → a linha fica em ameixa, com o nome em negrito e a
 marca de seleção → sair por *"Pronto"* → voltar por *"Ver o que contei"* → **continua marcada** →
-desmarcar → sair e voltar → **continua desmarcada**. O histórico do DEV ficou como estava.
+desmarcar → sair e voltar → **continua desmarcada**.
+
+⚠️ **Correção de uma frase desta evidência, medida depois.** Estava escrito aqui que *"o histórico do
+DEV ficou como estava"*, e é impreciso: a **marcação** foi desfeita, mas o **hub do Wash Day** criado
+pela primeira marcação permanece — é o comportamento da SPEC-024 (o hub nasce na primeira marcação e
+desmarcar apaga a junção, não o hub). ⚠️ **A consequência apareceu sozinha:** aquele cuidado deixou de
+aparecer em *"Sugestões para você"*, porque a oferta de contar só existe para execução **sem** registro
+(SPEC-024 FR7). Isso não é defeito — ela abriu o registro e escolheu não deixar nada lá, e insistir
+seria cobrança —, mas dizer que nada mudou era errado.
 
 ⚠️ **E a medição confirmou o caveat da SPEC-051 OQ4:** `aria-checked` volta `null` para as sete
 linhas no preview web — o `react-native-web` 0.21 descarta o `accessibilityState` legado. **Não é
