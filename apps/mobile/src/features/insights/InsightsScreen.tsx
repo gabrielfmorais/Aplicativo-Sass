@@ -1,4 +1,4 @@
-import type { InsightsView } from '@app/core';
+import type { InsightsView, Observation } from '@app/core';
 
 import { Button, Card, Loading, Screen, Stack, Tag, Text } from '@/design/primitives';
 
@@ -138,7 +138,7 @@ export function InsightsScreen({
    * avaliou bem" sem nada explicando a diferença.
    */
   const noticed = view.observations.filter((o) => o.kind === 'noticed');
-  const repeated = view.observations.filter((o) => o.kind !== 'noticed');
+  const repeated = view.observations.filter(isRepeated);
 
   return (
     <Screen footer={footer}>
@@ -177,10 +177,15 @@ export function InsightsScreen({
           <Text variant="overline" tone="accent" accessibilityRole="header">
             O que você tem notado
           </Text>
+          {/*
+            ⛔ **FR3 — sem rótulo de dimensão aqui.** O título da seção já diz o que estas são, e
+            repetir seria ruído. É também a única seção cujo conteúdo é **resultado** e não entrada
+            (SPEC-051): a marca é o que ela **observou**, não o que ela **fez**.
+          */}
           {noticed.map((o) => (
             <Card key={o.key}>
               <Stack gap="sm">
-                <Text variant="heading" accessibilityRole="header">
+                <Text variant="heading" accessibilityRole="header" numberOfLines={2}>
                   {o.subject}
                 </Text>
                 <Text tone="muted">{o.detail}</Text>
@@ -198,15 +203,43 @@ export function InsightsScreen({
           repeated.map((o) => (
             <Card key={o.key}>
               <Stack gap="sm">
-                <Text variant="heading" accessibilityRole="header">
+                {/*
+                  SPEC-064 FR1/FR4 — ⚠️ **a dimensão, que a tela jogava fora.** O core entrega quatro
+                  (`product · technique · finish · noticed`) e a SPEC-047 passou três fatias dando a
+                  cada uma o **verbo certo** — *"esteve em"*, *"você fez em"*, *"você finalizou assim
+                  em"*. A tela lia o `kind` **uma vez**, só para separar as marcações, e renderizava
+                  as outras três com o mesmo cartão: quem olhava não sabia se estava lendo um
+                  produto, um jeito de fazer ou uma finalização.
+
+                  ⛔ **Rótulo, não ícone** (FR2): quatro categorias abstratas se dizem melhor em
+                  palavra. E é substantivo neutro — *"Produto"* diz de onde o dado saiu; *"produto
+                  que funciona"* seria alegação (BR2).
+                */}
+                <Text variant="overline" tone="muted">
+                  {DIMENSION_LABEL[o.kind]}
+                </Text>
+                <Text variant="heading" accessibilityRole="header" numberOfLines={2}>
                   {o.subject}
                 </Text>
+                {/*
+                  ⛔ **A frase vem inteira do core, e a tela não encosta nela** (§3). O próprio core
+                  diz por quê: *"espalhar a redação por dentro da tela é como uma afirmação causal
+                  entraria sem ninguém notar"*. Por mais que destacar o número ajudasse a escanear, a
+                  hierarquia tem de vir de **tudo em volta** da frase, nunca de dentro.
+                */}
                 <Text tone="muted">{o.detail}</Text>
               </Stack>
             </Card>
           ))
         ) : (
-          <Text tone="muted">{missingReason(view)}</Text>
+          /*
+            FR5 — ⚠️ **o mesmo tratamento da seção irmã, e por consistência de LEITURA, não de
+            estilo.** Duas seções vizinhas dizendo *"ainda não há"* com pesos diferentes fariam a
+            primeira parecer um achado e a segunda um estado — quando as duas são a mesma coisa.
+          */
+          <Card tone="muted">
+            <Text tone="muted">{missingReason(view)}</Text>
+          </Card>
         )}
       </Stack>
 
@@ -233,7 +266,7 @@ export function InsightsScreen({
           view.patterns.map((p) => (
             <Card key={p.key}>
               <Stack gap="sm">
-                <Text variant="heading" accessibilityRole="header">
+                <Text variant="heading" accessibilityRole="header" numberOfLines={2}>
                   {p.subject}
                 </Text>
                 <Text tone="muted">{p.detail}</Text>
@@ -245,11 +278,20 @@ export function InsightsScreen({
             ⚠️ **Estado honesto, não placeholder.** Sem par com amostra suficiente, a Huna diz isso —
             e não preenche a seção com combinação nenhuma.
           */
-          <Text tone="muted">
-            A Huna ainda está conhecendo suas combinações. Ela só mostra um padrão quando as duas coisas
-            apareceram juntas em pelo menos 3 cuidados que você avaliou — com menos que isso, uma repetição é
-            só coincidência.
-          </Text>
+          /*
+            SPEC-064 FR5 — ⚠️ **o estado ganhou um contêiner, e a razão é hierarquia.** Solto, este
+            parágrafo tinha o mesmo peso de um achado e ocupava mais espaço que os dois juntos: a
+            **explicação** dominava a tela que existe para mostrar **descobertas**. Num cartão
+            apagado ele lê como estado — que é o que é —, do mesmo jeito que os estados do painel do
+            cuidado. ⛔ O texto não mudou: continua dizendo por que a Huna prefere esperar.
+          */
+          <Card tone="muted">
+            <Text tone="muted">
+              A Huna ainda está conhecendo suas combinações. Ela só mostra um padrão quando as duas coisas
+              apareceram juntas em pelo menos 3 cuidados que você avaliou — com menos que isso, uma repetição
+              é só coincidência.
+            </Text>
+          </Card>
         )}
       </Stack>
       {/*
@@ -271,6 +313,30 @@ export function InsightsScreen({
     </Screen>
   );
 }
+
+/**
+ * SPEC-064 FR1 — a dimensão de onde o dado saiu, em palavra.
+ *
+ * ⚠️ **Derivada do `kind`, nunca inferida do texto** (BR1) — ler o `detail` para adivinhar a
+ * dimensão seria a tela reinterpretando a frase que o core monta de propósito (§3).
+ */
+type RepeatedKind = Exclude<Observation['kind'], 'noticed'>;
+
+const DIMENSION_LABEL: Record<RepeatedKind, string> = {
+  product: 'Produto',
+  technique: 'Técnica',
+  finish: 'Finalização',
+};
+
+/**
+ * ⚠️ **A FR3 vira fato de compilação, e não um rótulo que nunca aparece.**
+ *
+ * A primeira versão tinha `noticed: 'Você notou'` na tabela só para o `Record` ficar exaustivo — uma
+ * string que **nenhum caminho de código renderiza**, porque a seção de marcações não usa rótulo. Com
+ * o `Exclude` e este guarda, a tabela contém exatamente o que existe na tela, e uma dimensão nova
+ * continua quebrando o build até alguém decidir o rótulo dela.
+ */
+const isRepeated = (o: Observation): o is Observation & { kind: RepeatedKind } => o.kind !== 'noticed';
 
 /**
  * Por que ainda não há padrão — em uma frase, e sempre a **verdadeira**.
