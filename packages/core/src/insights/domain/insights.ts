@@ -1,4 +1,5 @@
 import type { CheckInMark, FinishTechnique, WashDayTechnique } from '../../care-tracking/index.ts';
+import type { Product } from '../../hair-profile/index.ts';
 
 /**
  * SPEC-047 (P2) — **Hair Intelligence, a camada determinística.**
@@ -46,6 +47,18 @@ export const HIGH_FEEL = 4;
 export type InsightFact = {
   /** A identidade do fato: um cuidado atendido, uma entrada. */
   readonly careExecutionId: string;
+  /**
+   * SPEC-066 — **o dia civil em que ela fez o cuidado** (`YYYY-MM-DD`, ADR-008).
+   *
+   * ⚠️ **A coluna já ordenava a leitura e não vinha no `select`**, com a razão escrita no adapter:
+   * *"voltam com o consumidor delas… não antes"*. Este é o consumidor — a Smart Shelf dizendo
+   * **quando** foi a última vez, que é a metade da pergunta do Blueprint §10 que a contagem não
+   * responde.
+   *
+   * ⛔ **É dia civil, não instante:** a string já **é** o dia dela e é lida como números puros;
+   * passar por `Date` traria de volta o fuso do aparelho para dentro de um dado que não tem fuso.
+   */
+  readonly executedOn: string;
   /** A resposta do check-in, 1..5. `null` = ela não respondeu, que **não** é zero. */
   readonly feel: number | null;
   /** Os produtos que ela marcou naquele cuidado, com o nome que **ela** deu. */
@@ -222,12 +235,28 @@ export type ShelfUsage = {
   readonly totalProducts: number;
   /** Cuidados em que ela marcou algum produto — o denominador honesto de "em N registros". */
   readonly recordedCares: number;
-  readonly used: readonly { readonly id: string; readonly name: string; readonly cares: number }[];
+  /**
+   * ⚠️ **Carrega o `Product` inteiro, e não `{ id, name }`** (SPEC-066). A tela precisa da
+   * identidade — foto, marca, categoria — que a prateleira e o cuidado já mostram; montar uma
+   * segunda forma reduzida aqui obrigaria a tela a cruzar duas listas para reencontrar o mesmo
+   * produto que a porta já tinha entregue inteiro.
+   */
+  readonly used: readonly {
+    readonly product: Product;
+    readonly cares: number;
+    /**
+     * SPEC-066 — **o dia do registro mais recente em que ele apareceu.**
+     *
+     * ⛔ **Não ordena nada** (BR2): a lista continua saindo por contagem. Ordenar por recência seria
+     * escolher um critério de importância, e critério de importância é o `P7`.
+     */
+    readonly lastUsedOn: string;
+  }[];
   /**
    * O que está na prateleira e **não aparece em registro nenhum**.
    *
    * ⚠️ Fato, não acusação: pode ser novo, sazonal, ou simplesmente não ter sido marcado. Sugerir
    * descarte, troca ou compra é `P18`, atrás do próprio gate.
    */
-  readonly neverUsed: readonly { readonly id: string; readonly name: string }[];
+  readonly neverUsed: readonly Product[];
 };
