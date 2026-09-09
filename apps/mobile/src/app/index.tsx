@@ -855,6 +855,7 @@ function AuthenticatedApp({
       onOpenShelf={() => setTab('shelf')}
       onReassess={() => setReassessing('profile')}
       onOpenJourney={() => openStacked('journey')}
+      journeyView={journey.view}
       onShare={(careLabel) => openShare({ careLabel })}
       celebration={celebration}
       // Compartilhar a conquista leva à Jornada compartilhável (F45/F46), onde o marco alcançado
