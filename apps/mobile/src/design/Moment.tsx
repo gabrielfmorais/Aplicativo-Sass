@@ -59,7 +59,13 @@ export function Moment({
 }
 
 const styles = StyleSheet.create({
-  page: { flexGrow: 1, paddingTop: space.xxl },
+  /**
+   * ⚠️ SPEC-060 — **sem `paddingTop` aqui.** Ele valia `space.xxl`, exatamente o que o `Screen` já
+   * aplicava, então sempre foi duplicação inofensiva; a partir do momento em que o topo passou a ser
+   * *espaçamento + inset*, redeclará-lo **apaga o inset da Dynamic Island**, porque o `style` do
+   * chamador é o último do array. Quem manda no frame é o `Screen`.
+   */
+  page: { flexGrow: 1 },
   /** Centrado no que sobra, e ainda rolável quando não sobra nada (EC1/EC5). */
   body: { flexGrow: 1, justifyContent: 'center' },
   /**

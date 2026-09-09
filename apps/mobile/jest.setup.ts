@@ -11,3 +11,15 @@ import { configure } from '@testing-library/react-native';
  * Same reasoning as the `testTimeout` above it in jest.config.js.
  */
 configure({ asyncUtilTimeout: 5000 });
+
+/**
+ * SPEC-060 — `Screen` e `TabBar` passaram a ler a área segura, então **toda** suíte que renderiza
+ * uma tela atravessa `useSafeAreaInsets`. O mock oficial devolve insets **zerados** quando não há
+ * provider, que é exatamente o aparelho sem entalhe (AC5): as 51 suítes anteriores continuam
+ * medindo o mesmo layout de sempre. Quem quiser um iPhone com Dynamic Island envolve o que renderiza
+ * num `SafeAreaProvider` com `initialMetrics`.
+ */
+jest.mock(
+  'react-native-safe-area-context',
+  () => jest.requireActual<{ default: unknown }>('react-native-safe-area-context/jest/mock').default,
+);

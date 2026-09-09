@@ -38,6 +38,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button, Card, Loading, Screen, Stack, Text } from '@/design/primitives';
+import { BottomInsetOwnedByChrome } from '@/design/safe-area';
 import { TabBar, type TabKey } from '@/design/TabBar';
 
 import { useAuth } from '@/bootstrap/auth';
@@ -409,19 +410,27 @@ function AuthenticatedApp({
    */
   const profileChip = { name: displayName, avatar, onPress: () => openStacked('you') };
 
+  /**
+   * SPEC-060 FR4/BR2 — dentro da casca, **a `TabBar` é a dona do pé**: ela já soma o inset do
+   * indicador de home, então o `Screen` de qualquer tela aqui dentro não soma de novo. Fosse um
+   * prop atravessando todas as telas até o `Screen`, alguém esqueceria de repassar — que é
+   * exatamente o defeito que a SPEC-041 e a SPEC-053 mediram.
+   */
   const shell = (content: React.ReactNode) => (
-    <View style={styles.shell}>
-      <View style={styles.shellBody}>{content}</View>
-      <TabBar
-        active={tab}
-        onChange={(next) => {
-          setStacked(null);
-          setTab(next);
-          // A celebração é da Hoje, na hora: trocar de aba a encerra em vez de a carregar junto.
-          setCelebration(null);
-        }}
-      />
-    </View>
+    <BottomInsetOwnedByChrome>
+      <View style={styles.shell}>
+        <View style={styles.shellBody}>{content}</View>
+        <TabBar
+          active={tab}
+          onChange={(next) => {
+            setStacked(null);
+            setTab(next);
+            // A celebração é da Hoje, na hora: trocar de aba a encerra em vez de a carregar junto.
+            setCelebration(null);
+          }}
+        />
+      </View>
+    </BottomInsetOwnedByChrome>
   );
 
   if (reassessing === 'profile') {

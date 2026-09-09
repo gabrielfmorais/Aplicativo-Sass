@@ -368,6 +368,9 @@ export function WashDayScreen({
         maxLength={PRODUCT_NAME_MAX_LENGTH}
         autoCapitalize="sentences"
         autoCorrect={false}
+        // SPEC-060 FR9 — no iPhone a tecla passa a dizer "Concluído": fecha o teclado e revela as
+        // categorias logo abaixo do campo, em vez de "return".
+        returnKeyType="done"
         editable={!add.busy}
       />
       <Row>

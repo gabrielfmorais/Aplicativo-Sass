@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text as RNText, View, type TextStyle } from 'react-native';
 
 import { DropIcon, GrowthIcon, ShelfIcon, StrandsIcon } from '@/design/icons';
+import { useChromeBottom } from '@/design/safe-area';
 import { HIT_TARGET, color, radius, space, type } from '@/design/tokens';
 
 /**
@@ -57,8 +58,15 @@ export const TABS = [
 export type TabKey = (typeof TABS)[number]['key'];
 
 export function TabBar({ active, onChange }: { active: TabKey; onChange: (tab: TabKey) => void }) {
+  /**
+   * SPEC-060 FR4 — a barra é a **dona do pé** da janela autenticada, então é ela que soma o inset
+   * do indicador de home. Somado ao respiro de leitura, nunca no lugar dele (BR1): num iPhone com
+   * indicador o rótulo ficaria colado na barra de gestos, e num aparelho sem entalhe não sobraria
+   * respiro nenhum.
+   */
+  const paddingBottom = useChromeBottom(space.lg);
   return (
-    <View style={styles.bar} accessibilityRole="tablist">
+    <View style={[styles.bar, { paddingBottom }]} accessibilityRole="tablist">
       {TABS.map((tab) => {
         const on = tab.key === active;
         return (
@@ -108,9 +116,12 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: color.accentBorder,
     paddingTop: space.sm,
-    // Respiro no pé para não encostar na barra do sistema. Não é `safe area` — é folga de leitura;
-    // a área segura de verdade é do `Screen`, que já a trata.
-    paddingBottom: space.lg,
+    /**
+     * ⚠️ Aqui ficava escrito: *"Não é `safe area` — é folga de leitura; a área segura de verdade é
+     * do `Screen`, que já a trata"*. **O `Screen` não tratava** — não havia uma única importação de
+     * `react-native-safe-area-context` no app (SPEC-060 §2). O respiro de leitura continua sendo
+     * `space.lg`; a área segura agora **existe**, vem de `useChromeBottom` e é somada a ele.
+     */
   },
   tab: {
     flex: 1,
