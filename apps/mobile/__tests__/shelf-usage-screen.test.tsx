@@ -1,4 +1,4 @@
-import type { ShelfUsage } from '@app/core';
+import type { Product, ShelfUsage } from '@app/core';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import { ShelfUsageScreen } from '@/features/insights/ShelfUsageScreen';
@@ -10,11 +10,14 @@ import { ShelfUsageScreen } from '@/features/insights/ShelfUsageScreen';
  * **fato, não conselho**.
  */
 
+const MASCARA: Product = { id: 'p1', name: 'Máscara da feira', category: 'mask', catalog: null };
+const NOVO: Product = { id: 'p3', name: 'Creme novo', category: 'leave_in', catalog: null };
+
 const view = (over: Partial<ShelfUsage> = {}): ShelfUsage => ({
   totalProducts: 3,
   recordedCares: 6,
-  used: [{ id: 'p1', name: 'Máscara da feira', cares: 4 }],
-  neverUsed: [{ id: 'p3', name: 'Creme novo' }],
+  used: [{ product: MASCARA, cares: 4, lastUsedOn: '2026-09-04' }],
+  neverUsed: [NOVO],
   ...over,
 });
 
@@ -68,5 +71,60 @@ describe('Sua prateleira, em uso (SPEC-049)', () => {
     s.getByText(/Não foi possível ler seus registros/);
     fireEvent.press(s.getByText('Tentar novamente'));
     expect(onRetry).toHaveBeenCalled();
+  });
+});
+
+/**
+ * SPEC-066 (`P6`) — **o vidro e a última vez.**
+ *
+ * ⚠️ A tela era uma lista de nomes numa superfície **Premium** — a mesma queixa que o dono fez sobre
+ * a prateleira dentro do cuidado. E a contagem responde *quantas vezes*, não *quando*.
+ */
+describe('Sua prateleira, em uso — identidade e última vez (SPEC-066)', () => {
+  const COM_CATALOGO: Product = {
+    id: 'pc',
+    name: 'Invigo Nutri-Enrich',
+    category: 'shampoo',
+    catalog: {
+      id: 'k1',
+      brand: 'Wella Professionals',
+      line: 'Invigo',
+      name: 'Nutri-Enrich Shampoo',
+      variant: '250ml',
+      category: 'shampoo',
+      imageUrl: null,
+    },
+  };
+
+  it('mostra a data do último registro, no dia civil dela', async () => {
+    const s = await screen();
+    // ⛔ Dia civil lido como números puros (ADR-008): nenhum `Date` com fuso entra no caminho.
+    s.getByText('última vez em sex, 04/09');
+  });
+
+  /** FR1 — marca e categoria acompanham o nome, como na prateleira e no cuidado. */
+  it('mostra marca e categoria junto do nome dela', async () => {
+    const s = await screen({
+      view: view({ used: [{ product: COM_CATALOGO, cares: 2, lastUsedOn: '2026-09-01' }] }),
+    });
+    s.getByText('Invigo Nutri-Enrich');
+    s.getByText(/Wella Professionals/);
+  });
+
+  /** FR5/FR3 — quem não tem foto rende o monograma, e a lista continua alinhada. */
+  it('produto sem foto rende a inicial, inclusive na lista sem registro', async () => {
+    const s = await screen();
+    s.getByText('M', { includeHiddenElements: true }); // Máscara da feira
+    s.getByText('C', { includeHiddenElements: true }); // Creme novo
+  });
+
+  /**
+   * ⛔ **A data é dita e mais nada** (BR4). *"Faz tempo"*, *"você não usa desde"* ou qualquer
+   * adjetivo sobre o tempo decorrido seria conselho com cara de fato — e conselho sobre produto é
+   * `P18`, atrás do próprio gate.
+   */
+  it('não adjetiva o tempo decorrido', async () => {
+    const s = await screen();
+    expect(s.queryByText(/faz tempo|há muito|abandonad|esquecid|parou de|desde então/i)).toBeNull();
   });
 });

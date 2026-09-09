@@ -1,6 +1,11 @@
 import type { ShelfUsage } from '@app/core';
 
-import { Button, Card, Loading, Row, Screen, Stack, Tag, Text } from '@/design/primitives';
+import { StyleSheet, View } from 'react-native';
+
+import { Button, Card, Loading, Screen, Stack, Text } from '@/design/primitives';
+import { space } from '@/design/tokens';
+import { formatPlannedDate } from '@/features/plan/copy';
+import { CATEGORY_LABEL, ProductCaption, ProductMark } from '@/features/shelf/ProductIdentity';
 
 /**
  * SPEC-049 (P6) — **Como você usa sua prateleira**.
@@ -106,14 +111,36 @@ export function ShelfUsageScreen({
           <Text variant="overline" tone="accent" accessibilityRole="header">
             O que você mais usa
           </Text>
-          {view.used.map((p) => (
-            <Card key={p.id}>
+          {view.used.map((u) => (
+            <Card key={u.product.id}>
               <Stack gap="sm">
-                <Text variant="heading" accessibilityRole="header">
-                  {p.name}
-                </Text>
+                {/*
+                  SPEC-066 FR1 — ⚠️ **a mesma identidade das outras superfícies.** A tela era uma
+                  lista de nomes: a mesma queixa que o dono fez sobre a prateleira dentro do cuidado,
+                  numa tela **Premium**. Foto, marca e categoria vêm do `ProductIdentity`, que é o
+                  dono único disso desde a SPEC-063.
+                */}
+                <View style={styles.row}>
+                  <ProductMark identity={u.product.catalog} name={u.product.name} />
+                  <View style={styles.rowText}>
+                    <Text variant="heading" accessibilityRole="header" numberOfLines={2}>
+                      {u.product.name}
+                    </Text>
+                    <ProductCaption product={u.product} categoryLabel={CATEGORY_LABEL[u.product.category]} />
+                  </View>
+                </View>
                 <Text tone="muted">
-                  {`em ${p.cares} ${p.cares === 1 ? 'registro' : 'registros'} de ${view.recordedCares}`}
+                  {`em ${u.cares} ${u.cares === 1 ? 'registro' : 'registros'} de ${view.recordedCares}`}
+                </Text>
+                {/*
+                  SPEC-066 FR2 — ⚠️ **a metade da pergunta que a contagem não responde.** *"Em 4 de
+                  6"* não distingue o produto que ela usou ontem do que ela largou em julho.
+
+                  ⛔ **A data é dita e mais nada** (BR4): *"faz tempo que você não usa"* seria
+                  conselho com cara de fato, e conselho sobre produto é `P18`.
+                */}
+                <Text variant="caption" tone="faint">
+                  {`última vez em ${formatPlannedDate(u.lastUsedOn)}`}
                 </Text>
               </Stack>
             </Card>
@@ -145,13 +172,30 @@ export function ShelfUsageScreen({
             Estes estão na sua prateleira e ainda não apareceram em nenhum registro. Pode ser novo, pode ser
             de outra época — a Huna só conta o que você marcou.
           </Text>
-          <Row>
-            {view.neverUsed.map((p) => (
-              <Tag key={p.id} label={p.name} tone="neutral" />
-            ))}
-          </Row>
+          {/*
+            FR3 — ⚠️ **eram `Tag` de nome cru**, e uma etiqueta é a forma mais apagada que este app
+            tem. Estes são produtos que ela tem em casa e não está usando — o assunto inteiro desta
+            seção —, e sem foto nem marca ela precisa lembrar de cor qual vidro é cada nome.
+          */}
+          {view.neverUsed.map((p) => (
+            <View key={p.id} style={styles.row}>
+              <ProductMark identity={p.catalog} name={p.name} />
+              <View style={styles.rowText}>
+                <Text variant="bodyStrong" numberOfLines={1}>
+                  {p.name}
+                </Text>
+                <ProductCaption product={p} categoryLabel={CATEGORY_LABEL[p.category]} />
+              </View>
+            </View>
+          ))}
         </Stack>
       ) : null}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  /** `flex: 1` deixa o nome encolher em vez de empurrar a marca para fora da linha. */
+  rowText: { flex: 1, gap: space.xs },
+});

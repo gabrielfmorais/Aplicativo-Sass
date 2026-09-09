@@ -36,16 +36,17 @@ export const createInsightsAdapter = (client: SupabaseClient): InsightsPort => (
     const executions = await client
       .from('care_executions')
       /**
-       * ⚠️ **Só `id`.** `care_type_code` e `executed_on` eram lidos e não consumidos por ninguém —
-       * a ordenação por `executed_on` é do servidor e não precisa da coluna no `select`. Voltam com
-       * o consumidor delas (segmentação `P8`, recência `P17`), não antes.
+       * ⚠️ **`id` e `executed_on`.** A regra registrada aqui era: *"voltam com o consumidor delas…
+       * não antes"* — e a SPEC-066 é o consumidor de `executed_on`, que a Smart Shelf usa para dizer
+       * **quando foi a última vez**. ⛔ `care_type_code` continua fora, porque continua sem
+       * ninguém que a leia (segmentação `P8`).
        */
-      .select('id')
+      .select('id, executed_on')
       .is('voided_at', null)
       .order('executed_on', { ascending: false })
       .limit(HISTORY_WINDOW);
     if (executions.error) throw fail('insights.read_failed', executions.error);
-    const rows = (executions.data ?? []) as { id: string }[];
+    const rows = (executions.data ?? []) as { id: string; executed_on: string }[];
     if (rows.length === 0) return [];
     const executionIds = rows.map((r) => r.id);
 
@@ -166,6 +167,8 @@ export const createInsightsAdapter = (client: SupabaseClient): InsightsPort => (
 
     return rows.map((r) => ({
       careExecutionId: r.id,
+      // O dia civil dela, como o banco o guardou (ADR-008): string, nunca `Date`.
+      executedOn: r.executed_on,
       feel: feelOf.get(r.id) ?? null,
       products: productsByExecution.get(r.id) ?? [],
       techniques: techniquesByExecution.get(r.id) ?? [],

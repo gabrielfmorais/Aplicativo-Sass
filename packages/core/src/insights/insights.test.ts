@@ -32,6 +32,8 @@ const fact = (
   marks: CheckInMark[] = [],
 ): InsightFact => ({
   careExecutionId: `e${(n += 1)}`,
+  // SPEC-066 — o dia civil do cuidado. Estas SPECs não olham a data; ela existe porque o fato a tem.
+  executedOn: `2026-09-${String((n % 28) + 1).padStart(2, '0')}`,
   feel,
   products,
   techniques,
