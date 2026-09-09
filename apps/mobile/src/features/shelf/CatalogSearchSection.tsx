@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Button, Card, Field, Row, Stack, Text } from '@/design/primitives';
 import { color, space } from '@/design/tokens';
-import { ProductThumb } from '@/features/shelf/ProductIdentity';
+import { ProductMark } from '@/features/shelf/ProductIdentity';
 
 /**
  * SPEC-054 (F32) — buscar o produto real. **SPEC-058 — em tempo real (autocomplete).**
@@ -175,7 +175,7 @@ export function CatalogSearchSection({
           <Card style={styles.list}>
             {rows.map((p, index) => (
               <View key={p.id} style={[styles.row, index < rows.length - 1 && styles.divided]}>
-                <ProductThumb identity={p} />
+                <ProductMark identity={p} name={p.name} />
                 <View style={styles.text}>
                   <Text variant="bodyStrong" numberOfLines={1}>
                     {p.name}

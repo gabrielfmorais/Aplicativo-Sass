@@ -32,7 +32,7 @@ const renderPanel = async (lastUsed: readonly Product[], shelf: readonly Product
 describe('produtos na execução (SPEC-041)', () => {
   it('mostra o que ela usou da última vez, como fato dela', async () => {
     const s = await renderPanel([MASK], [MASK, SHAMPOO]);
-    await waitFor(() => s.getByText('Da última vez você usou'));
+    await waitFor(() => s.getByText(/Você usou na última/));
     s.getByText('Máscara da feira');
   });
 
@@ -43,7 +43,7 @@ describe('produtos na execução (SPEC-041)', () => {
    */
   it('NÃO filtra a prateleira por categoria (D-26/D-70)', async () => {
     const s = await renderPanel([], [MASK, SHAMPOO, OIL]);
-    await waitFor(() => s.getByText('Na sua prateleira'));
+    await waitFor(() => s.getByText('Da sua prateleira'));
     s.getByText('Máscara da feira');
     s.getByText('Shampoo do mercado');
     s.getByText('Óleo de coco');
@@ -52,15 +52,15 @@ describe('produtos na execução (SPEC-041)', () => {
   /** O mesmo vidro duas vezes na mesma tela foi achado real na auditoria da SPEC-026. */
   it('não repete, na prateleira, o que já apareceu em "da última vez"', async () => {
     const s = await renderPanel([MASK], [MASK, SHAMPOO]);
-    await waitFor(() => s.getByText('Da última vez você usou'));
+    await waitFor(() => s.getByText(/Você usou na última/));
     expect(s.getAllByText('Máscara da feira')).toHaveLength(1);
-    s.getByText('Também na sua prateleira');
+    s.getByText('Outros da sua prateleira');
   });
 
   it('sem registro anterior, mostra só a prateleira — e não inventa um "da última vez"', async () => {
     const s = await renderPanel([], [SHAMPOO]);
-    await waitFor(() => s.getByText('Na sua prateleira'));
-    expect(s.queryByText('Da última vez você usou')).toBeNull();
+    await waitFor(() => s.getByText('Da sua prateleira'));
+    expect(s.queryByText(/Você usou na última/)).toBeNull();
   });
 
   it('prateleira vazia é convite, não beco', async () => {
@@ -88,7 +88,7 @@ describe('produtos na execução (SPEC-041)', () => {
 
   it('pergunta pelo tipo do cuidado que está na tela', async () => {
     const s = await renderPanel([], [SHAMPOO]);
-    await waitFor(() => s.getByText('Na sua prateleira'));
+    await waitFor(() => s.getByText('Da sua prateleira'));
     expect(s.washDays.lastUsedFor).toHaveBeenCalledWith('hydration');
   });
 
@@ -98,7 +98,7 @@ describe('produtos na execução (SPEC-041)', () => {
    */
   it('não recomenda, não ordena por mérito e não promete nada', async () => {
     const s = await renderPanel([MASK], [MASK, SHAMPOO]);
-    await waitFor(() => s.getByText('Da última vez você usou'));
+    await waitFor(() => s.getByText(/Você usou na última/));
     expect(s.queryByText(/recomend|ideal|melhor|indicad|use |experimente|compre/i)).toBeNull();
   });
 });
@@ -128,7 +128,7 @@ describe('CareProductsPanel — a identidade do catálogo (SPEC-054)', () => {
 
   it('mostra a marca junto do nome no que ela usou da última vez', async () => {
     const s = await renderPanel([REAL], [REAL]);
-    await waitFor(() => s.getByText('Da última vez você usou'));
+    await waitFor(() => s.getByText(/Você usou na última/));
     // ⚠️ O nome DELA continua sendo o título; a marca é a segunda linha.
     s.getByText('Meu shampoo');
     s.getByText('Marca Fictícia · Linha Teste · 300ml');
@@ -136,8 +136,11 @@ describe('CareProductsPanel — a identidade do catálogo (SPEC-054)', () => {
 
   it('no resto da prateleira, a marca vem junto do nome, nunca no lugar dele', async () => {
     const s = await renderPanel([MASK], [MASK, REAL]);
-    await waitFor(() => s.getByText('Também na sua prateleira'));
-    s.getByText('Marca Fictícia · Meu shampoo');
+    await waitFor(() => s.getByText('Outros da sua prateleira'));
+    // ⚠️ O nome DELA lidera a linha e a marca acompanha na legenda — ver SPEC-063: juntar os dois
+    // num texto só fazia a marca longa truncar justamente o nome que ela reconhece.
+    s.getByText('Meu shampoo');
+    s.getByText(/Marca Fictícia/);
   });
 
   /**
@@ -146,7 +149,7 @@ describe('CareProductsPanel — a identidade do catálogo (SPEC-054)', () => {
    */
   it('sem catálogo, o painel é byte a byte o de antes (AC1)', async () => {
     const s = await renderPanel([MASK], [MASK, SHAMPOO]);
-    await waitFor(() => s.getByText('Da última vez você usou'));
+    await waitFor(() => s.getByText(/Você usou na última/));
     s.getByText('Máscara da feira');
     s.getByText('Shampoo do mercado');
     // Nenhuma segunda linha inventada onde não há catálogo.
@@ -157,7 +160,7 @@ describe('CareProductsPanel — a identidade do catálogo (SPEC-054)', () => {
   it('produto de catálogo sem imagem não perde a marca', async () => {
     const semFoto: Product = { ...REAL, catalog: { ...REAL.catalog!, imageUrl: null } };
     const s = await renderPanel([semFoto], [semFoto]);
-    await waitFor(() => s.getByText('Da última vez você usou'));
+    await waitFor(() => s.getByText(/Você usou na última/));
     s.getByText('Marca Fictícia · Linha Teste · 300ml');
   });
 });

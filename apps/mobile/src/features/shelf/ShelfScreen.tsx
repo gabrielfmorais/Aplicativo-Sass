@@ -1,4 +1,4 @@
-import type { Product, ProductCatalogPort, ProductCategory, ProductPort } from '@app/core';
+import type { Product, ProductCatalogPort, ProductPort } from '@app/core';
 import { PRODUCT_CATEGORIES, PRODUCT_NAME_MAX_LENGTH } from '@app/core';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -18,7 +18,7 @@ import {
 import { HIT_TARGET_MIN, color, space } from '@/design/tokens';
 import { useAddProduct } from '@/features/shelf/use-add-product';
 import { CatalogSearchSection } from '@/features/shelf/CatalogSearchSection';
-import { ProductCaption, ProductThumb } from '@/features/shelf/ProductIdentity';
+import { CATEGORY_LABEL, ProductCaption, ProductMark } from '@/features/shelf/ProductIdentity';
 import { reasonOf } from '@/shared/failure-detail';
 
 /**
@@ -40,15 +40,6 @@ import { reasonOf } from '@/shared/failure-detail';
  */
 
 /** Os nomes que ela lê. Tipo de vidro no banheiro — nenhum diz para que serve (BR3). */
-const CATEGORY_LABEL: Record<ProductCategory, string> = {
-  shampoo: 'Shampoo',
-  conditioner: 'Condicionador',
-  mask: 'Máscara',
-  leave_in: 'Leave-in ou creme',
-  oil: 'Óleo ou sérum',
-  styler: 'Finalizador',
-  other: 'Outro',
-};
 
 type Loadable<T> = 'loading' | 'error' | T;
 
@@ -277,7 +268,7 @@ export function ShelfScreen({
                   SPEC-054 — a foto real quando existe, e um lugar neutro do mesmo tamanho quando
                   não (FR7): a linha não pode pular de altura conforme o produto tenha imagem.
                 */}
-                <ProductThumb identity={product.catalog} />
+                <ProductMark identity={product.catalog} name={product.name} />
                 <View style={styles.text}>
                   {/* Uma linha só: um nome comprido corta, e nunca empurra a categoria para fora. */}
                   <Text variant="bodyStrong" numberOfLines={1}>

@@ -22,6 +22,34 @@ const FINISH = 'wash_day_finish';
  * conveniência, e uma varredura sem teto no histórico dela não é. */
 const RECENT_EXECUTIONS = 10;
 
+/**
+ * SPEC-063 — **as marcações do registro mais recente que TENHA marcação.**
+ *
+ * ⚠️ **A regra existe por causa de um defeito medido no DEV real.** O `lastUsedFor` escolhia o hub
+ * mais recente que **existisse** e lia os produtos dele — mas o registro é feito por partes: marcar
+ * só uma técnica, ou responder só a finalização, **já cria o hub sem produto nenhum**. Na prateleira
+ * da usuária de desenvolvimento, das quatro hidratações com registro a **mais recente tinha zero
+ * produtos** e duas mais antigas tinham um cada; o painel ficava mudo para quem tem histórico de
+ * verdade.
+ *
+ * O nome promete o último **uso**, não o último registro. Puro e exportado para que a regra seja
+ * provável sem montar o PostgREST inteiro.
+ *
+ * @param hubIds hubs da janela, **do mais recente para o mais antigo** — a ordem é a verdade.
+ */
+export const productsOfLastMarkedHub = (
+  hubIds: readonly string[],
+  marks: readonly { wash_day_id: string; product_id: string }[],
+): readonly string[] => {
+  const porHub = new Map<string, string[]>();
+  for (const { wash_day_id, product_id } of marks) {
+    const atual = porHub.get(wash_day_id);
+    if (atual) atual.push(product_id);
+    else porHub.set(wash_day_id, [product_id]);
+  }
+  return hubIds.map((id) => porHub.get(id)).find((ids) => ids !== undefined && ids.length > 0) ?? [];
+};
+
 const fail = (code: string, e: { message: string }) => new InfrastructureError(code, e.message);
 
 /** A marcação já existe. Não é falha: é o estado que ela pediu (EC5). */
@@ -236,8 +264,6 @@ export const createWashDayAdapter = (client: SupabaseClient, userId: () => strin
       const executionIds = (executionRows as { id: string }[]).map((r) => r.id);
       if (executionIds.length === 0) return [];
 
-      // O hub mais recente entre essas execuções: a ordem da consulta acima é a ordem da verdade,
-      // então a primeira execução que **tem** registro é a última vez que ela contou o que usou.
       const { data: hubRows, error: hubsError } = await client
         .from(HUB)
         .select('id, care_execution_id')
@@ -246,15 +272,32 @@ export const createWashDayAdapter = (client: SupabaseClient, userId: () => strin
       const hubOf = new Map(
         (hubRows as { id: string; care_execution_id: string }[]).map((r) => [r.care_execution_id, r.id]),
       );
-      const washDayId = executionIds.map((id) => hubOf.get(id)).find((id) => id !== undefined);
-      if (!washDayId) return [];
+      const hubIds = executionIds.map((id) => hubOf.get(id)).filter((id): id is string => id !== undefined);
+      if (hubIds.length === 0) return [];
 
+      /**
+       * ⚠️ **O último registro COM PRODUTO, e não o último registro — e a diferença foi medida no
+       * DEV real.**
+       *
+       * Esta função escolhia o hub mais recente que **existisse** e lia os produtos dele. Só que o
+       * registro é feito por partes: marcar uma técnica ou responder a finalização já cria o hub,
+       * **sem produto nenhum**. Medido na prateleira da usuária de desenvolvimento: das quatro
+       * hidratações com registro, a **mais recente tinha zero produtos** e duas mais antigas tinham
+       * um cada — então "da última vez você usou" ficava **mudo para quem tem histórico de verdade**.
+       *
+       * O nome da função é `lastUsedFor`: o que ela promete é o último **uso**, não o último
+       * registro. Agora ela lê as marcações de todos os hubs da janela numa consulta só e pega as do
+       * hub mais recente **que tenha alguma** — a ordem de `executionIds` continua sendo a verdade.
+       */
       const { data: markRows, error: marksError } = await client
         .from(PRODUCTS)
-        .select('product_id')
-        .eq('wash_day_id', washDayId);
+        .select('wash_day_id, product_id')
+        .in('wash_day_id', hubIds);
       if (marksError) throw fail('care.wash_day_read_failed', marksError);
-      const productIds = (markRows as { product_id: string }[]).map((r) => r.product_id);
+      const productIds = productsOfLastMarkedHub(
+        hubIds,
+        markRows as { wash_day_id: string; product_id: string }[],
+      );
       if (productIds.length === 0) return [];
 
       // Sem filtro de arquivado, como em `getFor` (SPEC-024 BR3): ela usou aquilo, e o passado não

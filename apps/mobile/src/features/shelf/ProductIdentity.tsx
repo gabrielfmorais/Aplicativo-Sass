@@ -1,8 +1,29 @@
-import type { Product, ProductCatalogIdentity } from '@app/core';
-import { Image, StyleSheet } from 'react-native';
+import type { Product, ProductCatalogIdentity, ProductCategory } from '@app/core';
+import { Image, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/design/primitives';
-import { color, radius } from '@/design/tokens';
+import { color, radius, type as typeScale } from '@/design/tokens';
+
+/**
+ * SPEC-063 FR8 — **um dono só para o rótulo de categoria.**
+ *
+ * ⚠️ Existiam **duas** cópias desta tabela, uma na `ShelfScreen` e outra na `WashDayScreen`, e elas
+ * discordariam na primeira renomeação — o defeito que a SPEC-048 já pagou uma vez com o
+ * `FINISH_TECHNIQUE_LABEL`. O terceiro consumidor (o painel do cuidado) foi o gatilho para resolver
+ * em vez de escrever a terceira.
+ *
+ * ⛔ **Nenhum rótulo diz para que o produto serve.** "Máscara" é o tipo de vidro, não uma promessa —
+ * é essa contenção que mantém a prateleira fora do gate D-26/D-70.
+ */
+export const CATEGORY_LABEL: Record<ProductCategory, string> = {
+  shampoo: 'Shampoo',
+  conditioner: 'Condicionador',
+  mask: 'Máscara',
+  leave_in: 'Leave-in ou creme',
+  oil: 'Óleo ou sérum',
+  styler: 'Finalizador',
+  other: 'Outro',
+};
 
 /**
  * SPEC-054 (F32) — **o produto como ele é no mundo**, quando o app sabe qual é.
@@ -22,28 +43,48 @@ import { color, radius } from '@/design/tokens';
 
 const SIZE = 40;
 
+/** A inicial que o monograma mostra: a primeira letra visível do nome **dela**. */
+const initialOf = (name: string): string => (name.trim()[0] ?? '?').toUpperCase();
+
 /**
- * ⚠️ **SPEC-055 FR6 — sem imagem, NADA é renderizado. E isso é o conserto de uma regressão minha.**
+ * SPEC-063 FR5 — **a marca do produto que SEMPRE existe**: a foto quando há, o monograma quando não.
  *
- * A primeira versão reservava um quadrado neutro *"para a linha não pular"*. Com o catálogo vazio —
- * que é o estado de hoje e o **permanente** até a ingestão acontecer (SPEC-054 OQ1) — a Prateleira
- * ganhou **três caixas cinza em branco**, e três caixas em branco leem como **imagem quebrada**.
+ * ⚠️ **Isto não contradiz a SPEC-055, e a diferença é o que importa.** O que aquela rodada removeu
+ * foi um **quadrado cinza vazio**, que com o catálogo vazio virava três caixas em branco lendo como
+ * *imagem quebrada* — um espaço reservado que nunca ia preencher. Um monograma **não é espaço
+ * reservado: é conteúdo**, e é permanente para o produto manual, que nunca terá foto.
  *
- * ⚠️ **Um espaço reservado que nunca vai ser preenchido é pior que nenhum**: ele promete uma foto
- * que não existe e, pior, sugere que alguma coisa falhou ao carregar. A linha voltar a ser
- * exatamente a de antes da SPEC-054 é o comportamento certo — e é o que a validação a 390px mostrou.
+ * E é ele que mantém a coluna de texto alinhada: sem marca nenhuma, uma lista em que metade tem foto
+ * começa em dois lugares diferentes, que é a própria definição de lista bagunçada.
+ *
+ * ⚠️ **`name` é obrigatório**, não opcional com fallback: sem ele o monograma não tem letra, e um
+ * parâmetro que dá para esquecer é a forma de defeito que a SPEC-053 mediu no `oilDueOn`.
  */
-export function ProductThumb({ identity }: { identity: ProductCatalogIdentity | null }) {
-  if (!identity?.imageUrl) return null;
+export function ProductMark({
+  identity,
+  name,
+  size = SIZE,
+}: {
+  identity: ProductCatalogIdentity | null;
+  name: string;
+  size?: number;
+}) {
+  const box = { width: size, height: size, borderRadius: radius.sm };
+  if (identity?.imageUrl) {
+    return (
+      <Image
+        source={{ uri: identity.imageUrl }}
+        style={[styles.thumb, box]}
+        resizeMode="contain"
+        accessibilityElementsHidden
+      />
+    );
+  }
   return (
-    <Image
-      source={{ uri: identity.imageUrl }}
-      style={styles.thumb}
-      resizeMode="contain"
-      // A imagem é ilustrativa e o nome está ao lado: descrevê-la de novo seria repetição para quem
-      // usa leitor de tela.
-      accessibilityElementsHidden
-    />
+    // O nome está ao lado; a inicial repetida só somaria ruído para quem usa leitor de tela.
+    <View style={[styles.mark, box]} accessibilityElementsHidden>
+      <Text style={styles.markLetter}>{initialOf(name)}</Text>
+    </View>
   );
 }
 
@@ -74,4 +115,12 @@ const thumbBase = {
 
 const styles = StyleSheet.create({
   thumb: { ...thumbBase, backgroundColor: color.surface },
+  mark: {
+    ...thumbBase,
+    backgroundColor: color.brandTint,
+    borderColor: color.accentBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markLetter: { ...typeScale.bodyStrong, color: color.accent },
 });
