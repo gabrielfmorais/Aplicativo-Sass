@@ -1,4 +1,4 @@
-import { EMPTY_PATH, openFromTab, pop, push } from '@/app/stacked-path';
+import { EMPTY_PATH, openFromTab, pop, push } from '@/shared/stacked-path';
 
 /**
  * ⚠️ **SPEC-061 / ADR-012 — o núcleo de navegação do app não tinha um único teste.**

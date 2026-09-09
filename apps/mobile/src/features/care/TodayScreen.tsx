@@ -32,6 +32,7 @@ import {
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Reveal } from '@/design/Reveal';
 import { Button, Card, Chip, Row, Screen, ScreenHeader, Stack, Tag, Text } from '@/design/primitives';
 import { CelebrationCard } from '@/features/journey/CelebrationCard';
 import { JourneySummary } from '@/features/journey/JourneySummary';
@@ -377,20 +378,30 @@ function FinishPrompt({
         "melhor para você" é D-26/D-70 e não está aqui.
       */}
       {status === 'done' ? (
-        <Stack gap="sm">
-          <Text variant="bodyStrong">{technique === null ? 'Qual finalização?' : 'Finalização feita'}</Text>
-          <Row gap="sm">
-            {FINISH_TECHNIQUES.map((value) => (
-              <Chip
-                key={value}
-                label={FINISH_TECHNIQUE_LABEL[value]}
-                selected={technique === value}
-                disabled={blocked}
-                onPress={() => onTechnique(technique === value ? null : value)}
-              />
-            ))}
-          </Row>
-        </Stack>
+        /**
+         * SPEC-070 FR3 — a etapa seguinte **entra no lugar**, logo abaixo do chip que ela acabou de
+         * tocar. Antes ela aparecia depois de a tela inteira remontar, e a usuária voltava ao topo
+         * tendo de procurar a pergunta que ela mesma destravou (§1.1).
+         *
+         * ⚠️ `Reveal` respeita a redução de movimento e **não anima antes de a preferência ser
+         * conhecida** (o estado inicial do hook é `null`, não `false`) — a regra da SPEC-018.
+         */
+        <Reveal>
+          <Stack gap="sm">
+            <Text variant="bodyStrong">{technique === null ? 'Qual finalização?' : 'Finalização feita'}</Text>
+            <Row gap="sm">
+              {FINISH_TECHNIQUES.map((value) => (
+                <Chip
+                  key={value}
+                  label={FINISH_TECHNIQUE_LABEL[value]}
+                  selected={technique === value}
+                  disabled={blocked}
+                  onPress={() => onTechnique(technique === value ? null : value)}
+                />
+              ))}
+            </Row>
+          </Stack>
+        </Reveal>
       ) : null}
     </Stack>
   );
@@ -941,7 +952,13 @@ export function TodayScreen({
   now: () => Instant;
   timeZone: string;
   newExecutionId: () => string;
-  onChanged: () => void;
+  /**
+   * SPEC-070 — relê o board **sem desmontar esta tela**, e diz se conseguiu.
+   *
+   * `false` significa que a escrita foi feita mas a releitura falhou, então o que está na tela
+   * ficou velho — e isso precisa ser dito onde ela tocou. Nunca rejeita.
+   */
+  onChanged: () => Promise<boolean>;
   /** SPEC-017 — para ler o snapshot que gerou o plano ativo, não o perfil de hoje. */
   hairProfile: HairProfilePort;
   /** SPEC-022 — pausar, prever a volta e voltar. A rota é quem chama o port; a escrita devolve a
@@ -1169,7 +1186,7 @@ export function TodayScreen({
       .recordAdHocCare({ careTypeCode, clientExecutionId: chave, timeZone })
       .then(() => {
         keys.delete(`adhoc:${careTypeCode}`);
-        onChanged();
+        void onChanged();
       })
       .catch((error: unknown) => {
         setMessage('Não foi possível registrar. Tente novamente.');
@@ -1251,11 +1268,19 @@ export function TodayScreen({
 
     run()
       .then(onChanged)
+      .then((fresh) => {
+        /**
+         * SPEC-070 FR2 — a escrita foi feita e a **releitura** é que falhou. A tela fica (nada de
+         * erro de tela cheia apagando o lugar dela), e é aqui que ela fica sabendo: sem isto, o
+         * toque pareceria não ter funcionado, que é o defeito invisível trocado pelo visível.
+         */
+        if (fresh === false) setMessage('Registramos, mas não conseguimos atualizar a tela agora.');
+      })
       .catch((error: unknown) => {
         // A conflict means the screen was stale: reload and show the real state (§16).
         if ((error as { kind?: string })?.kind === 'conflict') {
           setMessage('Esse cuidado mudou. Atualizamos a tela.');
-          onChanged();
+          void onChanged();
           return;
         }
         setMessage('Não foi possível registrar. Tente novamente.');

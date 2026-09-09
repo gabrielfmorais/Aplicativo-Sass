@@ -41,7 +41,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Button, Card, Loading, Screen, Stack, Text } from '@/design/primitives';
 import { NativeStack, type StackLayer } from '@/design/NativeStack';
-import { EMPTY_PATH, openFromTab, pop, push, type StackedKey, type StackedPath } from './stacked-path';
+import { EMPTY_PATH, openFromTab, pop, push, type StackedKey, type StackedPath } from '@/shared/stacked-path';
 import { BottomInsetOwnedByChrome } from '@/design/safe-area';
 import { TabBar, type TabKey } from '@/design/TabBar';
 
@@ -69,9 +69,14 @@ import { TodayScreen } from '@/features/care/TodayScreen';
 import { NameScreen } from '@/features/onboarding/NameScreen';
 import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import { PlanScreen } from '@/features/plan/PlanScreen';
+import { type BoardPhase, readFailureTakesOverScreen, readingTakesOverScreen } from '@/shared/board-refresh';
 import { reasonOf } from '@/shared/failure-detail';
 
 type Loadable<T> = 'loading' | 'error' | T;
+
+/** SPEC-070 — o `Loadable` reduzido à fase, que é o que as regras de revalidação olham. */
+const phaseOf = <T,>(value: Loadable<T>): BoardPhase =>
+  value === 'loading' ? 'loading' : value === 'error' ? 'error' : 'loaded';
 
 /** The device's wall clock as `HH:MM`, so the pure builder can skip a slot that already passed. */
 const localTimeOf = (instant: Instant): string =>
@@ -286,21 +291,54 @@ function AuthenticatedApp({
   }, [hairProfile]);
   useEffect(() => loadProfile(), [loadProfile]);
 
-  const loadBoard = useCallback(() => {
-    setBoard('loading');
-    let active = true;
-    careTracking
-      .getBoard()
-      .then((b) => active && setBoard(b))
-      .catch((error: unknown) => {
-        if (!active) return;
-        setFailure(reasonOf(error));
-        setBoard('error');
-      });
-    return () => {
-      active = false;
-    };
+  /**
+   * SPEC-070 FR1/FR2 — **revalidar sem desmontar a tela.**
+   *
+   * ⚠️ **O defeito que isto conserta não era da finalização: era de toda escrita da Hoje.** Isto
+   * começava com `setBoard('loading')`, e mais abaixo `board === 'loading'` troca a **árvore
+   * inteira** por um spinner de tela cheia. Como toda ação do cartão termina em `onChanged`, e
+   * `onChanged` é esta função, **concluir, pular, reagendar, desfazer, o check-in, cada marcação,
+   * a etapa de finalização e a técnica** desmontavam a `ScrollView` do `Screen` — e ao remontar o
+   * scroll está em 0. A usuária rolava até a finalização, tocava "Finalizei", e a tela a devolvia
+   * ao topo com a pergunta seguinte escondida lá embaixo.
+   *
+   * ⚠️ **O estado localizado de ocupado já existia** (`busyId` na Hoje): a tela já sabia dizer
+   * "estou salvando isto aqui". Ele nunca foi visto no lugar dele porque o spinner de tela cheia o
+   * destruía junto com a tela. É a quarta vez que este repositório mede a mesma forma de defeito —
+   * a peça existe, a ligação não (SPEC-041 `shelf`, SPEC-053 `oilDueOn`, SPEC-060 área segura).
+   *
+   * ⛔ **O conserto é aqui e não no scroll.** Restaurar a posição depois de um remount trataria o
+   * sintoma e deixaria o remount — com teclado, foco e motion ainda descartados a cada toque.
+   *
+   * **Primeira carga** (o estado inicial já é `'loading'`) e **nova tentativa depois do erro**
+   * continuam mostrando a tela cheia: aí não há nada a preservar. **Revalidação** com board bom na
+   * tela mantém o board e o troca quando o novo chega.
+   *
+   * Resolve `false` **só** quando o board na tela ficou velho porque a leitura falhou — o sinal de
+   * que alguém precisa avisá-la. Nunca rejeita, para quem só dispara não precisar de `.catch`; e um
+   * disparo **superado** por outro mais novo resolve `true`, porque quem responde por aquilo é a
+   * corrida que venceu.
+   */
+  const boardRun = useRef(0);
+  const refreshBoard = useCallback(async (): Promise<boolean> => {
+    const run = ++boardRun.current;
+    setBoard((current) => (readingTakesOverScreen(phaseOf(current)) ? 'loading' : current));
+    try {
+      const next = await careTracking.getBoard();
+      if (run !== boardRun.current) return true;
+      setBoard(next);
+      return true;
+    } catch (error: unknown) {
+      if (run !== boardRun.current) return true;
+      setFailure(reasonOf(error));
+      // FR2 — a falha de uma revalidação **não apaga a tela**.
+      setBoard((current) => (readFailureTakesOverScreen(phaseOf(current)) ? 'error' : current));
+      return false;
+    }
   }, [careTracking]);
+  const loadBoard = useCallback(() => {
+    void refreshBoard();
+  }, [refreshBoard]);
   // Only worth reading once there is a profile: without one there cannot be a plan.
   useEffect(() => {
     if (profile && profile !== 'loading' && profile !== 'error') return loadBoard();
@@ -821,7 +859,10 @@ function AuthenticatedApp({
       now={now}
       timeZone={timeZone()}
       newExecutionId={newRequestId}
-      onChanged={loadBoard}
+      // SPEC-070 — a promessa é **devolvida**: a Hoje espera a revalidação para saber se a tela que
+      // ela está mostrando é a nova. Quando a leitura falha depois de uma escrita que deu certo, a
+      // tela fica (FR2) e quem avisa é o cartão onde ela tocou, não um erro de tela cheia.
+      onChanged={refreshBoard}
       // Pausar e retomar recarregam o board: o estado pausado muda atraso, lembretes e progresso de
       // uma vez, e reconstruir a partir do servidor é mais barato que reproduzir a mudança aqui. A
       // promessa é **devolvida** (sem `.catch` que engula): o `PauseCard` trava o duplo toque
