@@ -2,7 +2,6 @@ import type {
   FinishStatus,
   FinishTechnique,
   Product,
-  ProductCategory,
   ProductPort,
   ScalpFeel,
   WashDayPort,
@@ -20,6 +19,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { Button, Card, Chip, Field, Loading, Row, Screen, Stack, Text } from '@/design/primitives';
+import { CATEGORY_LABEL } from '@/features/shelf/ProductIdentity';
 import { useAddProduct } from '@/features/shelf/use-add-product';
 import { reasonOf } from '@/shared/failure-detail';
 
@@ -108,16 +108,6 @@ export const FINISH_TECHNIQUE_LABEL: Record<FinishTechnique, string> = {
   twist_out: 'Twist out',
   other: 'Outra finalização',
   unknown: 'Não sei o nome',
-};
-
-const CATEGORY_LABEL: Record<ProductCategory, string> = {
-  shampoo: 'Shampoo',
-  conditioner: 'Condicionador',
-  mask: 'Máscara',
-  leave_in: 'Leave-in ou creme',
-  oil: 'Óleo ou sérum',
-  styler: 'Finalizador',
-  other: 'Outro',
 };
 
 type Marked = {
