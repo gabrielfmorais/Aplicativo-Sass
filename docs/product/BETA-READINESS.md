@@ -47,6 +47,11 @@ Cada gate tem: **o que é · quem age · o que desbloqueia**. Nenhum é resolví
 - **Desbloqueia a *validação* de:** notificações locais reais (agendamento/disparo/deep link), persistência segura de sessão/reinstalação, IAP nativo, rasterização do share card (`toDataURL`) + folha de compartilhamento, e a câmera do scanner (F33). Tudo isso já está implementado com degradação honesta no web; falta **exercer no nativo**.
 - ⚠️ **E agora, a área segura, o teclado e os gestos do iPhone (SPEC-060).** O navegador reporta inset **0** e não tem teclado do iOS, então **a classe inteira de defeito iPhone-first é invisível no preview web** — foi por isso que ela sobreviveu a 59 SPECs com o CI verde. A SPEC-060 corrigiu o que era corrigível e provou o mecanismo com **inset injetado em teste**, que é a prova disponível sem aparelho; o que **falta medir num iPhone real** é: o inset num aparelho com Dynamic Island, o `KeyboardAvoidingView` com o teclado do sistema aberto, o descarte por arrasto, o lembrete disparando em primeiro plano, e a `StatusBar`.
 
+### G8 — Acesso ao preview DEV nesta máquina (30 segundos, painel do Supabase) — ⚠️ **bloqueia a validação de TODA tela autenticada**
+- **Estado (medido em 2026-09-08):** `400 invalid_credentials` contra o endpoint de token do Supabase Auth para `dev.preview@haircare.local`. A **anon key é válida** — o endpoint de settings responde e confirma `google: false`, batendo com a D-84 —, e a senha do `.env.local` foi conferida sem aspas e sem espaço em branco. O usuário não existe neste projeto ou tem outra senha.
+- **Quem age (dono):** Authentication → Users → Add user, com o email e a senha do `.env.local` e **"Auto Confirm User"** marcado (`docs/runbooks/WEB-DEV-PREVIEW.md` §5).
+- **Desbloqueia:** ⚠️ **a D-90 inteira.** Sem isso, o preview alcança só a abertura e o login — nenhuma tela autenticada pode ser observada, e "validado no DEV real" deixa de ser possível para qualquer fatia de produto. É o gate mais barato desta lista e o que mais custa enquanto durar.
+
 ---
 
 ## 2. Estado técnico — o que está pronto (medido)
