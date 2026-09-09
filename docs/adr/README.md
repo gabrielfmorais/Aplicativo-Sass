@@ -19,5 +19,6 @@ Uma ADR **nunca é editada** após `Accepted` para mudar a decisão — cria-se 
 | [ADR-009](ADR-009-notification-architecture.md) | Notification Architecture: Intent → Scheduler → Adapter; local no MVP | Accepted (D-07, D-22) |
 | [ADR-010](ADR-010-analytics-architecture.md) | Analytics Architecture | Accepted (D-08) |
 | [ADR-011](ADR-011-subscription-entitlements.md) | Subscription & Entitlements (forma); provider adiado | Accepted forma (D-09) / provider Deferred (D-24) |
+| [ADR-012](ADR-012-navigation-architecture.md) | Navegação: pilha **nativa dirigida por estado**, e não migração para rotas do router (o gesto de voltar do iPhone) | Accepted (SPEC-061, 2026-09-09) |
 
 Registro de decisões humanas: [DECISION-REGISTER](../architecture/DECISION-REGISTER.md).
