@@ -107,7 +107,7 @@ const hairProfilePort = (snapshot: unknown = null): HairProfilePort =>
 const renderScreen = (
   care: CareTrackingPort,
   b: CareBoard = board(),
-  onChanged: () => void = jest.fn(),
+  onChanged: () => Promise<boolean> = jest.fn(async () => true),
   now: () => Instant = () => NOW,
   newExecutionId: () => string = () => 'exec-1',
   onReassess: () => void = jest.fn(),
@@ -188,7 +188,7 @@ describe('TodayScreen (SPEC-005 §14)', () => {
 
   it('records a care and lets the route reload the board', async () => {
     const care = makePort();
-    const onChanged = jest.fn();
+    const onChanged = jest.fn(async () => true);
     const screen = await renderScreen(care, board(), onChanged);
     await waitFor(() => screen.getByText(TODAY_LONG));
 
@@ -259,7 +259,7 @@ describe('TodayScreen (SPEC-005 §14)', () => {
       throw new ConflictError('care.skip_failed', 'gone');
     });
     const care = makePort({ skip } as Partial<CareTrackingPort>);
-    const onChanged = jest.fn();
+    const onChanged = jest.fn(async () => true);
     const screen = await renderScreen(care, board(), onChanged);
     await waitFor(() => screen.getByText(TODAY_LONG));
 
@@ -305,7 +305,7 @@ describe('TodayScreen — done and undo (D-69/D-12)', () => {
 
   it('undoes through the port', async () => {
     const care = makePort();
-    const onChanged = jest.fn();
+    const onChanged = jest.fn(async () => true);
     const screen = await renderScreen(care, done, onChanged);
     await waitFor(() => screen.getByText('Desfazer'));
 
@@ -455,7 +455,7 @@ describe('TodayScreen — "Como fazer" (SPEC-007 §14)', () => {
 
   it('never writes when the guide is opened (AC8)', async () => {
     const care = makePort();
-    const onChanged = jest.fn();
+    const onChanged = jest.fn(async () => true);
     const screen = await renderScreen(care, board(), onChanged);
     await waitFor(() => screen.getByText(TODAY_LONG));
 
@@ -522,7 +522,7 @@ describe('TodayScreen — check-in (SPEC-006 §14)', () => {
 
   it('asks how it went on a completed care and submits the rating (AC12)', async () => {
     const care = makePort();
-    const onChanged = jest.fn();
+    const onChanged = jest.fn(async () => true);
     const screen = await renderScreen(care, doneBoard(), onChanged);
     await waitFor(() => screen.getByText('Como ficou?'));
 
@@ -577,7 +577,7 @@ describe('TodayScreen — check-in (SPEC-006 §14)', () => {
     const submitCheckIn = jest.fn(async () => {
       throw new ConflictError('care.checkin_failed', 'already has a check-in');
     });
-    const onChanged = jest.fn();
+    const onChanged = jest.fn(async () => true);
     const screen = await renderScreen(
       makePort({ submitCheckIn } as Partial<CareTrackingPort>),
       doneBoard(),
@@ -762,7 +762,11 @@ describe('finalização na Hoje (SPEC-039)', () => {
       ...over,
     });
 
-  const renderDone = (washDays: WashDayPort, b: CareBoard = doneBoard(), onChanged = jest.fn()) =>
+  const renderDone = (
+    washDays: WashDayPort,
+    b: CareBoard = doneBoard(),
+    onChanged = jest.fn(async () => true),
+  ) =>
     render(
       <TodayScreen
         board={b}
@@ -795,7 +799,7 @@ describe('finalização na Hoje (SPEC-039)', () => {
 
   it('grava a resposta pela porta, sem chave de idempotência (FR6)', async () => {
     const washDays = washDayPort();
-    const onChanged = jest.fn();
+    const onChanged = jest.fn(async () => true);
     const s = await renderDone(washDays, doneBoard(), onChanged);
     await waitFor(() => s.getByText('Finalizei'));
 
@@ -805,6 +809,41 @@ describe('finalização na Hoje (SPEC-039)', () => {
       careExecutionId: 'e1',
       finishStatus: 'done',
     });
+  });
+
+  /**
+   * SPEC-070 FR2 — a escrita deu certo e a **releitura** é que falhou.
+   *
+   * ⚠️ Antes desta SPEC isso trocava a tela inteira por um erro, apagando o lugar dela. Agora a tela
+   * fica — e o preço de ficar é ter de **dizer** que o que está ali envelheceu. Sem esta frase, o
+   * toque pareceria não ter funcionado: um defeito visível trocado por um invisível.
+   */
+  it('escrita feita e releitura falha: a tela fica, e ela é avisada (FR2)', async () => {
+    const washDays = washDayPort();
+    const onChanged = jest.fn(async () => false);
+    const s = await renderDone(washDays, doneBoard(), onChanged);
+    await waitFor(() => s.getByText('Finalizei'));
+
+    await fireEvent.press(s.getByText('Finalizei'));
+
+    await waitFor(() => s.getByText('Registramos, mas não conseguimos atualizar a tela agora.'));
+    // A escrita aconteceu de verdade: a mensagem fala da leitura, não inventa uma falha de escrita.
+    expect(washDays.setFinishStatus).toHaveBeenCalled();
+    // E o cartão continua ali — nada de tela de erro engolindo o que ela estava vendo.
+    expect(s.getByText('Você finalizou?')).toBeTruthy();
+  });
+
+  it('releitura bem-sucedida não avisa nada (FR2)', async () => {
+    const s = await renderDone(
+      washDayPort(),
+      doneBoard(),
+      jest.fn(async () => true),
+    );
+    await waitFor(() => s.getByText('Finalizei'));
+
+    await fireEvent.press(s.getByText('Finalizei'));
+
+    await waitFor(() => expect(s.queryByText(/não conseguimos atualizar/)).toBeNull());
   });
 
   it('respondida, a pergunta não volta — e o título vira o nome da etapa (FR3/FR5)', async () => {
@@ -1282,7 +1321,7 @@ describe('TodayScreen — a execução avulsa (SPEC-052)', () => {
 
   it('registra pela porta de execução, com o tipo escolhido e a chave de idempotência', async () => {
     const care = makePort();
-    const onChanged = jest.fn();
+    const onChanged = jest.fn(async () => true);
     const screen = await renderScreen(care, board(), onChanged);
     await fireEvent.press(screen.getByText('Registrar um cuidado'));
     await fireEvent.press(screen.getAllByText('Reconstrução')[0]!);
