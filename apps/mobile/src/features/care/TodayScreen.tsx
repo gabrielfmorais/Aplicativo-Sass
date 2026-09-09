@@ -49,7 +49,7 @@ import { PlanRationale } from '@/features/care/PlanRationale';
  * Day (`TECHNIQUE_LABEL`, `SCALP_LABEL`). Duas cópias discordariam na primeira renomeação, e o mesmo
  * registro dela apareceria com nomes diferentes em duas telas.
  */
-import { FINISH_TECHNIQUE_LABEL } from '@/features/care/WashDayScreen';
+import { FINISH_LABEL, FINISH_TECHNIQUE_LABEL } from '@/features/care/WashDayScreen';
 import { WeekStrip } from '@/features/care/WeekStrip';
 import { buildWeek } from '@/features/care/week';
 import { CARE_TYPE_LABEL, formatLongDate, formatPlannedDate } from '@/features/plan/copy';
@@ -330,12 +330,11 @@ function CheckInPrompt({ blocked, onAnswer }: { blocked: boolean; onAnswer: (fee
  *
  * ⚠️ **Nenhum rótulo aqui afirma nada sobre cabelo** (BR4). "Finalizei" e "Pulei dessa vez" dizem o
  * que ela fez. *Quais* finalizações e como fazê-las são o `F38`, atrás do gate D-26/D-70.
+ *
+ * ⚠️ **Os rótulos são IMPORTADOS da `WashDayScreen`, não copiados** — ela é a dona do vocabulário do
+ * Wash Day, e esta tela mostra **o mesmo registro dela**. Havia uma cópia aqui, palavra por palavra,
+ * até a auditoria `--full` de 2026-09-09.
  */
-const FINISH_LABEL: Record<FinishStatus, string> = {
-  done: 'Finalizei',
-  skipped: 'Pulei dessa vez',
-};
-
 function FinishPrompt({
   status,
   technique,

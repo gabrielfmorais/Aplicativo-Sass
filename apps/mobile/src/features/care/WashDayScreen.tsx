@@ -80,8 +80,16 @@ const SCALP_LABEL: Record<ScalpFeel, string> = {
  * Os dois rótulos dizem **o que ela fez**; nenhum afirma nada sobre cabelo (BR4). "Pulei dessa vez"
  * é uma resposta legítima e não uma falha: a etapa faz parte do processo da maioria, e nem por isso
  * deixar de fazê-la vira cobrança (NG5).
+ *
+ * ⚠️ **Exportado, e o motivo está escrito logo abaixo, sobre o mapa vizinho:** *"a Hoje e os Insights
+ * importam este mapa em vez de manter cópia. Dois mapas para a mesma lista discordariam na primeira
+ * renomeação, e o rótulo apareceria diferente em duas telas sobre o mesmo registro dela."* A regra
+ * valia para `FINISH_TECHNIQUE_LABEL` e **não estava sendo cumprida por este**: a Hoje tinha a
+ * própria cópia, palavra por palavra. Achado pela auditoria `--full` de 2026-09-09 — é a terceira
+ * vez que este projeto encontra a mesma forma de defeito (`FINISH_TECHNIQUE_LABEL` na SPEC-048,
+ * `CATEGORY_LABEL` na SPEC-063).
  */
-const FINISH_LABEL: Record<FinishStatus, string> = {
+export const FINISH_LABEL: Record<FinishStatus, string> = {
   done: 'Finalizei',
   skipped: 'Pulei dessa vez',
 };

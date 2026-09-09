@@ -68,7 +68,10 @@ intocadas no fim** — e elas estão.
 - **FR5** A sequência conta **cuidados planejados atendidos**, em ordem de data. Dia sem cuidado
   planejado não quebra nada.
 - **FR6** Pausa **congela** a sequência, **na derivação** (SPEC-022 BR1).
-- **FR7** Tela própria, com entrada quieta na Hoje.
+- **FR7** Tela própria, com entrada quieta na Hoje. ⚠️ **Desde a SPEC-069 essa entrada é um resumo
+  compacto** (nível · pontos · sequência · porta), e não mais um botão: *quieta* sempre quis dizer
+  **sem cobrança** — sem contagem regressiva, sem "não perca sua sequência" —, nunca *sem informação*.
+  A tela continua sendo o lugar da progressão, dos marcos e do histórico.
 
 ## 6. Business Rules
 
