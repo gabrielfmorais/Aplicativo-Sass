@@ -26,14 +26,23 @@ describe('CareGuideLibrary (SPEC-031)', () => {
    */
   it('abre e fecha um guia, e começa fechado', async () => {
     const s = await render(<CareGuideLibrary />);
+    /**
+     * ⚠️ **A asserção passou a olhar o TEXTO do passo, e não `"1. " + texto`** (SPEC-062). Antes o
+     * número era um caractere colado na frase; agora é um marcador próprio, e o passo se escaneia
+     * porque as duas coisas são dois elementos. Continuar exigindo a string concatenada seria o
+     * teste guardando a **apresentação antiga** em vez do conteúdo — e é o conteúdo que não pode
+     * mudar (D-26/D-70, AC1).
+     */
     const firstStep = CARE_GUIDES.hydration.steps[0] as string;
-    expect(s.queryByText(`1. ${firstStep}`)).toBeNull();
+    expect(s.queryByText(firstStep)).toBeNull();
 
     await fireEvent.press(s.getByLabelText(/^Hidratação, \d+ minutos$/));
-    s.getByText(`1. ${firstStep}`);
+    s.getByText(firstStep);
+    // E o passo continua numerado — o marcador é o que devolve o escaneio.
+    s.getByText('1');
 
     await fireEvent.press(s.getByLabelText(/^Hidratação, \d+ minutos$/));
-    expect(s.queryByText(`1. ${firstStep}`)).toBeNull();
+    expect(s.queryByText(firstStep)).toBeNull();
   });
 
   /**

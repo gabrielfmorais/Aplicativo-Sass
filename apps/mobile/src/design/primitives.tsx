@@ -187,6 +187,7 @@ export function Button({
   onPress,
   variant = 'primary',
   size = 'md',
+  active = false,
   busy = false,
   disabled = false,
   accessibilityLabel,
@@ -201,6 +202,19 @@ export function Button({
    * hit: the target stays above the 44pt floor (BR4) — only the padding and the type shrink.
    */
   size?: 'md' | 'sm';
+  /**
+   * SPEC-062 FR5 — **o painel deste botão está aberto.**
+   *
+   * ⚠️ **Existia só para leitor de tela.** "Como fazer" com o guia aberto era pixel por pixel igual
+   * a "Como fazer" fechado: a informação vivia no `accessibilityState`, e quem enxerga não a
+   * recebia. Aberto, o botão passa a usar a família ameixa — **o mesmo vocabulário de "escolhido"
+   * que o `Chip` já usa**, e não um terceiro jeito de dizer a mesma coisa.
+   *
+   * ⚠️ **É canal visual, e a semântica continua sendo `expanded`** (BR4). Anunciar `selected`
+   * diria à tecnologia assistiva que o botão é uma opção escolhida entre outras — ele não é, ele
+   * abre um painel.
+   */
+  active?: boolean;
   /** Shows a spinner and blocks presses — the double-submit guard is still the caller's job. */
   busy?: boolean;
   disabled?: boolean;
@@ -214,6 +228,8 @@ export function Button({
   style?: StyleProp<ViewStyle>;
 }) {
   const off = disabled || busy;
+  // `active` vence a variante: um botão aberto se lê como aberto, seja qual for o repouso dele.
+  const look = active && !off ? buttonActive : buttonVariant[variant];
   return (
     <Pressable
       onPress={onPress}
@@ -224,18 +240,18 @@ export function Button({
       style={({ pressed }) => [
         styles.button,
         size === 'sm' && styles.buttonSm,
-        buttonVariant[variant].container,
-        pressed && !off && buttonVariant[variant].pressed,
+        look.container,
+        pressed && !off && look.pressed,
         off && styles.off,
         style,
       ]}
     >
       {busy ? (
-        <ActivityIndicator color={buttonVariant[variant].spinner} />
+        <ActivityIndicator color={look.spinner} />
       ) : (
         <Text
           variant={size === 'sm' ? 'caption' : 'bodyStrong'}
-          tone={buttonVariant[variant].tone}
+          tone={look.tone}
           style={size === 'sm' ? styles.buttonSmLabel : undefined}
         >
           {label}
@@ -244,6 +260,17 @@ export function Button({
     </Pressable>
   );
 }
+
+/**
+ * SPEC-062 FR5 — o repouso de um botão **aberto**. Tinta em vez de preenchimento sólido: o painel
+ * embaixo é que é o assunto, e um botão ameixa cheio competiria com ele.
+ */
+const buttonActive = {
+  container: { backgroundColor: color.accentSoft, borderWidth: 1, borderColor: color.accent },
+  pressed: { backgroundColor: color.accentBorder },
+  tone: 'accent',
+  spinner: color.accent,
+} as const;
 
 const buttonVariant = {
   primary: {
@@ -272,7 +299,7 @@ const buttonVariant = {
   {
     container: ViewStyle;
     pressed: ViewStyle;
-    tone: 'onFilled' | 'default' | 'muted';
+    tone: 'onFilled' | 'default' | 'muted' | 'accent';
     spinner: string;
   }
 >;
