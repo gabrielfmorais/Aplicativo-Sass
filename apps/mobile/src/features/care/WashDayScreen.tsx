@@ -19,7 +19,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { Button, Card, Chip, Field, Loading, Row, Screen, Stack, Text } from '@/design/primitives';
-import { CATEGORY_LABEL } from '@/features/shelf/ProductIdentity';
+import { CATEGORY_LABEL, ProductPickRow } from '@/features/shelf/ProductIdentity';
 import { useAddProduct } from '@/features/shelf/use-add-product';
 import { reasonOf } from '@/shared/failure-detail';
 
@@ -437,29 +437,32 @@ export function WashDayScreen({
           </Stack>
         ) : (
           <Stack gap="md">
-            <Row>
+            {/*
+              SPEC-065 — ⚠️ **eram chips, e a medição a 390px mostrou que o chip já tinha parado de
+              funcionar.** Com o catálogo populado (SPEC-057/058), **4 dos 7 produtos da prateleira
+              real ocupavam a linha inteira sozinhos**: a grade de pílulas já era uma lista vertical
+              de larguras desiguais. E o rótulo `marca · nome` truncava **o nome dela** —
+              *"Wella Professionals · Invigo Nutri-Enrich Dee…"* —, o mesmo defeito que a SPEC-063
+              corrigiu no painel do cuidado, aqui com preço maior: lá ela lê, aqui ela precisa
+              **reconhecer para tocar**.
+
+              ⛔ **A ordem continua sendo a da prateleira e nada começa marcado** (BR1/BR2): esta
+              tela é a fonte do que a camada de inteligência lê, e sugerir aqui faria o app aprender
+              com a própria sugestão.
+            */}
+            <Stack gap="sm">
               {offered.map((product) => {
                 const selected = state.marked.products.some((p) => p.id === product.id);
-                // Mesma identidade em toda superfície (SPEC-054 FR6/G4): com o catálogo populado, o
-                // chip mostra a marca — "Wella · Invigo", não "Invigo" solto —, do jeito que a
-                // prateleira e a execução (CareProductsPanel) já mostram. Sem catálogo, é o nome dela.
-                const label = product.catalog ? `${product.catalog.brand} · ${product.name}` : product.name;
                 return (
-                  <Chip
+                  <ProductPickRow
                     key={product.id}
-                    label={label}
-                    multi
+                    product={product}
                     selected={selected}
                     onPress={() => toggleProduct(product, !selected)}
-                    accessibilityLabel={`${label} — ${CATEGORY_LABEL[product.category]}`}
-                    // Nome de catálogo pode ser longo (OBF); corta com reticências em vez de escapar
-                    // do quadro. A marca, no começo, continua legível. O accessibilityLabel mantém o
-                    // rótulo inteiro para a tecnologia assistiva.
-                    numberOfLines={1}
                   />
                 );
               })}
-            </Row>
+            </Stack>
             <Button
               label="Usei um produto novo"
               variant="ghost"
