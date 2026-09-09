@@ -38,6 +38,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button, Card, Loading, Screen, Stack, Text } from '@/design/primitives';
+import { NativeStack, type StackLayer } from '@/design/NativeStack';
+import { EMPTY_PATH, openFromTab, pop, push, type StackedKey, type StackedPath } from './stacked-path';
 import { BottomInsetOwnedByChrome } from '@/design/safe-area';
 import { TabBar, type TabKey } from '@/design/TabBar';
 
@@ -175,9 +177,15 @@ function AuthenticatedApp({
       active = false;
     };
   }, [products]);
-  const [stacked, setStacked] = useState<
-    null | 'hairEvents' | 'you' | 'journey' | 'share' | 'insights' | 'shelfUsage' | 'finishes' | 'dataSources'
-  >(null);
+  /**
+   * SPEC-061 / ADR-012 — **um caminho, não um destino.**
+   *
+   * Era um valor só, e a pilha de dois níveis vivia **à mão**: `dataSources` voltava para `you`
+   * porque alguém escreveu `setStacked('you')` no `onBack` daquela tela. Com um caminho de verdade,
+   * voltar é `pop` — e o gesto de borda do iPhone, que fecha a camada do topo, produz exatamente a
+   * mesma coisa que o botão. **Dois caminhos de saída que não podem divergir porque são o mesmo.**
+   */
+  const [stack, setStack] = useState<StackedPath>(EMPTY_PATH);
   /**
    * SPEC-045 (F46) — **de onde ela veio decide o que o card pode ser**. A tela de compartilhar é uma
    * só (SPEC-044 G5: o F46 acrescenta gatilhos, não outro caminho); o que muda é a lista de momentos
@@ -188,13 +196,15 @@ function AuthenticatedApp({
   );
   const openShare = (from: 'journey' | 'progress' | { careLabel: string; washDay?: true }) => {
     setShareFrom(from);
-    setStacked('share');
+    // Empilha sobre o caminho que existir: vindo da Jornada, voltar cai nela; vindo de uma aba, na aba.
+    pushStacked('share');
   };
-  const openStacked = (
-    screen:
-      'hairEvents' | 'you' | 'journey' | 'share' | 'insights' | 'shelfUsage' | 'finishes' | 'dataSources',
-  ) => setStacked(screen);
-  const closeStacked = () => setStacked(null);
+  /** Abre a partir de uma **aba**: começa um caminho novo, porque a aba é a raiz. */
+  const openStacked = (screen: StackedKey) => setStack(openFromTab(screen));
+  /** Abre a partir de uma tela **já empilhada**: acrescenta um degrau. */
+  const pushStacked = (screen: StackedKey) => setStack((s) => push(s, screen));
+  /** Volta um degrau. É o que o botão "Voltar" e o gesto de borda fazem — o mesmo `pop`. */
+  const closeStacked = () => setStack(pop);
   /**
    * SPEC-024 — o registro do que ela usou, aberto a partir de um cuidado concluído. Guarda a
    * execução e o nome do cuidado porque a tela precisa dizer de que dia se trata, e um id sozinho
@@ -416,22 +426,39 @@ function AuthenticatedApp({
    * prop atravessando todas as telas até o `Screen`, alguém esqueceria de repassar — que é
    * exatamente o defeito que a SPEC-041 e a SPEC-053 mediram.
    */
-  const shell = (content: React.ReactNode) => (
-    <BottomInsetOwnedByChrome>
-      <View style={styles.shell}>
-        <View style={styles.shellBody}>{content}</View>
-        <TabBar
-          active={tab}
-          onChange={(next) => {
-            setStacked(null);
-            setTab(next);
-            // A celebração é da Hoje, na hora: trocar de aba a encerra em vez de a carregar junto.
-            setCelebration(null);
-          }}
-        />
-      </View>
-    </BottomInsetOwnedByChrome>
-  );
+  /**
+   * SPEC-061 / ADR-012 — a casca, agora com a **pilha nativa dentro dela**.
+   *
+   * ⚠️ **A pilha fica ACIMA da `TabBar`, e isso é o desenho inteiro:** a barra **não desliza** com a
+   * transição, que é como as pilhas do próprio iOS se comportam sob uma tab bar — e é o que preserva
+   * a decisão da SPEC-026/027 de a barra continuar visível sobre a tela empilhada (*"sair de uma
+   * tela nunca deve exigir encontrar o botão certo antes"*).
+   */
+  const shell = (content: React.ReactNode) => {
+    const layers: StackLayer[] = [
+      { id: 'root', content },
+      ...stack.map((key) => ({ id: key, content: stackedContentOf(key) })),
+    ];
+    return (
+      <BottomInsetOwnedByChrome>
+        <View style={styles.shell}>
+          <View style={styles.shellBody}>
+            <NativeStack layers={layers} onDismiss={closeStacked} />
+          </View>
+          <TabBar
+            active={tab}
+            onChange={(next) => {
+              // Trocar de aba esvazia o caminho: a aba é a raiz, e voltar para ela é sair da pilha.
+              setStack(EMPTY_PATH);
+              setTab(next);
+              // A celebração é da Hoje, na hora: trocar de aba a encerra em vez de a carregar junto.
+              setCelebration(null);
+            }}
+          />
+        </View>
+      </BottomInsetOwnedByChrome>
+    );
+  };
 
   if (reassessing === 'profile') {
     return (
@@ -504,165 +531,186 @@ function AuthenticatedApp({
     );
   }
 
-  if (stacked === 'hairEvents') {
-    return shell(
-      <HairEventsScreen
-        events={hairEvents}
-        today={today()}
-        timeZone={timeZone}
-        newEventId={newRequestId}
-        onBack={closeStacked}
-        {...(board && board !== 'loading' && board !== 'error'
-          ? {
-              onReassess: () => {
-                closeStacked();
-                setReassessing('profile');
-              },
-            }
-          : {})}
-      />,
-    );
-  }
-
   /**
-   * SPEC-043 (F40/F41/F42) — **superfície própria** (D-103). A Jornada é uma tela empilhada, e não
-   * um bloco dentro de Progresso: aquela aba responde *"o que aconteceu"* e continua **sem nota**,
-   * com as barreiras da SPEC-009/019/021 intactas.
+   * SPEC-061 / ADR-012 — o conteúdo de cada camada empilhada, por chave.
    *
-   * A entrada fica na **Hoje**, que é onde o fato acontece — a consistência dela é feita de cuidados
-   * concluídos, e é ali que ela acabou de concluir um.
+   * Antes eram oito `return shell(...)` antecipados, e por isso **o conteúdo da aba nunca era
+   * calculado** enquanto uma tela empilhada estava aberta. Agora a aba é a **raiz da pilha** e
+   * continua montada por baixo — que é o que o iOS faz, e o que faz o gesto ter para onde voltar.
+   *
+   * ⚠️ Efeito colateral bom e deliberado: voltar **não remonta** a aba, então a rolagem e o estado
+   * dela sobrevivem à ida e à volta.
    */
-  if (stacked === 'journey') {
-    return shell(
-      <JourneyScreen
-        view={journey.view}
-        loading={journey.loading}
-        failed={journey.failed}
-        onRetry={journey.reload}
-        {...(journey.view ? { onShare: () => openShare('journey') } : {})}
-        onBack={() => setStacked(null)}
-      />,
-    );
-  }
+  const stackedContentOf = (key: StackedKey): React.ReactNode => {
+    if (key === 'hairEvents') {
+      return (
+        <HairEventsScreen
+          events={hairEvents}
+          today={today()}
+          timeZone={timeZone}
+          newEventId={newRequestId}
+          onBack={closeStacked}
+          {...(board && board !== 'loading' && board !== 'error'
+            ? {
+                onReassess: () => {
+                  closeStacked();
+                  setReassessing('profile');
+                },
+              }
+            : {})}
+        />
+      );
+    }
 
-  /**
-   * SPEC-044 (F45) — **o preview é o consentimento** (BR2). Este é o único caminho até o share: não
-   * existe outro ramo, e nenhuma ação em outra tela compartilha nada. Ele só existe quando há
-   * jornada — um card sem conquista não teria o que dizer.
-   *
-   * Voltar leva de volta à **Jornada**, de onde ela veio, e não à Hoje.
-   */
-  if (stacked === 'share') {
     /**
-     * SPEC-045 (F46) — os momentos deste ponto de entrada, **derivados de fato já canônico**
-     * (SPEC-044 BR4). Nenhum número é calculado aqui: sequência, marcos e contagens vêm prontos das
-     * mesmas views que as telas mostraram, senão o card e a tela poderiam discordar.
+     * SPEC-043 (F40/F41/F42) — **superfície própria** (D-103). A Jornada é uma tela empilhada, e não
+     * um bloco dentro de Progresso: aquela aba responde *"o que aconteceu"* e continua **sem nota**,
+     * com as barreiras da SPEC-009/019/021 intactas.
+     *
+     * A entrada fica na **Hoje**, que é onde o fato acontece — a consistência dela é feita de cuidados
+     * concluídos, e é ali que ela acabou de concluir um.
      */
-    const view = journey.view;
-    const moments = [
-      ...(typeof shareFrom === 'object'
-        ? [
-            shareFrom.washDay
-              ? washDayMoment({ careLabel: shareFrom.careLabel, journey: view })
-              : careDoneMoment({ careLabel: shareFrom.careLabel, journey: view }),
-          ]
-        : []),
-      ...(shareFrom === 'progress' && board && board !== 'loading' && board !== 'error'
-        ? [
-            cycleMoment(
-              buildProgress(
-                buildTodayView(board.cares, board.executions, today(), board.checkIns, board.pausedOn),
-                board.lifetimeDoneCount,
+    if (key === 'journey') {
+      return (
+        <JourneyScreen
+          view={journey.view}
+          loading={journey.loading}
+          failed={journey.failed}
+          onRetry={journey.reload}
+          {...(journey.view ? { onShare: () => openShare('journey') } : {})}
+          onBack={closeStacked}
+        />
+      );
+    }
+
+    /**
+     * SPEC-044 (F45) — **o preview é o consentimento** (BR2). Este é o único caminho até o share: não
+     * existe outro ramo, e nenhuma ação em outra tela compartilha nada. Ele só existe quando há
+     * jornada — um card sem conquista não teria o que dizer.
+     *
+     * Voltar leva de volta à **Jornada**, de onde ela veio, e não à Hoje.
+     */
+    if (key === 'share') {
+      /**
+       * SPEC-045 (F46) — os momentos deste ponto de entrada, **derivados de fato já canônico**
+       * (SPEC-044 BR4). Nenhum número é calculado aqui: sequência, marcos e contagens vêm prontos das
+       * mesmas views que as telas mostraram, senão o card e a tela poderiam discordar.
+       */
+      const view = journey.view;
+      const moments = [
+        ...(typeof shareFrom === 'object'
+          ? [
+              shareFrom.washDay
+                ? washDayMoment({ careLabel: shareFrom.careLabel, journey: view })
+                : careDoneMoment({ careLabel: shareFrom.careLabel, journey: view }),
+            ]
+          : []),
+        ...(shareFrom === 'progress' && board && board !== 'loading' && board !== 'error'
+          ? [
+              cycleMoment(
+                buildProgress(
+                  buildTodayView(board.cares, board.executions, today(), board.checkIns, board.pausedOn),
+                  board.lifetimeDoneCount,
+                ),
               ),
-            ),
-          ]
-        : []),
-      ...(view ? [journeyMoment(view), ...milestoneMoments(view)] : []),
-    ];
-    return shell(
-      <SharePreviewScreen
-        moments={moments}
-        displayName={displayName}
-        avatar={avatar}
-        share={share}
-        onBack={() => setStacked(shareFrom === 'journey' ? 'journey' : null)}
-      />,
-    );
-  }
+            ]
+          : []),
+        ...(view ? [journeyMoment(view), ...milestoneMoments(view)] : []),
+      ];
+      return (
+        <SharePreviewScreen
+          moments={moments}
+          displayName={displayName}
+          avatar={avatar}
+          share={share}
+          onBack={closeStacked}
+        />
+      );
+    }
 
-  /**
-   * SPEC-047 (P2) — **Seus padrões**, superfície própria e Premium.
-   *
-   * O gate real é do servidor (`advanced_insights`); a tela existe para quem não tem, e explica o
-   * que o premium **acrescenta** em vez de bloquear (D-83).
-   */
-  if (stacked === 'insights') {
-    return shell(
-      <InsightsScreen
-        view={insightsState.view}
-        loading={insightsState.loading}
-        failed={insightsState.failed}
-        entitled={canSeeInsights}
-        onRetry={insightsState.reload}
-        onBack={() => setStacked(null)}
-      />,
-    );
-  }
+    /**
+     * SPEC-047 (P2) — **Seus padrões**, superfície própria e Premium.
+     *
+     * O gate real é do servidor (`advanced_insights`); a tela existe para quem não tem, e explica o
+     * que o premium **acrescenta** em vez de bloquear (D-83).
+     */
+    if (key === 'insights') {
+      return (
+        <InsightsScreen
+          view={insightsState.view}
+          loading={insightsState.loading}
+          failed={insightsState.failed}
+          entitled={canSeeInsights}
+          onRetry={insightsState.reload}
+          onBack={closeStacked}
+        />
+      );
+    }
 
-  /** SPEC-049 (P6) — **Smart Shelf**: a prateleira dela, contada pelo uso. Mesmo gate premium. */
-  if (stacked === 'shelfUsage') {
-    return shell(
-      <ShelfUsageScreen
-        view={shelfUsage.view}
-        loading={shelfUsage.loading}
-        failed={shelfUsage.failed}
-        entitled={canSeeInsights}
-        onRetry={shelfUsage.reload}
-        onBack={() => setStacked(null)}
-      />,
-    );
-  }
+    /** SPEC-049 (P6) — **Smart Shelf**: a prateleira dela, contada pelo uso. Mesmo gate premium. */
+    if (key === 'shelfUsage') {
+      return (
+        <ShelfUsageScreen
+          view={shelfUsage.view}
+          loading={shelfUsage.loading}
+          failed={shelfUsage.failed}
+          entitled={canSeeInsights}
+          onRetry={shelfUsage.reload}
+          onBack={closeStacked}
+        />
+      );
+    }
 
-  /** SPEC-056 (F38, shell) — Finalizações: os nomes e o que ela já registrou. Lê `wash_day_finish`. */
-  if (stacked === 'finishes') {
-    return shell(<FinishesScreen washDays={washDays} onBack={() => setStacked(null)} />);
-  }
+    /** SPEC-056 (F38, shell) — Finalizações: os nomes e o que ela já registrou. Lê `wash_day_finish`. */
+    if (key === 'finishes') {
+      return <FinishesScreen washDays={washDays} onBack={closeStacked} />;
+    }
 
-  /** SPEC-057 (F32) — Fontes de dados: a atribuição da Open Beauty Facts. Volta para a Conta. */
-  if (stacked === 'dataSources') {
-    return shell(<DataSourcesScreen onBack={() => setStacked('you')} />);
-  }
+    /** SPEC-057 (F32) — Fontes de dados: a atribuição da Open Beauty Facts. Volta para a Conta. */
+    if (key === 'dataSources') {
+      return <DataSourcesScreen onBack={closeStacked} />;
+    }
 
-  if (stacked === 'you') {
-    return shell(
-      <AccountScreen
-        auth={auth}
-        deletion={deletion}
-        entitlements={entitlements}
-        profile={userProfile}
-        displayName={displayName}
-        avatar={avatar}
-        onAvatarChanged={setAvatar}
-        onNameChanged={setDisplayName}
-        planPreferences={planPreferences}
-        notificationPreferences={notificationPreferences}
-        notificationScheduler={notificationScheduler}
-        onNotificationPreferencesChanged={setPrefs}
-        onOpenDataSources={() => setStacked('dataSources')}
-        // SPEC-027: "Meu cabelo mudou" saiu daqui e foi para **Cuidados** — contar que fez química
-        // é rotina de cabelo, não configuração de conta. Aqui ficou o que é mesmo conta.
-        // Empilhada sobre a aba de origem, então a saída é explícita: tocar numa aba também sai, mas
-        // obrigaria a **escolher um destino** para deixar uma tela que não é aba.
-        onBack={closeStacked}
-        {...(board && board !== 'loading' && board !== 'error'
-          ? {
-              onReassess: () => setReassessing('profile'),
-              onCustomize: () => setReassessing('preview'),
-            }
-          : {})}
-      />,
-    );
-  }
+    if (key === 'you') {
+      return (
+        <AccountScreen
+          auth={auth}
+          deletion={deletion}
+          entitlements={entitlements}
+          profile={userProfile}
+          displayName={displayName}
+          avatar={avatar}
+          onAvatarChanged={setAvatar}
+          onNameChanged={setDisplayName}
+          planPreferences={planPreferences}
+          notificationPreferences={notificationPreferences}
+          notificationScheduler={notificationScheduler}
+          onNotificationPreferencesChanged={setPrefs}
+          onOpenDataSources={() => pushStacked('dataSources')}
+          // SPEC-027: "Meu cabelo mudou" saiu daqui e foi para **Cuidados** — contar que fez química
+          // é rotina de cabelo, não configuração de conta. Aqui ficou o que é mesmo conta.
+          // Empilhada sobre a aba de origem, então a saída é explícita: tocar numa aba também sai, mas
+          // obrigaria a **escolher um destino** para deixar uma tela que não é aba.
+          onBack={closeStacked}
+          {...(board && board !== 'loading' && board !== 'error'
+            ? {
+                onReassess: () => setReassessing('profile'),
+                onCustomize: () => setReassessing('preview'),
+              }
+            : {})}
+        />
+      );
+    }
+
+    /**
+     * ⚠️ **Exaustividade, e ela não é cerimônia.** Aqui havia um `return null`: acrescentar um
+     * destino a `StackedKey` sem escrever o ramo produziria uma **camada em branco** — a tela abre,
+     * não mostra nada, e nada acusa. É a forma de defeito que esta SPEC existe para não repetir.
+     * Agora, faltar um ramo é **erro de compilação**.
+     */
+    const naoTratado: never = key;
+    return naoTratado;
+  };
 
   /**
    * SPEC-027 — a prateleira virou **aba**: o `ShelfScreen` deixa de ser empilhado e deixa de ter
@@ -748,7 +796,7 @@ function AuthenticatedApp({
    * dela antes de terminar.
    */
   if (!board) {
-    return (
+    const plan = (
       <PlanScreen
         profile={profile}
         plans={hairPlan}
@@ -760,6 +808,14 @@ function AuthenticatedApp({
         onOpenAccount={() => openStacked('you')}
       />
     );
+    /**
+     * ⚠️ SPEC-061 — **a Conta é alcançável daqui, e continua sendo.** Sem plano a barra sai do
+     * caminho (SPEC-018 FR5), mas `onOpenAccount` empilha a Conta — e antes desta SPEC o ramo
+     * empilhado vinha **antes** deste `if`, então a Conta aparecia com a casca. Passar a raiz para a
+     * casca preserva isso: a barra volta enquanto a Conta está aberta e some ao voltar, que é
+     * exatamente o que já acontecia.
+     */
+    return stack.length > 0 ? shell(plan) : plan;
   }
   return shell(
     <TodayScreen
