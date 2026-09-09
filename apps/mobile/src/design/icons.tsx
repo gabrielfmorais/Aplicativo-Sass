@@ -1,34 +1,49 @@
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
 /**
- * SPEC-035 — os ícones da navegação.
+ * SPEC-035 — os ícones da navegação, **na direção que o dono trouxe em 2026-09-09**.
  *
  * **Desenhados aqui, e não instalados.** Uma biblioteca traz mil glifos para usar quatro, e nenhum
  * deles nasce parecido com a Huna: um conjunto genérico é o jeito mais rápido de um produto ficar
- * com cara de template. São quatro caminhos, e caber num arquivo é a prova de que a biblioteca seria
+ * com cara de template. São quatro desenhos, e caber num arquivo é a prova de que a biblioteca seria
  * peso sem retorno.
  *
- * ⚠️ **O que a rodada anterior errou, visto a 390px na barra real e não deduzido no papel.**
+ * ⚠️ **O que mudou nesta rodada, e por quê.** O dono mandou uma imagem de referência com os quatro
+ * ícones que quer — gota **com brilho**, mechas em **fluxo diagonal**, **frasco com pump + pote** e
+ * **barras com a seta subindo** — e disse "se for preciso melhore". O conjunto anterior era mais
+ * pobre em três frentes: a gota não tinha brilho (o segundo volume vivia **dentro** dela e some a
+ * 22px), a prateleira tinha **um** frasco sem pump, e o progresso era uma linha com um nó, desenho
+ * que já havia sido reprovado duas vezes por ler como **risco**. A referência resolve as três com
+ * formas que se reconhecem pequenas.
  *
- * - **Traço 1.9 numa caixa de 22 é fino demais para o rótulo que está embaixo.** Toda a densidade da
- *   barra estava no texto, e a fileira de ícones parecia um rascunho por cima de um menu pronto.
- * - **Cuidados lia `( )`.** A mecha longa com o cacho no pé é um bom desenho **grande**; a 22px o
- *   cacho vira um borrão e sobram duas curvas paralelas — parêntese, de novo.
- * - **Progresso lia como um risco.** Uma curva fina de canto a canto, com dois nós pequenos, não tem
- *   massa suficiente para se afirmar ao lado de três desenhos fechados.
- * - **Prateleira era o mais pesado dos quatro** — dois frascos desenhados por dentro, com tampa
- *   sólida, num espaço onde os outros têm duas linhas. Um conjunto em que um ícone tem o dobro da
- *   densidade dos outros não é um conjunto.
+ * ⚠️ **A ressalva registrada, porque ela contradiz o que estava escrito aqui.** A versão anterior
+ * dizia, por escrito, que o Progresso *"não é gráfico e não tem escala"* e que barras
+ * *"prometeriam exatamente o que o produto se recusa a dar"*. A recusa continua de pé — a SPEC-019 e
+ * a SPEC-021 não pontuam o ciclo, e as barreiras de texto contra `score`, nota, percentual e
+ * aderência naquela aba continuam verdes. **O que a medição mostra é que a frase era larga demais:**
+ * a aba Progresso mostra **contagem de cuidados** ("14 cuidados", as semanas do ciclo), e três
+ * barras de alturas diferentes são exatamente o desenho de uma contagem. **Barra é quantidade, não
+ * nota** — o que seria proibido é o ícone trazer **eixo, escala, régua ou percentual**, e ele não
+ * traz nenhum dos quatro.
  *
  * **As regras deste conjunto, e é o cumprimento delas que faz quatro símbolos virarem irmãos:**
  *
- * 1. **Grade de 24 com margem viva de 3,** e — o que faltava — a mesma **massa óptica**: cada ícone
- *    tem entre duas e três formas, nunca cinco.
- * 2. **Traço 2.15, pontas e junções redondas.** Firme o bastante para sustentar o rótulo sem virar
- *    ícone maciço, que sobre creme lê pesado.
+ * 1. **Grade de 24 com margem viva de ~3,** e a mesma **massa óptica**: nenhum ícone tem o dobro da
+ *    densidade do vizinho.
+ * 2. **Traço 2.15, pontas e junções redondas.** Firme o bastante para sustentar o rótulo embaixo sem
+ *    virar ícone maciço, que sobre creme lê pesado.
  * 3. **Um detalhe preenchido por ícone, no máximo.** É o pequeno peso sólido que impede um desenho
  *    de traço de parecer inacabado — e é sempre **um**, senão vira ilustração.
- * 4. **Curva em tudo.** O assunto é cabelo e cuidado; reta pura é vocabulário de outro produto.
+ * 4. **Curva onde o assunto é cabelo; reta onde o assunto é vidro.** Arredondar um frasco para
+ *    obedecer a uma regra de estilo o transformaria em gota, que é o ícone da primeira aba.
+ *
+ * ⚠️ **Cada desenho foi julgado depois de pronto, fora do app** — renderizado a 18, 22, 24, 56 e
+ * 112px e na barra de 390px inteira, que é o método que a SPEC-036 e a SPEC-042 fixaram depois de
+ * quatro direções reprovadas. Três descartes desta rodada, todos vistos e nenhum deduzido: mechas
+ * **verticais e juntas** liam como ondas de vapor (mesma família do parêntese que já reprovou duas
+ * versões de Cuidados); **quatro** mechas viravam mancha a 22px, e três em diagonal não; e o pump
+ * desenhado como **bloco preenchido** empastava o topo do frasco — o que lê é o stem com o bico, em
+ * traço.
  *
  * `currentColor` não existe em RN, então a cor vem por prop — a barra decide, o ícone obedece.
  *
@@ -46,30 +61,37 @@ const base = (size: number) => ({
   fill: 'none' as const,
 });
 
-const stroke = (color: string) => ({
+const stroke = (color: string, width = 2.15) => ({
   stroke: color,
-  strokeWidth: 2.15,
+  strokeWidth: width,
   strokeLinecap: 'round' as const,
   strokeLinejoin: 'round' as const,
 });
 
 /**
- * Hoje: a gota, com o brilho dentro.
+ * Hoje: **a gota com o brilho ao lado.**
  *
- * A gota sozinha é o ícone mais genérico deste mercado. O que a tira do genérico é o segundo
- * volume — a gota pequena e sólida deslocada para baixo e para a esquerda, que é onde a luz pousa
- * numa gota de verdade. Custa um `Path` e muda a leitura de "ícone de app de água" para "isto foi
- * desenhado".
+ * A gota sozinha é o ícone mais genérico deste mercado. O que a tira do genérico é o **brilho de
+ * quatro pontas** apoiado no ombro direito dela — o sinal que diz "cuidado" sem dizer "produto" —
+ * mais a **vírgula de luz** dentro, que é onde a luz pousa numa gota de verdade.
+ *
+ * ⚠️ **O brilho fica FORA do corpo da gota, e isso não é composição, é legibilidade.** A versão
+ * anterior tinha só o volume interno: a 22px ele encosta na parede da gota e some. Do lado de fora,
+ * sobre o fundo, ele sobrevive até 18px — que é o tamanho em que este conjunto ainda precisa
+ * funcionar.
  */
 export function DropIcon({ color, size = 22 }: IconProps) {
   return (
     <Svg {...base(size)}>
       <Path
-        d="M12 3 C 8.3 7.5, 5.4 11, 5.4 14.5 C 5.4 18.3, 8.4 21.2, 12 21.2 C 15.6 21.2, 18.6 18.3, 18.6 14.5 C 18.6 11, 15.7 7.5, 12 3 Z"
+        d="M11 4.4 C 7.5 9.1, 4.8 12.4, 4.8 15.7 C 4.8 19.3, 7.6 21.9, 11 21.9 C 14.4 21.9, 17.2 19.3, 17.2 15.7 C 17.2 12.4, 14.5 9.1, 11 4.4 Z"
         {...stroke(color)}
       />
+      {/* A vírgula de luz. Traço mais fino de propósito: é reflexo, não parede. */}
+      <Path d="M8.9 14.9 C 7.7 16.3, 8.0 18.2, 9.6 19.0" {...stroke(color, 1.7)} />
+      {/* O brilho — o único preenchimento, pela regra 3. */}
       <Path
-        d="M10.5 13.4 C 8.9 15, 9 17.3, 10.8 18.4 C 8.9 18.8, 7.4 17.3, 7.5 15.5 C 7.6 14.2, 9 13.2, 10.5 13.4 Z"
+        d="M19.1 2.9 C 19.4 5.0, 20.1 5.7, 22.1 6.0 C 20.1 6.3, 19.4 7.0, 19.1 9.1 C 18.8 7.0, 18.1 6.3, 16.1 6.0 C 18.1 5.7, 18.8 5.0, 19.1 2.9 Z"
         fill={color}
       />
     </Svg>
@@ -77,72 +99,96 @@ export function DropIcon({ color, size = 22 }: IconProps) {
 }
 
 /**
- * Cuidados: **duas mechas onduladas, de comprimentos diferentes.**
+ * Cuidados: **três mechas em fluxo diagonal.**
  *
- * ⚠️ **A versão anterior perdia na escala em que ela vive.** Uma mecha longa terminando num cacho
- * fechado é boa a 40px e some a 22: o cacho vira um borrão e sobram duas curvas quase paralelas, que
- * é a definição visual de parêntese — exatamente o defeito que a versão **anterior à anterior** já
- * tinha. Um ícone que só funciona grande está errado para uma barra.
+ * ⚠️ **A diagonal é o que separa "cabelo" de "calor".** Duas versões anteriores foram reprovadas por
+ * lerem como pontuação (`( )`) e uma terceira, desta rodada, por ler como **vapor**: mechas
+ * empilhadas na vertical, juntas e com a mesma amplitude, são o símbolo de calor, não de cabelo. O
+ * que muda a leitura é o **fluxo** — as três correm de cima à direita para baixo à esquerda, com
+ * inflexão dupla e espaçamento visível entre elas, como um cacho caindo.
  *
- * O que resolve é a **onda**. Duas inflexões em cada linha, em fases opostas entre as duas mechas, e
- * comprimentos diferentes: nenhuma das duas pode ser confundida com um arco de pontuação, porque
- * parêntese não muda de direção duas vezes. É o mesmo vocabulário do hero, reduzido a duas linhas.
+ * ⚠️ **Três, e não quatro.** A referência tem quatro fios; a 22px o quarto encosta nos vizinhos e o
+ * conjunto vira mancha. Três guarda o gesto e sobrevive ao tamanho em que ele vive.
+ *
+ * **Sem preenchimento nenhum** — a regra 3 diz "no máximo um", e aqui o desenho já se sustenta: três
+ * traços longos têm massa de sobra ao lado da gota.
  */
 export function StrandsIcon({ color, size = 22 }: IconProps) {
   return (
     <Svg {...base(size)}>
-      <Path d="M9.1 3.2 C 6 6.6, 5.5 10.4, 7.6 13.2 C 9.7 16, 9.4 18.8, 6.9 20.8" {...stroke(color)} />
-      <Path d="M15.4 3.2 C 18.7 6.4, 19.2 10.6, 17 13.6 C 15.2 16, 15.1 18.2, 16.8 19.9" {...stroke(color)} />
+      <Path d="M15.8 2.8 C 12.2 5.1, 10.4 7.5, 9.8 10.0 C 9.2 12.5, 7.5 14.8, 3.6 16.8" {...stroke(color)} />
+      <Path
+        d="M18.8 5.2 C 15.0 7.5, 13.2 10.0, 12.6 12.6 C 12.0 15.2, 10.2 17.5, 6.2 19.5"
+        {...stroke(color)}
+      />
+      <Path
+        d="M21.4 7.8 C 17.8 10.0, 16.0 12.5, 15.4 15.0 C 14.8 17.5, 13.2 19.6, 9.4 21.4"
+        {...stroke(color)}
+      />
     </Svg>
   );
 }
 
 /**
- * Progresso: **uma onda que sobe, com o nó no fim.**
+ * Prateleira: **o frasco com pump e o pote ao lado.**
  *
- * ⚠️ **Duas versões erradas antes desta, as duas vistas na barra real.** Uma curva fina de canto a
- * canto com dois nós pequenos lia como **um risco** — sem massa para se afirmar ao lado de três
- * desenhos fechados. A correção seguinte foi empilhar duas ondas paralelas, e isso lia como **"≈"**:
- * duas curvas iguais e paralelas são um símbolo matemático, não uma trajetória.
+ * ⚠️ **Voltaram a ser dois objetos, e desta vez sem virar o ícone mais pesado dos quatro.** A versão
+ * de dois frascos que foi reprovada tinha dois corpos, dois gargalos e uma tampa sólida — cinco
+ * formas onde os irmãos tinham duas. O que resolve não é ter um objeto só: é **o segundo objeto ser
+ * pequeno**. O frasco alto carrega o desenho, o pote baixo diz "os meus", e a densidade fica igual à
+ * da gota com brilho.
  *
- * O que faz ler "progresso" é **uma** linha com direção clara e um destino marcado. A onda dá o
- * vocabulário da marca (nada de reta), a subida dá a direção, e o nó sólido no alto diz onde ela
- * está — o peso fica no fim do caminho, que é o assunto.
- *
- * ⚠️ **Não é gráfico e não tem escala.** Direção, nunca nota: a SPEC-019 recusou pontuar o ciclo, e
- * um ícone com eixos ou barras prometeria exatamente o que o produto se recusa a dar.
- */
-export function GrowthIcon({ color, size = 22 }: IconProps) {
-  return (
-    <Svg {...base(size)}>
-      <Path d="M3.6 19.4 C 7.2 19, 8.8 15.4, 11.4 12.4 C 13.6 9.8, 15.8 8.2, 18.4 7.4" {...stroke(color)} />
-      <Circle cx="19.4" cy="6.2" r="2.6" fill={color} />
-    </Svg>
-  );
-}
-
-/**
- * Prateleira: **um frasco apoiado numa linha.**
- *
- * ⚠️ **Eram dois frascos, e o ícone virou o mais pesado dos quatro.** Dois corpos desenhados por
- * dentro, dois gargalos e uma tampa sólida somavam cinco formas onde os irmãos têm duas — e um
- * conjunto em que um ícone tem o dobro da densidade dos outros não é um conjunto. "Os meus" não
- * precisa de dois objetos para ser dito; a **linha** é que diz prateleira, e ela continua ali.
+ * **O pump é o que faz o frasco ser deste produto e não um vidro qualquer** — e ele é traço, não
+ * bloco: preenchido, empastava o topo. A tampa do pote é o **único** preenchimento.
  *
  * ⚠️ **Reta é permitida neste, e só neste.** O vocabulário do conjunto é curva porque o assunto dos
- * outros três é cabelo, e cabelo não tem aresta. Vidro tem. Arredondar um frasco para obedecer a uma
- * regra de estilo o transformaria em gota, que é o ícone da primeira aba.
+ * outros três é cabelo, e cabelo não tem aresta. Vidro tem.
  */
 export function ShelfIcon({ color, size = 22 }: IconProps) {
   return (
     <Svg {...base(size)}>
-      <Path d="M3.6 20.8 L 20.4 20.8" {...stroke(color)} />
       <Path
-        d="M8.2 20.8 L 8.2 11.8 C 8.2 10.1, 9.2 8.8, 10.6 8.3 L 10.6 6 L 13.4 6 L 13.4 8.3 C 14.8 8.8, 15.8 10.1, 15.8 11.8 L 15.8 20.8"
+        d="M4.6 12.4 C 4.6 11.2, 5.6 10.2, 6.8 10.2 L 9.6 10.2 C 10.8 10.2, 11.8 11.2, 11.8 12.4 L 11.8 19.5 C 11.8 20.7, 10.8 21.6, 9.6 21.6 L 6.8 21.6 C 5.6 21.6, 4.6 20.7, 4.6 19.5 Z"
         {...stroke(color)}
       />
-      {/* A tampa: o único preenchimento, pela regra 3 — o pequeno peso sólido que segura o desenho. */}
-      <Path d="M10.2 3.2 L 13.8 3.2 L 13.8 6 L 10.2 6 Z" fill={color} />
+      <Path d="M7.0 10.2 L 7.0 8.4 L 9.4 8.4 L 9.4 10.2" {...stroke(color)} />
+      <Path d="M8.2 8.4 L 8.2 5.4 L 5.3 5.4 L 5.3 6.9" {...stroke(color)} />
+      <Path
+        d="M14.2 16.4 C 14.2 15.6, 14.9 14.9, 15.7 14.9 L 19.4 14.9 C 20.2 14.9, 20.9 15.6, 20.9 16.4 L 20.9 20.1 C 20.9 20.9, 20.2 21.6, 19.4 21.6 L 15.7 21.6 C 14.9 21.6, 14.2 20.9, 14.2 20.1 Z"
+        {...stroke(color)}
+      />
+      {/* A tampa do pote: o único preenchimento, pela regra 3. */}
+      <Path
+        d="M15.4 12.1 L 19.7 12.1 C 20.1 12.1, 20.4 12.4, 20.4 12.8 L 20.4 13.8 C 20.4 14.2, 20.1 14.5, 19.7 14.5 L 15.4 14.5 C 15.0 14.5, 14.7 14.2, 14.7 13.8 L 14.7 12.8 C 14.7 12.4, 15.0 12.1, 15.4 12.1 Z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+/**
+ * Progresso: **três barras e a seta que sobe por cima delas.**
+ *
+ * ⚠️ **Duas versões erradas antes desta, as duas vistas na barra real.** Uma curva fina de canto a
+ * canto com dois nós lia como **um risco**; empilhar duas ondas paralelas lia como **"≈"**. O que
+ * faltava nas duas era **massa fechada** — três desenhos com corpo ao lado de um fio.
+ *
+ * ⚠️ **Barra aqui é CONTAGEM, não nota, e é essa distinção que autoriza o desenho.** A aba Progresso
+ * mostra quantos cuidados aconteceram no ciclo; três alturas diferentes são a forma natural disso. O
+ * que continua proibido — na tela e neste desenho — é **escala**: sem eixo, sem régua, sem
+ * porcentagem, sem linha de meta. A seta diz **direção no tempo**, que é o assunto da aba, e não
+ * "seu cabelo melhorou", que é alegação capilar e continua atrás do gate D-26/D-70.
+ *
+ * A ponta é o único preenchimento: uma seta com ponta vazada perde o destino a 22px.
+ */
+export function GrowthIcon({ color, size = 22 }: IconProps) {
+  return (
+    <Svg {...base(size)}>
+      <Path d="M5.2 20.8 L 5.2 17.0" {...stroke(color)} />
+      <Path d="M9.8 20.8 L 9.8 14.2" {...stroke(color)} />
+      <Path d="M14.4 20.8 L 14.4 11.2" {...stroke(color)} />
+      <Path d="M3.8 13.8 C 8.2 13.4, 12.0 10.8, 17.2 5.4" {...stroke(color)} />
+      <Path d="M21.2 3.2 L 20.2 8.6 L 15.9 5.4 Z" fill={color} />
     </Svg>
   );
 }
