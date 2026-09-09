@@ -1,5 +1,5 @@
 import type { CareBoard, CareItem, CycleWeek, LocalDate } from '@app/core';
-import { buildCycleView, buildProgress, buildTodayView } from '@app/core';
+import { buildCycleView, buildProgress, buildTodayView, isCycleEnded } from '@app/core';
 import { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 
@@ -77,13 +77,12 @@ export function ProgressTabScreen({
       board.pausedOn,
     );
     /**
-     * "Encerrado" é derivado, nunca armazenado (BR4/D-69) — e tem **duas** entradas, não uma. A data
-     * de fim é a óbvia; a outra é ela ter resolvido tudo antes. A Hoje já trata esse caso e oferece
-     * o próximo ciclo (D-82), então derivar só pela data faria as duas telas discordarem sobre o
-     * mesmo fato.
+     * "Encerrado" é derivado, nunca armazenado (BR4/D-69), e a regra **saiu daqui** na SPEC-068:
+     * o card de *"Ciclo encerrado"* (`F46`) passou a ser um segundo consumidor dela, e duas cópias
+     * discordariam na primeira vez que alguém mexesse numa — no lugar em que ela mostra o app para
+     * outras pessoas.
      */
-    const nothingLeft = progress.planned === 0 && progress.overdue === 0;
-    return { progress, cycle, ended: today > cycle.endsOn || nothingLeft };
+    return { progress, cycle, ended: isCycleEnded({ progress, cycle, today }) };
   }, [board, today]);
 
   return (
@@ -95,10 +94,15 @@ export function ProgressTabScreen({
           <ProgressSummary progress={view.progress} />
 
           {/*
-            SPEC-045 (F46) — **uma oferta, e só depois do fato.** Aparece quando já há cuidado
-            atendido: um card de ciclo com zero não é conquista, é cobrança de véspera.
+            SPEC-045 (F46) — **uma oferta, e só depois do fato.**
+
+            ⚠️ **A regra do ciclo zerado saiu daqui** (SPEC-068): quem decide que um ciclo sem
+            cuidado atendido não vira card é o construtor do momento, não este botão. O que a tela
+            pergunta é mais simples e mais certo — *"existe algum fato para compartilhar?"* —, e é
+            por isso que logo depois de uma reavaliação ela ainda alcança o card de **até aqui**,
+            que atravessa a troca de plano (SPEC-014 FR7).
           */}
-          {onShare && view.progress.done > 0 ? (
+          {onShare && (view.progress.done > 0 || view.progress.lifetimeDone > 0) ? (
             <Button label="Compartilhar meu ciclo" variant="secondary" onPress={onShare} />
           ) : null}
 

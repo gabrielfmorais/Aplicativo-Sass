@@ -81,19 +81,33 @@ ela mais quer mostrar — **o cuidado que acabou de fazer** — não produzia na
 
 ## 10. Open Questions
 
-- **OQ1 (CAN DEFER)** Gatilhos que faltam do `F46`: **progresso detalhado** e **comparação de
-  ciclos** — os dois pedem decisão de conteúdo, e comparar ciclos é a porta mais curta para
-  "melhorou/piorou", que é avaliação capilar (D-26/D-70). ✅ **Wash Day entregue (2026-09-08)**: o card
-  do registro (SPEC-024), **só para cuidado do plano** — registro avulso (SPEC-052) chega à mesma tela
-  mas não vira card, porque comemorá-lo premiaria fazer mais (SPEC-052 OQ4). O `F46` segue
-  **IN PROGRESS** até os dois restantes.
-- **OQ2 (BLOQUEADA)** Antes × Depois e Hair Progress — mídia com base legal (D-32).
+- **OQ1 (RESOLVIDA em 2026-09-09 — SPEC-068)** ✅ **Wash Day** (2026-09-08), ✅ **progresso** e ✅
+  **ciclo encerrado / resumo mensal** entregues. ⛔ **Comparação de ciclos fica BLOCKED**, e a
+  SPEC-068 §3.1 acrescentou um motivo **anterior** ao de domínio: os ciclos **não têm o mesmo
+  tamanho** (4, 8 ou 12 cuidados, SPEC-038 §21), então comparar contagens compara denominadores
+  diferentes — e a versão honesta exigiria **proporção**, que é recusa registrada em três SPECs e no
+  NG4 desta. Além disso o dado não existe: o board lê **o plano ativo e só ele**.
+- **OQ2 (BLOQUEADA)** Antes × Depois e Hair Progress — mídia com base legal (D-32). Inalterada.
+
+## 10.1 Classificação honesta do `F46` (2026-09-09)
+
+**PARTIAL — todo gatilho desbloqueado está entregue; dois seguem BLOCKED com motivo medido.**
+
+| Gatilho | Estado |
+|---|---|
+| cuidado concluído · Wash Day · sequência · marco/badge · ciclo · **ciclo encerrado** · **progresso** | ✅ DONE |
+| comparação de ciclos | ⛔ **BLOCKED** — aritmética (ciclos de tamanhos diferentes) **e** dado inexistente (SPEC-068 §3.1) |
+| Antes × Depois · Hair Progress | ⛔ **BLOCKED** — mídia com base legal (D-32) |
+
+⛔ **Não é DONE**, e maquiar gate como conclusão seria exatamente o que o dono proibiu ao pedir a
+classificação.
 
 ## 11. Change Log
 
 | Data | Mudança |
 |---|---|
 | 2026-09-04 | SPEC criada e implementada. Quatro momentos, três entradas, um caminho só. |
+| 2026-09-09 | **SPEC-068 — os dois últimos desbloqueados:** ciclo **encerrado** (que a tela já tratava como outro estado e o card não) e **progresso** da vida inteira. O seletor virou **nome por momento** — medido a 390px: sete momentos ocupavam **quatro linhas**, com os chips de marco a 162 e 170px. `isCycleEnded` saiu da tela para o core (duas cópias discordariam **no card que sai do app**), e a escolha de qual card o Progresso oferece virou função pura testada — ela morava num arquivo de 900+ linhas sem cobertura. |
 | 2026-09-08 | **Quinto momento: Wash Day** (OQ1). Card da tela de registro (SPEC-024), oferta discreta no fim da tela, no tom de "Compartilhar meu ciclo". **Herói é o cuidado, não a contagem** — quantos produtos/técnicas ela marcou não vira número no card (contagem lê como "quanto mais, melhor", D-103). **Só cuidado do plano:** o gate é o `scheduledCareId` da execução (`null` = avulso), fail-closed quando o board não está carregado — a Hoje não passa `onShare` para a avulsa (SPEC-052 OQ4), como já valia no cuidado concluído. Zero migration, zero backend. |
 
 ## 12. Evidência

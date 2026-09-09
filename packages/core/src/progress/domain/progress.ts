@@ -1,6 +1,6 @@
 // ADR-006 / `core-context-isolation`: another context is entered only through its public index.
 // Care Tracking → Progress is a published-language read model (DOMAIN-MAP §4).
-import type { CareItem, TodayView } from '../../care-tracking/index.ts';
+import type { CareItem, CycleView, TodayView } from '../../care-tracking/index.ts';
 
 /**
  * Below this many answers the app shows the count but not the average (FR4).
@@ -102,4 +102,24 @@ export const buildProgress = (view: TodayView, lifetimeDone: number): Progress =
     averageFeel,
     lifetimeDone,
   };
+};
+
+/**
+ * SPEC-068 — **o ciclo acabou?**, numa regra só.
+ *
+ * ⚠️ **Ela existia apenas dentro da tela do Progresso**, e passou a ter um segundo consumidor: o
+ * card de *"Ciclo encerrado"* (`F46`). Duas cópias da mesma condição discordariam na primeira vez
+ * que alguém mexesse numa delas — e discordariam **no lugar em que ela mostra o app para outras
+ * pessoas**, dizendo que o ciclo acabou num cartão e que está em andamento na tela ao lado.
+ *
+ * ⚠️ **São DUAS entradas, não uma** (SPEC-021 BR4/D-69): a data de fim é a óbvia; a outra é ela ter
+ * resolvido tudo antes do prazo — a Hoje já trata esse caso e oferece o próximo ciclo (D-82).
+ * Derivar só pela data faria as telas discordarem sobre o mesmo fato.
+ *
+ * ⛔ **Derivado, nunca armazenado.** Não existe coluna de "ciclo encerrado", pelo mesmo motivo que
+ * não existe `status = 'completed'` num cuidado (D-69).
+ */
+export const isCycleEnded = (input: { progress: Progress; cycle: CycleView; today: string }): boolean => {
+  const nothingLeft = input.progress.planned === 0 && input.progress.overdue === 0;
+  return input.today > input.cycle.endsOn || nothingLeft;
 };

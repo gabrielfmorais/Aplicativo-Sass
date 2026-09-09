@@ -1,7 +1,8 @@
 import { buildTodayView, type CareExecution, type CheckIn } from '../care-tracking/index.ts';
 import type { ScheduledCare } from '../schedule/index.ts';
 import { localDateFromString } from '../shared/index.ts';
-import { MIN_CHECKINS_FOR_AVERAGE, buildProgress } from './index.ts';
+import { MIN_CHECKINS_FOR_AVERAGE, buildProgress, isCycleEnded } from './index.ts';
+import type { CycleView, Progress } from '../index.ts';
 
 const TODAY = localDateFromString('2026-09-10');
 
@@ -219,5 +220,40 @@ describe('buildProgress: o ciclo inteiro (SPEC-021)', () => {
       care({ id: 'b', plannedDate: '2026-09-25' }),
     ]);
     expect(p).toMatchObject({ elapsed: 0, done: 0, skipped: 0, overdue: 0, planned: 2, total: 2 });
+  });
+});
+
+/**
+ * SPEC-068 — **"o ciclo acabou?" numa regra só.**
+ *
+ * ⚠️ A condição vivia **dentro da tela do Progresso**, e ganhou um segundo consumidor: o card de
+ * *"Ciclo encerrado"* (`F46`). Duas cópias discordariam na primeira vez que alguém mexesse numa —
+ * e discordariam no lugar em que ela mostra o app para outras pessoas.
+ */
+describe('isCycleEnded — duas entradas, nunca uma (SPEC-068)', () => {
+  const cycle = { endsOn: '2026-09-30' } as CycleView;
+  const prog = (over: Partial<Progress> = {}): Progress =>
+    ({ planned: 3, overdue: 0, done: 5, ...over }) as Progress;
+
+  it('a data de fim encerra o ciclo', () => {
+    expect(isCycleEnded({ progress: prog(), cycle, today: '2026-10-01' })).toBe(true);
+    expect(isCycleEnded({ progress: prog(), cycle, today: '2026-09-30' })).toBe(false);
+  });
+
+  /**
+   * ⚠️ **A segunda entrada é a que se esquece:** ela resolveu tudo antes do prazo. A Hoje já trata
+   * esse caso e oferece o próximo ciclo (D-82); derivar só pela data faria as telas discordarem.
+   */
+  it('resolver tudo antes do prazo também encerra', () => {
+    expect(isCycleEnded({ progress: prog({ planned: 0, overdue: 0 }), cycle, today: '2026-09-15' })).toBe(
+      true,
+    );
+  });
+
+  /** ⛔ E um cuidado atrasado **não** deixa o ciclo acabar antes da data: ainda há o que fazer. */
+  it('atrasado em aberto mantém o ciclo em andamento', () => {
+    expect(isCycleEnded({ progress: prog({ planned: 0, overdue: 2 }), cycle, today: '2026-09-15' })).toBe(
+      false,
+    );
   });
 });

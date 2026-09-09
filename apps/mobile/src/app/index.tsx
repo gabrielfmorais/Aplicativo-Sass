@@ -20,16 +20,18 @@ import type {
   NotificationSchedulerPort,
   PlanPreferencesPort,
   ProfilePort,
+  ShareMoment,
 } from '@app/core';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   EntitlementService,
   buildNotificationIntents,
+  buildCycleView,
   buildProgress,
   buildTodayView,
   detectCelebration,
   careDoneMoment,
-  cycleMoment,
+  cycleMoments,
   journeyMoment,
   milestoneMoments,
   washDayMoment,
@@ -606,14 +608,7 @@ function AuthenticatedApp({
             ]
           : []),
         ...(shareFrom === 'progress' && board && board !== 'loading' && board !== 'error'
-          ? [
-              cycleMoment(
-                buildProgress(
-                  buildTodayView(board.cares, board.executions, today(), board.checkIns, board.pausedOn),
-                  board.lifetimeDoneCount,
-                ),
-              ),
-            ]
+          ? cycleMomentsOf(board, today())
           : []),
         ...(view ? [journeyMoment(view), ...milestoneMoments(view)] : []),
       ];
@@ -947,3 +942,28 @@ const styles = StyleSheet.create({
   shell: { flex: 1 },
   shellBody: { flex: 1 },
 });
+
+/**
+ * SPEC-068 (`F46`) — a **fiação** dos momentos do Progresso; a escolha é do core.
+ *
+ * ⚠️ **Só montagem de view mora aqui.** Qual card sai — em andamento, encerrado, o progresso da vida
+ * inteira, nenhum — é `cycleMoments`, função pura e testada: as três invariantes (exatamente um card
+ * de ciclo, nunca os dois, nenhum com zero atendido) ficariam sem teste dentro deste arquivo, que
+ * tem 900+ linhas e nenhuma cobertura.
+ */
+const cycleMomentsOf = (
+  board: Extract<CareBoard, { cares: unknown }>,
+  hoje: LocalDate,
+): readonly ShareMoment[] => {
+  const view = buildTodayView(board.cares, board.executions, hoje, board.checkIns, board.pausedOn);
+  // `startsOn` vem do plano, nunca de hoje: agrupar a partir de hoje renomearia todas as semanas.
+  const cycle = buildCycleView(
+    board.cares,
+    board.executions,
+    board.startsOn as LocalDate,
+    hoje,
+    board.checkIns,
+    board.pausedOn,
+  );
+  return cycleMoments({ progress: buildProgress(view, board.lifetimeDoneCount), cycle, today: hoje });
+};

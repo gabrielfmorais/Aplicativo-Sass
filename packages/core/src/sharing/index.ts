@@ -11,9 +11,12 @@ export { SHARE_MOMENT_KINDS, type ShareMoment, type ShareMomentKind } from './do
 export { buildShareCard } from './application/build-share-card.ts';
 export {
   careDoneMoment,
+  cycleClosedMoment,
   cycleMoment,
+  cycleMoments,
   journeyMoment,
   milestoneMoments,
+  progressMoment,
   washDayMoment,
 } from './application/moments.ts';
 export type { SharePort } from './application/ports.ts';
