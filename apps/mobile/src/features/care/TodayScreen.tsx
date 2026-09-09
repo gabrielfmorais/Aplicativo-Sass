@@ -14,6 +14,7 @@ import type {
   OilRoutineView,
   ResumeOutcome,
   WashDayPort,
+  JourneyView,
 } from '@app/core';
 import {
   CARE_GUIDES,
@@ -33,6 +34,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button, Card, Chip, Row, Screen, ScreenHeader, Stack, Tag, Text } from '@/design/primitives';
 import { CelebrationCard } from '@/features/journey/CelebrationCard';
+import { JourneySummary } from '@/features/journey/JourneySummary';
 import { HomeSection } from '@/features/care/HomeSection';
 import { SuggestionsCard } from '@/features/care/SuggestionsCard';
 import { buildSuggestions, type Suggestion, type SuggestionKey } from '@/features/care/suggestions';
@@ -928,6 +930,7 @@ export function TodayScreen({
   onOpenShelf,
   onReassess,
   onOpenJourney,
+  journeyView,
   onShare,
   celebration,
   onCelebrationShare,
@@ -1004,6 +1007,12 @@ export function TodayScreen({
    * camada de motivação, não parte do loop diário.
    */
   onOpenJourney?: () => void;
+  /**
+   * SPEC-069 — o resumo da Jornada na home. **A mesma view** que a celebração e os momentos
+   * compartilháveis leem (SPEC-044 BR4): recalcular aqui faria a home e a tela da Jornada
+   * discordarem sobre a mesma conquista.
+   */
+  journeyView?: JourneyView | null;
   /**
    * SPEC-045 (F46) — o cuidado que ela acabou de fazer vira card, **dali mesmo**. Opcional pela
    * mesma razão que a Jornada: o loop diário não depende disso.
@@ -1446,32 +1455,32 @@ export function TodayScreen({
             </Card>
           ) : null}
 
-          {/*
-            SPEC-043 (F40/F41/F42) — a entrada da **Jornada**, quieta.
-
-            ⚠️ **Superfície própria** (D-103): a Jornada é uma tela, não um bloco aqui. E a entrada
-            **não é um crachá gritando por atenção** — nenhum "não perca sua sequência", nenhuma
-            contagem regressiva, nenhum vermelho. Quem quiser olhar, olha.
-
-            Mora na Hoje porque é aqui que o fato acontece: a consistência dela é feita de cuidados
-            concluídos, e é aqui que ela acabou de concluir um.
-          */}
-          {onOpenJourney ? (
-            /* SPEC-055 FR5 — é uma porta para outra tela, e portas se parecem com portas. */
-            <Button
-              label="Sua jornada"
-              variant="secondary"
-              size="sm"
-              onPress={onOpenJourney}
-              style={styles.inlineStart}
-            />
-          ) : null}
-
           <SuggestionsCard
             suggestions={suggestions}
             onAct={actOnSuggestion}
             onDismiss={(s) => setDismissed((current) => [...current, s.key])}
           />
+
+          {/*
+            SPEC-043 (F40/F41/F42) + **SPEC-069** — a Jornada, em **resumo**.
+
+            ⚠️ **A ordem da home é decisão do dono** (2026-09-09): data e semana · o cuidado do dia (ou
+            o estado de não haver um) · sugestões · **e só então** o resumo da Jornada. Ela vinha
+            **antes** das sugestões, disputando atenção com o que é acionável hoje.
+
+            ⚠️ **Era um botão sem informação.** *"Sua jornada"* gastava uma linha da home para dizer
+            **zero** sobre a jornada dela, e lia como um botão solto — a queixa do dono. Agora diz
+            nível, pontos e sequência, e continua sendo **uma porta**: a tela inteira (barra de
+            progressão, marcos, histórico) mora do outro lado, porque a Jornada tem **superfície
+            própria** (D-103).
+
+            ⚠️ **Quieta, como nasceu** (SPEC-043): sem contagem regressiva, sem "não perca sua
+            sequência", sem vermelho. Quem quiser olhar, olha.
+
+            Sem `journeyView` — carregando, falhou, ou ela ainda não tem jornada — **não há resumo**,
+            e ⛔ não se inventa um zero heroico para preencher o lugar.
+          */}
+          {onOpenJourney ? <JourneySummary view={journeyView ?? null} onOpen={onOpenJourney} /> : null}
 
           {nothingLeft && onReassess ? (
             <Card tone="accent">
