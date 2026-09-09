@@ -294,8 +294,49 @@ essa composição num defeito — daí a exceção estar escrita como caso de te
 `Moment`, o teste falha e **nomeia a tela**. Uma asserção que passa com o sistema quebrado é pior que
 nenhuma (a lição do pgTAP da SPEC-052).
 
+## 25. Fatia 2 — o piso de toque do iPhone, e o que a varredura NÃO achou
+
+A auditoria iPhone-first continuou depois do merge da fatia 1, agora sobre **alvos de toque** e
+**Dynamic Type** — os dois itens de acessibilidade que a decisão do dono nomeia.
+
+**FR10 — nenhum controle abaixo de 44pt.** A varredura mediu os **onze `Pressable`** do app e achou
+**um só** lugar abaixo do piso da HIG: os três links de atribuição de `DataSourcesScreen`, com
+`paddingVertical: space.xs` (4) sobre uma linha de 22 — **30pt**. Todo o resto já estava em 44 ou 48,
+porque vem das primitivas (`Button`, `Chip`, `Field`, `TabBar`); estes escapavam por serem
+`Pressable` próprio.
+
+⚠️ **E são links de conformidade, não decoração:** ODbL e CC BY-SA **exigem** a atribuição
+(SPEC-057), e um link de licença difícil de acertar com o polegar é o pior lugar do app para
+economizar 14pt. Passaram a `minHeight: HIT_TARGET_MIN`, com o rótulo centrado — nada cresce na tela
+além da área tocável.
+
+**AC10** — barreira em `apps/mobile/__tests__/iphone-touch-targets.test.tsx`, que mede o alvo
+**resolvido** de todo nó com papel interativo, e não a intenção de quem escreveu. Verificada contra o
+defeito: repondo o `paddingVertical: 4`, ela falha e **nomeia a tela e o papel**.
+
+### O que a varredura mediu e decidiu NÃO mudar
+
+⚠️ **Dynamic Type está correto, e vale registrar para ninguém "consertar" depois.** Os tokens de
+tipografia trazem `fontSize` e `lineHeight` fixos, o que parecia risco — mas o RN escala **os dois**
+quando `allowFontScaling` está ligado (o padrão), então a caixa da linha acompanha a letra. Os
+`numberOfLines={1}` que sobram são **truncamento deliberado**: o rótulo da aba (que é o que as barras
+do próprio iOS fazem), o nome no cabeçalho e o nome de produto na prateleira, este último já
+resolvido como decisão própria em 2026-09-08. ⛔ **Nada de `maxFontSizeMultiplier`:** capar a fonte é
+tirar acessibilidade de quem precisa dela, e a medição não mostrou layout quebrando.
+
+⚠️ **`accessibilityState` legado continua como está** (nove usos, SPEC-051 OQ4). No **iOS nativo** é a
+API suportada e funciona; o que não funciona é o `react-native-web` 0.21 descartá-la no preview. Numa
+SPEC iPhone-first isso é ainda mais claramente **limite do ambiente de medição, não defeito do
+produto**.
+
+**Fora desta fatia:** `allowBadge: true` é pedido na permissão de notificação (padrão da biblioteca)
+enquanto o handler usa `shouldSetBadge: false`. Inconsistência inofensiva — pedir menos hoje
+limitaria uma escolha futura sem ganho nenhum.
+
 ## 24. Change Log
 
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-09-08 | Criada a partir da decisão iPhone-first do dono e da auditoria do repositório | agente |
+| 2026-09-08 | Fatia 1 implementada e mergeada (#167). A auditoria achou os dois `paddingTop` que apagavam o inset (§23.2) | agente |
+| 2026-09-08 | Fatia 2 (§25): piso de toque de 44pt nos links de atribuição, com barreira; Dynamic Type medido e deliberadamente não alterado | agente |

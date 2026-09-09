@@ -1,7 +1,7 @@
 import { Linking, Pressable, StyleSheet } from 'react-native';
 
 import { Button, Card, Screen, Stack, Text } from '@/design/primitives';
-import { color, space } from '@/design/tokens';
+import { HIT_TARGET_MIN, color, space } from '@/design/tokens';
 
 /**
  * SPEC-057 (F32) — **Fontes de dados: a atribuição, no lugar dela.**
@@ -75,6 +75,21 @@ export function DataSourcesScreen({ onBack }: { onBack: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  link: { paddingVertical: space.xs, alignSelf: 'flex-start' },
+  /**
+   * ⚠️ **SPEC-060 fatia 2 — estes três links eram os ÚNICOS alvos abaixo do piso do iOS no app.**
+   * Medido: `paddingVertical: space.xs` (4) sobre `bodyStrong` (linha de 22) dava **30pt** de altura,
+   * contra os **44pt** que a HIG pede. Todo o resto do app já estava em 44 ou 48, porque vem das
+   * primitivas — estes não vinham, por serem `Pressable` próprio.
+   *
+   * E não são links quaisquer: são a **atribuição** que as licenças ODbL e CC BY-SA exigem
+   * (SPEC-057). Um link de conformidade difícil de acertar com o polegar é o pior lugar para
+   * economizar 14pt.
+   *
+   * ⛔ **`hitSlop` foi considerado e recusado aqui.** Ele resolveria o alvo sem mexer no desenho —
+   * mas os três são **empilhados** com 4pt entre eles, e estender a área de cada um para fora do
+   * desenho faria as áreas **se sobreporem**: o toque cairia no link errado. Alvo maior de verdade
+   * é a resposta certa para uma lista; `hitSlop` é a resposta certa para um controle isolado.
+   */
+  link: { minHeight: HIT_TARGET_MIN, justifyContent: 'center', alignSelf: 'flex-start' },
   linkPressed: { opacity: 0.6, borderRadius: space.xs, backgroundColor: color.brandTint },
 });
