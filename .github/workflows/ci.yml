@@ -57,6 +57,12 @@ jobs:
       - name: Negative boundary fixtures must be rejected
         run: pnpm check:boundaries
 
+      # SPEC-060 AC9 — a dependencia de area segura ficou instalada e NAO importada por ninguem,
+      # enquanto o comentario da TabBar afirmava que o Screen a tratava. Falha estatica, porque a
+      # ausencia de ligacao no app inteiro nao aparece em teste de render nem no preview web.
+      - name: iPhone safe area must stay wired
+        run: pnpm check:safe-area
+
       - name: Unit tests (core + mobile)
         run: pnpm test
 

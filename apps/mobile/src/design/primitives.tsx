@@ -3,6 +3,8 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,6 +19,7 @@ import {
 import { HunaAvatarMark } from '@/design/HunaAvatarMark';
 import { HunaBackdrop } from './HunaBackdrop';
 import { useReduceMotion } from './motion';
+import { useSafeBottom, useSafeTop } from './safe-area';
 import {
   CHIP_POP,
   CONTENT_MAX_WIDTH,
@@ -90,22 +93,59 @@ export function Screen({
   footer?: ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
+  /**
+   * SPEC-060 FR2/FR3/BR1 — o hardware do iPhone entra no **frame**, somado ao espaçamento de
+   * design; as proporções internas da tela não mudam. Num aparelho sem entalhe os dois insets são
+   * 0 e o resultado é byte a byte o de antes (AC5).
+   */
+  const paddingTop = useSafeTop(space.xxl);
+  /**
+   * O pé da janela é de **um** elemento só: o rodapé fixo quando existe, senão o fim do scroll.
+   * Só ele soma o inset — os dois somando empurrariam o conteúdo duas vezes para longe da borda.
+   */
+  const safeBottom = useSafeBottom(space.xl);
+
   // Sem scroll, o corpo estica: uma tela de altura fixa que não preenche deixa um vazio no pé, e
   // um filho com `flex: 1` (um hero, por exemplo) não tem contra o que crescer.
-  const body = <View style={[styles.content, !scroll && styles.contentFill, style]}>{children}</View>;
+  const body = (
+    <View
+      style={[
+        styles.content,
+        { paddingTop, paddingBottom: footer ? space.xl : safeBottom },
+        !scroll && styles.contentFill,
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
   return (
     <View style={styles.screen}>
       {/*
         SPEC-026 fatia 8 — a assinatura de fundo, atrás de **toda** tela e à frente de nenhuma.
         Fica aqui, no `Screen`, e não em cada tela: um fundo que algumas telas têm e outras não é
         pior que fundo nenhum, porque a inconsistência é o que se percebe.
+
+        ⚠️ SPEC-060 BR3 — o fundo **atravessa** a área segura de propósito. Inset é para conteúdo;
+        um fundo que parasse no entalhe seria uma faixa clara no topo do aparelho.
       */}
       <HunaBackdrop />
-      <View style={styles.column}>
+      {/*
+        SPEC-060 FR5 — o teclado do iPhone resolvido aqui, e não tela a tela. Só a `NameScreen`
+        tinha o dela; `SignInScreen`, `ShelfScreen`, `WashDayScreen` e a busca do catálogo não
+        tinham, e no iPhone o teclado cobria justamente o campo e a ação primária.
+      */}
+      <KeyboardAvoidingView style={styles.column} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {scroll ? (
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
+            /**
+             * SPEC-060 FR6 — o gesto nativo do iOS de empurrar o teclado para baixo arrastando.
+             * É a **única** saída do campo de código de 6 dígitos: `number-pad` no iOS não tem
+             * tecla de retorno, e no Android o botão de voltar do sistema resolvia sozinho.
+             */
+            keyboardDismissMode="interactive"
             showsVerticalScrollIndicator={false}
           >
             {body}
@@ -113,8 +153,8 @@ export function Screen({
         ) : (
           body
         )}
-        {footer ? <View style={styles.footer}>{footer}</View> : null}
-      </View>
+        {footer ? <View style={[styles.footer, { paddingBottom: safeBottom }]}>{footer}</View> : null}
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -672,11 +712,12 @@ const styles = StyleSheet.create({
   column: { flex: 1, width: '100%', maxWidth: CONTENT_MAX_WIDTH },
   scrollContent: { flexGrow: 1 },
   contentFill: { flex: 1 },
-  content: { paddingHorizontal: space.xl, paddingTop: space.xxl, paddingBottom: space.xl, gap: space.xl },
+  /** `paddingTop`/`paddingBottom` vêm do frame (SPEC-060): espaçamento de design + inset. */
+  content: { paddingHorizontal: space.xl, gap: space.xl },
   footer: {
     paddingHorizontal: space.xl,
     paddingTop: space.md,
-    paddingBottom: space.xl,
+    // `paddingBottom` vem do frame (SPEC-060): space.xl + inset do indicador de home.
     borderTopWidth: 1,
     borderTopColor: color.border,
     backgroundColor: color.canvas,

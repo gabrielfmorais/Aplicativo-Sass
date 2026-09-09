@@ -1,7 +1,7 @@
 import type { ProfilePort } from '@app/core';
 import { DISPLAY_NAME_MAX_LENGTH, DisplayNameSchema } from '@app/core';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { Moment } from '@/design/Moment';
 import { Button, Field, Screen, Stack, Text } from '@/design/primitives';
@@ -63,70 +63,61 @@ export function NameScreen({ profile, onDone }: { profile: ProfilePort; onDone: 
     );
   }
 
+  // ⚠️ O `KeyboardAvoidingView` que morava aqui foi para dentro do `Screen` (SPEC-060 FR5): esta
+  // tela era a **única** com um, e as outras quatro com campo de texto ficavam com o teclado por
+  // cima da ação primária no iPhone. Dois aninhados padeariam em dobro.
   return (
-    <KeyboardAvoidingView
-      style={styles.fill}
-      // Sem isto, o teclado cobre o botão que a tela inteira existe para oferecer (EC/teclado).
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <Screen
-        style={styles.page}
-        footer={
-          <Stack gap="sm">
-            <Button label="Continuar" onPress={() => name && persist(name)} disabled={!name} busy={saving} />
-            <Button
-              label="Prefiro não dizer"
-              variant="ghost"
-              onPress={() => persist(null)}
-              disabled={saving}
-            />
-          </Stack>
-        }
-      >
+    <Screen
+      style={styles.page}
+      footer={
         <Stack gap="sm">
-          <Text variant="overline" tone="accent">
-            Vamos nos conhecer
-          </Text>
-          <Text variant="display" accessibilityRole="header">
-            Como a Huna deve chamar você?
-          </Text>
-          <Text tone="muted">
-            É só para o app falar com você pelo nome. Fica no seu perfil e não aparece para mais ninguém.
-          </Text>
+          <Button label="Continuar" onPress={() => name && persist(name)} disabled={!name} busy={saving} />
+          <Button label="Prefiro não dizer" variant="ghost" onPress={() => persist(null)} disabled={saving} />
         </Stack>
+      }
+    >
+      <Stack gap="sm">
+        <Text variant="overline" tone="accent">
+          Vamos nos conhecer
+        </Text>
+        <Text variant="display" accessibilityRole="header">
+          Como a Huna deve chamar você?
+        </Text>
+        <Text tone="muted">
+          É só para o app falar com você pelo nome. Fica no seu perfil e não aparece para mais ninguém.
+        </Text>
+      </Stack>
 
-        <Field
-          value={draft}
-          onChangeText={(text) => {
-            setDraft(text);
-            setFailed(false);
-          }}
-          accessibilityLabel="Seu nome ou apelido"
-          placeholder="Seu nome ou apelido"
-          maxLength={DISPLAY_NAME_MAX_LENGTH}
-          autoFocus
-          autoCapitalize="words"
-          autoCorrect={false}
-          returnKeyType="done"
-          onSubmitEditing={() => name && persist(name)}
-          editable={!saving}
-        />
+      <Field
+        value={draft}
+        onChangeText={(text) => {
+          setDraft(text);
+          setFailed(false);
+        }}
+        accessibilityLabel="Seu nome ou apelido"
+        placeholder="Seu nome ou apelido"
+        maxLength={DISPLAY_NAME_MAX_LENGTH}
+        autoFocus
+        autoCapitalize="words"
+        autoCorrect={false}
+        returnKeyType="done"
+        onSubmitEditing={() => name && persist(name)}
+        editable={!saving}
+      />
 
-        {failed ? (
-          <Stack gap="sm">
-            <Text tone="danger" accessibilityLiveRegion="polite">
-              Não foi possível salvar agora. Você pode tentar de novo ou seguir — a gente pergunta outra hora.
-            </Text>
-            <Button label="Seguir sem salvar" variant="secondary" onPress={onDone} />
-          </Stack>
-        ) : null}
-      </Screen>
-    </KeyboardAvoidingView>
+      {failed ? (
+        <Stack gap="sm">
+          <Text tone="danger" accessibilityLiveRegion="polite">
+            Não foi possível salvar agora. Você pode tentar de novo ou seguir — a gente pergunta outra hora.
+          </Text>
+          <Button label="Seguir sem salvar" variant="secondary" onPress={onDone} />
+        </Stack>
+      ) : null}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
   /**
    * O bloco fica **opticamente centrado**, não empilhado no topo. Medido a 390×844: com o conteúdo
    * ancorado no topo sobravam ~450pt de nada entre o campo e o rodapé — o que não lê como calma, lê
@@ -136,5 +127,6 @@ const styles = StyleSheet.create({
    * (o que `flex: 1` também permite) espremeria o conteúdo em vez de deixá-lo rolar quando a fonte
    * do sistema é grande ou a tela é de 320pt (EC1/EC5).
    */
-  page: { flexGrow: 1, justifyContent: 'center', paddingTop: space.xxl, gap: space.xl },
+  // ⚠️ SPEC-060 — sem `paddingTop`: redeclará-lo apagaria o inset do topo (ver `Moment`).
+  page: { flexGrow: 1, justifyContent: 'center', gap: space.xl },
 });

@@ -41,10 +41,11 @@ Cada gate tem: **o que é · quem age · o que desbloqueia**. Nenhum é resolví
 - **Quem age (dono):** decisão de custo/provider.
 - **Desbloqueia:** medição de ativação/retenção/conversão e a Fase 10 (release).
 
-### G7 — Development build nativo (DEFERRED por constraint do dono — "não reabrir")
+### G7 — Build nativo (DEFERRED por constraint do dono — "não reabrir") — ⚠️ **o peso deste gate MUDOU com a decisão iPhone-first**
 - **Estado:** Android Studio/AVD/Gradle local indisponível por decisão do dono. O preview web é o único ambiente visual.
-- **Quem age (dono):** só se/quando reabrir o ambiente nativo.
+- **Quem age (dono):** só se/quando reabrir o ambiente nativo. Para **iOS** especificamente: simulador do Xcode (Mac) ou EAS build, o que também toca o G5 (conta Apple Developer).
 - **Desbloqueia a *validação* de:** notificações locais reais (agendamento/disparo/deep link), persistência segura de sessão/reinstalação, IAP nativo, rasterização do share card (`toDataURL`) + folha de compartilhamento, e a câmera do scanner (F33). Tudo isso já está implementado com degradação honesta no web; falta **exercer no nativo**.
+- ⚠️ **E agora, a área segura, o teclado e os gestos do iPhone (SPEC-060).** O navegador reporta inset **0** e não tem teclado do iOS, então **a classe inteira de defeito iPhone-first é invisível no preview web** — foi por isso que ela sobreviveu a 59 SPECs com o CI verde. A SPEC-060 corrigiu o que era corrigível e provou o mecanismo com **inset injetado em teste**, que é a prova disponível sem aparelho; o que **falta medir num iPhone real** é: o inset num aparelho com Dynamic Island, o `KeyboardAvoidingView` com o teclado do sistema aberto, o descarte por arrasto, o lembrete disparando em primeiro plano, e a `StatusBar`.
 
 ---
 
@@ -53,7 +54,7 @@ Cada gate tem: **o que é · quem age · o que desbloqueia**. Nenhum é resolví
 - **Banco DEV** provisionado: `check:remote-schema` → todas as 25 tabelas + colunas presentes (ref `ayecidupmxmirwfzwtea`).
 - **Edge Functions** deployadas: `check:remote-functions` → 3 funções.
 - **Auth dev + jornada real** validada de ponta a ponta a 390px.
-- **Guardrails executáveis** verdes: `pnpm verify` (typecheck, lint, testes, boundaries, dep-cruise, data-model, migration-versions, security-exceptions, entitlement-parity), pgTAP de segurança, `deno test` das functions, e as proteções LEVEL 2 da `main`.
+- **Guardrails executáveis** verdes: `pnpm verify` (typecheck, lint, testes, boundaries, dep-cruise, data-model, migration-versions, security-exceptions, entitlement-parity, **safe-area**), pgTAP de segurança, `deno test` das functions, e as proteções LEVEL 2 da `main`.
 
 ## 3. Auditoria técnica de checkpoint (2026-09-08)
 

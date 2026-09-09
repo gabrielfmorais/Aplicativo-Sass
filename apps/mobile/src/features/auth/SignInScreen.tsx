@@ -120,8 +120,15 @@ export function SignInScreen({ auth }: { auth: AuthPort }) {
           placeholder="seu@email.com"
           accessibilityLabel="Email"
           autoCapitalize="none"
+          autoCorrect={false}
           autoComplete="email"
           keyboardType="email-address"
+          // SPEC-060 FR9 — no iPhone a tecla de retorno é o caminho esperado para seguir; sem ela a
+          // usuária precisa fechar o teclado à mão antes de alcançar o botão.
+          returnKeyType="go"
+          onSubmitEditing={() => {
+            if (!busy && phase !== 'waiting_for_otp') requestOtp();
+          }}
           editable={!busy && phase !== 'waiting_for_otp'}
         />
         {phase === 'waiting_for_otp' ? (

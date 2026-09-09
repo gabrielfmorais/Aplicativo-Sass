@@ -10,6 +10,28 @@ import * as Notifications from 'expo-notifications';
  * strategy that cannot drift. A stale reminder means telling her to do a care she already did, so
  * the simplest provably-correct approach wins over a cleverer one (FR8/G5).
  */
+/**
+ * SPEC-060 FR7 — ⚠️ **sem isto, no iPhone, um lembrete que dispara com a Huna aberta não aparece.**
+ *
+ * O iOS **suprime** a notificação local em primeiro plano quando o app não declara o contrário; o
+ * Android a mostra. Ou seja: a SPEC-008 inteira — cinco intents, teto diário, reconciliação —
+ * entregava **nada** no caso mais comum de todos, que é ela estar com o app aberto na hora do
+ * cuidado, e nenhum teste veria. É a mesma família do defeito da SPEC-053, em que a rotina de óleo
+ * lembrou zero vezes com o CI verde.
+ *
+ * Fica no escopo do módulo, e não dentro do factory: o handler precisa estar registrado **antes** de
+ * qualquer notificação chegar, e o módulo é importado pelo bootstrap na abertura do app.
+ */
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    // O app não usa contador no ícone: um número que ninguém zera vira ruído permanente.
+    shouldSetBadge: false,
+  }),
+});
+
 export const createLocalNotificationAdapter = (): NotificationSchedulerPort => ({
   async ensurePermission(): Promise<boolean> {
     const current = await Notifications.getPermissionsAsync();

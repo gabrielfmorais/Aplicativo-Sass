@@ -130,6 +130,9 @@ export function CatalogSearchSection({
         placeholder="Marca, nome ou código de barras"
         autoCapitalize="none"
         autoCorrect={false}
+        // SPEC-060 FR9 — a busca é typeahead: a tecla não submete nada, ela fecha o teclado para os
+        // resultados aparecerem. "Concluído" diz isso; "return" não diz nada.
+        returnKeyType="done"
         editable={!busy}
       />
 
