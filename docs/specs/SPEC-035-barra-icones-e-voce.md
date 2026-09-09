@@ -66,8 +66,14 @@ topo de uma tela.
 
 - FR1 — A pastilha da aba ativa é **ameixa sólida** com o ícone em `onFilled`. Barreira de teste de
   contraste: pastilha × barra > 4,5:1 e ícone × pastilha > 4,5:1.
-- FR2 — Traço **2.15** numa grade de 24 com margem viva de 3; cada ícone tem **duas a três** formas
-  e **no máximo um** detalhe preenchido.
+- FR2 — Traço **2.15** numa grade de 24 com margem viva de ~3; **massa óptica equivalente** entre os
+  quatro e **no máximo um** detalhe preenchido por ícone.
+
+  ⚠️ **Revisado em 2026-09-09.** A versão original deste FR dizia *"duas a três formas"*, e o número
+  era um **proxy** da massa óptica, não a regra: o que reprovou a Prateleira antiga não foi ter cinco
+  formas, foi **um objeto ter o dobro da densidade dos vizinhos**. Na direção que o dono trouxe, o
+  frasco com pump e as barras com seta têm quatro e cinco formas — e **medem igual** à gota com
+  brilho, que é o que o FR sempre quis dizer. O que continua contado é o preenchimento: **um**.
 - FR3 — Nenhum ícone é portador de estado: o desenho é o mesmo em ativo e inativo, e o que muda é
   pastilha, cor, peso e palavra.
 - FR4 — A tela Você abre pelo painel de **identidade** (avatar grande + nome editável), seguido por
@@ -155,3 +161,4 @@ Nenhuma dependência nova, nenhuma migration, nada a migrar. Rollback é reverte
 | Data | Mudança |
 |---|---|
 | 2026-09-03 | Criada retroativamente para a rodada implementada. As citações no código apontavam para a SPEC-030, que é o contrato da Hoje — corrigidas para esta. |
+| 2026-09-09 | **Os quatro ícones foram redesenhados na direção que o dono mandou** (imagem de referência, "se for preciso melhore"): gota **com brilho de quatro pontas**, três mechas em **fluxo diagonal**, **frasco com pump + pote** e **barras com a seta subindo**. FR2 revisado — massa óptica em vez de contagem de formas. Nada mais mudou: mesma pastilha, mesmo contraste medido, mesmos componentes, nenhuma dependência nova. ⚠️ **A ressalva registrada:** o comentário do `GrowthIcon` afirmava que barras *"prometeriam o que o produto se recusa a dar"*. A recusa de **pontuar o ciclo** (SPEC-019/021) continua de pé e suas barreiras de texto continuam verdes; o que a frase errava era a largura — a aba Progresso mostra **contagem de cuidados**, e barra é quantidade. O que segue proibido no desenho é **escala**: sem eixo, sem régua, sem porcentagem, sem linha de meta. |
