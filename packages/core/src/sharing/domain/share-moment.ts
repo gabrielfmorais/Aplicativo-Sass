@@ -15,7 +15,15 @@
  * lugar que ainda por cima sai do app. Barreira de teste.
  */
 
-export const SHARE_MOMENT_KINDS = ['journey', 'milestone', 'care_done', 'cycle', 'wash_day'] as const;
+export const SHARE_MOMENT_KINDS = [
+  'journey',
+  'milestone',
+  'care_done',
+  'cycle',
+  'cycle_closed',
+  'progress',
+  'wash_day',
+] as const;
 
 export type ShareMomentKind = (typeof SHARE_MOMENT_KINDS)[number];
 
