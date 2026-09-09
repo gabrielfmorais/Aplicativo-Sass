@@ -9,7 +9,14 @@ import { OilRoutineCard } from '@/features/care/OilRoutineCard';
  * SPEC-026 fatia 1 (FR6) — **Cuidados**: tudo o que é rotina, num lugar só.
  *
  * O cronograma do dia continua na **Hoje**, que é onde ela age. Aqui mora o que ela consulta e
- * mantém sobre o **cabelo**: o que mudou nele, e como se faz cada cuidado.
+ * mantém sobre o **cabelo**: como se faz cada cuidado, as finalizações, a rotina de óleo e o que
+ * mudou no cabelo dela.
+ *
+ * ⚠️ **A ORDEM DOS BLOCOS É DECISÃO, e está na SPEC-067** — conteúdo que ela consulta antes de
+ * configuração que ela ajusta uma vez, e rotina mantida antes de evento raro. Antes era a ordem de
+ * chegada: cada SPEC acrescentava o seu bloco no fim, e os guias — o conteúdo que dá nome à aba —
+ * tinham ido parar a **1,65 tela** do topo. ⛔ Um bloco novo **escolhe** onde entra; o teste de ordem
+ * falha se ele apenas cair no fim.
  *
  * ⚠️ **SPEC-034 — "Meu ciclo" saiu daqui pela MESMA razão que a prateleira tinha saído.** O ciclo
  * virou o conteúdo da aba **Progresso**, e a barra inferior já é a porta dela. Um cartão aqui
@@ -68,24 +75,21 @@ export function CareTabScreen({
     <Screen>
       <ScreenHeader title="Sua rotina" profile={profile} />
 
-      {onOpenHairEvents ? (
-        <Card>
-          <Text variant="heading" accessibilityRole="header">
-            Meu cabelo mudou
-          </Text>
-          <Text tone="muted">
-            Química, coloração, corte, praia, uma pausa — contar o que aconteceu ajuda o app a não seguir com
-            um cronograma feito para antes.
-          </Text>
-          <Button
-            label="Contar o que mudou"
-            variant="secondary"
-            onPress={onOpenHairEvents}
-            style={styles.action}
-          />
-        </Card>
-      ) : null}
+      {/*
+        SPEC-067 FR1 — ⚠️ **a ordem desta aba é uma decisão, e antes era a ordem de chegada.**
 
+        Medido a 390×844 no DEV real: os guias começavam a **1393px** de uma página de 1640 — os
+        últimos 15%, 1,65 tela abaixo do topo — enquanto a **configuração** da rotina de óleo ocupava
+        **792px**, 94% de uma tela inteira, logo depois do cabeçalho. A aba se chama **Cuidados** e o
+        conteúdo sobre cuidado era a última coisa nela; a SPEC-031 escreveu que os guias *"ganham
+        endereço"*, e o endereço que sobrou foi o mais distante.
+
+        **A régua, agora explícita:** conteúdo que ela **consulta** antes de configuração que ela
+        **ajusta uma vez** (BR1), e rotina mantida com frequência antes de evento raro (BR2).
+
+        ⛔ *"Meu cabelo mudou"* ficar por último **não** é juízo sobre a importância dele — é
+        frequência: é o bloco que ela procura quando algo aconteceu, não o que ela abre a aba para ver.
+      */}
       {/*
         SPEC-031 — os guias ganham lugar.
         ⚠️ **A SPEC-026 tinha decidido que a área vazia desta aba ficaria vazia**, e a decisão
@@ -94,17 +98,7 @@ export function CareTabScreen({
         eram alcançáveis por dentro de um cartão de cuidado agendado. Isto não preenche espaço:
         dá endereço a uma capability que não tinha nenhum.
       */}
-      {oil ? (
-        <OilRoutineCard
-          view={oil.view}
-          busy={oil.busy}
-          onChoose={oil.onChoose}
-          onTurnOff={oil.onTurnOff}
-          message={oil.message ?? null}
-          failure={oil.failure ?? null}
-          times={oil.times}
-        />
-      ) : null}
+      <CareGuideLibrary />
 
       {/*
         SPEC-056 (F38, shell) — Finalizações ganha lugar, no padrão dos outros cartões: diz o que é,
@@ -122,7 +116,40 @@ export function CareTabScreen({
         <Button label="Ver finalizações" variant="secondary" onPress={onOpenFinishes} style={styles.action} />
       </Card>
 
-      <CareGuideLibrary />
+      {/*
+        SPEC-040/053 (F39) — a rotina de óleo. ⚠️ **Ela é configuração, e é por isso que desceu**
+        (SPEC-067 BR1): a ocorrência do dia — o que ela **faz** — já aparece na Hoje; aqui mora o que
+        ela **ajusta**, e ajustar acontece uma vez.
+      */}
+      {oil ? (
+        <OilRoutineCard
+          view={oil.view}
+          busy={oil.busy}
+          onChoose={oil.onChoose}
+          onTurnOff={oil.onTurnOff}
+          message={oil.message ?? null}
+          failure={oil.failure ?? null}
+          times={oil.times}
+        />
+      ) : null}
+
+      {onOpenHairEvents ? (
+        <Card>
+          <Text variant="heading" accessibilityRole="header">
+            Meu cabelo mudou
+          </Text>
+          <Text tone="muted">
+            Química, coloração, corte, praia, uma pausa — contar o que aconteceu ajuda o app a não seguir com
+            um cronograma feito para antes.
+          </Text>
+          <Button
+            label="Contar o que mudou"
+            variant="secondary"
+            onPress={onOpenHairEvents}
+            style={styles.action}
+          />
+        </Card>
+      ) : null}
     </Screen>
   );
 }
