@@ -570,10 +570,17 @@ function CareActions({
             usada do app** (46 contra 30 de `secondary`), e 13 delas na Hoje. Usá-la como padrão de
             "ação secundária" foi o que deixou o produto sem corpo (BR3).
           */
+          /*
+            ⚠️ **SPEC-062 FR5 — aberto agora PARECE aberto.** Antes, "Como fazer" com o guia na tela
+            era pixel por pixel igual a "Como fazer" fechado: o estado existia só no
+            `accessibilityState`, invisível para quem enxerga. `active` pinta a família ameixa; a
+            semântica para leitor de tela continua sendo `expanded` (BR4).
+          */
           <Button
             label="Como fazer"
             variant="secondary"
             size="sm"
+            active={showGuide}
             accessibilityState={{ expanded: showGuide }}
             onPress={() => setShowGuide((v) => !v)}
           />
@@ -589,6 +596,7 @@ function CareActions({
             label="Meus produtos"
             variant="secondary"
             size="sm"
+            active={showProducts}
             accessibilityState={{ expanded: showProducts }}
             onPress={() => setShowProducts((v) => !v)}
           />
@@ -597,6 +605,7 @@ function CareActions({
           label="Reagendar"
           variant="secondary"
           size="sm"
+          active={choosingDate}
           disabled={blocked}
           accessibilityState={{ expanded: choosingDate }}
           onPress={() => setChoosingDate((v) => !v)}

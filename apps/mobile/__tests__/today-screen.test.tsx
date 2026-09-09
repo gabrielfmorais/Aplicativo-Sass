@@ -416,12 +416,20 @@ describe('TodayScreen — "Como fazer" (SPEC-007 §14)', () => {
     await fireEvent.press(screen.getAllByText('Como fazer')[0]!);
     screen.getByText(`~${hydration.durationMin} min`);
     screen.getByText(hydration.whatItIs);
+    /**
+     * ⚠️ **SPEC-062 — as asserções olham o CONTEÚDO, e o número virou asserção própria.** Antes
+     * exigiam `"1. " + passo` e `"• " + erro`: strings que só existiam porque o prefixo estava
+     * colado no texto. Agora o marcador numerado e o ponto são elementos, e o passo é escaneável
+     * exatamente por isso. Guardar a string concatenada seria o teste protegendo a **apresentação
+     * antiga** — enquanto o que não pode mudar é o texto (D-26/D-70, AC1), e ele não mudou.
+     */
     for (const [index, step] of hydration.steps.entries()) {
-      screen.getByText(`${index + 1}. ${step}`);
+      screen.getByText(step);
+      screen.getByText(String(index + 1));
     }
     screen.getByText('Erros comuns');
     for (const mistake of hydration.commonMistakes) {
-      screen.getByText(`• ${mistake}`);
+      screen.getByText(mistake);
     }
   });
 
