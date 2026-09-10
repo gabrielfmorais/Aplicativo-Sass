@@ -9,6 +9,7 @@ import type {
   ProductPort,
   ProductCatalogPort,
   JourneyPort,
+  NamedFinishTechnique,
   JourneyView,
   OilRoutinePort,
   WashDayPort,
@@ -29,6 +30,7 @@ import {
   buildCycleView,
   buildProgress,
   buildTodayView,
+  NAMED_FINISH_TECHNIQUES,
   detectCelebration,
   careDoneMoment,
   cycleMoments,
@@ -49,7 +51,9 @@ import { useAuth } from '@/bootstrap/auth';
 import { AccountScreen } from '@/features/account/AccountScreen';
 import { DataSourcesScreen } from '@/features/account/DataSourcesScreen';
 import { CareTabScreen } from '@/features/care/CareTabScreen';
+import { FinishDetailScreen } from '@/features/care/FinishDetailScreen';
 import { FinishesScreen } from '@/features/care/FinishesScreen';
+import { useFinishes } from '@/features/care/use-finishes';
 import { useOilRoutine } from '@/features/care/use-oil-routine';
 import { JourneyScreen } from '@/features/journey/JourneyScreen';
 import { useJourney } from '@/features/journey/use-journey';
@@ -193,6 +197,13 @@ function AuthenticatedApp({
    * mesma coisa que o botão. **Dois caminhos de saída que não podem divergir porque são o mesmo.**
    */
   const [stack, setStack] = useState<StackedPath>(EMPTY_PATH);
+  /**
+   * SPEC-070 (F38) — os registros de finalização dela, lidos **uma vez** para a lista e o detalhe.
+   * Duas leituras fariam as duas telas discordarem sobre a mesma história.
+   */
+  const finishes = useFinishes(washDays, stack.includes('finishes') || stack.includes('finishDetail'));
+  /** Qual finalização a tela de detalhe mostra. Guardada fora do caminho, como `shareFrom`. */
+  const [finishFocus, setFinishFocus] = useState<NamedFinishTechnique>(NAMED_FINISH_TECHNIQUES[0]!);
   /**
    * SPEC-045 (F46) — **de onde ela veio decide o que o card pode ser**. A tela de compartilhar é uma
    * só (SPEC-044 G5: o F46 acrescenta gatilhos, não outro caminho); o que muda é a lista de momentos
@@ -694,9 +705,33 @@ function AuthenticatedApp({
       );
     }
 
-    /** SPEC-056 (F38, shell) — Finalizações: os nomes e o que ela já registrou. Lê `wash_day_finish`. */
+    /**
+     * SPEC-056 (shell) + SPEC-070 (a biblioteca) — Finalizações: os nomes e a história dela.
+     *
+     * ⚠️ **Uma leitura, dois consumidores.** A lista e o detalhe saem dos **mesmos** registros
+     * (`useFinishes`): carregar em cada tela faria as duas discordarem sobre a mesma história.
+     */
     if (key === 'finishes') {
-      return <FinishesScreen washDays={washDays} onBack={closeStacked} />;
+      return (
+        <FinishesScreen
+          records={finishes.records}
+          failed={finishes.failed}
+          reason={finishes.reason}
+          onRetry={finishes.reload}
+          onOpen={(technique) => {
+            setFinishFocus(technique);
+            pushStacked('finishDetail');
+          }}
+          onBack={closeStacked}
+        />
+      );
+    }
+
+    /** SPEC-070 — a tela de uma finalização. Empilha sobre a lista, então voltar cai nela. */
+    if (key === 'finishDetail') {
+      return (
+        <FinishDetailScreen technique={finishFocus} records={finishes.records ?? []} onBack={closeStacked} />
+      );
     }
 
     /** SPEC-057 (F32) — Fontes de dados: a atribuição da Open Beauty Facts. Volta para a Conta. */
