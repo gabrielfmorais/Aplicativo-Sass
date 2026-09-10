@@ -55,16 +55,14 @@ export function OilRoutineCard({
 }) {
   const on = view.state !== 'none';
   return (
+    /*
+      SPEC-071 — ⚠️ **sem título e sem parágrafo de abertura aqui, e isso é conserto, não omissão.**
+      Este cartão tinha os dois porque vivia dentro da aba Cuidados, ao lado de outros cartões. Ele
+      passou a ser o corpo da **tela** da rotina, que já se apresenta — e a tela real a 390px dizia
+      "Rotina de óleo" duas vezes, com duas frases sobre a mesma coisa uma embaixo da outra. Defeito
+      que só apareceu olhando. Consumidor: só a `OilRoutineScreen`.
+    */
     <Card>
-      <Text variant="heading" accessibilityRole="header">
-        Rotina de óleo
-      </Text>
-      <Text tone="muted">
-        {on
-          ? 'Você escolheu de quantos em quantos dias quer lembrar. Dá para trocar ou desligar quando quiser.'
-          : 'Se você tem uma rotina de óleo, escolha de quantos em quantos dias quer que a Huna lembre.'}
-      </Text>
-
       <Row>
         {OIL_INTERVAL_OPTIONS.map((days) => (
           <Chip

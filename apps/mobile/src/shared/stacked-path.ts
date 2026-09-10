@@ -25,6 +25,8 @@ export type StackedKey =
   | 'finishes'
   /** SPEC-070 — a tela de uma finalização. Empilha SOBRE 'finishes', então voltar cai na lista. */
   | 'finishDetail'
+  /** SPEC-071 — a configuração da rotina de óleo, que saiu de dentro da aba Cuidados. */
+  | 'oilRoutine'
   | 'dataSources';
 
 export type StackedPath = readonly StackedKey[];

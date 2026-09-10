@@ -1,4 +1,4 @@
-import type { OilRoutineView } from '@app/core';
+import type { LocalDate, OilRoutineView } from '@app/core';
 import { render } from '@testing-library/react-native';
 
 import { CareTabScreen } from '@/features/care/CareTabScreen';
@@ -25,12 +25,12 @@ const oilView: OilRoutineView = {
   times: [],
 };
 
+// SPEC-071 — a aba mostra o estado da rotina; a configuração mora na tela dela.
 const oil = {
   view: oilView,
-  busy: false,
-  onChoose: jest.fn(),
-  onTurnOff: jest.fn(),
-  times: { onAdd: jest.fn(), onUpdate: jest.fn(), onToggleReminder: jest.fn(), onRemove: jest.fn() },
+  today: '2026-09-10' as LocalDate,
+  nowTime: '08:00',
+  onOpen: jest.fn(),
 };
 
 const profile = { name: 'Millie', onPress: jest.fn() };

@@ -1,9 +1,9 @@
-import type { OilRoutineView } from '@app/core';
+import type { LocalDate, OilRoutineView } from '@app/core';
 import { StyleSheet } from 'react-native';
 
 import { Button, Card, Screen, ScreenHeader, Text } from '@/design/primitives';
 import { CareGuideLibrary } from '@/features/care/CareGuideLibrary';
-import { OilRoutineCard } from '@/features/care/OilRoutineCard';
+import { OilRoutineSummary } from '@/features/care/OilRoutineSummary';
 
 /**
  * SPEC-026 fatia 1 (FR6) — **Cuidados**: tudo o que é rotina, num lugar só.
@@ -52,23 +52,16 @@ export function CareTabScreen({
    * SPEC-040 FR7 (F39) — o endereço da rotina de óleo. Ela mora aqui e não na Hoje porque configurar
    * não é fazer: a Hoje mostra a ocorrência do dia, e esta aba guarda a rotina.
    */
+  /**
+   * SPEC-071 — a aba mostra **o estado** da rotina; o ajuste mora na tela dela. As ações de
+   * configuração saíram daqui junto com a configuração.
+   */
   oil?: {
-    /**
-     * SPEC-053 — as ações dos horários vêm juntas ou não vêm: metade delas produziria uma tela que
-     * deixa acrescentar e não deixa remover.
-     */
-    readonly times: {
-      readonly onAdd: (at: string) => void;
-      readonly onUpdate: (id: string, at: string) => void;
-      readonly onToggleReminder: (id: string, enabled: boolean) => void;
-      readonly onRemove: (id: string) => void;
-    };
     readonly view: OilRoutineView;
-    readonly message?: string | null;
-    readonly failure?: string | null;
-    readonly busy: boolean;
-    readonly onChoose: (everyDays: number) => void;
-    readonly onTurnOff: () => void;
+    readonly today: LocalDate;
+    /** O relógio de parede dela, `HH:MM` — o "próximo horário" precisa saber que horas são. */
+    readonly nowTime: string;
+    readonly onOpen: () => void;
   };
 }) {
   return (
@@ -122,15 +115,7 @@ export function CareTabScreen({
         ela **ajusta**, e ajustar acontece uma vez.
       */}
       {oil ? (
-        <OilRoutineCard
-          view={oil.view}
-          busy={oil.busy}
-          onChoose={oil.onChoose}
-          onTurnOff={oil.onTurnOff}
-          message={oil.message ?? null}
-          failure={oil.failure ?? null}
-          times={oil.times}
-        />
+        <OilRoutineSummary view={oil.view} today={oil.today} nowTime={oil.nowTime} onOpen={oil.onOpen} />
       ) : null}
 
       {onOpenHairEvents ? (

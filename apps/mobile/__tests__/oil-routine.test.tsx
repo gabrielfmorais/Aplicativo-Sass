@@ -1,4 +1,4 @@
-import type { OilRoutineView } from '@app/core';
+import type { LocalDate, OilRoutineView } from '@app/core';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { CareTabScreen } from '@/features/care/CareTabScreen';
@@ -34,10 +34,15 @@ const renderCard = async (over: Partial<OilRoutineView> = {}, handlers = {}) =>
     />,
   );
 
-describe('rotina de óleo — o cartão de Cuidados (SPEC-040 FR7)', () => {
-  it('sem rotina, convida sem cobrar e não mostra data nenhuma', async () => {
+describe('rotina de óleo — a configuração (SPEC-040 FR7 / SPEC-071)', () => {
+  /**
+   * ⚠️ **O título saiu daqui na SPEC-071**, e a ausência é a decisão: este cartão passou a ser o
+   * corpo da **tela** da rotina, que já se apresenta — com o título aqui, a tela real a 390px
+   * dizia o nome duas vezes. O que ele guarda é a configuração, e é isso que se afirma abaixo.
+   */
+  it('sem rotina, oferece os intervalos sem cobrar e não mostra data nenhuma', async () => {
     const s = await renderCard();
-    s.getByText('Rotina de óleo');
+    s.getByText('A cada 3 dias');
     expect(s.queryByText('Desligar a rotina')).toBeNull();
     expect(s.queryByText(/Próxima|É hoje|Estava para/)).toBeNull();
   });
@@ -126,15 +131,9 @@ describe('rotina de óleo — o lugar dela (SPEC-040 FR7)', () => {
         onOpenFinishes={jest.fn()}
         oil={{
           view: view(),
-          busy: false,
-          onChoose: jest.fn(),
-          onTurnOff: jest.fn(),
-          times: {
-            onAdd: jest.fn(),
-            onUpdate: jest.fn(),
-            onToggleReminder: jest.fn(),
-            onRemove: jest.fn(),
-          },
+          today: '2026-09-10' as LocalDate,
+          nowTime: '08:00',
+          onOpen: jest.fn(),
         }}
       />,
     );

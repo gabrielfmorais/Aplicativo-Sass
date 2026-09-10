@@ -53,6 +53,7 @@ import { DataSourcesScreen } from '@/features/account/DataSourcesScreen';
 import { CareTabScreen } from '@/features/care/CareTabScreen';
 import { FinishDetailScreen } from '@/features/care/FinishDetailScreen';
 import { FinishesScreen } from '@/features/care/FinishesScreen';
+import { OilRoutineScreen } from '@/features/care/OilRoutineScreen';
 import { useFinishes } from '@/features/care/use-finishes';
 import { useOilRoutine } from '@/features/care/use-oil-routine';
 import { JourneyScreen } from '@/features/journey/JourneyScreen';
@@ -727,6 +728,32 @@ function AuthenticatedApp({
       );
     }
 
+    /**
+     * SPEC-071 (F39) — a **configuração** da rotina de óleo, que saiu de dentro da aba Cuidados.
+     * A aba ficou com o estado; aqui mora o ajuste (intervalo, horários, desligar).
+     */
+    if (key === 'oilRoutine') {
+      return (
+        <OilRoutineScreen
+          view={oilRoutine.view}
+          busy={oilRoutine.busy}
+          onChoose={oilRoutine.choose}
+          onTurnOff={oilRoutine.turnOff}
+          message={oilRoutine.message}
+          failure={oilRoutine.failure}
+          // SPEC-053 — as quatro ações dos horários, juntas: metade delas deixaria a tela
+          // acrescentar e não remover.
+          times={{
+            onAdd: oilRoutine.addTime,
+            onUpdate: oilRoutine.updateTime,
+            onToggleReminder: oilRoutine.setTimeReminder,
+            onRemove: oilRoutine.removeTime,
+          }}
+          onBack={closeStacked}
+        />
+      );
+    }
+
     /** SPEC-070 — a tela de uma finalização. Empilha sobre a lista, então voltar cai nela. */
     if (key === 'finishDetail') {
       return (
@@ -818,21 +845,12 @@ function AuthenticatedApp({
         profile={profileChip}
         onOpenHairEvents={() => openStacked('hairEvents')}
         onOpenFinishes={() => openStacked('finishes')}
+        // SPEC-071 — a aba diz **o estado** da rotina e abre a tela dela; a configuração saiu daqui.
         oil={{
           view: oilRoutine.view,
-          busy: oilRoutine.busy,
-          onChoose: oilRoutine.choose,
-          onTurnOff: oilRoutine.turnOff,
-          message: oilRoutine.message,
-          failure: oilRoutine.failure,
-          // SPEC-053 — as quatro ações dos horários, juntas: metade delas deixaria a tela
-          // acrescentar e não remover.
-          times: {
-            onAdd: oilRoutine.addTime,
-            onUpdate: oilRoutine.updateTime,
-            onToggleReminder: oilRoutine.setTimeReminder,
-            onRemove: oilRoutine.removeTime,
-          },
+          today: today(),
+          nowTime: localTimeOf(now()),
+          onOpen: () => openStacked('oilRoutine'),
         }}
       />,
     );
