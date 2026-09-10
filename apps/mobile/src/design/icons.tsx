@@ -211,3 +211,21 @@ export function CheckIcon({ color, size = 22 }: IconProps) {
     </Svg>
   );
 }
+
+/**
+ * SPEC-070 — **abre**. A afordância de uma linha que leva a outra tela.
+ *
+ * ⚠️ **Entrou porque tem consumidor real** (SPEC-016 AC3): a biblioteca de Finalizações passou a ter
+ * uma tela por técnica, e uma linha tocável precisa **parecer** tocável — o dono nomeou a ausência
+ * disso como parte do problema. Antes desta SPEC o app não tinha nenhum sinal de "isto abre".
+ *
+ * Segue as regras do conjunto — grade de 24, traço 2.15, pontas redondas — e é **um traço só**, que
+ * é a massa óptica certa para um acessório: ele acompanha a linha, não disputa com ela.
+ */
+export function ChevronIcon({ color, size = 22 }: IconProps) {
+  return (
+    <Svg {...base(size)}>
+      <Path d="M9.5 5.5 L 16 12 L 9.5 18.5" {...stroke(color)} />
+    </Svg>
+  );
+}

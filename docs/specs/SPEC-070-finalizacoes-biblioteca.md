@@ -1,6 +1,6 @@
 # SPEC-070 — Finalizações: a biblioteca pessoal de técnicas (e finalizar sem perder o lugar)
 
-- **Status:** IN PROGRESS
+- **Status:** DONE (fatias 1 e 2)
 - **Bounded context:** Care Tracking (`F38`)
 - **Autorizada por:** o dono, 2026-09-09, com escopo detalhado (duas frentes na mesma mensagem: a
   área de Finalizações e o defeito do fluxo de "Finalizei").
@@ -237,6 +237,88 @@ medido antes e depois. O `check:docs-links` pegou a referência velha no `CLAUDE
 ⚠️ **`aria-checked` continua nulo no preview web** (SPEC-051 OQ4, remedido aqui nos chips de
 finalização): o estado do chip se afere pelo canal que ela vê e pelos títulos que mudam, nunca por
 ARIA. Não é defeito do produto — a API é a suportada no iOS/Android.
+
+## 8.4 Evidência da fatia 2 — medido a 390px no DEV real (2026-09-09)
+
+**Com o histórico real dela**, sem semear nada: a home mostra as seis na ordem do vocabulário,
+*"1 vez · Fitagem tradicional · última em ter, 08/09"* e *"1 vez · Plopping · última em dom, 06/09"*,
+com as outras quatro em linha leve e **nenhuma frase de ausência repetida**. O detalhe de Plopping
+abre com *"1 vez · Você já registrou · Última vez em dom, 06/09"* e diz o que falta:
+*"Avalie mais 2 cuidados com Plopping…"*.
+
+**Com histórico semeado — e a BR4 provada contra dado real.** Foram criados **quatro** registros de
+Plopping, e **um deles numa execução ANULADA** (`voided_at` preenchido). A tela mostra **3**:
+
+| medição | valor |
+|---|---|
+| registros de Plopping semeados | 4 (um em execução anulada) |
+| contagem na tela | **3** |
+| últimas vezes | dom 06/09 · sex 04/09 · qui 03/09 |
+| observação | *"Frizz — você notou em 1 dos 3 cuidados com Plopping que você avaliou"* |
+| observação | *"Definição — você notou em 2 dos 3 cuidados com Plopping que você avaliou"* |
+
+⚠️ **O número 3 é a prova.** Até esta SPEC a leitura não olhava a execução, e a área contava
+finalizações que ela **desfez** — as quatro apareceriam. A data sozinha não provaria nada, porque a
+anulada e uma viva caem no mesmo dia (03/09).
+
+**Navegação:** Cuidados → Finalizações → Plopping → Voltar cai **na lista**, e Voltar de novo cai em
+**Cuidados** — a pilha de dois níveis da SPEC-061, sem nenhum `onBack` escrito à mão.
+
+**Console limpo** nas duas telas: zero erro, zero exceção; sobram as deprecações do
+`react-native-web` que já existiam.
+
+**Histórico do DEV restaurado ao estado exato de antes**, medido depois de desfazer: 7 linhas de
+finalização, 2 com técnica nomeada, 3 marcas — os mesmos números de antes de semear.
+
+## 8.5 O que a auditoria da fatia 2 achou no próprio diff
+
+Quatro achados, todos corrigidos antes do merge.
+
+1. **A leitura rodava na abertura do app, para toda usuária.** Ao subir a carga para a rota (para a
+   lista e o detalhe não discordarem), ela virou **cinco viagens à rede em toda sessão** por causa de
+   uma tela que a maior parte das sessões nunca abre. O `useShelfUsage` já tinha resolvido isso com
+   um gate; aqui o gate é a área estar aberta.
+2. **`in (…ids)` sem teto** — a classe de defeito que a SPEC-047 mediu: cada uuid custa ~37
+   caracteres, e algumas centenas estouram o limite de URI, quebrando **justamente para quem tem mais
+   histórico**. ⚠️ **A correção não foi uma janela: foi tirar o filtro.** A RLS já restringe cada
+   tabela às linhas dela, então pedir tudo tem **URL de tamanho constante** e devolve a contagem
+   **exata** — sem uma janela que a tela teria de confessar.
+3. **`stack` usado antes de ser declarado.** O gate do item 1 lia o caminho da pilha, e o `useState`
+   dele vinha 20 linhas depois — erro de zona morta temporal. O bloco foi movido, e a **ordem dos
+   hooks continua fixa**, que é a regra que a SPEC-043 pagou caro para aprender.
+4. **Dois campos sem consumidor de produção** (`ratedCount` e `technique` em `FinishDetail`) e uma
+   **prop `loading` que deixou de ser lida**. Saíram (D-47/D-48): o estado de carga passou a ser
+   derivado de *"não há registros e não houve erro"*, que também fecha o quadro em que a lista
+   piscaria em zero antes de o efeito rodar.
+
+## 8.3 Decisões da fatia 2 — o que foi recusado, e por quê
+
+⛔ **Sem ícone por técnica.** O dono pediu *"ícones/representações úteis **quando fizer sentido**"*,
+e a resposta medida é que aqui não faz. A SPEC-042 já tinha registrado a regra ao desenhar as seis
+marcas de avatar: *"seis desenhos diferentes seriam seis chances de um sair pior que os outros"*, e o
+que faz um conjunto parecer conjunto é **variação controlada sobre uma geometria**. Aplicada aqui,
+essa família daria seis marcas quase idênticas a 36px — decoração, que a SPEC-016 AC3 chama de bug
+por escrito. E uma forma **distinguível por técnica** só se consegue ilustrando o **movimento**, que
+é o *"como fazer"* atrás do gate. A identidade veio do que a Huna já usa para dizer um fato dela: o
+**número em ameixa** liderando a linha (SPEC-068/069).
+
+⛔ **Sem dividir em "as que você usa" e "as que você não usa".** Seriam dois grupos ordenados por
+presença, e a ordem do vocabulário **é** a descoberta — os seis nomes ficam sempre no mesmo lugar, e
+é isso que faz reconhecê-los com o tempo. A hierarquia veio do **peso** de cada linha.
+
+⛔ **A seção não se chama "Essa técnica e seu cabelo".** O dono nomeou essa área como futura, e a
+metade dela que os registros sustentam **entrou** — mas com o título honesto. *"Essa técnica e seu
+cabelo"* promete uma **relação entre a técnica e o cabelo dela**, que é exatamente a alegação de
+D-26/D-70; *"O que você notou"* diz o que os dados são. É a mesma decisão que a SPEC-047 tomou ao
+chamar a superfície de *"Seus padrões"* em vez de *"O que funciona comigo?"*.
+
+⛔ **O histórico mostra datas, nunca notas.** Uma coluna de números de 1 a 5 ao lado de uma técnica
+vira placar, e a Huna não pontua o cuidado (SPEC-009/019/021).
+
+⚠️ **Um defeito de redação que só o teste pegou:** a frase saía *"em 1 **do** 3 cuidados"*, porque
+flexionava pelo **numerador**. O artigo concorda com o **denominador** — e o denominador nunca é
+singular aqui, porque abaixo de três cuidados avaliados não existe observação nenhuma; o ramo para um
+cuidado só era código inalcançável e saiu junto.
 
 ## 8.2 Decisões que a auditoria fixou
 

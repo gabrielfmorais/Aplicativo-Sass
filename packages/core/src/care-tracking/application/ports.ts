@@ -234,11 +234,15 @@ export interface WashDayPort {
    */
   lastUsedFor(careTypeCode: CareTypeCode): Promise<readonly Product[]>;
   /**
-   * SPEC-056 (F38, fatia shell) — as finalizações que ela **registrou**, para o catálogo contá-las.
+   * SPEC-056 (fatia shell) + SPEC-070 (a biblioteca) — as finalizações que ela **registrou**, com o
+   * dia e o que ela notou naqueles cuidados.
    *
-   * Só a técnica das etapas em `done` com uma técnica nomeada; RLS restringe à usuária. Sem `join`: o
-   * fato é *"ela fez esta finalização"*, e a contagem por nome é a história — o mesmo formato com que
-   * a SPEC-049 mede a prateleira. Registro, nunca recomendação (D-26/D-70).
+   * Registro, nunca recomendação (D-26/D-70): o fato é *"ela fez esta finalização, neste dia, e
+   * notou isto depois"*. Quem conta e quem observa é o core.
+   *
+   * ⚠️ **A execução anulada não vem.** `void_execution` é *soft delete*, então a linha de
+   * finalização sobrevive ao desfazer (SPEC-039 OQ4) — e contá-la seria observar um fato que ela
+   * mesma retirou.
    */
   finishHistory(): Promise<readonly FinishHistoryRecord[]>;
 }

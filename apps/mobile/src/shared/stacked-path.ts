@@ -16,7 +16,16 @@
  *    (medido). Isto é a parte dele que dá para provar sem montar a árvore inteira.
  */
 export type StackedKey =
-  'hairEvents' | 'you' | 'journey' | 'share' | 'insights' | 'shelfUsage' | 'finishes' | 'dataSources';
+  | 'hairEvents'
+  | 'you'
+  | 'journey'
+  | 'share'
+  | 'insights'
+  | 'shelfUsage'
+  | 'finishes'
+  /** SPEC-070 — a tela de uma finalização. Empilha SOBRE 'finishes', então voltar cai na lista. */
+  | 'finishDetail'
+  | 'dataSources';
 
 export type StackedPath = readonly StackedKey[];
 

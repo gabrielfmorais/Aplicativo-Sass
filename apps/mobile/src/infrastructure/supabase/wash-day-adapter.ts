@@ -1,6 +1,8 @@
 import type {
+  CheckInMark,
   FinishStatus,
   FinishTechnique,
+  LocalDate,
   Product,
   ScalpFeel,
   WashDayPort,
@@ -335,23 +337,86 @@ export const createWashDayAdapter = (client: SupabaseClient, userId: () => strin
     },
 
     /**
-     * SPEC-056 (F38, fatia shell) — as finalizações que ela registrou, para o catálogo.
+     * SPEC-056 (fatia shell) + SPEC-070 (a biblioteca) — as finalizações que ela registrou, com
+     * **quando** e com **o que ela notou** naqueles cuidados.
      *
-     * Uma leitura só: `finish_technique` das etapas em `done` com técnica nomeada. A policy
-     * `select_own` restringe à usuária — `user_id` não vai como filtro, `auth.uid()` decide (como
-     * em todas as leituras deste adapter). Sem join: a contagem por nome é a história, e o core
-     * (`buildFinishCatalog`) descarta `other`/`unknown`.
+     * ⚠️ **A execução ANULADA não conta, e isso é uma correção.** `void_execution` é *soft delete*
+     * (`voided_at`), então o `on delete cascade` **não dispara** e a linha de finalização
+     * **sobrevive** ao desfazer (SPEC-039 OQ4). Até a SPEC-070 esta leitura não olhava a execução, e
+     * a área contava finalizações que ela **desfez**. A evidência é o que ela **manteve** — a mesma
+     * regra que a SPEC-047 já aplicava (*"ela desfez aquilo; contá-la como evidência seria observar
+     * um fato que ela mesma retirou"*).
+     *
+     * ⚠️ **Leituras curtas em vez de `join` embutido**, pela razão já medida (SPEC-041/047): a FK de
+     * `wash_days` para `care_executions` é composta e o PostgREST não promete embedding por FK
+     * composta. Todas sob `select_own` — `user_id` não vai como filtro, `auth.uid()` decide.
+     *
+     * ⚠️ **E nenhuma delas usa `in (…ids)`, de propósito.** A SPEC-047 mediu o preço: cada uuid
+     * custa ~37 caracteres na URL, e algumas centenas de ids montam uma query que estoura o limite
+     * de URI do PostgREST — a tela quebraria **justamente para quem mais tem histórico**. Lá aquilo
+     * era inevitável porque a leitura é uma **janela**; aqui não é: a RLS já restringe cada tabela às
+     * linhas dela, então pedir tudo tem **URL de tamanho constante** e devolve a contagem **exata**,
+     * sem uma janela que a tela teria de confessar.
+     *
+     * ⚠️ **`marks: null` não é `marks: []`.** `null` é *"ela não avaliou aquele cuidado"* e fica
+     * fora do denominador; `[]` é *"avaliou e não marcou nada"* e conta (SPEC-070 BR6).
      */
     async finishHistory() {
-      const { data, error } = await client
+      const finishes = await client
         .from(FINISH)
-        .select('finish_technique')
+        .select('wash_day_id, finish_technique')
         .eq('finish_status', 'done')
         .not('finish_technique', 'is', null);
-      if (error) throw fail('care.wash_day_read_failed', error);
-      return (data as { finish_technique: FinishTechnique }[]).map((r) => ({
-        technique: r.finish_technique,
-      }));
+      if (finishes.error) throw fail('care.wash_day_read_failed', finishes.error);
+      const finishRows = (finishes.data ?? []) as {
+        wash_day_id: string;
+        finish_technique: FinishTechnique;
+      }[];
+      if (finishRows.length === 0) return [];
+
+      const [hubs, executions, checkIns] = await Promise.all([
+        client.from(HUB).select('id, care_execution_id'),
+        // A anulada some daqui — é o que faz a contagem ser do que ela manteve (BR4).
+        client.from('care_executions').select('id, executed_on').is('voided_at', null),
+        client.from('checkins').select('id, care_execution_id'),
+      ]);
+      if (hubs.error) throw fail('care.wash_day_read_failed', hubs.error);
+      if (executions.error) throw fail('care.wash_day_read_failed', executions.error);
+      if (checkIns.error) throw fail('care.wash_day_read_failed', checkIns.error);
+      const hubRows = (hubs.data ?? []) as { id: string; care_execution_id: string }[];
+      const executionOfHub = new Map(hubRows.map((h) => [h.id, h.care_execution_id]));
+
+      const executedOn = new Map(
+        ((executions.data ?? []) as { id: string; executed_on: string }[]).map((e) => [
+          e.id,
+          e.executed_on as LocalDate,
+        ]),
+      );
+      const checkInRows = (checkIns.data ?? []) as { id: string; care_execution_id: string }[];
+      const checkInOfExecution = new Map(checkInRows.map((c) => [c.care_execution_id, c.id]));
+
+      const marks =
+        checkInRows.length > 0 ? await client.from('checkin_marks').select('checkin_id, mark') : null;
+      if (marks?.error) throw fail('care.wash_day_read_failed', marks.error);
+      const marksOfCheckIn = ((marks?.data ?? []) as { checkin_id: string; mark: CheckInMark }[]).reduce(
+        (acc, m) => acc.set(m.checkin_id, [...(acc.get(m.checkin_id) ?? []), m.mark]),
+        new Map<string, CheckInMark[]>(),
+      );
+
+      return finishRows.flatMap((f) => {
+        const executionId = executionOfHub.get(f.wash_day_id);
+        const day = executionId ? executedOn.get(executionId) : undefined;
+        // Sem execução viva não há fato: a anulada simplesmente não vira registro.
+        if (!executionId || !day) return [];
+        const checkInId = checkInOfExecution.get(executionId);
+        return [
+          {
+            technique: f.finish_technique,
+            executedOn: day,
+            marks: checkInId ? (marksOfCheckIn.get(checkInId) ?? []) : null,
+          },
+        ];
+      });
     },
 
     async setFinishTechnique({ careExecutionId, finishTechnique }): Promise<void> {
