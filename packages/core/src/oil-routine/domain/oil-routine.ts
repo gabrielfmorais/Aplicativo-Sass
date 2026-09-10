@@ -170,3 +170,47 @@ export const buildOilRoutineView = (input: {
     times: ordenados,
   };
 };
+
+/**
+ * SPEC-071 (F39) — **o próximo momento da rotina**: o dia e, se ela tiver horários, a hora.
+ *
+ * A entrada em Cuidados dizia *"Próxima: qui, 10/09"*, e a SPEC-053 deu a ela **horários** —
+ * inclusive vários no mesmo dia. Uma linha que diz o dia e cala a hora esconde metade do que ela
+ * configurou.
+ *
+ * **Puro e total:** `today` e `nowTime` são **entrada**, nunca relógio lido aqui (ADR-008, e o mesmo
+ * contrato do `buildNotificationIntents`). É o que permite testar "todos os horários de hoje já
+ * passaram" sem esperar anoitecer.
+ *
+ * ⚠️ **`at: null` é uma resposta, não uma falha.** Acontece em dois casos honestos: rotina **sem
+ * horários** (o estado de toda rotina anterior à SPEC-053, e aí a linha volta a ser exatamente a da
+ * SPEC-040), e **hoje com todos os horários já passados** — a ocorrência continua sendo hoje, e
+ * dizer *"hoje, 07:30"* às 20:00 seria apontar um horário que não existe mais.
+ *
+ * ⚠️ **Horário com lembrete DESLIGADO conta.** Ele continua fazendo parte da rotina dela e continua
+ * registrável (SPEC-053 FR3) — o que a chave desliga é a notificação, não o horário. Por isso a
+ * linha se chama *"Próximo"* e nunca *"Lembrete"*: ela descreve a rotina, não promete um toque.
+ */
+export type OilNextMoment = {
+  readonly on: LocalDate;
+  readonly at: string | null;
+};
+
+export const nextOilMoment = (
+  view: OilRoutineView,
+  today: LocalDate,
+  /** O relógio de parede dela, `HH:MM`. */
+  nowTime: string,
+): OilNextMoment | null => {
+  if (view.state === 'none' || view.dueOn === null) return null;
+  const times = view.times;
+  if (times.length === 0) return { on: view.dueOn, at: null };
+  // `times` já vem em ordem cronológica do `buildOilRoutineView`; não reordenar aqui evita duas
+  // regras de ordem para a mesma lista.
+  const first = times[0]!.at;
+  if (view.dueOn !== today) return { on: view.dueOn, at: first };
+  // É hoje: o próximo horário que ainda não passou. `HH:MM` compara como string (24h, zero à
+  // esquerda), então nenhum `Date` entra.
+  const ahead = times.find((t) => t.at >= nowTime);
+  return { on: today, at: ahead ? ahead.at : null };
+};

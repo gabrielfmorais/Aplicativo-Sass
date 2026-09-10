@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { localDateFromString } from '../shared/time/index.ts';
+import type { LocalDate } from '../shared/time/local-date.ts';
 import {
   OIL_EVENT_KINDS,
   OIL_INTERVAL_OPTIONS,
   buildOilRoutineView,
+  nextOilMoment,
   type OilEvent,
+  type OilRoutineView,
 } from './domain/oil-routine.ts';
 
 const d = (iso: string) => localDateFromString(iso);
@@ -288,5 +291,91 @@ describe('SPEC-053 — os horários da rotina', () => {
       doneCount: 1,
       times: undefined,
     });
+  });
+});
+
+/**
+ * SPEC-071 (F39) — **o próximo momento**: o dia e, quando ela tem horários, a hora.
+ *
+ * ⚠️ O que estes testes guardam é que o relógio é **entrada**: "todos os horários de hoje já
+ * passaram" é regra testada, não acidente da hora em que o CI rodou.
+ */
+describe('nextOilMoment (SPEC-071)', () => {
+  const t = (id: string, at: string, reminderEnabled = true) => ({ id, at, reminderEnabled });
+  const view = (over: Partial<OilRoutineView> = {}): OilRoutineView => ({
+    state: 'upcoming',
+    everyDays: 3,
+    dueOn: '2026-09-12' as LocalDate,
+    daysLate: 0,
+    lastDoneOn: null,
+    doneCount: 0,
+    times: [],
+    ...over,
+  });
+
+  it('sem rotina não há próximo momento', () => {
+    expect(
+      nextOilMoment(view({ state: 'none', dueOn: null }), '2026-09-10' as LocalDate, '08:00'),
+    ).toBeNull();
+  });
+
+  /** ⚠️ Rotina sem horários volta a ser exatamente a linha da SPEC-040: só o dia. */
+  it('sem horários devolve o dia e nenhuma hora', () => {
+    expect(nextOilMoment(view(), '2026-09-10' as LocalDate, '08:00')).toEqual({
+      on: '2026-09-12',
+      at: null,
+    });
+  });
+
+  it('em outro dia, a hora é a primeira daquele dia', () => {
+    const v = view({ times: [t('a', '07:30'), t('b', '18:00')] });
+    expect(nextOilMoment(v, '2026-09-10' as LocalDate, '23:50')).toEqual({ on: '2026-09-12', at: '07:30' });
+  });
+
+  it('hoje, é o próximo horário que ainda não passou', () => {
+    const v = view({
+      state: 'due_today',
+      dueOn: '2026-09-10' as LocalDate,
+      times: [t('a', '07:30'), t('b', '12:00'), t('c', '18:00')],
+    });
+    expect(nextOilMoment(v, '2026-09-10' as LocalDate, '09:15')).toEqual({ on: '2026-09-10', at: '12:00' });
+  });
+
+  it('o horário exato ainda conta como próximo', () => {
+    const v = view({ state: 'due_today', dueOn: '2026-09-10' as LocalDate, times: [t('a', '12:00')] });
+    expect(nextOilMoment(v, '2026-09-10' as LocalDate, '12:00')).toEqual({ on: '2026-09-10', at: '12:00' });
+  });
+
+  /**
+   * ⚠️ **Todos os horários de hoje passados: o dia continua sendo hoje, e a hora some.** Dizer
+   * "hoje, 07:30" às 20:00 apontaria um horário que não existe mais.
+   */
+  it('hoje com todos os horários passados devolve o dia sem hora', () => {
+    const v = view({
+      state: 'due_today',
+      dueOn: '2026-09-10' as LocalDate,
+      times: [t('a', '07:30'), t('b', '12:00')],
+    });
+    expect(nextOilMoment(v, '2026-09-10' as LocalDate, '20:00')).toEqual({ on: '2026-09-10', at: null });
+  });
+
+  /** ⚠️ Lembrete desligado **conta**: a chave desliga a notificação, não o horário (SPEC-053 FR3). */
+  it('um horário sem lembrete continua sendo um momento da rotina dela', () => {
+    const v = view({
+      state: 'due_today',
+      dueOn: '2026-09-10' as LocalDate,
+      times: [t('a', '07:30', false), t('b', '18:00')],
+    });
+    expect(nextOilMoment(v, '2026-09-10' as LocalDate, '06:00')).toEqual({ on: '2026-09-10', at: '07:30' });
+  });
+
+  it('vencida mostra o dia em que estava marcada, com a primeira hora dele', () => {
+    const v = view({
+      state: 'overdue',
+      dueOn: '2026-09-08' as LocalDate,
+      daysLate: 2,
+      times: [t('a', '07:30')],
+    });
+    expect(nextOilMoment(v, '2026-09-10' as LocalDate, '10:00')).toEqual({ on: '2026-09-08', at: '07:30' });
   });
 });
