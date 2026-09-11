@@ -1,6 +1,6 @@
 # Beta readiness — o que falta, e de quem depende
 
-**Atualizado:** 2026-09-08 (checkpoint após SPEC-057/058 catálogo populado e SPEC-059 Jornada; auditoria `--full` re-executada — limpa).
+**Atualizado:** 2026-09-09 (checkpoint de fim de sessão: SPEC-070 Finalizações + SPEC-071 rotina de óleo; ver §2.2, que é o ponto de retomada).
 **Resumo:** o produto está **funcional de ponta a ponta em dev/beta interno** — a jornada real (sign-in dev → onboarding → cronograma → Hoje → registro → check-in → jornada) foi medida no DEV real. O que separa isto de um **beta público** não é engenharia de features: é um conjunto de **TRUE HUMAN GATES** (credenciais externas, sign-off profissional, base legal, contas de loja, custo real) que só o dono pode destravar. O agente segue construindo o roadmap desbloqueado sem esperar por eles.
 
 Este documento é o registro **separado** desses gates (pedido do dono). O pacote de decisões que precisa de revisão profissional capilar está em **[DOMAIN-SIGNOFF-PACKAGE.md](DOMAIN-SIGNOFF-PACKAGE.md)**.
@@ -84,6 +84,91 @@ D-26/D-70, D-32 ou toca produção.
 ⚠️ **O que este bloco NÃO resolve, e é o ponto:** os gates G1–G7 continuam **exatamente** onde
 estavam. O trabalho de engenharia **desbloqueado** do roadmap ficou fino — o que resta de
 substantivo depende de credencial, contrato, sign-off, base legal ou ambiente nativo, tudo do dono.
+
+
+## 2.2 Checkpoint de 2026-09-09 (fim de sessão) — **o ponto exato de retomada**
+
+Sessão pedida pelo dono com **duas prioridades explícitas** e um defeito de fluxo. **As três estão
+DONE.** ⚠️ Nenhuma moveu um gate: são apresentação, leitura e arrumação, e nenhuma atravessa
+D-26/D-70, D-32 ou toca produção.
+
+| Frente | Estado | PR |
+|---|---|---|
+| **Bug do "Finalizei"** — a tela voltava ao topo (SPEC-070 fatia 1) | ✅ DONE | #188 |
+| **Finalizações / biblioteca de técnicas** (SPEC-070 fatia 2) | ✅ DONE | #189 |
+| **Rotina de óleo mais visível** (SPEC-071) | ✅ DONE | #190 |
+
+### O que cada uma resolveu
+
+**#188 — e a causa era muito maior que a finalização.** `loadBoard` começava com
+`setBoard('loading')`, e a rota troca a **árvore inteira** por um spinner de tela cheia nesse
+estado. Como toda ação do cartão termina em `onChanged`, e `onChanged` **é** `loadBoard`,
+**concluir, pular, reagendar, desfazer, o check-in, cada marcação, a etapa de finalização e a
+técnica** desmontavam a `ScrollView` — que remonta com o scroll em 0. ⚠️ **O estado localizado de
+ocupado já existia** (`busyId`, com spinner no `Button`) e nunca tinha sido visto, porque o
+spinner de tela cheia o destruía junto com a tela. **Quarta ocorrência da mesma forma de defeito**
+neste repositório: a peça existe, a ligação não. A regra virou `src/shared/board-refresh.ts` com
+teste **verificado contra o defeito**. ⛔ Nenhum `scrollTo` foi escrito: medido, a etapa seguinte
+fica **dentro** da viewport. **Limpeza junto:** `src/app/` é o diretório do expo-router e todo
+arquivo ali vira rota — `board-refresh.ts` e `stacked-path.ts` faziam o app avisar em toda carga
+que a "rota" não tem `default export`; os dois foram para `shared/` e os dois avisos sumiram.
+
+**#189 — Finalizações virou biblioteca pessoal.** Cada técnica tem história e tela própria: quantas
+vezes, quando foi a última, as últimas ocorrências e **o que ela notou** naqueles cuidados
+(*"você notou definição em 3 dos 4 cuidados com Plopping que você avaliou"*, com a frase inteira
+vinda do core). **Correção junto:** a execução **anulada** deixou de contar — `void_execution` é
+soft delete, então a linha de finalização sobrevive ao desfazer e a área vinha contando finalizações
+que ela **desfez**. ⛔ **Recusas registradas:** sem ícone por técnica (a regra da SPEC-042), sem
+dividir a lista em usadas/não usadas, e a seção **não** se chama *"Essa técnica e seu cabelo"* —
+esse título promete a relação que a D-26 proíbe.
+
+**#190 — a rotina de óleo saiu de trás da configuração.** A aba mostra o **estado**
+(*"Próximo: qui, 10/09, 07:30 · 3 horários · 1 sem lembrete"*) e a configuração ganhou tela própria.
+A aba caiu de **1640 para 1038** de altura rolável **sem perder nada**. ⚠️ *"3 horários ativos"* foi
+recusado como frase única: um horário com lembrete desligado continua na rotina e continua
+registrável, então chamá-lo de inativo seria errado e tirá-lo da contagem seria pior.
+
+### Onde o estado está
+
+- **main** com as três frentes; **working tree limpo**; **zero PR aberta**.
+- Testes: core **495**. `pnpm verify` verde, incluindo os guardrails novos.
+- Tudo validado **a 390px no DEV real**, console limpo. O histórico do DEV usado para semear a
+  validação da SPEC-070 foi **restaurado ao estado exato de antes** (7 linhas de finalização, 2 com
+  técnica nomeada, 3 marcas).
+
+⚠️ **Uma alteração de dado do DEV que NÃO foi desfeita, e é honesto registrar:** para chegar à etapa
+de finalização, um cuidado de **Reconstrução** (planejado para 18/09) foi **concluído** em 09/09 pela
+própria tela. A janela de desfazer (15 min) passou, e reverter isso exigiria escrita direta no banco —
+mais arriscado que a mudança. É dado de desenvolvimento, e a jornada continua consistente.
+
+### ⚠️ Como este checkpoint quase se perdeu — regra operacional nova
+
+Este bloco foi escrito em 2026-09-09 e **não chegou à `main` naquele dia.** A sequência: a PR #190 foi
+aberta, o **auto-merge foi armado**, e só **depois** o commit de documentação foi empurrado para a
+mesma branch. O GitHub mergeou (squash) a versão que já tinha as checks verdes, e o commit de docs
+**ficou de fora** — a PR aparece como MERGED, a `main` fica verde, e **nada acusa**. A branch foi
+apagada logo em seguida; o texto só sobreviveu porque o objeto continuava no repositório local e foi
+recuperado por `cherry-pick` no dia seguinte.
+
+⛔ **Regra, a partir daqui: depois de armar o auto-merge, a branch está congelada.** Qualquer coisa
+que ainda falte vai em **PR própria**. Armar o auto-merge é dizer *"o que está aqui pode entrar"* —
+empurrar depois é apostar numa corrida contra o merge.
+
+### ▶️ Próxima ação exata de amanhã
+
+**Não há frente pela metade.** O ponto de retomada é **reavaliar o roadmap e escolher a próxima
+frente de maior valor**, agora que as duas prioridades do dono foram entregues. Duas candidatas
+desbloqueadas, em ordem de valor:
+
+1. **SPEC-047 OQ2 — derivar os insights por RPC.** Hoje a derivação é no cliente: o gate premium é de
+   **apresentação**, e um cliente adulterado computaria as mesmas observações **sobre o próprio
+   histórico** (nada de outra usuária vaza). Mover para RPC `SECURITY DEFINER` fecha isso e
+   prepara a camada que a IA vai consultar um dia. ⚠️ **Deploy de Edge Function/migration é ação §4**
+   — o código, os testes e a migration são do agente; **aplicar no DEV é do dono** (workflow manual).
+2. **`F49` rotina noturna** — a irmã da rotina de óleo, com o mesmo desenho agora estabelecido
+   (resumo na aba + tela própria). Zero gate.
+
+⛔ **Não iniciadas de propósito** (a sessão foi encerrada no checkpoint, sem abrir frente nova).
 
 ## 3. Auditoria técnica de checkpoint (2026-09-08)
 
