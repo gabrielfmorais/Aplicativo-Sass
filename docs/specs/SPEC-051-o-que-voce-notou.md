@@ -184,9 +184,15 @@ estar, enquanto o development build seguir DEFERRED por constraint do dono.
 marcado é escrito em ameixa (`accent`). Está na mesma família de `toDataURL` e da folha do SO
 (SPEC-044): coisas que o preview web não prova.
 
-⛔ **Não corrigido de propósito.** São **nove** usos de `accessibilityState` (incluindo a `TabBar` da
-SPEC-035), então consertar só o `Chip` deixaria o app inconsistente; e o alvo do conserto seria o
-ambiente de validação, não o produto. Fica registrado como **OQ4**, fora do escopo desta SPEC.
+⛔ **Não corrigido nesta SPEC, de propósito.** São **nove** usos de `accessibilityState` (incluindo a
+`TabBar` da SPEC-035), então consertar só o `Chip` deixaria o app inconsistente; e o alvo do conserto
+parecia ser o ambiente de validação, não o produto. Ficou registrado como **OQ4**.
+
+✅ **FECHADA pela SPEC-072 (2026-09-11), e a segunda objeção caiu ao medir:** trocar para `aria-*` não
+é conserto de ambiente — é a **API moderna da plataforma**, que o RN 0.86 funde no mesmo estado nativo
+e o web entrega ao DOM. Os nove foram trocados de uma vez, e a medição a 390px passou de **zero** para
+**24** `aria-checked`. ⚠️ **A frase acima sobre aferir pela cor não vale mais** — o estado voltou a ser
+observável por ARIA.
 
 ## 11. Open Questions
 
@@ -202,6 +208,10 @@ ambiente de validação, não o produto. Fica registrado como **OQ4**, fora do e
 - ~~**OQ2** **O sinal das marcações**, para quem consumir (§4).~~ Uma agregação ingênua diria *"frizz
   esteve em 4 dos 5 cuidados que você avaliou bem"*. A fatia de consumo terá de resolver isso.
 - **OQ3 (bloqueada)** A metade **couro** do Blueprint §8 — **D-32** + **D-26**, SPEC-025 OQ2.
-- **OQ4** `accessibilityState` não chega ao DOM no `react-native-web` 0.21 (§10). Nove usos no app.
-  Trocar para as props `aria-*` (suportadas no RN 0.71+ e no web) é pequeno, mas é mudança
-  transversal de primitivo e não pertence a esta SPEC.
+- **OQ4 ✅ FECHADA pela SPEC-072 (2026-09-11).** Os nove usos foram trocados pelas props `aria-*`,
+  e a troca **não muda nada no nativo**: o `Pressable` do RN 0.86 funde
+  `checked: ariaChecked ?? accessibilityState?.checked`, o que foi medido no nó renderizado e fixado
+  em teste. ⭐ **O instrumento voltou:** esta SPEC mediu **zero** `aria-checked` na página inteira; a
+  mesma tela agora mede **24**, mais 11 `aria-selected` e 12 `aria-expanded`. A frase do §10 —
+  *"a 390px o estado de um chip não se afere por ARIA"* — **deixou de valer**, e um guardrail
+  (`pnpm check:a11y-state`) impede a reincidência.

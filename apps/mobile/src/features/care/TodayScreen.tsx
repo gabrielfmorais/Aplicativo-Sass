@@ -298,7 +298,7 @@ function CheckInPrompt({ blocked, onAnswer }: { blocked: boolean; onAnswer: (fee
             onPress={() => onAnswer(feel)}
             accessibilityRole="button"
             accessibilityLabel={`${feel} de 5`}
-            accessibilityState={{ disabled: blocked }}
+            aria-disabled={blocked}
             style={({ pressed }) => [
               styles.feel,
               pressed && !blocked && styles.feelPressed,
@@ -593,7 +593,7 @@ function CareActions({
             variant="secondary"
             size="sm"
             active={showGuide}
-            accessibilityState={{ expanded: showGuide }}
+            a11y={{ expanded: showGuide }}
             onPress={() => setShowGuide((v) => !v)}
           />
         ) : null}
@@ -609,7 +609,7 @@ function CareActions({
             variant="secondary"
             size="sm"
             active={showProducts}
-            accessibilityState={{ expanded: showProducts }}
+            a11y={{ expanded: showProducts }}
             onPress={() => setShowProducts((v) => !v)}
           />
         ) : null}
@@ -619,7 +619,7 @@ function CareActions({
           size="sm"
           active={choosingDate}
           disabled={blocked}
-          accessibilityState={{ expanded: choosingDate }}
+          a11y={{ expanded: choosingDate }}
           onPress={() => setChoosingDate((v) => !v)}
         />
         {/*
@@ -895,7 +895,7 @@ function Section({
           variant="secondary"
           size="sm"
           accessibilityLabel={`Ver mais ${hidden} em ${title}`}
-          accessibilityState={{ expanded: false }}
+          a11y={{ expanded: false }}
           onPress={() => setExpanded(true)}
           style={styles.sectionMore}
         />

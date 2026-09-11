@@ -236,12 +236,7 @@ export function PlanScreen({
           {/* The only filled button on the screen. `disabled` rather than `busy` on purpose: a
               full-width primary that says "Criando…" tells her more than a bare spinner, and the
               double-submit guard is in `confirm` either way. */}
-          <Button
-            label={confirmLabel}
-            disabled={submitting}
-            accessibilityState={{ busy: submitting }}
-            onPress={confirm}
-          />
+          <Button label={confirmLabel} disabled={submitting} a11y={{ busy: submitting }} onPress={confirm} />
           {onCancel ? (
             <Button label="Cancelar" variant="ghost" disabled={submitting} onPress={onCancel} />
           ) : onOpenAccount ? (

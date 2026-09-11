@@ -104,7 +104,7 @@ export function ProfileIdentity({
         label={pickingAvatar ? 'Fechar' : avatar ? 'Trocar minha marca' : 'Escolher minha marca'}
         variant="ghost"
         size="sm"
-        accessibilityState={{ expanded: pickingAvatar }}
+        a11y={{ expanded: pickingAvatar }}
         onPress={() => setPickingAvatar((v) => !v)}
         style={styles.inline}
       />
@@ -120,7 +120,8 @@ export function ProfileIdentity({
                 // `role="radio"` anuncia a escolha por `checked`; com `selected` a leitora de tela
                 // não dizia qual marca estava escolhida, e a borda virava o único canal — medido no
                 // DOM do DEV real, onde `aria-checked` vinha nulo nos seis.
-                accessibilityState={{ checked: avatar === option, disabled: avatarBusy }}
+                aria-checked={avatar === option}
+                aria-disabled={avatarBusy}
                 accessibilityLabel={AVATAR_LABEL[option]}
                 style={[styles.option, avatar === option && styles.optionSelected]}
               >

@@ -132,8 +132,20 @@ describe('SPEC-062 FR5/BR4 — aberto parece aberto', () => {
    */
   it('`active` não vira `selected` para a tecnologia assistiva', async () => {
     const s = await render(
-      <Button label="Como fazer" active accessibilityState={{ expanded: true }} onPress={jest.fn()} />,
+      <Button label="Como fazer" active a11y={{ expanded: true }} onPress={jest.fn()} />,
     );
+    /**
+     * ⚠️ **SPEC-072 — o `Button` passou a declarar `aria-expanded`, e o estado NATIVO não mudou.**
+     *
+     * O `Pressable` do RN 0.86 funde `expanded: ariaExpanded ?? accessibilityState?.expanded`, então
+     * o nó nativo recebe exatamente o mesmo `accessibilityState` de antes — é isto que esta asserção
+     * prova, e é a garantia de que **nada regride no iPhone**. O ganho do `aria-*` é no **web**, onde
+     * o legado era descartado e o atributo nunca chegava ao DOM; essa metade se prova medindo a
+     * página a 390px, não aqui.
+     *
+     * A barreira da SPEC-062 BR4 é a mesma de sempre: `expanded` sim, `selected` **nunca** — o botão
+     * abre um painel, não é uma opção escolhida entre outras.
+     */
     const estado = s.getByRole('button').props.accessibilityState as Record<string, unknown>;
     expect(estado.expanded).toBe(true);
     expect(estado.selected).toBeUndefined();

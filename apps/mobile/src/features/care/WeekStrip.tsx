@@ -52,7 +52,7 @@ function DayCell({
     <Pressable
       accessible
       accessibilityRole="button"
-      accessibilityState={{ selected }}
+      aria-selected={selected}
       accessibilityLabel={day.label}
       onPress={() => onSelect(day.date)}
       style={[styles.cell, day.isToday && styles.cellToday, selected && styles.cellSelected]}

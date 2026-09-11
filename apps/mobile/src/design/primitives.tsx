@@ -191,7 +191,7 @@ export function Button({
   busy = false,
   disabled = false,
   accessibilityLabel,
-  accessibilityState,
+  a11y,
   style,
 }: {
   label: string;
@@ -220,11 +220,16 @@ export function Button({
   disabled?: boolean;
   accessibilityLabel?: string;
   /**
-   * Merged over the computed state. `expanded` for a button that toggles something; `busy` for one
-   * whose label already says it is working ("Criando…"), where a spinner would replace the very
-   * words that explain the wait.
+   * O que o botão **anuncia** além do que ele já computa. `expanded` para quem abre um painel;
+   * `busy` para quem já diz no rótulo que está trabalhando ("Criando…"), onde um spinner
+   * substituiria justamente as palavras que explicam a espera.
+   *
+   * ⚠️ **SPEC-072 — o nome deixou de ser `accessibilityState` de propósito.** Com o nome legado
+   * aqui, o guardrail não conseguiria distinguir *"passou a prop do design system"* (correto) de
+   * *"pôs o legado num `Pressable` cru"* (que o `react-native-web` descarta). Um nome próprio
+   * torna a regra exata: `accessibilityState` fora de `src/design/` passa a ser sempre defeito.
    */
-  accessibilityState?: { expanded?: boolean; busy?: boolean };
+  a11y?: { expanded?: boolean; busy?: boolean };
   style?: StyleProp<ViewStyle>;
 }) {
   const off = disabled || busy;
@@ -235,7 +240,20 @@ export function Button({
       onPress={onPress}
       disabled={off}
       accessibilityRole="button"
-      accessibilityState={{ disabled: off, busy, ...accessibilityState }}
+      /**
+       * SPEC-072 — **o estado sai em `aria-*`, e a API pública continua a mesma** (FR2/BR1).
+       *
+       * ⚠️ O `accessibilityState` legado é **descartado pelo `react-native-web`**, então o estado
+       * nunca chegava ao DOM e **nenhuma asserção de acessibilidade podia ser feita a 390px** — foi
+       * o que a SPEC-051 mediu e registrou como custo (OQ4). No nativo nada muda: o `Pressable` do
+       * RN 0.86 funde `aria-X ?? accessibilityState?.X` no mesmo estado de sempre.
+       *
+       * ⚠️ **`aria-disabled` ANUNCIA; `disabled` RECUSA** (BR2). Os dois andam juntos de propósito —
+       * trocar um pelo outro daria um controle que só parece recusado.
+       */
+      aria-disabled={off}
+      aria-busy={a11y?.busy ?? busy}
+      {...(a11y?.expanded === undefined ? {} : { 'aria-expanded': a11y.expanded })}
       {...(accessibilityLabel ? { accessibilityLabel } : {})}
       style={({ pressed }) => [
         styles.button,
@@ -373,7 +391,10 @@ export function Chip({
         onPress={onPress}
         disabled={disabled}
         accessibilityRole={multi ? 'checkbox' : 'radio'}
-        accessibilityState={{ checked: selected, disabled }}
+        // SPEC-072 FR3 — o estado que o `react-native-web` descartava, e que a SPEC-051 mediu como
+        // ausente na página inteira. No nativo é o mesmo caminho de antes (fusão do `Pressable`).
+        aria-checked={selected}
+        aria-disabled={disabled}
         {...(accessibilityLabel ? { accessibilityLabel } : {})}
         style={({ pressed }) => [
           styles.chip,

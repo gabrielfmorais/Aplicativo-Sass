@@ -53,7 +53,7 @@ function GuideRow({ code, last }: { code: CareTypeCode; last: boolean }) {
       <Pressable
         onPress={() => setOpen((v) => !v)}
         accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
+        aria-expanded={open}
         accessibilityLabel={`${label}, ${guide.durationMin} minutos`}
         accessibilityHint={open ? 'Toque para fechar o guia' : 'Toque para ler o guia'}
         style={({ pressed }) => [styles.row, pressed && styles.pressed]}

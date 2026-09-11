@@ -179,7 +179,7 @@ export function ProductPickRow({
     <Pressable
       onPress={onPress}
       accessibilityRole="checkbox"
-      accessibilityState={{ checked: selected }}
+      aria-checked={selected}
       /**
        * ⚠️ O rótulo acessível traz **nome e categoria juntos**, como o chip trazia: a linha visual
        * separa as duas em dois `Text`, e um leitor de tela que os anunciasse soltos daria dois
