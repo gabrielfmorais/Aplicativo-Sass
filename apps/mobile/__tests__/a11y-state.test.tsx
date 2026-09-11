@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react-native';
 
 import { Button, Chip } from '@/design/primitives';
+import { ProductMark } from '@/features/shelf/ProductIdentity';
 
 /**
  * SPEC-072 — **o estado de acessibilidade tem de chegar à plataforma, e o nativo não pode regredir.**
@@ -53,5 +54,35 @@ describe('SPEC-072 — o estado nativo é idêntico ao de antes', () => {
     expect(estado.expanded).toBeUndefined();
     expect(estado.checked).toBeUndefined();
     expect(estado.selected).toBeUndefined();
+  });
+});
+
+/**
+ * SPEC-072 (fatia 2) — **arte decorativa some do leitor de tela nas TRÊS plataformas.**
+ *
+ * ⚠️ **Havia um defeito de meia-plataforma:** a miniatura e o monograma do produto usavam só
+ * `accessibilityElementsHidden`, que é a metade **iOS**. No Android nada era escondido — a marca
+ * decorativa **era anunciada** —, e no web o prop era descartado. `aria-hidden` cobre as três:
+ * o RN 0.86 escreve `accessibilityElementsHidden` **e** `importantForAccessibility` a partir dele.
+ */
+describe('SPEC-072 — o que é decoração não é anunciado', () => {
+  it('a marca do produto é marcada como decoração, e por um prop só', async () => {
+    const s = await render(<ProductMark name="Máscara da feira" identity={null} />);
+    const arvore = JSON.stringify(s.toJSON());
+
+    expect(arvore).toContain('"aria-hidden":true');
+
+    /**
+     * ⚠️ **O que este teste PODE e NÃO PODE provar.** O preset renderiza `View` como componente de
+     * host, então o mapeamento do RN (`aria-hidden` → `accessibilityElementsHidden` no iOS **e**
+     * `importantForAccessibility` no Android) **não roda aqui** — ele é código do próprio RN 0.86,
+     * conferido na fonte, não suposição desta SPEC.
+     *
+     * O que se afirma é o que se observa: a decoração é marcada, e **por um prop só**. Antes havia
+     * apenas `accessibilityElementsHidden` — a metade **iOS** —, então no Android a marca era
+     * anunciada e no web o prop era descartado. A ausência do legado abaixo é a prova de que a
+     * meia-plataforma acabou.
+     */
+    expect(arvore).not.toContain('accessibilityElementsHidden');
   });
 });

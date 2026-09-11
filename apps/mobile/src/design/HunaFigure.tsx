@@ -147,8 +147,10 @@ export function HunaFigure({
   return (
     <View
       style={[styles.stage, style]}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+      // SPEC-072 — `aria-hidden` cobre as DUAS metades nativas de uma vez (o RN 0.86 escreve
+      // `accessibilityElementsHidden` no iOS e `importantForAccessibility` no Android) **e** chega ao
+      // DOM, onde o par legado era descartado — arte decorativa era anunciada no leitor de tela do web.
+      aria-hidden
       pointerEvents="none"
     >
       {/* O fundo do cartão, quando a cena tem um. Parado: só as mechas se movem. */}

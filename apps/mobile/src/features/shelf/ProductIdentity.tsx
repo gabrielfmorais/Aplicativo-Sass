@@ -77,13 +77,18 @@ export function ProductMark({
         source={{ uri: identity.imageUrl }}
         style={[styles.thumb, box]}
         resizeMode="contain"
-        accessibilityElementsHidden
+        /**
+         * ⚠️ **Aqui havia só a metade iOS.** `accessibilityElementsHidden` não esconde nada no
+         * Android, então a miniatura do produto **era anunciada** por lá — e no web o prop era
+         * descartado. `aria-hidden` cobre as três de uma vez (SPEC-072).
+         */
+        aria-hidden
       />
     );
   }
   return (
     // O nome está ao lado; a inicial repetida só somaria ruído para quem usa leitor de tela.
-    <View style={[styles.mark, box]} accessibilityElementsHidden>
+    <View style={[styles.mark, box]} aria-hidden>
       <Text style={styles.markLetter}>{initialOf(name)}</Text>
     </View>
   );

@@ -47,11 +47,17 @@ describe('WelcomeScreen (SPEC-018 FR1)', () => {
 describe('HunaFigure (SPEC-018 BR4 / SPEC-036)', () => {
   const scenes = Object.entries(SCENES);
 
-  /** É decoração. Anunciá-lo só colocaria ruído entre a usuária e a ação da tela. */
+  /**
+   * É decoração. Anunciá-lo só colocaria ruído entre a usuária e a ação da tela.
+   *
+   * ⚠️ **SPEC-072 — o par legado virou `aria-hidden`, e a garantia melhorou.** Antes eram duas props
+   * (uma para o iOS, outra para o Android) e o `react-native-web` descartava as duas; agora é uma só,
+   * que o RN 0.86 escreve nas **duas** metades nativas e que **chega ao DOM**. O que se afirma aqui é
+   * o que se observa no preset, que renderiza `View` como host e por isso não roda o mapeamento.
+   */
   it('é invisível para tecnologia assistiva', async () => {
     const screen = await render(<HunaFigure />);
-    expect(screen.root?.props.accessibilityElementsHidden).toBe(true);
-    expect(screen.root?.props.importantForAccessibility).toBe('no-hide-descendants');
+    expect(screen.root?.props['aria-hidden']).toBe(true);
   });
 
   /**
