@@ -1,6 +1,6 @@
 # Beta readiness — o que falta, e de quem depende
 
-**Atualizado:** 2026-09-09 (checkpoint de fim de sessão: SPEC-070 Finalizações + SPEC-071 rotina de óleo; ver §2.2, que é o ponto de retomada).
+**Atualizado:** 2026-09-11 (checkpoint: recuperação do checkpoint perdido + SPEC-072 acessibilidade; ver §2.3, que é o ponto de retomada).
 **Resumo:** o produto está **funcional de ponta a ponta em dev/beta interno** — a jornada real (sign-in dev → onboarding → cronograma → Hoje → registro → check-in → jornada) foi medida no DEV real. O que separa isto de um **beta público** não é engenharia de features: é um conjunto de **TRUE HUMAN GATES** (credenciais externas, sign-off profissional, base legal, contas de loja, custo real) que só o dono pode destravar. O agente segue construindo o roadmap desbloqueado sem esperar por eles.
 
 Este documento é o registro **separado** desses gates (pedido do dono). O pacote de decisões que precisa de revisão profissional capilar está em **[DOMAIN-SIGNOFF-PACKAGE.md](DOMAIN-SIGNOFF-PACKAGE.md)**.
@@ -169,6 +169,99 @@ desbloqueadas, em ordem de valor:
    (resumo na aba + tela própria). Zero gate.
 
 ⛔ **Não iniciadas de propósito** (a sessão foi encerrada no checkpoint, sem abrir frente nova).
+
+## 2.3 Checkpoint de 2026-09-11 — recuperação + o instrumento de acessibilidade
+
+⚠️ **A sessão abriu achando trabalho perdido.** O checkpoint escrito em 2026-09-09 **não estava na
+`main`**: a PR #190 foi aberta, o auto-merge armado, e o commit de documentação empurrado **depois** —
+o GitHub mergeou (squash) a versão que já tinha as checks verdes e o commit de docs ficou de fora. A
+PR aparece **MERGED**, a `main` fica **verde**, e **nada acusa**. Recuperado por `cherry-pick` do
+objeto que sobrevivia no repositório local (#191), e a lição virou **regra escrita**.
+
+| Frente | Estado | PR |
+|---|---|---|
+| Recuperação do checkpoint perdido + regra do auto-merge | ✅ DONE | #191 |
+| **SPEC-072** — o estado de acessibilidade que chega à plataforma (fecha a **OQ4 da SPEC-051**) | ✅ DONE | #192 |
+| **SPEC-072 fatia 2** — arte decorativa e o defeito de meia-plataforma | ✅ DONE | #193 |
+
+### O que a SPEC-072 devolveu ao projeto
+
+A SPEC-051 mediu **zero `aria-checked`** na página inteira e registrou o custo: *"a 390px o estado de
+um chip não se afere por ARIA"*. ⚠️ **Isso não era defeito de produto — era perda do INSTRUMENTO**
+com que este projeto valida (D-80/D-90). A SPEC-051 recusou o conserto parcial, e a recusa estava
+certa. ⭐ **A medição destravou as duas objeções:** o `react-native` 0.86.2 funde
+`aria-X ?? accessibilityState?.X` e o `react-native-web` 0.21 encaminha `aria-*` ao DOM — logo, trocar
+**não muda nada no iPhone** e **devolve a medição no web**; e não é conserto de ambiente, é a **API
+moderna da plataforma**.
+
+**Medido a 390px:** `aria-checked` **0 → 24**, mais 11 `aria-selected`, 12 `aria-expanded` e (fatia 2)
+**2** `aria-hidden` na abertura e **9** na Prateleira. ⛔ E a varredura achou um defeito real:
+`ProductIdentity` escondia a marca decorativa **só no iOS** — no Android ela **era anunciada**.
+
+⭐ **Guardrail novo: `pnpm check:a11y-state`**, cobrindo as três props que o RNW descarta e que têm
+equivalente moderno. ⚠️ `accessibilityHint` **fica de fora de propósito**: não existe `aria-*`
+equivalente, então é diferença de plataforma, não defeito nosso.
+
+### ⛔ Um dado do DEV foi destruído na validação, e restaurado
+
+Alternar *"Finalizei"* para medir o atributo **apagou a técnica de finalização** daquele cuidado
+(sair de `done` limpa `finish_technique` na mesma escrita — SPEC-048, por projeto), e voltar a `done`
+**não** a restaura. `fitagem_tradicional` sumiu e foi reposta pela porta da usuária, sob RLS.
+**Lição: medir um atributo ALTERNANDO um controle destrutivo custa o dado; onde o estado já está no
+valor que se quer observar, observa-se sem tocar.**
+
+### ⚠️ Por que a SPEC-047 OQ2 NÃO foi a frente escolhida
+
+O checkpoint anterior a apontou como próxima candidata. Reavaliada e **recusada por ora**, com motivo:
+
+1. **Move zero passos na North Star** — é endurecimento de gate, não elo da cadeia.
+2. **A ameaça é um cliente adulterado lendo o PRÓPRIO histórico dela.** Nada de outra usuária vaza.
+3. ⚠️ **Ninguém consegue ser premium hoje** (G5/IAP DEFERRED), então o gate protege uma receita que
+   **não existe** — e a forma certa do conserto depende de decisões que ainda não foram tomadas.
+4. ⛔ **As duas rotas terminam em gate que não é meu:** Edge Function exige o workflow manual
+   `deploy-dev-functions` (do dono), RPC exige migration aplicada no DEV. Eu entregaria código que
+   **não posso validar** — contra a D-90.
+5. ⚠️ **Reimplementar as barreiras de linguagem D-26 em SQL criaria a classe de defeito que este
+   repositório já mediu três vezes** (`FINISH_LABEL`, `CATEGORY_LABEL`, `FINISH_TECHNIQUE_LABEL`):
+   duas fontes para a mesma frase, que divergem na primeira mudança. A frase **é** a barreira.
+
+A própria SPEC-047 já diz que o gate é honesto **porque está documentado**. Ele continua honesto.
+
+### ⚠️ Três hipóteses minhas foram derrubadas por medição, e vale registrar
+
+Antes de escolher a frente, investiguei e **descartei** três candidatas — cada uma por medir, não por
+opinar:
+
+1. **"A captura de check-in é o gargalo da North Star."** Medido no DEV: 13 de 20 execuções vivas sem
+   check-in (35%). ⛔ Mas **no plano ativo** — tudo que a Hoje pode mostrar — os 3 cuidados não
+   avaliados **já estão na tela**, cada um com o próprio *"Como ficou?"*. Uma sugestão nova seria um
+   **quarto** pedido sobre coisas já pedidas: o *"mural de lembretes"* que o dono proibiu. E os 35%
+   são ruído de usuária de desenvolvimento, não sinal de produto.
+2. **"O check-in não tem caminho de volta."** ⛔ Falso: `canCheckIn` **não tem limite de tempo** e a
+   seção Histórico renderiza o mesmo cartão.
+3. **"Dynamic Type (SPEC-060 OQ3) é a frente iPhone-first desbloqueada."** ⛔ `allowFontScaling` nunca
+   é desligado e a única altura fixa guarda um **ícone**; e validar de verdade exige aparelho (G7).
+   Trabalho preventivo que eu não poderia provar.
+
+### ▶️ Próxima ação de amanhã
+
+⚠️ **O trabalho de engenharia desbloqueado e de alto valor está genuinamente fino** — as duas frentes
+desta sessão foram **manutenção da integridade do próprio projeto** (um checkpoint perdido, um
+instrumento de medição quebrado), não capability nova. Isso é um achado, não uma desculpa.
+
+**Candidata de maior valor, e ela precisa de uma decisão do dono antes de virar código:**
+
+- **`P25` — cards de insight Premium compartilháveis.** ⚠️ **A dependência ficou satisfeita**
+  (`F45` share card ✅ + `P2` Hair Intelligence ✅), exatamente como aconteceu com o `P8`. ⛔ **Mas há
+  um risco de domínio que não é meu para resolver:** na tela dela, *"Máscara da feira esteve em 4 dos
+  5 cuidados que você avaliou bem"* é observação, porque vem cercada do enquadramento honesto. **Num
+  feed de outra pessoa, sem esse contexto, lê como endosso** — e nomeia um **produto**, o que
+  encosta na integridade que a D-104 protege (`T2`). Precisa de decisão do dono sobre **se um card
+  pode nomear um produto**, antes de qualquer linha.
+
+Fora isso, o restante do roadmap está atrás de **tempo/dado** (`P12`, `P17`, `F47`), de **D-26**
+(`P4`, `P18`, `F24`, `F30`, `F38` conteúdo), de **D-32** (`F28`, `P9`–`P11`, `P24`) ou de **G7**
+(`F33`, Dynamic Type, haptics).
 
 ## 3. Auditoria técnica de checkpoint (2026-09-08)
 
