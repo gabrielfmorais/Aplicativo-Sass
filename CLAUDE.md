@@ -3,7 +3,9 @@
 Projeto: assistente pessoal de cuidados capilares (mobile, Expo + Supabase). Idioma dos docs: pt-BR; código, identificadores e commits em inglês.
 
 ## 0. Estado atual
-**Arquitetura aprovada (2026-08-26).** Última sincronização deste bloco: **2026-08-31** (SPEC-016 fatia 2, D-89).
+**Arquitetura aprovada (2026-08-26).** Última sincronização deste bloco: **2026-09-11** (SPEC-070 a SPEC-073).
+
+⚠️ **Este carimbo existe para dizer quão fresco é o bloco, e ele estava parado em 2026-08-31** — onze dias e mais de vinte blocos atrás. Um carimbo desatualizado é pior que nenhum: ele afirma frescor que não tem. Atualizar junto com o bloco é parte de acrescentar um.
 
 **Implementadas e merged (Fases 0–9):** SPEC-000 Engineering Foundation (AC12 deferred, D-50) · SPEC-001 Identity & Authentication (#3) · SPEC-002 Hair Profile & Onboarding (#6; D-62/D-63/D-64/D-65) · SPEC-004 Schedule Engine v1 + `generate-plan`, com o Assessment dentro (SPEC-003 folded, D-66) (#11; D-68, regras V1 `candidate` por D-67) · SPEC-005 Care Tracking (#14; D-69, D-12, D-35) · SPEC-007 Content v1 (#19; D-70/D-71/D-72 ratificadas) · SPEC-006 Check-ins (#21; D-73 ratificada) · SPEC-008 Notifications (#24; D-74 ratificada; `expo-notifications` por D-75) · SPEC-009 Progress v1 (#26; D-76) · SPEC-014 Reavaliação (#28; D-77) · **SPEC-010 Subscription & Entitlements** — Parte 1 infraestrutura (#35/#36/#37, D-78) e Parte 2 provider-agnóstica (#39, D-79) · **SPEC-015 Plan Customization** — a primeira capacidade premium (#42/#43/#44, D-81).
 
