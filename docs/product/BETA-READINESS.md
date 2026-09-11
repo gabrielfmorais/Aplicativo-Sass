@@ -141,6 +141,19 @@ de finalização, um cuidado de **Reconstrução** (planejado para 18/09) foi **
 própria tela. A janela de desfazer (15 min) passou, e reverter isso exigiria escrita direta no banco —
 mais arriscado que a mudança. É dado de desenvolvimento, e a jornada continua consistente.
 
+### ⚠️ Como este checkpoint quase se perdeu — regra operacional nova
+
+Este bloco foi escrito em 2026-09-09 e **não chegou à `main` naquele dia.** A sequência: a PR #190 foi
+aberta, o **auto-merge foi armado**, e só **depois** o commit de documentação foi empurrado para a
+mesma branch. O GitHub mergeou (squash) a versão que já tinha as checks verdes, e o commit de docs
+**ficou de fora** — a PR aparece como MERGED, a `main` fica verde, e **nada acusa**. A branch foi
+apagada logo em seguida; o texto só sobreviveu porque o objeto continuava no repositório local e foi
+recuperado por `cherry-pick` no dia seguinte.
+
+⛔ **Regra, a partir daqui: depois de armar o auto-merge, a branch está congelada.** Qualquer coisa
+que ainda falte vai em **PR própria**. Armar o auto-merge é dizer *"o que está aqui pode entrar"* —
+empurrar depois é apostar numa corrida contra o merge.
+
 ### ▶️ Próxima ação exata de amanhã
 
 **Não há frente pela metade.** O ponto de retomada é **reavaliar o roadmap e escolher a próxima
