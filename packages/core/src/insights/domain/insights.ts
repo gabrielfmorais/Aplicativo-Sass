@@ -134,6 +134,15 @@ export type Observation = {
   readonly subject: string;
   /** O que se repetiu, em número. Nunca "porque", nunca "melhora". */
   readonly detail: string;
+  /**
+   * SPEC-073 BR3 — **em quantos cuidados**, cru.
+   *
+   * ⚠️ Existe porque o card compartilhável precisa escrever a **própria** frase: a de `detail` é da
+   * tela, está na **segunda pessoa** e carrega o denominador, e as duas coisas mudam no card
+   * (primeira pessoa, sem denominador — SPEC-073 §4). Derivar o número de volta a partir do texto
+   * faria a apresentação depender de parsing de português.
+   */
+  readonly count: number;
 };
 
 /**

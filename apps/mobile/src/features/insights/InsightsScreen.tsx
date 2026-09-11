@@ -24,6 +24,7 @@ export function InsightsScreen({
   entitled,
   onRetry,
   onBack,
+  onShare,
 }: {
   view: InsightsView | null;
   loading: boolean;
@@ -32,6 +33,12 @@ export function InsightsScreen({
   entitled: boolean;
   onRetry?: () => void;
   onBack: () => void;
+  /**
+   * SPEC-073 (`P25`) — compartilhar o que ela descobriu. **Opcional, e não por conveniência:** a
+   * rota só o passa quando há momento compartilhável, e um botão que abrisse um preview vazio seria
+   * o botão morto que a SPEC-027 mediu na Prateleira.
+   */
+  onShare?: () => void;
 }) {
   const footer = <Button label="Voltar" variant="ghost" onPress={onBack} />;
   const header = (
@@ -310,6 +317,13 @@ export function InsightsScreen({
           finalizou, a resposta que deu no check-in e o que notou depois.
         </Text>
       </Stack>
+
+      {/*
+        SPEC-073 — a porta para o card. ⚠️ **Discreta e no fim**, como a do Wash Day: o valor da tela
+        é o que ela lê, e compartilhar é oferta, nunca o ponto. ⛔ Nada aqui promete alcance, elogia
+        ou compara — e o **preview continua sendo o consentimento** (SPEC-044 BR2).
+      */}
+      {onShare ? <Button label="Compartilhar um achado" variant="secondary" onPress={onShare} /> : null}
     </Screen>
   );
 }

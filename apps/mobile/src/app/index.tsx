@@ -34,6 +34,7 @@ import {
   detectCelebration,
   careDoneMoment,
   cycleMoments,
+  insightMoments,
   journeyMoment,
   milestoneMoments,
   washDayMoment,
@@ -210,10 +211,10 @@ function AuthenticatedApp({
    * só (SPEC-044 G5: o F46 acrescenta gatilhos, não outro caminho); o que muda é a lista de momentos
    * que cada lugar entrega.
    */
-  const [shareFrom, setShareFrom] = useState<'journey' | 'progress' | { careLabel: string; washDay?: true }>(
-    'journey',
-  );
-  const openShare = (from: 'journey' | 'progress' | { careLabel: string; washDay?: true }) => {
+  const [shareFrom, setShareFrom] = useState<
+    'journey' | 'progress' | 'insights' | { careLabel: string; washDay?: true }
+  >('journey');
+  const openShare = (from: 'journey' | 'progress' | 'insights' | { careLabel: string; washDay?: true }) => {
     setShareFrom(from);
     // Empilha sobre o caminho que existir: vindo da Jornada, voltar cai nela; vindo de uma aba, na aba.
     pushStacked('share');
@@ -660,6 +661,9 @@ function AuthenticatedApp({
         ...(shareFrom === 'progress' && board && board !== 'loading' && board !== 'error'
           ? cycleMomentsOf(board, today())
           : []),
+        // SPEC-073 — o que ela descobriu. Vem primeiro quando ela veio de "Seus padrões": o
+        // primeiro momento da lista é o padrão da tela, então ela abre no card que pediu.
+        ...(shareFrom === 'insights' && insightsState.view ? insightMoments(insightsState.view) : []),
         ...(view ? [journeyMoment(view), ...milestoneMoments(view)] : []),
       ];
       return (
@@ -687,6 +691,9 @@ function AuthenticatedApp({
           failed={insightsState.failed}
           entitled={canSeeInsights}
           onRetry={insightsState.reload}
+          {...(insightsState.view && insightMoments(insightsState.view).length > 0
+            ? { onShare: () => openShare('insights') }
+            : {})}
           onBack={closeStacked}
         />
       );

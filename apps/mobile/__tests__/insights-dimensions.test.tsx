@@ -20,6 +20,7 @@ const obs = (kind: Observation['kind'], subject: string, detail: string): Observ
   key: `${kind}:${subject}`,
   kind,
   subject,
+  count: 4,
   detail,
 });
 

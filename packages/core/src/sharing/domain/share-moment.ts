@@ -23,6 +23,8 @@ export const SHARE_MOMENT_KINDS = [
   'cycle_closed',
   'progress',
   'wash_day',
+  /** SPEC-073 — o que ela descobriu sobre a própria rotina (`P25`). */
+  'insight',
 ] as const;
 
 export type ShareMomentKind = (typeof SHARE_MOMENT_KINDS)[number];
