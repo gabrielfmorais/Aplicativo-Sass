@@ -18,7 +18,7 @@ Cada gate tem: **o que é · quem age · o que desbloqueia**. Nenhum é resolví
 
 ### G2 — Sign-off de domínio capilar (D-26 / D-70 / OQ-REL)
 - **Estado:** regras de cronograma (v1/v2), guias (SPEC-007), vocabulário de finalizações e de marcas de check-in são `candidate` — usáveis em dev/beta, **PUBLIC RELEASE bloqueado**.
-- **Quem age:** um profissional de cuidados capilares. Detalhe e itens em **[DOMAIN-SIGNOFF-PACKAGE.md](DOMAIN-SIGNOFF-PACKAGE.md)**.
+- **Quem age (MODELO ALTERADO pelo dono em 2026-09-11):** ⭐ **EVIDENCE-BASED DOMAIN SIGN-OFF.** Não haverá revisor profissional contratado. A revisão é feita pelo **ChatGPT**, trabalhando com **literatura científica · dermatologia/cosmetologia · fontes oficiais · evidência físico-química do fio**, e com **relato de usuária apenas como evidência secundária de variabilidade e uso real**. ⛔ **Comentário de usuária NUNCA prova eficácia** — se a única evidência de um item for relato de uso, o veredito correto é `needs change` ou `rejected`, nunca `validated`. O pacote completo, pronto para ser copiado inteiro ao revisor, está em **[DOMAIN-SIGNOFF-PACKAGE.md](DOMAIN-SIGNOFF-PACKAGE.md)** — ele é autossuficiente e traz, por decisão: a regra exata, onde ela vive no código, o comportamento atual, os claims que habilitaria, as capabilities que destrava, os riscos, as alternativas já descartadas e as perguntas objetivas.
 - **Desbloqueia:** PUBLIC RELEASE do core (cronograma + guias + marcas) e a camada de recomendação/insight mais valiosa do Premium.
 
 ### G3 — Base legal / mídia (D-32) — a tabela `consents` não existe
@@ -357,7 +357,7 @@ ordem só esconderia essa diferença:
 
 | Gate | Esforço do dono | Custo externo | Destrava | North Star | Beta |
 |---|---|---|---|---|---|
-| **G2** — sign-off de domínio | Achar **um** profissional de cuidados capilares e fazê-lo revisar um pacote que **já existe** (`DOMAIN-SIGNOFF-PACKAGE.md`). Horas, não semanas. | Honorário de algumas horas. **Não é recorrente.** | PUBLIC RELEASE do core (regras v1/v2, guias, vocabulário de finalizações e de marcas) · **`P18` recomendações** · **`P4` Adaptive Engine** · conteúdo do `F38` · `F24` SOS · `F30` orientação profissional · metade `couro` do `P13`/`P15` (com `G3`) | ⭐⭐⭐ **Decisivo, e é o único.** Tudo que existe hoje para em **observação**; o sign-off é o que autoriza **comparar, adaptar e recomendar** — os três últimos elos da cadeia. | Não bloqueia beta interno. Bloqueia **publicação**. |
+| **G2** — sign-off de domínio ⭐ **evidence-based desde 2026-09-11** | Copiar o pacote (`DOMAIN-SIGNOFF-PACKAGE.md`) para o revisor e registrar os vereditos. **Não há contratação.** | ⭐ **Nenhum.** O modelo deixou de depender de honorário. | PUBLIC RELEASE do core (regras v1/v2, guias, vocabulário de finalizações e de marcas) · **`P18` recomendações** · **`P4` Adaptive Engine** · conteúdo do `F38` · `F24` SOS · `F30` orientação profissional · metade `couro` do `P13`/`P15` (com `G3`) | ⭐⭐⭐ **Decisivo, e é o único.** Tudo que existe hoje para em **observação**; o sign-off é o que autoriza **comparar, adaptar e recomendar** — os três últimos elos da cadeia. | Não bloqueia beta interno. Bloqueia **publicação**. |
 | **G7** — build nativo iOS | Reabrir o ambiente nativo: Mac com Xcode **ou** EAS build. Hoje DEFERRED por decisão dele. | Apple Developer **US$ 99/ano** — o mesmo da conta que `G1` e `G5` usam. | **Validação**, não capability: notificações locais reais · IAP nativo · rasterização do share card e folha do SO · câmera do `F33` · área segura, teclado e gesto reais · Dynamic Type · haptics | ⭐ **Indireto.** Não acrescenta elo; prova que o que já existe funciona no aparelho. | ⭐⭐⭐ **Obrigatório.** Não há beta sem build. |
 | **G1** — auth de produção | Console do Google (provider + OAuth + redirects) · Apple Developer (Sign in with Apple) · SMTP/provider de email para o OTP entregar o código que a UI pede · allowlists de redirect por plataforma. | Apple US$ 99/ano (compartilhado) + SMTP, em geral free tier. | **Qualquer beta ou publicação** (D-86 é explícito: o DEV sign-in não satisfaz) | ⭐ **Nenhum direto** — mas sem ela ninguém usa o produto, e a cadeia nunca roda com dado real. | ⭐⭐⭐ **Bloqueador absoluto.** |
 | **G5** — IAP / RevenueCat | Conta RevenueCat · App Store Connect + Google Play · produtos e preços configurados. | Apple US$ 99/ano (compartilhado) + Google **US$ 25 uma vez** + RevenueCat (free até certo volume). | O fluxo de compra, e a medição da hipótese de monetização (**H5**) — hoje **ninguém consegue virar premium** | — | Não bloqueia beta **gratuito**. Bloqueia validar monetização. |
@@ -367,9 +367,9 @@ ordem só esconderia essa diferença:
 
 ### 5.2 Ordem recomendada
 
-1. **`G2` — sign-off de domínio.** É o **melhor retorno por esforço do repositório inteiro**: custo
-   baixo, não recorrente, não depende de loja nem de jurídico, e é o **único** gate que move a North
-   Star. Ele também é o que mais some com o trabalho parado: `P18`, `P4`, o conteúdo do `F38`, o
+1. **`G2` — sign-off de domínio.** ⭐ **Com o modelo evidence-based, ficou o melhor retorno por
+   esforço do repositório inteiro por uma margem ainda maior:** custo **zero**, sem contratação, sem
+   loja e sem jurídico — e é o **único** gate que move a North Star. Ele também é o que mais some com o trabalho parado: `P18`, `P4`, o conteúdo do `F38`, o
    `F24` e o `F30` estão **todos** atrás dele, e todos já têm a arquitetura pronta esperando.
 2. **`G1` + `G7` juntos.** São pré-requisito de beta e **compartilham a conta Apple**, então separá-los
    só faz pagar duas vezes a mesma burocracia. Abrir os dois transforma "funciona no preview web" em
