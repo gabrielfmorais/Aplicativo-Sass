@@ -1,6 +1,6 @@
 # Beta readiness — o que falta, e de quem depende
 
-**Atualizado:** 2026-09-11 (checkpoint: recuperação do checkpoint perdido + SPEC-072 acessibilidade; ver §2.3, que é o ponto de retomada).
+**Atualizado:** 2026-09-11 (checkpoint: recuperação + SPEC-072 acessibilidade + **SPEC-073 `P25` cards de insight**; ver §2.3, que é o ponto de retomada).
 **Resumo:** o produto está **funcional de ponta a ponta em dev/beta interno** — a jornada real (sign-in dev → onboarding → cronograma → Hoje → registro → check-in → jornada) foi medida no DEV real. O que separa isto de um **beta público** não é engenharia de features: é um conjunto de **TRUE HUMAN GATES** (credenciais externas, sign-off profissional, base legal, contas de loja, custo real) que só o dono pode destravar. O agente segue construindo o roadmap desbloqueado sem esperar por eles.
 
 Este documento é o registro **separado** desses gates (pedido do dono). O pacote de decisões que precisa de revisão profissional capilar está em **[DOMAIN-SIGNOFF-PACKAGE.md](DOMAIN-SIGNOFF-PACKAGE.md)**.
@@ -183,6 +183,8 @@ objeto que sobrevivia no repositório local (#191), e a lição virou **regra es
 | Recuperação do checkpoint perdido + regra do auto-merge | ✅ DONE | #191 |
 | **SPEC-072** — o estado de acessibilidade que chega à plataforma (fecha a **OQ4 da SPEC-051**) | ✅ DONE | #192 |
 | **SPEC-072 fatia 2** — arte decorativa e o defeito de meia-plataforma | ✅ DONE | #193 |
+| **SPEC-073** — `P25` cards de insight, com o produto nomeado (autorizado pelo dono) | ✅ DONE | #196 · #198 |
+| Deriva de documentação: guardrails, contagem de testes, carimbo do §0 | ✅ DONE | #195 · #197 |
 
 ### O que a SPEC-072 devolveu ao projeto
 
@@ -259,9 +261,47 @@ instrumento de medição quebrado), não capability nova. Isso é um achado, nã
   encosta na integridade que a D-104 protege (`T2`). Precisa de decisão do dono sobre **se um card
   pode nomear um produto**, antes de qualquer linha.
 
-Fora isso, o restante do roadmap está atrás de **tempo/dado** (`P12`, `P17`, `F47`), de **D-26**
-(`P4`, `P18`, `F24`, `F30`, `F38` conteúdo), de **D-32** (`F28`, `P9`–`P11`, `P24`) ou de **G7**
-(`F33`, Dynamic Type, haptics).
+### ✅ O `P25` foi decidido pelo dono e entregue na mesma sessão
+
+A pergunta acima — **"um card pode nomear um produto?"** — foi respondida pelo dono em 2026-09-11:
+**pode**. O `P25` saiu de `DEFERRED BY DEPENDENCY` para **DONE** (SPEC-073, #196/#198).
+
+⚠️ **A autorização não afrouxou mais nada.** Seguem com barreira de teste: nenhum verbo de efeito,
+nenhuma recomendação, nenhum ranking, nenhuma porcentagem — e ⛔ **nenhum link, loja ou comissão**
+(D-104: nomear é dizer o que ela usou, não levar a lugar nenhum).
+
+⚠️ **A decisão difícil foi o DENOMINADOR, e ele sai do card.** Na tela a observação precisa dele
+(*"em 4 **dos 5**"* é o que impede a repetição de parecer maior do que é); no card, *"4 de 5"*
+convida a calcular **80%**, e num feed de outra pessoa isso lê como *"esse produto funciona 80% das
+vezes"* — a leitura causal sobre produto capilar, em público, que é o único risco real da capability.
+⭐ **A SPEC-045 já recusara denominador no card de ciclo pelo mesmo motivo**, e coerência com aquela
+recusa vale mais que simetria com a tela.
+
+⛔ **A marca do check-in (`noticed`) não vira card:** fora do contexto da tela, *"Frizz — 4 cuidados"*
+lê como queixa.
+
+⭐ **E a auditoria do próprio diff pegou um risco que a SPEC-068 já tinha pago:** os momentos novos
+têm chip com **nome de produto**, e a SPEC-068 encurtara os chips justamente porque sete momentos
+faziam o seletor ocupar **quatro linhas**. Medido: 7 chips, 3 linhas, 166px — no limite; mas um nome
+de catálogo daria ~250px. O chip ganhou régua própria de **18** e o `headline` do card ficou em 29.
+
+### ▶️ Próxima ação — e um achado sobre o estado do roadmap
+
+⚠️ **O trabalho desbloqueado e de alto valor está genuinamente exaurido**, e isso é conclusão de
+varredura, não impressão:
+
+- **Premium:** `P3` precisa de volume (tempo), `P5` é **decisão do dono sobre o mapa** (a própria
+  linha do backlog diz isso), `P7` é recusa registrada, `P9`/`P16` dependem do `F28` (**D-32**),
+  `P12`/`P17` de tempo/dado **e** do problema aritmético que a SPEC-068 mediu, `P21` de provider
+  externo com **custo**.
+- **Free:** `F24`/`F30`/`F38` (conteúdo) atrás de **D-26**, `F28` de **D-32**, `F33` de **G7**.
+- **Release:** `G1` auth, `G5` IAP, `G6` analytics, `G7` build nativo.
+
+**Recomendação:** a próxima sessão deveria começar por uma **decisão do dono**, não por código —
+e a mais barata de todas é o **`P5`**: decidir se ele continua sendo capability própria ou se já foi
+absorvido por `P2`/`P6`/`P8`. Enquanto isso não acontece, o que sobra de engenharia é manutenção da
+integridade do projeto (deriva de documentação, guardrails, auditorias) — que esta sessão mostrou ter
+valor real, mas não é o mesmo que avançar a North Star.
 
 ## 3. Auditoria técnica de checkpoint (2026-09-08)
 
