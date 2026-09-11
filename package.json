@@ -21,7 +21,7 @@
     "test:core": "pnpm --filter @app/core test",
     "check:entitlement-parity": "node scripts/check-entitlement-catalog-parity.mjs",
     "check:ingest-map": "node --test scripts/ingest-catalog-map.test.mjs",
-    "verify": "pnpm check:node && pnpm format:check && pnpm lint && pnpm typecheck && pnpm dep-cruise && pnpm test && pnpm check:ingest-map && pnpm check:boundaries && pnpm check:safe-area && pnpm check:label-owners && pnpm check:docs-links && pnpm check:data-model && pnpm check:migration-versions && pnpm check:security-exceptions && pnpm check:entitlement-parity",
+    "verify": "pnpm check:node && pnpm format:check && pnpm lint && pnpm typecheck && pnpm dep-cruise && pnpm test && pnpm check:ingest-map && pnpm check:boundaries && pnpm check:safe-area && pnpm check:label-owners && pnpm check:a11y-state && pnpm check:docs-links && pnpm check:data-model && pnpm check:migration-versions && pnpm check:security-exceptions && pnpm check:entitlement-parity",
     "check:security-exceptions": "node scripts/check-security-exceptions.mjs",
     "check:remote-schema": "node scripts/check-remote-schema.mjs",
     "check:remote-functions": "node scripts/check-remote-functions.mjs",
@@ -31,7 +31,8 @@
     "check:migration-versions": "node scripts/check-migration-versions.mjs",
     "check:data-model": "node scripts/check-data-model.mjs",
     "check:safe-area": "node scripts/check-safe-area.mjs",
-    "check:label-owners": "node scripts/check-label-owners.mjs"
+    "check:label-owners": "node scripts/check-label-owners.mjs",
+    "check:a11y-state": "node scripts/check-a11y-state.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

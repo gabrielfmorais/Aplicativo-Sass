@@ -158,7 +158,7 @@ export function PlanCustomizationSection({
         label={saving ? 'Salvando…' : 'Salvar meus dias'}
         variant="secondary"
         disabled={saving}
-        accessibilityState={{ busy: saving }}
+        a11y={{ busy: saving }}
         onPress={save}
       />
 

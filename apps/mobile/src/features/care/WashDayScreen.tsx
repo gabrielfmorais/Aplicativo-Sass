@@ -475,7 +475,7 @@ export function WashDayScreen({
               label="Usei um produto novo"
               variant="ghost"
               size="sm"
-              accessibilityState={{ expanded: adding }}
+              a11y={{ expanded: adding }}
               onPress={() => setAdding((v) => !v)}
               style={styles.inline}
             />

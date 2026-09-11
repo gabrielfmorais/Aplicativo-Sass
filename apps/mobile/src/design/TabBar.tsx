@@ -74,7 +74,8 @@ export function TabBar({ active, onChange }: { active: TabKey; onChange: (tab: T
             key={tab.key}
             onPress={() => onChange(tab.key)}
             accessibilityRole="tab"
-            accessibilityState={{ selected: on }}
+            // SPEC-072 FR3 — a aba ativa passa a se anunciar também no web, onde o legado sumia.
+            aria-selected={on}
             /**
              * O rótulo já diz a palavra; o que o leitor de tela **não** teria é a posição. "Hoje,
              * aba 1 de 4" é a diferença entre saber onde se está e adivinhar.

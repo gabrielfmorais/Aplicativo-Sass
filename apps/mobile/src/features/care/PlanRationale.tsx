@@ -105,7 +105,7 @@ export function PlanRationale({
         variant="secondary"
         size="sm"
         onPress={() => setOpen(!open)}
-        accessibilityState={{ expanded: open }}
+        a11y={{ expanded: open }}
         style={styles.toggle}
       />
       {open ? (
