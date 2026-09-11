@@ -120,3 +120,28 @@ describe('insightMoments (SPEC-073)', () => {
     expect(m?.headline.endsWith('…')).toBe(true);
   });
 });
+
+/**
+ * SPEC-073 — **o chip do seletor é mais curto que o headline do card, e o número saiu de medição.**
+ *
+ * ⚠️ A SPEC-068 mediu que sete momentos faziam o seletor ocupar **quatro linhas** e consertou
+ * encurtando o chip. Medido a 390px com os momentos de insight somados: **7 chips em 3 linhas**, o
+ * mais largo em **166px** — no limite. ⛔ Um nome de catálogo truncado em 29 daria ~250px e
+ * empurraria de volta para a quarta linha.
+ */
+describe('SPEC-073 — o chip não desfaz a correção da SPEC-068', () => {
+  const longo = 'Wella Professionals Invigo Nutri-Enrich Deep Mask';
+
+  it('o chip é mais curto que o headline — são slots diferentes', () => {
+    const [m] = insightMoments(view({ observations: [obs({ subject: longo })] }));
+    expect(m?.chip.length).toBeLessThanOrEqual(18);
+    expect(m?.headline.length).toBeLessThanOrEqual(29);
+    expect(m!.chip.length).toBeLessThan(m!.headline.length);
+  });
+
+  it('um nome curto passa inteiro nos dois', () => {
+    const [m] = insightMoments(view());
+    expect(m?.chip).toBe('Máscara da feira');
+    expect(m?.headline).toBe('Máscara da feira');
+  });
+});

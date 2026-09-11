@@ -150,6 +150,22 @@ nomeadas, 3 marcas, 20 execuções vivas. ⭐ **A lição da SPEC-072 foi aplica
 semear marcas para exercer a EC2 foi **recusada pela RLS** (4× `403`, `user_id` indefinido) e
 **nada foi escrito** — e, em vez de insistir, a lacuna virou registro.
 
+## 10.2 Uma auditoria do próprio diff, e o que ela mediu
+
+⚠️ **Risco que eu mesmo criei, e que a SPEC-068 já tinha pago uma vez:** ela mediu que **sete
+momentos** faziam o seletor *"O que compartilhar"* ocupar **quatro linhas (~224px, mais de um quarto
+da tela)**, e consertou **encurtando o chip** — porque o chip é um **nome para escolher por**, e a
+frase inteira vive no card logo acima. Esta SPEC acrescenta momentos cujo chip é um **nome de
+produto**, que pode ser longo.
+
+**Medido a 390px, com os momentos de insight já somados:** **7 chips em 3 linhas**, o mais largo em
+**166px** — exatamente no limite que a SPEC-068 deixou. ⛔ **Mas o nome do DEV é curto:** um nome de
+catálogo truncado em 29 daria ~250px e **empurraria de volta para a quarta linha**.
+
+⭐ **Correção:** o chip ganhou régua própria de **18** (a mesma do `MAX_SHARE_NAME`), e o `headline`
+do card continua em **29** — são slots diferentes, com larguras diferentes. Remedido depois: **7
+chips, 3 linhas, 166px**, sem mudança para o dado real, e agora **limitado** para o nome longo.
+
 ## 11. Change Log
 
 - 2026-09-11 — criada depois de o dono autorizar nomear o produto no card.
