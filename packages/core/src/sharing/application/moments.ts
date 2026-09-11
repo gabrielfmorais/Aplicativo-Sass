@@ -274,8 +274,25 @@ const bemAvaliados = (n: number) => `${n === 1 ? 'cuidado' : 'cuidados'} que ava
  * 40px e comporta ~29, então é lá que o nome vai; o herói fica com a contagem, que é sempre curta.
  */
 const MAX_SUBJECT_ON_CARD = 29;
-const paraOCard = (subject: string) =>
-  subject.length <= MAX_SUBJECT_ON_CARD ? subject : `${subject.slice(0, MAX_SUBJECT_ON_CARD - 1)}…`;
+
+/**
+ * O mesmo assunto, **mais curto ainda no seletor** — e o número saiu de medição, não de gosto.
+ *
+ * ⚠️ A SPEC-068 mediu que sete momentos faziam o seletor ocupar **quatro linhas (~224px, mais de um
+ * quarto da tela)**, e o que consertou foi encurtar o chip: ele é um **nome para escolher por**, e a
+ * frase inteira vive no card, logo acima. Medido a 390px com os momentos de insight já somados: **7
+ * chips em 3 linhas**, com o mais largo em **166px** — exatamente no limite que a SPEC-068 deixou.
+ *
+ * ⛔ Um nome de catálogo truncado em 29 daria ~250px e **empurraria para a quarta linha**, desfazendo
+ * aquela correção. O chip para em 18 (a mesma régua do `MAX_SHARE_NAME`), e o `headline` do card
+ * continua em 29 — são slots diferentes, com larguras diferentes.
+ */
+const MAX_SUBJECT_ON_CHIP = 18;
+
+const encurta = (subject: string, max: number) =>
+  subject.length <= max ? subject : `${subject.slice(0, max - 1)}…`;
+const paraOCard = (subject: string) => encurta(subject, MAX_SUBJECT_ON_CARD);
+const paraOSeletor = (subject: string) => encurta(subject, MAX_SUBJECT_ON_CHIP);
 
 export const insightMoments = (view: InsightsView): readonly ShareMoment[] => {
   if (!view.enoughData) return [];
@@ -286,7 +303,7 @@ export const insightMoments = (view: InsightsView): readonly ShareMoment[] => {
     .map((o) => ({
       kind: 'insight' as const,
       key: `insight:${o.key}`,
-      chip: paraOCard(o.subject),
+      chip: paraOSeletor(o.subject),
       headline: paraOCard(o.subject),
       value: String(o.count),
       valueLabel: bemAvaliados(o.count),
@@ -296,7 +313,7 @@ export const insightMoments = (view: InsightsView): readonly ShareMoment[] => {
   const dePadrao = view.patterns.map((p) => ({
     kind: 'insight' as const,
     key: `insight:${p.key}`,
-    chip: paraOCard(p.subject),
+    chip: paraOSeletor(p.subject),
     headline: paraOCard(p.subject),
     // BR4 — `wellRated`, e não `cares`: é a metade que a frase da tela destaca, e `cares` faria o
     // card contar co-ocorrência **sem** resultado.
