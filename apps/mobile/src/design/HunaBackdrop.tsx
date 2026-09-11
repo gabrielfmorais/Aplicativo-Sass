@@ -39,8 +39,10 @@ export function HunaBackdrop() {
   return (
     <View
       style={StyleSheet.absoluteFill}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+      // SPEC-072 — `aria-hidden` cobre as DUAS metades nativas de uma vez (o RN 0.86 escreve
+      // `accessibilityElementsHidden` no iOS e `importantForAccessibility` no Android) **e** chega ao
+      // DOM, onde o par legado era descartado — arte decorativa era anunciada no leitor de tela do web.
+      aria-hidden
       pointerEvents="none"
     >
       <Svg width="100%" height="100%" viewBox="0 0 420 760" preserveAspectRatio="xMidYMid slice">

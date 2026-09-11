@@ -165,6 +165,37 @@ RLS, restaurando um fato que era dela). Conferido depois, no banco e na tela: *"
 estado já está no valor que se quer observar, **observa-se sem tocar**; só um controle cuja alternância
 é reversível pode ser usado para provar a virada.
 
+## 8.3 Fatia 2 — a varredura, e o defeito de meia-plataforma que ela achou
+
+Fechada a fatia 1, **medi quais outras props de acessibilidade o `react-native-web` descarta**, em
+vez de supor que era só uma. O resultado, lido em `createDOMProps`:
+
+| prop legada | RNW | tem `aria-*` equivalente? |
+|---|---|---|
+| `accessibilityState` | descarta | sim → fatia 1 |
+| `accessibilityElementsHidden` | **descarta** | sim (`aria-hidden`) |
+| `importantForAccessibility` | **descarta** | sim (`aria-hidden`) |
+| `accessibilityHint` | descarta | **não** |
+| `accessibilityLabel` · `accessibilityRole` · `accessibilityLiveRegion` · `accessibilityValue` | **trata** | — |
+
+⚠️ **`accessibilityHint` fica como está, e isso é decisão:** não existe `aria-*` equivalente, então
+não há para onde migrar. É diferença de plataforma, não defeito nosso — e por isso **não** entra na
+lista do guardrail.
+
+⛔ **O defeito que a varredura achou:** `ProductIdentity` marcava a miniatura e o monograma com
+**apenas `accessibilityElementsHidden`** — a metade **iOS**. No Android a marca decorativa **era
+anunciada**, e no web o prop era descartado. Um único `aria-hidden` cobre as três, porque o RN 0.86
+escreve as duas props nativas a partir dele (lido em `View.js`, linhas 71-76).
+
+**Medido a 390px no DEV real:** a abertura (hero + fundo) expõe **2** `aria-hidden`; a Prateleira,
+**9** — todos invisíveis para a tecnologia assistiva do web até aqui. Console limpo, sem transbordo.
+
+⚠️ **O guardrail cobre as três props agora, e ganhou uma correção própria:** a primeira versão do
+detector olhava o **começo da linha** para decidir se era comentário, e reprovou dois comentários JSX
+cujas linhas de continuação são texto indentado sem asterisco. Passou a **tirar os trechos entre
+crases** antes de procurar — que é como este repositório escreve toda menção em prosa. Verificado
+contra o defeito nas três props, e sem falso positivo.
+
 ## 9. O que só se prova em iPhone nativo (G7)
 
 Que o VoiceOver anuncia o estado. O que esta SPEC prova é que o **atributo chega** — no web por
