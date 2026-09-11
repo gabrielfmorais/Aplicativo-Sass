@@ -95,6 +95,7 @@ export const buildInsights = (
         key: `${kind}:${id}`,
         kind,
         subject: v.name,
+        count: v.count,
         /**
          * ⚠️ **A frase é toda a diferença.** "Esteve em" / "você fez em" são co-ocorrência e são
          * verificáveis nos registros dela; qualquer verbo de efeito ("melhorou", "ajudou",

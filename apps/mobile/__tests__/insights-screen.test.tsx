@@ -20,6 +20,7 @@ const view = (over: Partial<InsightsView> = {}): InsightsView => ({
       key: 'product:p1',
       kind: 'product',
       subject: 'Máscara da Ana',
+      count: 4,
       detail: 'esteve em 4 dos 6 cuidados que você avaliou bem',
     },
   ],
@@ -123,12 +124,14 @@ describe('Seus padrões (SPEC-047)', () => {
             key: 'product:p1',
             kind: 'product',
             subject: 'Máscara da Ana',
+            count: 4,
             detail: 'esteve em 4 dos 6 cuidados que você avaliou bem',
           },
           {
             key: 'technique:air_dried',
             kind: 'technique',
             subject: 'Secou naturalmente',
+            count: 4,
             detail: 'você fez em 5 dos 6 cuidados que você avaliou bem',
           },
         ],
@@ -156,6 +159,7 @@ describe('Seus padrões (SPEC-047)', () => {
             key: 'finish:plopping',
             kind: 'finish',
             subject: 'Plopping',
+            count: 4,
             detail: 'você finalizou assim em 3 dos 6 cuidados que você avaliou bem',
           },
         ],
@@ -270,12 +274,14 @@ describe('Seus padrões — as combinações (SPEC-050)', () => {
             key: 'noticed:frizz',
             kind: 'noticed',
             subject: 'Frizz',
+            count: 4,
             detail: 'você notou em 4 dos 8 cuidados que você avaliou',
           },
           {
             key: 'product:p1',
             kind: 'product',
             subject: 'Máscara da Ana',
+            count: 4,
             detail: 'esteve em 4 dos 6 cuidados que você avaliou bem',
           },
         ],
@@ -347,6 +353,7 @@ describe('Seus padrões — o que você tem notado (SPEC-051)', () => {
     key: 'noticed:frizz',
     kind: 'noticed' as const,
     subject: 'Frizz',
+    count: 4,
     detail: 'você notou em 6 dos 12 cuidados que você avaliou',
   };
 
@@ -387,5 +394,34 @@ describe('Seus padrões — o que você tem notado (SPEC-051)', () => {
      * banisse a palavra proibiria a única frase que o produto precisa dizer.
      */
     expect(s.queryByText(/melhorou|piorou|danificad|saudável|recuper/i)).toBeNull();
+  });
+});
+
+/**
+ * SPEC-073 (`P25`) — **a porta para o card, e o que ela NÃO pode ser.**
+ *
+ * ⚠️ A oferta é **opcional na assinatura** de propósito: a rota só a passa quando existe momento
+ * compartilhável. Um botão que abrisse um preview vazio seria o botão morto que a SPEC-027 mediu na
+ * Prateleira.
+ */
+describe('SPEC-073 — compartilhar um achado', () => {
+  it('sem a porta, nada é oferecido', async () => {
+    const s = await screen();
+    expect(s.queryByText('Compartilhar um achado')).toBeNull();
+  });
+
+  it('com a porta, oferece — e chama quem abriu', async () => {
+    const onShare = jest.fn();
+    const s = await screen({ onShare });
+    fireEvent.press(s.getByText('Compartilhar um achado'));
+    expect(onShare).toHaveBeenCalled();
+  });
+
+  /** ⛔ Oferta, nunca cobrança: nada promete alcance, elogia ou compara (D-103). */
+  it('a oferta não promete alcance nem elogia', async () => {
+    const s = await screen({ onShare: jest.fn() });
+    for (const node of s.queryAllByText(/vira|viral|amigas|mostre|todo mundo|parabéns|incrível/i)) {
+      throw new Error(`texto proibido na oferta: "${String(node.props.children)}"`);
+    }
   });
 });

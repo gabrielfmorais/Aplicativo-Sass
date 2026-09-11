@@ -14,6 +14,7 @@ export {
   cycleClosedMoment,
   cycleMoment,
   cycleMoments,
+  insightMoments,
   journeyMoment,
   milestoneMoments,
   progressMoment,

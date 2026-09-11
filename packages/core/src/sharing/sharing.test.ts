@@ -442,6 +442,9 @@ describe('Momentos — o vocabulário congelado (SPEC-045)', () => {
       'cycle_closed',
       'progress',
       'wash_day',
+      // SPEC-073 (`P25`) — acrescentado de propósito, com verbo próprio e barreira de linguagem
+      // (contagem, primeira pessoa, sem denominador) em `insight-moments.test.ts`.
+      'insight',
     ]);
   });
 

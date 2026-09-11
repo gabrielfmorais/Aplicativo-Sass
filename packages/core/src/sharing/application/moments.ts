@@ -1,5 +1,6 @@
 import type { CycleView } from '../../care-tracking/index.ts';
 import type { JourneyView } from '../../journey/index.ts';
+import type { InsightsView } from '../../insights/index.ts';
 import type { Progress } from '../../progress/index.ts';
 import { isCycleEnded } from '../../progress/index.ts';
 import type { ShareMoment } from '../domain/share-moment.ts';
@@ -239,4 +240,70 @@ export const cycleMoments = (input: {
     ...(progress.done > 0 ? [ended ? cycleClosedMoment(progress) : cycleMoment(progress)] : []),
     ...(lifetime ? [lifetime] : []),
   ];
+};
+
+/**
+ * SPEC-073 (`P25`) — **o que ela descobriu sobre a própria rotina, em card.**
+ *
+ * ⚠️ **O card vai em CONTAGEM, sem denominador — e essa é a decisão difícil desta SPEC.** Na tela a
+ * observação precisa do denominador (*"em 4 **dos 5** cuidados que você avaliou bem"*), porque é ele
+ * que impede a repetição de parecer maior do que é (SPEC-047). No card ele sai: *"4 de 5"* convida a
+ * calcular **80%**, e num feed de outra pessoa isso lê como *"esse produto funciona 80% das vezes"* —
+ * a leitura causal sobre um produto capilar, em público, que é o único risco real desta capability.
+ * ⭐ **A SPEC-045 já tinha recusado denominador no card de ciclo pelo mesmo motivo** (*"'10 de 14'
+ * convida a calcular 86%"*), e coerência com aquela recusa vale mais que simetria com a tela.
+ *
+ * ⚠️ **Primeira pessoa** (BR1): *"cuidados que avaliei bem"*. O card sai da mão dela para quem não é
+ * ela — a SPEC-045 mediu esse defeito nos marcos e pagou por ele.
+ *
+ * ⛔ **A marca do check-in (`noticed`) NÃO vira card.** *"Frizz — 4 cuidados"* num feed lê como
+ * queixa, e a SPEC-051 misturou valências **de propósito** contando com o contexto da tela (a nota de
+ * 1 a 5 ao lado), que o card não tem.
+ *
+ * ⛔ **Nenhum verbo de efeito, nenhuma recomendação, nenhuma porcentagem** (D-26/D-70) — e nomear o
+ * produto **não** é indicá-lo: não há link, loja nem comissão (D-104).
+ */
+const bemAvaliados = (n: number) => `${n === 1 ? 'cuidado' : 'cuidados'} que avaliei bem`;
+
+/**
+ * O assunto no `headline`, e **não** no `value` — a razão é medida.
+ *
+ * O `value` é o herói auto-dimensionado com **piso de 96px**, o que comporta ~16 caracteres na
+ * largura útil: *"Máscara da feira"* cabe raspando e um nome de catálogo não cabe, e **SVG não
+ * reflui texto** (o excesso sai do quadro sem avisar — defeito medido na SPEC-045). O `headline` é
+ * 40px e comporta ~29, então é lá que o nome vai; o herói fica com a contagem, que é sempre curta.
+ */
+const MAX_SUBJECT_ON_CARD = 29;
+const paraOCard = (subject: string) =>
+  subject.length <= MAX_SUBJECT_ON_CARD ? subject : `${subject.slice(0, MAX_SUBJECT_ON_CARD - 1)}…`;
+
+export const insightMoments = (view: InsightsView): readonly ShareMoment[] => {
+  if (!view.enoughData) return [];
+
+  const deObservacao = view.observations
+    // ⛔ `noticed` é resultado, não algo que ela fez — e fora do contexto da tela lê como queixa.
+    .filter((o) => o.kind !== 'noticed')
+    .map((o) => ({
+      kind: 'insight' as const,
+      key: `insight:${o.key}`,
+      chip: paraOCard(o.subject),
+      headline: paraOCard(o.subject),
+      value: String(o.count),
+      valueLabel: bemAvaliados(o.count),
+      footnote: 'o que se repete na minha rotina',
+    }));
+
+  const dePadrao = view.patterns.map((p) => ({
+    kind: 'insight' as const,
+    key: `insight:${p.key}`,
+    chip: paraOCard(p.subject),
+    headline: paraOCard(p.subject),
+    // BR4 — `wellRated`, e não `cares`: é a metade que a frase da tela destaca, e `cares` faria o
+    // card contar co-ocorrência **sem** resultado.
+    value: String(p.wellRated),
+    valueLabel: bemAvaliados(p.wellRated),
+    footnote: 'o que se repete junto na minha rotina',
+  }));
+
+  return [...deObservacao, ...dePadrao];
 };
