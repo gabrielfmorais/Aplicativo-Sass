@@ -313,7 +313,7 @@ Continua opcional, continua rápido, continua sem penalidade por pular.
 
 ---
 
-# 9. Wash Day — `F25` (Free registra) · `P5` (Premium interpreta)
+# 9. Wash Day — `F25` (Free registra) · `P5` (Premium interpreta, **absorvido por `P2`/`P6`/`P8`**)
 
 > **Wash Day é estrutural.** Não é uma tela de anotação, e tratá-la como tal inviabiliza metade do Premium.
 
@@ -362,7 +362,21 @@ cuidado → produtos → técnicas → cabelo → couro cabeludo
 
 **Dependências.** `F26`/`F27` (produtos) tornam o Wash Day muito mais útil e provavelmente vêm antes ou junto. `F28` (fotos) e `P21` (clima) podem entrar depois, sem retrabalho, **se o modelo previr o encaixe** — e é por isso que ele precisa ser desenhado com essas conexões em mente, ainda que não implementadas.
 
-**Estado.** `F25` **COMMITTED** · `P5` **DEFERRED BY DEPENDENCY** (depende de `F25`).
+**Estado.** `F25` ✅ **DONE** (SPEC-024/052) · `P5` ✅ **DONE POR ABSORÇÃO** (dono, 2026-09-11).
+
+⚠️ **Não haverá capability, tela ou engine separado para o `P5`.** O "Premium interpreta" descrito
+acima **já acontece**, entregue em fatias sob outros três donos:
+
+| o que o §9 pedia | quem entrega hoje |
+|---|---|
+| ler produto × técnica × finalização × resultado | **`P2`** — SPEC-047 (*"Seus padrões"*) |
+| devolver o uso da prateleira | **`P6`** — SPEC-049/066 (Smart Shelf, com a última vez) |
+| o que apareceu **junto** | **`P8`** — SPEC-050 (padrões de combinação) |
+
+⚠️ **`DONE POR ABSORÇÃO` não é o mesmo que implementado:** nenhuma linha foi escrita para "fechar" o
+`P5`. **Os donos atuais daquele valor são `P2`, `P6` e `P8`** — é lá que ele evolui, e é lá que uma
+leitura nova do Wash Day deve nascer. ⛔ O que segue fora continua fora pelos motivos de sempre:
+causalidade e recomendação são **D-26/D-70** (`P18`), ranking é o `P7`, foto é **D-32** (`F28`).
 
 ---
 

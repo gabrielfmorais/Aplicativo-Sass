@@ -290,18 +290,22 @@ de catálogo daria ~250px. O chip ganhou régua própria de **18** e o `headline
 ⚠️ **O trabalho desbloqueado e de alto valor está genuinamente exaurido**, e isso é conclusão de
 varredura, não impressão:
 
-- **Premium:** `P3` precisa de volume (tempo), `P5` é **decisão do dono sobre o mapa** (a própria
-  linha do backlog diz isso), `P7` é recusa registrada, `P9`/`P16` dependem do `F28` (**D-32**),
+- **Premium:** `P3` precisa de volume (tempo), `P5` ✅ **DONE POR ABSORÇÃO** (o dono decidiu em 2026-09-11: o valor já é entregue por `P2`/`P6`/`P8`, e **não haverá capability separada**), `P7` é recusa registrada, `P9`/`P16` dependem do `F28` (**D-32**),
   `P12`/`P17` de tempo/dado **e** do problema aritmético que a SPEC-068 mediu, `P21` de provider
   externo com **custo**.
 - **Free:** `F24`/`F30`/`F38` (conteúdo) atrás de **D-26**, `F28` de **D-32**, `F33` de **G7**.
 - **Release:** `G1` auth, `G5` IAP, `G6` analytics, `G7` build nativo.
 
-**Recomendação:** a próxima sessão deveria começar por uma **decisão do dono**, não por código —
-e a mais barata de todas é o **`P5`**: decidir se ele continua sendo capability própria ou se já foi
-absorvido por `P2`/`P6`/`P8`. Enquanto isso não acontece, o que sobra de engenharia é manutenção da
-integridade do projeto (deriva de documentação, guardrails, auditorias) — que esta sessão mostrou ter
-valor real, mas não é o mesmo que avançar a North Star.
+⭐ **O `P5` foi decidido pelo dono em 2026-09-11: DONE POR ABSORÇÃO.** O valor que o Blueprint §9
+descrevia já é entregue por `P2` (SPEC-047), `P6` (SPEC-049/066) e `P8` (SPEC-050), e ⛔ **não
+haverá capability, tela ou engine separado** — nenhuma linha foi escrita para "fechar" o item, porque
+escrever alguma seria inventar capability para satisfazer checklist (D-47/D-48). Os **donos atuais**
+daquele valor são `P2`, `P6` e `P8`.
+
+⚠️ **Com o `P5` resolvido, não resta nenhuma frente de alto valor desbloqueada.** A comparação
+objetiva dos gates — esforço do dono, custo externo, o que cada um destrava, impacto na North Star e
+no beta — está em **[§5. Os gates, comparados](#5-os-gates-comparados)**, e a ordem recomendada
+começa pelo **G2**.
 
 ## 3. Auditoria técnica de checkpoint (2026-09-08)
 
@@ -332,3 +336,51 @@ Segunda varredura repositório-inteiro, focada na integração das três frentes
 - **Consistência de identidade** — o chip de marcação do Wash Day mostrava o nome solto enquanto a prateleira e a execução já mostravam a marca do catálogo; alinhado ao padrão da `CareProductsPanel` (SPEC-054 FR6/G4), validado a 390px (#164).
 
 **Aceito (follow-up, fora de blast radius):** nomes muito longos de OBF transbordam o `Chip` (primitiva compartilhada) — pré-existente, o prefixo de marca deixa a visão cortada mais identificável; rodada própria de `numberOfLines`/`maxWidth` quando valer.
+
+---
+
+## 5. Os gates, comparados
+
+Com o `P5` resolvido, **não resta nenhuma frente de alto valor desbloqueada**. O que decide o que vem
+a seguir não é engenharia: é qual destes gates o dono abre. Esta seção existe para essa escolha ser
+feita com números e não com impressão.
+
+⚠️ **A ordem depende do objetivo, e os dois objetivos plausíveis dão ordens diferentes.** Dizer uma
+ordem só esconderia essa diferença:
+
+- **Se o próximo objetivo é "pessoas reais usando o app"** → `G1` + `G7` primeiro. O `G2` **não**
+  bloqueia beta: as regras `candidate` são usáveis em dev/beta interno.
+- **Se o próximo objetivo é "o produto ficar mais inteligente"** → `G2` primeiro, sozinho. Ele é o
+  único gate que move a North Star.
+
+### 5.1 Comparação
+
+| Gate | Esforço do dono | Custo externo | Destrava | North Star | Beta |
+|---|---|---|---|---|---|
+| **G2** — sign-off de domínio | Achar **um** profissional de cuidados capilares e fazê-lo revisar um pacote que **já existe** (`DOMAIN-SIGNOFF-PACKAGE.md`). Horas, não semanas. | Honorário de algumas horas. **Não é recorrente.** | PUBLIC RELEASE do core (regras v1/v2, guias, vocabulário de finalizações e de marcas) · **`P18` recomendações** · **`P4` Adaptive Engine** · conteúdo do `F38` · `F24` SOS · `F30` orientação profissional · metade `couro` do `P13`/`P15` (com `G3`) | ⭐⭐⭐ **Decisivo, e é o único.** Tudo que existe hoje para em **observação**; o sign-off é o que autoriza **comparar, adaptar e recomendar** — os três últimos elos da cadeia. | Não bloqueia beta interno. Bloqueia **publicação**. |
+| **G7** — build nativo iOS | Reabrir o ambiente nativo: Mac com Xcode **ou** EAS build. Hoje DEFERRED por decisão dele. | Apple Developer **US$ 99/ano** — o mesmo da conta que `G1` e `G5` usam. | **Validação**, não capability: notificações locais reais · IAP nativo · rasterização do share card e folha do SO · câmera do `F33` · área segura, teclado e gesto reais · Dynamic Type · haptics | ⭐ **Indireto.** Não acrescenta elo; prova que o que já existe funciona no aparelho. | ⭐⭐⭐ **Obrigatório.** Não há beta sem build. |
+| **G1** — auth de produção | Console do Google (provider + OAuth + redirects) · Apple Developer (Sign in with Apple) · SMTP/provider de email para o OTP entregar o código que a UI pede · allowlists de redirect por plataforma. | Apple US$ 99/ano (compartilhado) + SMTP, em geral free tier. | **Qualquer beta ou publicação** (D-86 é explícito: o DEV sign-in não satisfaz) | ⭐ **Nenhum direto** — mas sem ela ninguém usa o produto, e a cadeia nunca roda com dado real. | ⭐⭐⭐ **Bloqueador absoluto.** |
+| **G5** — IAP / RevenueCat | Conta RevenueCat · App Store Connect + Google Play · produtos e preços configurados. | Apple US$ 99/ano (compartilhado) + Google **US$ 25 uma vez** + RevenueCat (free até certo volume). | O fluxo de compra, e a medição da hipótese de monetização (**H5**) — hoje **ninguém consegue virar premium** | — | Não bloqueia beta **gratuito**. Bloqueia validar monetização. |
+| **G3** — LGPD / mídia (D-32) | Dono + jurídico: definir base legal para dado de saúde e mídia, e a tabela `consents` (SPEC-013), que **não existe**. | Assessoria jurídica. | `F28` fotos de evolução · `P24` foto de perfil · `P9`/`P10`/`P11` progresso fotográfico e antes×depois · metade `couro` do `P13`/`P15` (com `G2`) | ⭐⭐ **Médio.** Foto é um **eixo de evidência novo**, não um elo da cadeia. | Não bloqueia um beta sem fotos. |
+| **G6** — analytics | Escolher provider. | **Real e recorrente.** | Medir ativação, retenção e conversão — a Fase 10 | ⭐ Nenhum direto; mas sem ele não se sabe se a cadeia funciona para gente de verdade. | Não bloqueia. ⚠️ Um beta **sem instrumentação ensina pouco**. |
+| **T2** — afiliados | Contrato com varejista ou rede. | Nenhum de saída; é receita. | Monetização adicional | ⚠️ **Pode ser negativo se malfeito** — a D-104 subordina a comissão à confiança, e a confiança é o ativo. | Nenhum. |
+
+### 5.2 Ordem recomendada
+
+1. **`G2` — sign-off de domínio.** É o **melhor retorno por esforço do repositório inteiro**: custo
+   baixo, não recorrente, não depende de loja nem de jurídico, e é o **único** gate que move a North
+   Star. Ele também é o que mais some com o trabalho parado: `P18`, `P4`, o conteúdo do `F38`, o
+   `F24` e o `F30` estão **todos** atrás dele, e todos já têm a arquitetura pronta esperando.
+2. **`G1` + `G7` juntos.** São pré-requisito de beta e **compartilham a conta Apple**, então separá-los
+   só faz pagar duas vezes a mesma burocracia. Abrir os dois transforma "funciona no preview web" em
+   "funciona no aparelho de alguém".
+3. **`G6` — analytics**, junto com o beta. Um beta sem instrumentação produz opinião, não medida.
+4. **`G5` — IAP.** Depois de haver gente usando: medir conversão antes de ter usuárias mede ruído.
+5. **`G3` — LGPD/mídia.** Acrescenta um eixo de evidência forte (antes×depois), mas depende de
+   jurídico e não destrava nenhum elo da cadeia.
+6. **`T2` — afiliados.** Por último, e a D-104 já diz por quê: quando comissão e confiança colidirem,
+   a comissão cede. Introduzi-la antes de a confiança estar construída é o pior momento possível.
+
+⚠️ **Uma observação que vale mais que a ordem:** o `G2` é o único gate cujo custo é **horas de uma
+pessoa**, sem contrato, sem loja, sem jurídico e sem mensalidade — e é o que destrava mais. Se apenas
+um gate for aberto nos próximos meses, deveria ser ele.
