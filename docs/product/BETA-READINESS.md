@@ -59,7 +59,7 @@ Cada gate tem: **o que é · quem age · o que desbloqueia**. Nenhum é resolví
 - **Banco DEV** provisionado: `check:remote-schema` → todas as 25 tabelas + colunas presentes (ref `ayecidupmxmirwfzwtea`).
 - **Edge Functions** deployadas: `check:remote-functions` → 3 funções.
 - **Auth dev + jornada real** validada de ponta a ponta a 390px.
-- **Guardrails executáveis** verdes: `pnpm verify` (typecheck, lint, testes, boundaries, dep-cruise, data-model, migration-versions, security-exceptions, entitlement-parity, **safe-area**, **label-owners**), pgTAP de segurança, `deno test` das functions, e as proteções LEVEL 2 da `main`.
+- **Guardrails executáveis** verdes: `pnpm verify` (typecheck, lint, testes, boundaries, dep-cruise, data-model, migration-versions, security-exceptions, entitlement-parity, **safe-area**, **label-owners**, **a11y-state**), pgTAP de segurança, `deno test` das functions, e as proteções LEVEL 2 da `main`.
 
 ## 2.1 Bloco de 2026-09-09 — sete frentes de produto e uma auditoria
 
@@ -79,7 +79,7 @@ D-26/D-70, D-32 ou toca produção.
 | *(fix)* | A oferta de contar usa a **data do que ela fez**, não a do plano | #182 |
 | *(audit)* | `FINISH_LABEL` com **um dono só** + guardrail `check:label-owners` | #186 |
 
-**Testes:** core **476**, mobile **613**. Tudo validado a **390px no DEV real**, console limpo.
+**Testes (medidos em 2026-09-11):** core **504**, mobile **653**. Tudo validado a **390px no DEV real**, console limpo.
 
 ⚠️ **O que este bloco NÃO resolve, e é o ponto:** os gates G1–G7 continuam **exatamente** onde
 estavam. O trabalho de engenharia **desbloqueado** do roadmap ficou fino — o que resta de
